@@ -385,7 +385,7 @@ export function PublicSiteCmsAdmin() {
     setTestimonialEditorOpen(true);
   }
 
-  async function saveTestimonial(draft: PublicSiteTestimonial) {
+  async function saveTestimonial(draft: PublicSiteTestimonial, imageFile?: File | null) {
     if (!requireSignedIn()) return;
     const quote = draft.quote.trim();
     const name = draft.name.trim();
@@ -401,7 +401,9 @@ export function PublicSiteCmsAdmin() {
     setMessage("");
     try {
       const id = draft.id || doc(collection(db, "public_site_cms_testimonials")).id;
-      const row: PublicSiteTestimonial = { ...draft, id, quote, name, role: draft.role.trim() };
+      let imageUrl = draft.imageUrl;
+      if (imageFile) imageUrl = await uploadTestimonialImage(id, imageFile);
+      const row: PublicSiteTestimonial = { ...draft, id, quote, name, role: draft.role.trim(), imageUrl };
       await setDoc(doc(db, "public_site_cms_testimonials", id), {
         quote: row.quote,
         name: row.name,
@@ -432,6 +434,13 @@ export function PublicSiteCmsAdmin() {
     setMessage("");
     try {
       await deleteDoc(doc(db, "public_site_cms_testimonials", item.id));
+      if (item.imageUrl) {
+        try {
+          await deleteObject(ref(storage, item.imageUrl));
+        } catch {
+          // Best effort: the photo may already be gone.
+        }
+      }
       setTestimonials((current) => current.filter((row) => row.id !== item.id));
       setMessage("Testimonial deleted.");
     } catch (error) {
@@ -804,8 +813,19 @@ function TestimonialEditorSheet({
   nextSortOrder: number;
   saving: boolean;
   onClose: () => void;
-  onSave: (draft: PublicSiteTestimonial) => void;
+  onSave: (draft: PublicSiteTestimonial, imageFile?: File | null) => void;
 }) {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewObjectUrl, setPreviewObjectUrl] = useState("");
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewObjectUrl("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setPreviewObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
   const [draft, setDraft] = useState<PublicSiteTestimonial>(
     () =>
       item ?? {
@@ -828,7 +848,7 @@ function TestimonialEditorSheet({
         className="relative flex h-full w-full max-w-[520px] flex-col bg-white shadow-2xl"
         onSubmit={(event) => {
           event.preventDefault();
-          onSave(draft);
+          onSave(draft, imageFile);
         }}
       >
         <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-4">
@@ -854,7 +874,15 @@ function TestimonialEditorSheet({
               </select>
             </label>
             <TextField label="Shown under the name, e.g. “Parent of two students · Bronx, NY”" value={draft.role} onChange={(value) => patch({ role: value })} />
-            <TextField label="Photo URL (optional)" value={draft.imageUrl ?? ""} onChange={(value) => patch({ imageUrl: value.trim() || null })} />
+            <TestimonialPhotoField
+              previewUrl={previewObjectUrl || draft.imageUrl || ""}
+              initialsText={initialsOf(draft.name) || "?"}
+              onFile={(file) => setImageFile(file)}
+              onRemove={() => {
+                setImageFile(null);
+                patch({ imageUrl: null });
+              }}
+            />
             <TextField label="Sort order" value={String(draft.sortOrder)} onChange={(value) => patch({ sortOrder: Number(value) || 0 })} type="number" />
             <label className="flex items-center justify-between rounded-2xl border border-black/10 bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#334155]">
               Published on the home page
@@ -872,6 +900,54 @@ function TestimonialEditorSheet({
         </footer>
       </form>
     </div>
+  );
+}
+
+/** Photo for a testimonial: uploaded from the admin's device, never pasted as a link. */
+function TestimonialPhotoField({
+  previewUrl,
+  initialsText,
+  onFile,
+  onRemove,
+}: {
+  previewUrl: string;
+  initialsText: string;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const hasPhoto = previewUrl.trim().length > 0;
+  return (
+    <article className="rounded-[20px] border border-black/10 bg-white p-4 shadow-[0_3px_12px_rgba(15,23,42,0.04)]">
+      <p className="text-[15px] font-semibold text-[#0F172A]">Photo (optional)</p>
+      <div className="mt-3 flex items-center gap-4">
+        <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-[#E6EEF8] text-lg font-black text-[#001E4E]">
+          {hasPhoto ? <img src={previewUrl} alt="" className="h-full w-full object-cover" /> : initialsText}
+        </span>
+        <div className="grid gap-2">
+          <label className="cms-secondary-button cursor-pointer">
+            <UploadCloud size={18} />
+            {hasPhoto ? "Replace photo" : "Upload photo"}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) onFile(file);
+              }}
+            />
+          </label>
+          {hasPhoto ? (
+            <button type="button" className="rounded-xl px-3 py-2 text-sm font-semibold text-[#64748B] hover:bg-[#F1F4F8]" onClick={onRemove}>
+              Remove photo
+            </button>
+          ) : (
+            <p className="text-xs leading-5 text-[#94A3B8]">Shown as a round avatar next to the name. Initials show without one.</p>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -1932,6 +2008,16 @@ async function uploadTeamImage(memberId: string, file: File) {
   const safeName = file.name.replace(/[^\w.-]/g, "_");
   const storageRef = ref(storage, `public_site_assets/cms/${user.uid}/team/${memberId}_${Date.now()}_${safeName}`);
   const snapshot = await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
+  return getDownloadURL(snapshot.ref);
+}
+
+async function uploadTestimonialImage(testimonialId: string, file: File) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Must be signed in");
+  await syncPublicSiteAdminClaim();
+  const safeName = file.name.replace(/[^\w.-]/g, "_");
+  const storageRef = ref(storage, `public_site_assets/cms/${user.uid}/testimonials/${testimonialId}_${Date.now()}_${safeName}`);
+  const snapshot = await uploadBytes(storageRef, file, { contentType: imageContentType(file) });
   return getDownloadURL(snapshot.ref);
 }
 

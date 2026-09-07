@@ -33098,12 +33098,6 @@ abstract class AppLocalizations {
   /// **'Shown under the name, e.g. “Parent of two students · Bronx, NY”'**
   String get publicSiteCmsTestimonialRole;
 
-  /// No description provided for @publicSiteCmsTestimonialPhotoUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'Photo URL (optional)'**
-  String get publicSiteCmsTestimonialPhotoUrl;
-
   /// No description provided for @publicSiteCmsTestimonialSortOrder.
   ///
   /// In en, this message translates to:
@@ -33157,6 +33151,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write the quote and the person\'s name before saving.'**
   String get publicSiteCmsTestimonialNeedsQuoteAndName;
+
+  /// No description provided for @publicSiteCmsTestimonialReplacePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace photo'**
+  String get publicSiteCmsTestimonialReplacePhoto;
+
+  /// No description provided for @publicSiteCmsTestimonialRemovePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get publicSiteCmsTestimonialRemovePhoto;
+
+  /// No description provided for @publicSiteCmsTestimonialPhotoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown as a round avatar next to the name. Initials show without one.'**
+  String get publicSiteCmsTestimonialPhotoHint;
 }
 
 class _AppLocalizationsDelegate

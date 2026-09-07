@@ -18233,9 +18233,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Shown under the name, e.g. “Parent of two students · Bronx, NY”';
 
   @override
-  String get publicSiteCmsTestimonialPhotoUrl => 'Photo URL (optional)';
-
-  @override
   String get publicSiteCmsTestimonialSortOrder => 'Sort order';
 
   @override
@@ -18264,4 +18261,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get publicSiteCmsTestimonialNeedsQuoteAndName =>
       'Write the quote and the person\'s name before saving.';
+
+  @override
+  String get publicSiteCmsTestimonialReplacePhoto => 'Replace photo';
+
+  @override
+  String get publicSiteCmsTestimonialRemovePhoto => 'Remove photo';
+
+  @override
+  String get publicSiteCmsTestimonialPhotoHint =>
+      'Shown as a round avatar next to the name. Initials show without one.';
 }

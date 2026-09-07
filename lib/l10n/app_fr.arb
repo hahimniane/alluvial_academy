@@ -7292,7 +7292,6 @@
   "publicSiteCmsTestimonialCategoryTeacher": "Enseignant",
   "publicSiteCmsTestimonialCategoryOther": "Communauté",
   "publicSiteCmsTestimonialRole": "Affiché sous le nom, ex. « Parent de deux élèves · Bronx, NY »",
-  "publicSiteCmsTestimonialPhotoUrl": "URL de la photo (facultatif)",
   "publicSiteCmsTestimonialSortOrder": "Ordre d'affichage",
   "publicSiteCmsTestimonialPublishedToggle": "Publié sur la page d'accueil",
   "publicSiteCmsTestimonialPublish": "Publier",
@@ -7301,5 +7300,8 @@
   "publicSiteCmsTestimonialDraftSaved": "Témoignage enregistré comme brouillon.",
   "publicSiteCmsTestimonialDraftBadge": "Brouillon",
   "publicSiteCmsTestimonialDeleteTitle": "Supprimer ce témoignage ?",
-  "publicSiteCmsTestimonialNeedsQuoteAndName": "Saisissez la citation et le nom de la personne avant d'enregistrer."
+  "publicSiteCmsTestimonialNeedsQuoteAndName": "Saisissez la citation et le nom de la personne avant d'enregistrer.",
+  "publicSiteCmsTestimonialReplacePhoto": "Remplacer la photo",
+  "publicSiteCmsTestimonialRemovePhoto": "Retirer la photo",
+  "publicSiteCmsTestimonialPhotoHint": "Affichée en avatar rond à côté du nom. Sans photo, les initiales s'affichent."
 }
