@@ -3,6 +3,7 @@ const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendStudentNotificationEmail} = require('../services/email/senders');
+const {sameChild} = require('../utils/student_identity');
 
 const normalizeString = (str) =>
   str
