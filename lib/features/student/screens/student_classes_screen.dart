@@ -666,9 +666,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     final now = DateTime.now();
     final timeUntil =
         shift.shiftStart.isAfter(now) ? shift.shiftStart.difference(now) : null;
-    final startTimeLabel =
-        DateFormat('h:mm a').format(shift.shiftStart.toLocal());
-    final endTimeLabel = DateFormat('h:mm a').format(shift.shiftEnd.toLocal());
+    final locale = Localizations.localeOf(context).toString();
+    final startTimeLabel = DateFormat.jm(locale).format(shift.shiftStart.toLocal());
+    final endTimeLabel = DateFormat.jm(locale).format(shift.shiftEnd.toLocal());
+    // English keeps the big "2:00" over a small "PM"; French is 24-hour with no suffix.
+    final usesAmPm = locale.startsWith('en');
 
     // Determine status and styling
     final bool isActive =
@@ -723,7 +725,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
       );
     } else {
       status = _ClassStatus(
-        text: DateFormat('EEE, MMM d').format(shift.shiftStart.toLocal()),
+        text: DateFormat('EEE, MMM d', Localizations.localeOf(context).toString()).format(shift.shiftStart.toLocal()),
         color: const Color(0xFF6B7280),
         bgColor: const Color(0xFFF3F4F6),
         icon: Icons.calendar_today,
@@ -772,7 +774,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          DateFormat('h:mm').format(shift.shiftStart.toLocal()),
+                          (usesAmPm ? DateFormat('h:mm') : DateFormat('HH:mm')).format(shift.shiftStart.toLocal()),
                           style: GoogleFonts.inter(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -780,9 +782,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                           ),
                         ),
                         Text(
-                          DateFormat('a')
-                              .format(shift.shiftStart.toLocal())
-                              .toUpperCase(),
+                          usesAmPm ? DateFormat('a').format(shift.shiftStart.toLocal()).toUpperCase() : '',
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
