@@ -11,6 +11,7 @@ import 'package:alluwalacademyadmin/features/website_management/public_site_cms/
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/tabs/pricing_tab.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/tabs/social_tab.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/tabs/team_tab.dart';
+import 'package:alluwalacademyadmin/features/website_management/public_site_cms/tabs/testimonials_tab.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/theme/public_site_cms_tokens.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/widgets/cms_section_header.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/widgets/team_member_side_sheet.dart';
@@ -60,7 +61,7 @@ class _PublicSiteCmsScaffoldContentState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (mounted) {
         setState(() {});
@@ -312,6 +313,12 @@ class _PublicSiteCmsScaffoldContentState
                 style: GoogleFonts.inter(fontSize: 12)),
           ),
           NavigationRailDestination(
+            icon: const Icon(Icons.format_quote_outlined),
+            selectedIcon: const Icon(Icons.format_quote),
+            label: Text(l.publicSiteCmsTabTestimonials,
+                style: GoogleFonts.inter(fontSize: 12)),
+          ),
+          NavigationRailDestination(
             icon: const Icon(Icons.share_outlined),
             selectedIcon: const Icon(Icons.share),
             label: Text(l.publicSiteCmsTabSocial,
@@ -349,6 +356,11 @@ class _PublicSiteCmsScaffoldContentState
           icon: const Icon(Icons.groups_outlined),
           selectedIcon: const Icon(Icons.groups),
           label: l.publicSiteCmsTabTeam,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.format_quote_outlined),
+          selectedIcon: const Icon(Icons.format_quote),
+          label: l.publicSiteCmsTabTestimonials,
         ),
         NavigationDestination(
           icon: const Icon(Icons.share_outlined),
@@ -421,6 +433,7 @@ class _PublicSiteCmsScaffoldContentState
                               _savePricing(planIdForMessage: id),
                         ),
                         const PublicSiteTeamTab(),
+                        const PublicSiteTestimonialsTab(),
                         const PublicSiteSocialTab(),
                         const PublicSiteLandingTab(),
                       ],

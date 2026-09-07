@@ -1046,3 +1046,43 @@ html.dark .teacher-settings span {
     transition: none;
   }
 }
+
+/* Testimonials: a warm band so the quotes read as a distinct moment between pricing and about. */
+.testimonials-band {
+  background:
+    radial-gradient(60% 80% at 100% 0%, rgba(245, 158, 11, 0.10), transparent 60%),
+    radial-gradient(50% 70% at 0% 100%, rgba(29, 78, 216, 0.08), transparent 60%),
+    #f8fafc;
+}
+
+.testimonial-card {
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.testimonial-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.testimonial-tag--parent {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.testimonial-tag--student {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.testimonial-tag--teacher {
+  background: #eff6ff;
+  color: #1d4ed8;
+}

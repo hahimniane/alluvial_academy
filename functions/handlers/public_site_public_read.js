@@ -7,12 +7,29 @@ const admin = require('firebase-admin');
 
 const _buildMarketingBundle = async () => {
   const db = admin.firestore();
-  const [pricingSnap, socialSnap, landingSnap, teamSnap] = await Promise.all([
+  const [pricingSnap, socialSnap, landingSnap, teamSnap, testimonialSnap] = await Promise.all([
     db.collection('public_site_cms_pricing').doc('main').get(),
     db.collection('public_site_cms_social').doc('main').get(),
     db.collection('public_site_cms_landing').doc('main').get(),
     db.collection('public_site_cms_team').get(),
+    db.collection('public_site_cms_testimonials').get(),
   ]);
+
+  // Published quotes only: a draft without words or a name never reaches the page.
+  const testimonials = testimonialSnap.docs
+    .map((d) => ({id: d.id, ...d.data()}))
+    .filter((row) => row.active !== false && String(row.quote || '').trim() && String(row.name || '').trim())
+    .map((row) => ({
+      id: row.id,
+      quote: String(row.quote).trim(),
+      name: String(row.name).trim(),
+      role: String(row.role || '').trim(),
+      category: String(row.category || 'other'),
+      imageUrl: row.imageUrl ? String(row.imageUrl) : null,
+      sortOrder: Number(row.sortOrder) || 0,
+      active: true,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const teamMembers = teamSnap.docs
     .map((d) => ({
@@ -31,6 +48,7 @@ const _buildMarketingBundle = async () => {
     social: socialSnap.exists ? socialSnap.data() : null,
     landing: landingSnap.exists ? landingSnap.data() : null,
     teamMembers,
+    testimonials,
   };
 };
 

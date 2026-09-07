@@ -10,8 +10,10 @@ String publicSiteCmsSectionTitle(AppLocalizations l, int index) {
     case 1:
       return l.publicSiteCmsTabTeam;
     case 2:
-      return l.publicSiteCmsTabSocial;
+      return l.publicSiteCmsTabTestimonials;
     case 3:
+      return l.publicSiteCmsTabSocial;
+    case 4:
       return l.publicSiteCmsTabLanding;
     default:
       return l.publicSiteCmsTitle;
@@ -25,8 +27,10 @@ String publicSiteCmsSectionSubtitle(AppLocalizations l, int index) {
     case 1:
       return l.publicSiteCmsTeamImportBundledHint;
     case 2:
-      return l.publicSiteCmsSocialIntro;
+      return l.publicSiteCmsTestimonialsIntro;
     case 3:
+      return l.publicSiteCmsSocialIntro;
+    case 4:
       return l.publicSiteCmsLandingIntro;
     default:
       return '';

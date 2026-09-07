@@ -33007,6 +33007,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{created} created, {reused} already existed for {names}. Now confirm the schedule.'**
   String familyAccountsReady(int created, int reused, String names);
+
+  /// No description provided for @publicSiteCmsTabTestimonials.
+  ///
+  /// In en, this message translates to:
+  /// **'Testimonials'**
+  String get publicSiteCmsTabTestimonials;
+
+  /// No description provided for @publicSiteCmsTestimonialsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Quotes from parents, students and teachers shown on the home page. Only published quotes with a name appear; until you publish any, the three built-in quotes show.'**
+  String get publicSiteCmsTestimonialsIntro;
+
+  /// No description provided for @publicSiteCmsTestimonialsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No testimonials yet. The home page is showing the three built-in quotes.'**
+  String get publicSiteCmsTestimonialsEmpty;
+
+  /// No description provided for @publicSiteCmsTestimonialAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add testimonial'**
+  String get publicSiteCmsTestimonialAdd;
+
+  /// No description provided for @publicSiteCmsTestimonialEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit testimonial'**
+  String get publicSiteCmsTestimonialEdit;
+
+  /// No description provided for @publicSiteCmsTestimonialImportDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Import the built-in quotes'**
+  String get publicSiteCmsTestimonialImportDefaults;
+
+  /// No description provided for @publicSiteCmsTestimonialImportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {imported} quote(s). Skipped {skipped} already present.'**
+  String publicSiteCmsTestimonialImportDone(int imported, int skipped);
+
+  /// No description provided for @publicSiteCmsTestimonialQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote'**
+  String get publicSiteCmsTestimonialQuote;
+
+  /// No description provided for @publicSiteCmsTestimonialName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get publicSiteCmsTestimonialName;
+
+  /// No description provided for @publicSiteCmsTestimonialCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Who they are'**
+  String get publicSiteCmsTestimonialCategory;
+
+  /// No description provided for @publicSiteCmsTestimonialCategoryParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get publicSiteCmsTestimonialCategoryParent;
+
+  /// No description provided for @publicSiteCmsTestimonialCategoryStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get publicSiteCmsTestimonialCategoryStudent;
+
+  /// No description provided for @publicSiteCmsTestimonialCategoryTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get publicSiteCmsTestimonialCategoryTeacher;
+
+  /// No description provided for @publicSiteCmsTestimonialCategoryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get publicSiteCmsTestimonialCategoryOther;
+
+  /// No description provided for @publicSiteCmsTestimonialRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown under the name, e.g. “Parent of two students · Bronx, NY”'**
+  String get publicSiteCmsTestimonialRole;
+
+  /// No description provided for @publicSiteCmsTestimonialPhotoUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo URL (optional)'**
+  String get publicSiteCmsTestimonialPhotoUrl;
+
+  /// No description provided for @publicSiteCmsTestimonialSortOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort order'**
+  String get publicSiteCmsTestimonialSortOrder;
+
+  /// No description provided for @publicSiteCmsTestimonialPublishedToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Published on the home page'**
+  String get publicSiteCmsTestimonialPublishedToggle;
+
+  /// No description provided for @publicSiteCmsTestimonialPublish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get publicSiteCmsTestimonialPublish;
+
+  /// No description provided for @publicSiteCmsTestimonialSaveDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Save draft'**
+  String get publicSiteCmsTestimonialSaveDraft;
+
+  /// No description provided for @publicSiteCmsTestimonialPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Testimonial published.'**
+  String get publicSiteCmsTestimonialPublished;
+
+  /// No description provided for @publicSiteCmsTestimonialDraftSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Testimonial saved as a draft.'**
+  String get publicSiteCmsTestimonialDraftSaved;
+
+  /// No description provided for @publicSiteCmsTestimonialDraftBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get publicSiteCmsTestimonialDraftBadge;
+
+  /// No description provided for @publicSiteCmsTestimonialDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this testimonial?'**
+  String get publicSiteCmsTestimonialDeleteTitle;
+
+  /// No description provided for @publicSiteCmsTestimonialNeedsQuoteAndName.
+  ///
+  /// In en, this message translates to:
+  /// **'Write the quote and the person\'s name before saving.'**
+  String get publicSiteCmsTestimonialNeedsQuoteAndName;
 }
 
 class _AppLocalizationsDelegate

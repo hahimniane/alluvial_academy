@@ -150,6 +150,39 @@ abstract final class PublicSiteCmsService {
   static const String socialDocId = 'main';
   static const String landingCollection = 'public_site_cms_landing';
   static const String landingDocId = 'main';
+  static const String testimonialsCollection = 'public_site_cms_testimonials';
+
+  /// The quotes the home page carried before testimonials became editable.
+  /// Same ids and words as `DEFAULT_TESTIMONIALS` in the web app.
+  static const List<PublicSiteTestimonial> defaultTestimonials = [
+    PublicSiteTestimonial(
+      id: 'default-abdulai-diallo',
+      quote:
+          'Allah directed me to Alluwal — one of the best Arabic learning institutions, with qualified teachers and leaders of true integrity.',
+      name: 'Abdulai Diallo',
+      role: 'Ustaz · Kenema, Sierra Leone',
+      category: 'teacher',
+      sortOrder: 1,
+    ),
+    PublicSiteTestimonial(
+      id: 'default-mamadou-saidou-diallo',
+      quote:
+          'Alluwal is professional and well-organized — exactly the kind of environment where meaningful education can thrive.',
+      name: 'Mamadou Saidou Diallo',
+      role: 'Teacher · Morocco',
+      category: 'teacher',
+      sortOrder: 2,
+    ),
+    PublicSiteTestimonial(
+      id: 'default-zainab-sall',
+      quote:
+          'I chose Alluwal because of its strong educational values, supportive leadership, and genuine commitment to student success.',
+      name: 'Zainab Sall',
+      role: 'Teacher · Turkey',
+      category: 'teacher',
+      sortOrder: 3,
+    ),
+  ];
 
   /// Merged plan display for landing (rates + optional bullets per plan).
   static Future<PublicSiteCmsPricingDoc> getPricingDoc() async {
@@ -973,6 +1006,76 @@ abstract final class PublicSiteCmsService {
     _guestBundleFetchedAt = null;
 
     return (imported: imported, skipped: skipped);
+  }
+
+  // ---- testimonials (admin CMS) -------------------------------------------
+
+  static Stream<List<PublicSiteTestimonial>>? _testimonialsAdminBroadcast;
+
+  static Future<List<PublicSiteTestimonial>> loadTestimonialsForAdminCms() async {
+    try {
+      final snap = await _db.collection(testimonialsCollection).get();
+      return snap.docs
+          .map((d) => PublicSiteTestimonial.fromDoc(d.id, d.data()))
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    } catch (e, st) {
+      AppLogger.debug('PublicSiteCmsService.loadTestimonialsForAdminCms: $e\n$st');
+      return const [];
+    }
+  }
+
+  /// Every testimonial document, published or draft.
+  static Stream<List<PublicSiteTestimonial>> testimonialsAdminCmsStream() {
+    if (kIsWeb) {
+      return _webPollingStream(loadTestimonialsForAdminCms);
+    }
+    return _testimonialsAdminBroadcast ??=
+        _db.collection(testimonialsCollection).snapshots().map((snap) {
+      final list = snap.docs
+          .map((d) => PublicSiteTestimonial.fromDoc(d.id, d.data()))
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      return list;
+    }).asBroadcastStream();
+  }
+
+  static Future<void> saveTestimonial(PublicSiteTestimonial t) async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw StateError('Must be signed in');
+    }
+    if (t.quote.trim().isEmpty || t.name.trim().isEmpty) {
+      throw PublicSiteCmsValidationException('quote_and_name_required');
+    }
+    final ref = t.id.isEmpty
+        ? _db.collection(testimonialsCollection).doc()
+        : _db.collection(testimonialsCollection).doc(t.id);
+    await ref.set(t.toFirestore(), SetOptions(merge: true));
+  }
+
+  static Future<void> deleteTestimonial(String id) async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw StateError('Must be signed in');
+    }
+    await _db.collection(testimonialsCollection).doc(id).delete();
+  }
+
+  /// Copies the built-in quotes in so they can be edited or retired one by one.
+  static Future<({int imported, int skipped})> importDefaultTestimonials() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      throw StateError('Must be signed in');
+    }
+    final existing = await _db.collection(testimonialsCollection).get();
+    final have = existing.docs.map((d) => d.id).toSet();
+    var imported = 0;
+    final batch = _db.batch();
+    for (final t in defaultTestimonials) {
+      if (have.contains(t.id)) continue;
+      batch.set(_db.collection(testimonialsCollection).doc(t.id), t.toFirestore(), SetOptions(merge: true));
+      imported++;
+    }
+    if (imported > 0) await batch.commit();
+    return (imported: imported, skipped: defaultTestimonials.length - imported);
   }
 
   static Future<void> deleteTeamMember(String id) async {

@@ -23,6 +23,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Reveal } from "@/components/Reveal";
 import { fallbackPricing, loadPublicMarketingBundle, type PublicSiteMarketingBundle } from "@/lib/publicSiteCms";
+import { DEFAULT_TESTIMONIALS, categoryLabel, initialsOf, type TestimonialCategory } from "@/lib/testimonials";
 import { PRICING_HOUR_OPTIONS } from "@/lib/enrollmentHours";
 
 function enterDelay(ms: number) {
@@ -125,27 +126,6 @@ const communityStats = [
   { value: 200, suffix: "+", label: "live classes every week" },
 ];
 
-const communityVoices = [
-  {
-    quote:
-      "Allah directed me to Alluwal — one of the best Arabic learning institutions, with qualified teachers and leaders of true integrity.",
-    name: "Abdulai Diallo",
-    role: "Ustaz · Kenema, Sierra Leone",
-  },
-  {
-    quote:
-      "Alluwal is professional and well-organized — exactly the kind of environment where meaningful education can thrive.",
-    name: "Mamadou Saidou Diallo",
-    role: "Teacher · Morocco",
-  },
-  {
-    quote:
-      "I chose Alluwal because of its strong educational values, supportive leadership, and genuine commitment to student success.",
-    name: "Zainab Sall",
-    role: "Teacher · Turkey",
-  },
-];
-
 const aboutCards = [
   {
     title: "Our Mission",
@@ -179,6 +159,7 @@ export function MarketingHome() {
   }, []);
 
   const pricing = bundle?.pricing ?? fallbackPricing;
+  const testimonials = bundle?.testimonials ?? DEFAULT_TESTIMONIALS;
 
   const suggestions = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -516,26 +497,34 @@ export function MarketingHome() {
         </div>
       </section>
 
-      <section className="bg-white py-14 md:py-16" aria-label="Voices from our community">
+      <section id="testimonials" className="testimonials-band py-14 md:py-16" aria-label="Testimonials">
         <div className="container-shell text-center">
           <Reveal>
-            <span className="section-eyebrow">Community</span>
-            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Voices from our community</h2>
+            <span className="section-eyebrow">Testimonials</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">What families and teachers say</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
-              Real words from the teachers and mentors who show up for your children every day.
+              In their own words: the parents, students and teachers who make Alluwal what it is.
             </p>
           </Reveal>
           <div className="mt-9 grid gap-5 text-left md:grid-cols-3">
-            {communityVoices.map(({ quote, name, role }, index) => (
-              <Reveal key={name} delay={index * 130} className="h-full">
-                <figure className="hover-lift flex h-full flex-col rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-6">
-                  <span className="font-display text-[44px] font-bold leading-none text-[#F59E0B]" aria-hidden="true">
-                    “
-                  </span>
+            {testimonials.map(({ id, quote, name, role, category, imageUrl }, index) => (
+              <Reveal key={id} delay={index * 130} className="h-full">
+                <figure className="hover-lift testimonial-card flex h-full flex-col rounded-2xl border border-[#E5E7EB] bg-white p-6">
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-[44px] font-bold leading-none text-[#F59E0B]" aria-hidden="true">
+                      “
+                    </span>
+                    <span className={`testimonial-tag testimonial-tag--${category}`}>{categoryLabel(category as TestimonialCategory)}</span>
+                  </div>
                   <blockquote className="mt-1 flex-1 text-[15px] leading-[1.7] text-[#334155]">{quote}</blockquote>
-                  <figcaption className="mt-5 border-t border-slate-200 pt-4">
-                    <div className="text-sm font-black text-[#0B1B3A]">{name}</div>
-                    <div className="mt-0.5 text-xs font-semibold text-[#64748B]">{role}</div>
+                  <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-200 pt-4">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#E6EEF8] text-[13px] font-black text-[#001E4E]" aria-hidden="true">
+                      {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-[#0B1B3A]">{name}</span>
+                      {role ? <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{role}</span> : null}
+                    </span>
                   </figcaption>
                 </figure>
               </Reveal>

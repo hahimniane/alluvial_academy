@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   Lock,
   Menu,
+  MessageSquareQuote,
   Pencil,
   Plus,
   RefreshCw,
@@ -35,10 +36,20 @@ import {
   type PublicSitePricingDoc,
   type PublicSiteSocialDoc,
   type PublicSiteTeamMember,
+  loadTestimonialsForCms,
 } from "@/lib/publicSiteCms";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import {
+  DEFAULT_TESTIMONIALS,
+  TESTIMONIAL_CATEGORIES,
+  categoryLabel,
+  initialsOf,
+  normalizeTestimonial,
+  toCategory,
+  type PublicSiteTestimonial,
+} from "@/lib/testimonials";
 
-type CmsTab = "pricing" | "team" | "social" | "landing";
+type CmsTab = "pricing" | "team" | "testimonials" | "social" | "landing";
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type TeamDraft = {
   id: string;
@@ -61,6 +72,7 @@ type TeamDraft = {
 const tabs: Array<{ id: CmsTab; label: string; icon: typeof DollarSign }> = [
   { id: "pricing", label: "Pricing", icon: DollarSign },
   { id: "team", label: "Team on website", icon: Users },
+  { id: "testimonials", label: "Testimonials", icon: MessageSquareQuote },
   { id: "social", label: "Social links", icon: Share2 },
   { id: "landing", label: "Home hero", icon: ImageIcon },
 ];
@@ -73,6 +85,10 @@ const tabCopy: Record<CmsTab, { title: string; subtitle: string }> = {
   team: {
     title: "Team on website",
     subtitle: "Profiles shown on the public team page. Only active, named profiles appear publicly.",
+  },
+  testimonials: {
+    title: "Testimonials",
+    subtitle: "Quotes from parents, students and teachers shown on the home page. Only published quotes with a name appear; until you publish any, the three built-in quotes show.",
   },
   social: {
     title: "Social links",
@@ -87,6 +103,8 @@ const tabCopy: Record<CmsTab, { title: string; subtitle: string }> = {
 };
 
 const mobileTabSubtitle: Partial<Record<CmsTab, string>> = {
+  testimonials:
+    "Quotes shown on the home page. Only published quotes with a name appear; until you publish any, the three built-in quotes show.",
   team:
     "Copies the default team list into Firestore with stable IDs. Imported rows start inactive until you link a real user and activate them for the public site.",
   social:
@@ -131,6 +149,12 @@ export function PublicSiteCmsAdmin() {
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<PublicSiteTeamMember | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState("");
   const [importingTeam, setImportingTeam] = useState(false);
+  const [testimonials, setTestimonials] = useState<PublicSiteTestimonial[]>([]);
+  const [editingTestimonial, setEditingTestimonial] = useState<PublicSiteTestimonial | null>(null);
+  const [testimonialEditorOpen, setTestimonialEditorOpen] = useState(false);
+  const [deleteConfirmTestimonial, setDeleteConfirmTestimonial] = useState<PublicSiteTestimonial | null>(null);
+  const [deletingTestimonialId, setDeletingTestimonialId] = useState("");
+  const [importingTestimonials, setImportingTestimonials] = useState(false);
   const [pricing, setPricing] = useState<PublicSitePricingDoc>(fallbackPricing);
   const [social, setSocial] = useState<PublicSiteSocialDoc>(emptySocialDoc());
   const [landing, setLanding] = useState<PublicSiteLandingDoc>({
@@ -186,6 +210,7 @@ export function PublicSiteCmsAdmin() {
       const next = await loadPublicMarketingBundle();
       setBundle(next);
       setTeamMembers(await loadTeamMembersForCms(next.teamMembers));
+      setTestimonials(await loadTestimonialsForCms());
       setPricing(next.pricing);
       setSocial(next.social);
       setLanding(next.landing);
@@ -355,6 +380,99 @@ export function PublicSiteCmsAdmin() {
     }
   }
 
+  function openTestimonialEditor(item?: PublicSiteTestimonial) {
+    setEditingTestimonial(item ?? null);
+    setTestimonialEditorOpen(true);
+  }
+
+  async function saveTestimonial(draft: PublicSiteTestimonial) {
+    if (!requireSignedIn()) return;
+    const quote = draft.quote.trim();
+    const name = draft.name.trim();
+    if (!quote) {
+      setMessage("Write the quote before saving.");
+      return;
+    }
+    if (!name) {
+      setMessage("Add the person's name before saving.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const id = draft.id || doc(collection(db, "public_site_cms_testimonials")).id;
+      const row: PublicSiteTestimonial = { ...draft, id, quote, name, role: draft.role.trim() };
+      await setDoc(doc(db, "public_site_cms_testimonials", id), {
+        quote: row.quote,
+        name: row.name,
+        role: row.role,
+        category: row.category,
+        imageUrl: row.imageUrl || null,
+        sortOrder: row.sortOrder,
+        active: row.active,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser?.uid ?? null,
+      }, { merge: true });
+      setTestimonialEditorOpen(false);
+      setEditingTestimonial(null);
+      setTestimonials((current) =>
+        [...current.filter((item) => item.id !== id), row].sort((a, b) => a.sortOrder - b.sortOrder),
+      );
+      setMessage(row.active ? "Testimonial published." : "Testimonial saved as a draft.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save the testimonial.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteTestimonial(item: PublicSiteTestimonial) {
+    if (!requireSignedIn()) return;
+    setDeletingTestimonialId(item.id);
+    setMessage("");
+    try {
+      await deleteDoc(doc(db, "public_site_cms_testimonials", item.id));
+      setTestimonials((current) => current.filter((row) => row.id !== item.id));
+      setMessage("Testimonial deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not delete the testimonial.");
+    } finally {
+      setDeletingTestimonialId("");
+    }
+  }
+
+  /** Copies the three built-in quotes in, so they can be edited or retired one by one. */
+  async function importDefaultTestimonials() {
+    if (!requireSignedIn()) return;
+    setImportingTestimonials(true);
+    setMessage("");
+    try {
+      const existing = new Set(testimonials.map((row) => row.id));
+      const rows = DEFAULT_TESTIMONIALS.filter((row) => !existing.has(row.id));
+      const batch = writeBatch(db);
+      rows.forEach((row) => {
+        batch.set(doc(db, "public_site_cms_testimonials", row.id), {
+          quote: row.quote,
+          name: row.name,
+          role: row.role,
+          category: row.category,
+          imageUrl: null,
+          sortOrder: row.sortOrder,
+          active: true,
+          updatedAt: serverTimestamp(),
+          updatedBy: auth.currentUser?.uid ?? null,
+        }, { merge: true });
+      });
+      if (rows.length > 0) await batch.commit();
+      setTestimonials((current) => [...current, ...rows].sort((a, b) => a.sortOrder - b.sortOrder));
+      setMessage(`Imported ${rows.length} quote(s). Skipped ${DEFAULT_TESTIMONIALS.length - rows.length} already present.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not import the built-in quotes.");
+    } finally {
+      setImportingTestimonials(false);
+    }
+  }
+
   async function importBundledStaff() {
     if (!requireSignedIn()) return;
     setImportingTeam(true);
@@ -506,6 +624,17 @@ export function PublicSiteCmsAdmin() {
                       importing={importingTeam}
                     />
                   ) : null}
+                  {activeTab === "testimonials" ? (
+                    <TestimonialsTab
+                      items={testimonials}
+                      onAdd={() => openTestimonialEditor()}
+                      onEdit={openTestimonialEditor}
+                      onDelete={setDeleteConfirmTestimonial}
+                      onImport={importDefaultTestimonials}
+                      deletingId={deletingTestimonialId}
+                      importing={importingTestimonials}
+                    />
+                  ) : null}
                   {activeTab === "social" ? (
                     <SocialTab social={social} setSocial={setSocial} saving={saving} onSave={saveSocial} />
                   ) : null}
@@ -525,7 +654,7 @@ export function PublicSiteCmsAdmin() {
           </div>
 
           {access === "allowed" ? (
-          <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-black/10 bg-white px-1 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] lg:hidden">
+          <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-black/10 bg-white px-1 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] lg:hidden">
             {tabs.map((tab) => (
               <BottomTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
             ))}
@@ -545,6 +674,33 @@ export function PublicSiteCmsAdmin() {
           onSave={saveTeamMember}
         />
       ) : null}
+      {testimonialEditorOpen ? (
+        <TestimonialEditorSheet
+          item={editingTestimonial}
+          nextSortOrder={testimonials.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1}
+          saving={saving}
+          onClose={() => {
+            if (saving) return;
+            setTestimonialEditorOpen(false);
+            setEditingTestimonial(null);
+          }}
+          onSave={saveTestimonial}
+        />
+      ) : null}
+      {deleteConfirmTestimonial ? (
+        <DeleteTestimonialDialog
+          item={deleteConfirmTestimonial}
+          deleting={deletingTestimonialId === deleteConfirmTestimonial.id}
+          onCancel={() => {
+            if (deletingTestimonialId) return;
+            setDeleteConfirmTestimonial(null);
+          }}
+          onConfirm={async () => {
+            await deleteTestimonial(deleteConfirmTestimonial);
+            setDeleteConfirmTestimonial(null);
+          }}
+        />
+      ) : null}
       {deleteConfirmMember ? (
         <DeleteTeamMemberDialog
           member={deleteConfirmMember}
@@ -560,6 +716,194 @@ export function PublicSiteCmsAdmin() {
         />
       ) : null}
     </main>
+  );
+}
+
+function TestimonialsTab({
+  items,
+  onAdd,
+  onEdit,
+  onDelete,
+  onImport,
+  deletingId,
+  importing,
+}: {
+  items: PublicSiteTestimonial[];
+  onAdd: () => void;
+  onEdit: (item: PublicSiteTestimonial) => void;
+  onDelete: (item: PublicSiteTestimonial) => void;
+  onImport: () => void;
+  deletingId: string;
+  importing: boolean;
+}) {
+  const sorted = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
+  return (
+    <div className="relative h-full">
+      {sorted.length === 0 ? (
+        <div className="grid h-full place-items-center px-6 pb-24 text-center">
+          <div>
+            <p className="text-sm text-[#64748B]">No testimonials yet. The home page is showing the three built-in quotes.</p>
+            <p className="mt-3 text-xs leading-5 text-[#94A3B8]">
+              Add a quote from a parent, student or teacher, or import the built-in three to edit them here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="h-full overflow-y-auto px-1 pb-32 pt-3">
+          {sorted.map((item) => (
+            <article key={item.id} className="mb-3 flex items-start gap-3 rounded-[14px] border border-black/10 bg-white p-3 shadow-[0_3px_10px_rgba(15,23,42,0.04)]">
+              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#E6EEF8] text-sm font-bold text-[#001E4E]">
+                {item.imageUrl ? <img src={item.imageUrl} alt="" className="h-full w-full object-cover" /> : initialsOf(item.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-semibold text-[#0F172A]">{item.name}</h3>
+                <p className="truncate text-[13px] text-[#64748B]">
+                  {categoryLabel(item.category)}{item.role ? ` · ${item.role}` : ""} · #{item.sortOrder}
+                  {item.active ? "" : " · Draft"}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#334155]">“{item.quote}”</p>
+              </div>
+              <button type="button" className="rounded-xl p-2 text-[#64748B] hover:bg-[#F1F4F8]" onClick={() => onEdit(item)} aria-label={`Edit testimonial by ${item.name}`}>
+                <Pencil size={18} />
+              </button>
+              <button
+                type="button"
+                className="rounded-xl p-2 text-[#64748B] hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
+                onClick={() => onDelete(item)}
+                disabled={deletingId === item.id}
+                aria-label={`Delete testimonial by ${item.name}`}
+              >
+                <Trash2 size={18} />
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 grid gap-2 bg-gradient-to-t from-[#F1F4F8] via-[#F1F4F8] to-transparent px-4 pb-4 pt-12">
+        <button type="button" className="cms-secondary-button" onClick={onImport} disabled={importing}>
+          <UploadCloud size={18} />
+          {importing ? "Importing..." : "Import the built-in quotes"}
+        </button>
+        <button type="button" className="cms-primary-button" onClick={onAdd}>
+          <Plus size={18} />
+          Add testimonial
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialEditorSheet({
+  item,
+  nextSortOrder,
+  saving,
+  onClose,
+  onSave,
+}: {
+  item: PublicSiteTestimonial | null;
+  nextSortOrder: number;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (draft: PublicSiteTestimonial) => void;
+}) {
+  const [draft, setDraft] = useState<PublicSiteTestimonial>(
+    () =>
+      item ?? {
+        id: "",
+        quote: "",
+        name: "",
+        role: "",
+        category: "parent",
+        imageUrl: null,
+        sortOrder: nextSortOrder,
+        active: true,
+      },
+  );
+  const patch = (next: Partial<PublicSiteTestimonial>) => setDraft((current) => ({ ...current, ...next }));
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/20" role="dialog" aria-modal="true" aria-label={item ? "Edit testimonial" : "Add testimonial"}>
+      <button type="button" aria-label="Close testimonial editor" className="absolute inset-0 cursor-default" onClick={onClose} disabled={saving} />
+      <form
+        className="relative flex h-full w-full max-w-[520px] flex-col bg-white shadow-2xl"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(draft);
+        }}
+      >
+        <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-4">
+          <h2 className="text-xl font-bold text-[#0F172A]">{item ? "Edit testimonial" : "Add testimonial"}</h2>
+          <button type="button" className="rounded-xl px-3 py-2 text-sm font-semibold text-[#64748B]" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          <div className="grid gap-3">
+            <TextField label="Quote" value={draft.quote} onChange={(value) => patch({ quote: value })} multiline />
+            <TextField label="Name" value={draft.name} onChange={(value) => patch({ name: value })} />
+            <label className="grid gap-2 text-sm font-semibold text-[#334155]">
+              Who they are
+              <select
+                value={draft.category}
+                onChange={(event) => patch({ category: toCategory(event.target.value) })}
+                className="h-12 rounded-2xl border border-black/10 bg-[#F1F4F8] px-3 text-sm outline-none focus:border-[#001E4E]"
+              >
+                {TESTIMONIAL_CATEGORIES.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.label}</option>
+                ))}
+              </select>
+            </label>
+            <TextField label="Shown under the name, e.g. “Parent of two students · Bronx, NY”" value={draft.role} onChange={(value) => patch({ role: value })} />
+            <TextField label="Photo URL (optional)" value={draft.imageUrl ?? ""} onChange={(value) => patch({ imageUrl: value.trim() || null })} />
+            <TextField label="Sort order" value={String(draft.sortOrder)} onChange={(value) => patch({ sortOrder: Number(value) || 0 })} type="number" />
+            <label className="flex items-center justify-between rounded-2xl border border-black/10 bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#334155]">
+              Published on the home page
+              <input type="checkbox" checked={draft.active} onChange={(event) => patch({ active: event.target.checked })} className="h-5 w-5 accent-[#001E4E]" />
+            </label>
+          </div>
+        </div>
+        <footer className="flex justify-end gap-2 border-t border-black/10 px-4 py-3">
+          <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold text-[#64748B]" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="submit" className="rounded-xl bg-[#001E4E] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>
+            {saving ? "Saving..." : draft.active ? "Publish" : "Save draft"}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function DeleteTestimonialDialog({
+  item,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  item: PublicSiteTestimonial;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4" role="dialog" aria-modal="true" aria-labelledby="delete-testimonial-title">
+      <div className="w-full max-w-md rounded-[20px] bg-white p-5 shadow-2xl">
+        <h2 id="delete-testimonial-title" className="text-lg font-bold text-[#0F172A]">
+          Delete this testimonial?
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-[#334155]">{item.name}: “{item.quote}”</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} disabled={deleting} className="rounded-xl px-4 py-2 text-sm font-semibold text-[#64748B] hover:bg-[#F1F4F8] disabled:opacity-60">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={deleting} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#001E4E] px-4 text-sm font-semibold text-white disabled:opacity-60">
+            {deleting ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
