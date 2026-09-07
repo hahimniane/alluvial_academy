@@ -52,6 +52,19 @@ const buildDb = () => ({
       };
     }
 
+    if (name === 'public_site_cms_testimonials') {
+      return {
+        get: async () => ({
+          docs: [
+            {id: 'later', data: () => ({quote: 'Great teachers', name: 'Fatou', role: 'Parent', sortOrder: 2})},
+            {id: 'first', data: () => ({quote: 'My son loves it', name: 'Aissatou', category: 'parent', sortOrder: 1})},
+            {id: 'draft', data: () => ({quote: 'Unfinished', name: 'X', active: false})},
+            {id: 'nameless', data: () => ({quote: 'No name', name: '  '})},
+          ],
+        }),
+      };
+    }
+
     throw new Error(`Unexpected collection: ${name}`);
   }),
 });
@@ -115,5 +128,7 @@ describe('public site public read handlers', () => {
         name: 'Visible Person',
       }),
     ]);
+    expect(res.body.testimonials.map((t) => t.id)).toEqual(['first', 'later']);
+    expect(res.body.testimonials[0]).toEqual(expect.objectContaining({category: 'parent', quote: 'My son loves it', active: true}));
   });
 });

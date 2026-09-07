@@ -18129,4 +18129,87 @@ class AppLocalizationsAr extends AppLocalizations {
   String familyAccountsReady(int created, int reused, String names) {
     return 'تم إنشاء $created وكان $reused موجودًا بالفعل لـ $names. أكّد الجدول الآن.';
   }
+
+  @override
+  String get publicSiteCmsTabTestimonials => 'الشهادات';
+
+  @override
+  String get publicSiteCmsTestimonialsIntro =>
+      'اقتباسات من أولياء الأمور والطلاب والمعلمين تُعرض على الصفحة الرئيسية. تظهر الاقتباسات المنشورة التي تحمل اسمًا فقط؛ وحتى تنشر أيًا منها، تُعرض الاقتباسات الثلاثة المدمجة.';
+
+  @override
+  String get publicSiteCmsTestimonialsEmpty =>
+      'لا توجد شهادات بعد. تعرض الصفحة الرئيسية الاقتباسات الثلاثة المدمجة.';
+
+  @override
+  String get publicSiteCmsTestimonialAdd => 'إضافة شهادة';
+
+  @override
+  String get publicSiteCmsTestimonialEdit => 'تعديل الشهادة';
+
+  @override
+  String get publicSiteCmsTestimonialImportDefaults =>
+      'استيراد الاقتباسات المدمجة';
+
+  @override
+  String publicSiteCmsTestimonialImportDone(int imported, int skipped) {
+    return 'تم استيراد $imported اقتباس. تم تخطي $skipped موجود مسبقًا.';
+  }
+
+  @override
+  String get publicSiteCmsTestimonialQuote => 'الاقتباس';
+
+  @override
+  String get publicSiteCmsTestimonialName => 'الاسم';
+
+  @override
+  String get publicSiteCmsTestimonialCategory => 'من هذا الشخص';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryParent => 'ولي أمر';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryStudent => 'طالب';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryTeacher => 'معلم';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryOther => 'المجتمع';
+
+  @override
+  String get publicSiteCmsTestimonialRole =>
+      'يظهر تحت الاسم، مثل «ولي أمر طالبين · برونكس، نيويورك»';
+
+  @override
+  String get publicSiteCmsTestimonialPhotoUrl => 'رابط الصورة (اختياري)';
+
+  @override
+  String get publicSiteCmsTestimonialSortOrder => 'ترتيب العرض';
+
+  @override
+  String get publicSiteCmsTestimonialPublishedToggle =>
+      'منشور على الصفحة الرئيسية';
+
+  @override
+  String get publicSiteCmsTestimonialPublish => 'نشر';
+
+  @override
+  String get publicSiteCmsTestimonialSaveDraft => 'حفظ كمسودة';
+
+  @override
+  String get publicSiteCmsTestimonialPublished => 'تم نشر الشهادة.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftSaved => 'تم حفظ الشهادة كمسودة.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftBadge => 'مسودة';
+
+  @override
+  String get publicSiteCmsTestimonialDeleteTitle => 'حذف هذه الشهادة؟';
+
+  @override
+  String get publicSiteCmsTestimonialNeedsQuoteAndName =>
+      'اكتب الاقتباس واسم الشخص قبل الحفظ.';
 }

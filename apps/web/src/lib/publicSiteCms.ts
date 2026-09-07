@@ -1,6 +1,7 @@
 import { httpsCallable } from "firebase/functions";
 import { collection, doc, getDoc, getDocs, limit, query, where, type DocumentSnapshot } from "firebase/firestore";
 import { db, firebaseProjectId, functions } from "@/lib/firebase";
+import { normalizeTestimonial, publishedTestimonials, type PublicSiteTestimonial } from "@/lib/testimonials";
 
 export type PublicSitePlanPricing = {
   session30Usd?: number;
@@ -72,6 +73,7 @@ export type PublicSiteMarketingBundle = {
   social: PublicSiteSocialDoc;
   landing: PublicSiteLandingDoc;
   teamMembers: PublicSiteTeamMember[];
+  testimonials: PublicSiteTestimonial[];
 };
 
 const emptySocial = {
@@ -270,5 +272,14 @@ async function normalizeBundle(raw: Partial<PublicSiteMarketingBundle> | null): 
       heroRightImageUrl: raw?.landing?.heroRightImageUrl || "",
     },
     teamMembers: await normalizeTeam(raw?.teamMembers),
+    testimonials: publishedTestimonials(raw?.testimonials),
   };
+}
+
+/** Every testimonial document, published or not, for the admin CMS. */
+export async function loadTestimonialsForCms(): Promise<PublicSiteTestimonial[]> {
+  const snapshot = await getDocs(collection(db, "public_site_cms_testimonials"));
+  return snapshot.docs
+    .map((row) => normalizeTestimonial(row.id, row.data() as Record<string, unknown>))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }

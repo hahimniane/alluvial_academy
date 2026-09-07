@@ -18530,4 +18530,88 @@ class AppLocalizationsFr extends AppLocalizations {
   String familyAccountsReady(int created, int reused, String names) {
     return '$created créé(s), $reused existai(en)t déjà pour $names. Confirmez maintenant le calendrier.';
   }
+
+  @override
+  String get publicSiteCmsTabTestimonials => 'Témoignages';
+
+  @override
+  String get publicSiteCmsTestimonialsIntro =>
+      'Citations de parents, d\'élèves et d\'enseignants affichées sur la page d\'accueil. Seules les citations publiées avec un nom apparaissent ; tant qu\'aucune n\'est publiée, les trois citations intégrées s\'affichent.';
+
+  @override
+  String get publicSiteCmsTestimonialsEmpty =>
+      'Aucun témoignage pour l\'instant. La page d\'accueil affiche les trois citations intégrées.';
+
+  @override
+  String get publicSiteCmsTestimonialAdd => 'Ajouter un témoignage';
+
+  @override
+  String get publicSiteCmsTestimonialEdit => 'Modifier le témoignage';
+
+  @override
+  String get publicSiteCmsTestimonialImportDefaults =>
+      'Importer les citations intégrées';
+
+  @override
+  String publicSiteCmsTestimonialImportDone(int imported, int skipped) {
+    return '$imported citation(s) importée(s). $skipped déjà présente(s) ignorée(s).';
+  }
+
+  @override
+  String get publicSiteCmsTestimonialQuote => 'Citation';
+
+  @override
+  String get publicSiteCmsTestimonialName => 'Nom';
+
+  @override
+  String get publicSiteCmsTestimonialCategory => 'Qui est cette personne';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryParent => 'Parent';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryStudent => 'Élève';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryTeacher => 'Enseignant';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryOther => 'Communauté';
+
+  @override
+  String get publicSiteCmsTestimonialRole =>
+      'Affiché sous le nom, ex. « Parent de deux élèves · Bronx, NY »';
+
+  @override
+  String get publicSiteCmsTestimonialPhotoUrl => 'URL de la photo (facultatif)';
+
+  @override
+  String get publicSiteCmsTestimonialSortOrder => 'Ordre d\'affichage';
+
+  @override
+  String get publicSiteCmsTestimonialPublishedToggle =>
+      'Publié sur la page d\'accueil';
+
+  @override
+  String get publicSiteCmsTestimonialPublish => 'Publier';
+
+  @override
+  String get publicSiteCmsTestimonialSaveDraft => 'Enregistrer le brouillon';
+
+  @override
+  String get publicSiteCmsTestimonialPublished => 'Témoignage publié.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftSaved =>
+      'Témoignage enregistré comme brouillon.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftBadge => 'Brouillon';
+
+  @override
+  String get publicSiteCmsTestimonialDeleteTitle => 'Supprimer ce témoignage ?';
+
+  @override
+  String get publicSiteCmsTestimonialNeedsQuoteAndName =>
+      'Saisissez la citation et le nom de la personne avant d\'enregistrer.';
 }

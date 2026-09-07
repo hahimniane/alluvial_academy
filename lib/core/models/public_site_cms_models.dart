@@ -458,3 +458,66 @@ class PublicSiteLandingDoc {
     );
   }
 }
+
+/// A quote shown on the public home page. One document per quote in
+/// `public_site_cms_testimonials`; visitors get only published ones through
+/// the marketing bundle. Mirrors `apps/web/src/lib/testimonials.ts`.
+class PublicSiteTestimonial {
+  final String id;
+  final String quote;
+  final String name;
+
+  /// What the person is to Alluwal, e.g. "Parent of two students · Bronx, NY".
+  final String role;
+
+  /// parent | student | teacher | other
+  final String category;
+  final String? imageUrl;
+  final int sortOrder;
+  final bool active;
+
+  const PublicSiteTestimonial({
+    required this.id,
+    required this.quote,
+    required this.name,
+    required this.role,
+    required this.category,
+    this.imageUrl,
+    required this.sortOrder,
+    this.active = true,
+  });
+
+  Map<String, dynamic> toFirestore() => {
+        'quote': quote,
+        'name': name,
+        'role': role,
+        'category': category,
+        'imageUrl': (imageUrl ?? '').trim().isEmpty ? null : imageUrl!.trim(),
+        'sortOrder': sortOrder,
+        'active': active,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  factory PublicSiteTestimonial.fromDoc(String id, Map<String, dynamic> data) {
+    final raw = (data['category'] ?? '').toString().toLowerCase();
+    final img = data['imageUrl']?.toString().trim();
+    return PublicSiteTestimonial(
+      id: id,
+      quote: (data['quote'] ?? '').toString().trim(),
+      name: (data['name'] ?? '').toString().trim(),
+      role: (data['role'] ?? '').toString().trim(),
+      category: (raw == 'parent' || raw == 'student' || raw == 'teacher') ? raw : 'other',
+      imageUrl: (img != null && img.isNotEmpty) ? img : null,
+      sortOrder: (data['sortOrder'] is int)
+          ? data['sortOrder'] as int
+          : int.tryParse('${data['sortOrder']}') ?? 0,
+      active: data['active'] != false,
+    );
+  }
+}
+
+/// "Zainab Sall" → "ZS", for the avatar when there is no photo.
+String publicSiteInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2);
+  return parts.map((p) => p[0].toUpperCase()).join();
+}

@@ -18180,4 +18180,88 @@ class AppLocalizationsEn extends AppLocalizations {
   String familyAccountsReady(int created, int reused, String names) {
     return '$created created, $reused already existed for $names. Now confirm the schedule.';
   }
+
+  @override
+  String get publicSiteCmsTabTestimonials => 'Testimonials';
+
+  @override
+  String get publicSiteCmsTestimonialsIntro =>
+      'Quotes from parents, students and teachers shown on the home page. Only published quotes with a name appear; until you publish any, the three built-in quotes show.';
+
+  @override
+  String get publicSiteCmsTestimonialsEmpty =>
+      'No testimonials yet. The home page is showing the three built-in quotes.';
+
+  @override
+  String get publicSiteCmsTestimonialAdd => 'Add testimonial';
+
+  @override
+  String get publicSiteCmsTestimonialEdit => 'Edit testimonial';
+
+  @override
+  String get publicSiteCmsTestimonialImportDefaults =>
+      'Import the built-in quotes';
+
+  @override
+  String publicSiteCmsTestimonialImportDone(int imported, int skipped) {
+    return 'Imported $imported quote(s). Skipped $skipped already present.';
+  }
+
+  @override
+  String get publicSiteCmsTestimonialQuote => 'Quote';
+
+  @override
+  String get publicSiteCmsTestimonialName => 'Name';
+
+  @override
+  String get publicSiteCmsTestimonialCategory => 'Who they are';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryParent => 'Parent';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryStudent => 'Student';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryTeacher => 'Teacher';
+
+  @override
+  String get publicSiteCmsTestimonialCategoryOther => 'Community';
+
+  @override
+  String get publicSiteCmsTestimonialRole =>
+      'Shown under the name, e.g. “Parent of two students · Bronx, NY”';
+
+  @override
+  String get publicSiteCmsTestimonialPhotoUrl => 'Photo URL (optional)';
+
+  @override
+  String get publicSiteCmsTestimonialSortOrder => 'Sort order';
+
+  @override
+  String get publicSiteCmsTestimonialPublishedToggle =>
+      'Published on the home page';
+
+  @override
+  String get publicSiteCmsTestimonialPublish => 'Publish';
+
+  @override
+  String get publicSiteCmsTestimonialSaveDraft => 'Save draft';
+
+  @override
+  String get publicSiteCmsTestimonialPublished => 'Testimonial published.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftSaved =>
+      'Testimonial saved as a draft.';
+
+  @override
+  String get publicSiteCmsTestimonialDraftBadge => 'Draft';
+
+  @override
+  String get publicSiteCmsTestimonialDeleteTitle => 'Delete this testimonial?';
+
+  @override
+  String get publicSiteCmsTestimonialNeedsQuoteAndName =>
+      'Write the quote and the person\'s name before saving.';
 }
