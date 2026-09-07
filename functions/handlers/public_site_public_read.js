@@ -80,7 +80,9 @@ exports.getPublicSiteMarketingBundleHttp = onRequest(
 
     try {
       const bundle = await _buildMarketingBundle();
-      res.set('Cache-Control', 'public, max-age=45');
+      // No shared caching: an admin who deletes or publishes a quote expects the
+      // next page load to show it. The payload is a few KB.
+      res.set('Cache-Control', 'no-cache, must-revalidate');
       res.status(200).json(bundle);
     } catch (error) {
       console.error('[getPublicSiteMarketingBundleHttp] failed:', error);

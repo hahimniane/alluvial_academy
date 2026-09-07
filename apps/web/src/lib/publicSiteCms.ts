@@ -117,7 +117,7 @@ export async function loadPublicMarketingBundle(): Promise<PublicSiteMarketingBu
     try {
       const response = await fetch(
         `https://us-central1-${firebaseProjectId}.cloudfunctions.net/getPublicSiteMarketingBundleHttp`,
-        { headers: { Accept: "application/json" } },
+        { headers: { Accept: "application/json" }, cache: "no-store" },
       );
       if (response.ok) {
         return normalizeBundle(await response.json() as Partial<PublicSiteMarketingBundle>);

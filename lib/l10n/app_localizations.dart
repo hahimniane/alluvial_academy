@@ -33169,6 +33169,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shown as a round avatar next to the name. Initials show without one.'**
   String get publicSiteCmsTestimonialPhotoHint;
+
+  /// No description provided for @publicSiteCmsTestimonialDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Testimonial deleted.'**
+  String get publicSiteCmsTestimonialDeleted;
 }
 
 class _AppLocalizationsDelegate

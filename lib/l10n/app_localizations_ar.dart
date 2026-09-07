@@ -18219,4 +18219,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get publicSiteCmsTestimonialPhotoHint =>
       'تُعرض كصورة دائرية بجانب الاسم. بدون صورة تظهر الأحرف الأولى.';
+
+  @override
+  String get publicSiteCmsTestimonialDeleted => 'تم حذف الشهادة.';
 }

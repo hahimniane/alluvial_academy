@@ -8123,5 +8123,6 @@
   "@publicSiteCmsTestimonialImportDone": {"placeholders": {"imported": {"type": "int"}, "skipped": {"type": "int"}}},
   "publicSiteCmsTestimonialReplacePhoto": "Replace photo",
   "publicSiteCmsTestimonialRemovePhoto": "Remove photo",
-  "publicSiteCmsTestimonialPhotoHint": "Shown as a round avatar next to the name. Initials show without one."
+  "publicSiteCmsTestimonialPhotoHint": "Shown as a round avatar next to the name. Initials show without one.",
+  "publicSiteCmsTestimonialDeleted": "Testimonial deleted."
 }
