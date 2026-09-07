@@ -573,7 +573,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                 child: Text(
                   goalMet
                       ? AppLocalizations.of(context)!.quranDoneForToday
-                      : "Today · $todayCount of ${plan.perDay} ayahs",
+                      : AppLocalizations.of(context)!.quranTodayProgress('$todayCount', '${plan.perDay}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
