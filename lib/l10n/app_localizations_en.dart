@@ -17769,4 +17769,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get quranPronunciationReview => 'Pronunciation to review';
+
+  @override
+  String get homeGoodMorning => 'Good Morning';
+
+  @override
+  String get homeGoodAfternoon => 'Good Afternoon';
+
+  @override
+  String get homeGoodEvening => 'Good Evening';
+
+  @override
+  String get homeToday => 'Today';
+
+  @override
+  String get homeUpcoming => 'Upcoming';
+
+  @override
+  String get homeTodaysClasses => 'Today\'s Classes';
+
+  @override
+  String get homeUpcomingClasses => 'Upcoming Classes';
+
+  @override
+  String get homeNoClassesToday => 'No classes today';
+
+  @override
+  String get homeEnjoyFreeTime => 'Enjoy your free time!';
+
+  @override
+  String get homeNoUpcoming => 'No upcoming classes';
+
+  @override
+  String get homeCheckBackLater => 'Check back later for your schedule';
+
+  @override
+  String get homeClassRecordings => 'Class Recordings';
+
+  @override
+  String get homePleaseTryAgain => 'Please try again';
+
+  @override
+  String get homeStartingNow => 'Starting now';
+
+  @override
+  String get homeAccessSuspended => 'Class Access Suspended';
+
+  @override
+  String get homeLoginToSee => 'Please log in to see your classes';
+
+  @override
+  String get homeAuthFailed =>
+      'Unable to authenticate. Please try logging in again.';
 }

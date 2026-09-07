@@ -7863,5 +7863,22 @@
   "quranStartOver": "Start over",
   "quranStop": "Stop",
   "quranLive": "Live",
-  "quranPronunciationReview": "Pronunciation to review"
+  "quranPronunciationReview": "Pronunciation to review",
+  "homeGoodMorning": "Good Morning",
+  "homeGoodAfternoon": "Good Afternoon",
+  "homeGoodEvening": "Good Evening",
+  "homeToday": "Today",
+  "homeUpcoming": "Upcoming",
+  "homeTodaysClasses": "Today's Classes",
+  "homeUpcomingClasses": "Upcoming Classes",
+  "homeNoClassesToday": "No classes today",
+  "homeEnjoyFreeTime": "Enjoy your free time!",
+  "homeNoUpcoming": "No upcoming classes",
+  "homeCheckBackLater": "Check back later for your schedule",
+  "homeClassRecordings": "Class Recordings",
+  "homePleaseTryAgain": "Please try again",
+  "homeStartingNow": "Starting now",
+  "homeAccessSuspended": "Class Access Suspended",
+  "homeLoginToSee": "Please log in to see your classes",
+  "homeAuthFailed": "Unable to authenticate. Please try logging in again."
 }

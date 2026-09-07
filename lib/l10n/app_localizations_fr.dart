@@ -18116,4 +18116,56 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get quranPronunciationReview => 'Prononciation à revoir';
+
+  @override
+  String get homeGoodMorning => 'Bonjour';
+
+  @override
+  String get homeGoodAfternoon => 'Bon après-midi';
+
+  @override
+  String get homeGoodEvening => 'Bonsoir';
+
+  @override
+  String get homeToday => 'Aujourd\'hui';
+
+  @override
+  String get homeUpcoming => 'À venir';
+
+  @override
+  String get homeTodaysClasses => 'Cours d\'aujourd\'hui';
+
+  @override
+  String get homeUpcomingClasses => 'Prochains cours';
+
+  @override
+  String get homeNoClassesToday => 'Pas de cours aujourd\'hui';
+
+  @override
+  String get homeEnjoyFreeTime => 'Profite de ton temps libre !';
+
+  @override
+  String get homeNoUpcoming => 'Aucun cours à venir';
+
+  @override
+  String get homeCheckBackLater => 'Reviens plus tard pour ton emploi du temps';
+
+  @override
+  String get homeClassRecordings => 'Enregistrements des cours';
+
+  @override
+  String get homePleaseTryAgain => 'Réessaie';
+
+  @override
+  String get homeStartingNow => 'Commence maintenant';
+
+  @override
+  String get homeAccessSuspended => 'Accès aux cours suspendu';
+
+  @override
+  String get homeLoginToSee => 'Connecte-toi pour voir tes cours';
+
+  @override
+  String get homeAuthFailed =>
+      'Impossible de vérifier ta connexion. Réessaie de te connecter.';
 }

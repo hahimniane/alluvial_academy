@@ -7156,5 +7156,22 @@
   "quranStartOver": "Recommencer",
   "quranStop": "Arrêter",
   "quranLive": "En direct",
-  "quranPronunciationReview": "Prononciation à revoir"
+  "quranPronunciationReview": "Prononciation à revoir",
+  "homeGoodMorning": "Bonjour",
+  "homeGoodAfternoon": "Bon après-midi",
+  "homeGoodEvening": "Bonsoir",
+  "homeToday": "Aujourd'hui",
+  "homeUpcoming": "À venir",
+  "homeTodaysClasses": "Cours d'aujourd'hui",
+  "homeUpcomingClasses": "Prochains cours",
+  "homeNoClassesToday": "Pas de cours aujourd'hui",
+  "homeEnjoyFreeTime": "Profite de ton temps libre !",
+  "homeNoUpcoming": "Aucun cours à venir",
+  "homeCheckBackLater": "Reviens plus tard pour ton emploi du temps",
+  "homeClassRecordings": "Enregistrements des cours",
+  "homePleaseTryAgain": "Réessaie",
+  "homeStartingNow": "Commence maintenant",
+  "homeAccessSuspended": "Accès aux cours suspendu",
+  "homeLoginToSee": "Connecte-toi pour voir tes cours",
+  "homeAuthFailed": "Impossible de vérifier ta connexion. Réessaie de te connecter."
 }

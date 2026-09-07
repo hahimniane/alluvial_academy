@@ -32286,6 +32286,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pronunciation to review'**
   String get quranPronunciationReview;
+
+  /// No description provided for @homeGoodMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Morning'**
+  String get homeGoodMorning;
+
+  /// No description provided for @homeGoodAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Afternoon'**
+  String get homeGoodAfternoon;
+
+  /// No description provided for @homeGoodEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Evening'**
+  String get homeGoodEvening;
+
+  /// No description provided for @homeToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get homeToday;
+
+  /// No description provided for @homeUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get homeUpcoming;
+
+  /// No description provided for @homeTodaysClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Classes'**
+  String get homeTodaysClasses;
+
+  /// No description provided for @homeUpcomingClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Classes'**
+  String get homeUpcomingClasses;
+
+  /// No description provided for @homeNoClassesToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No classes today'**
+  String get homeNoClassesToday;
+
+  /// No description provided for @homeEnjoyFreeTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Enjoy your free time!'**
+  String get homeEnjoyFreeTime;
+
+  /// No description provided for @homeNoUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'No upcoming classes'**
+  String get homeNoUpcoming;
+
+  /// No description provided for @homeCheckBackLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Check back later for your schedule'**
+  String get homeCheckBackLater;
+
+  /// No description provided for @homeClassRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Class Recordings'**
+  String get homeClassRecordings;
+
+  /// No description provided for @homePleaseTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Please try again'**
+  String get homePleaseTryAgain;
+
+  /// No description provided for @homeStartingNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting now'**
+  String get homeStartingNow;
+
+  /// No description provided for @homeAccessSuspended.
+  ///
+  /// In en, this message translates to:
+  /// **'Class Access Suspended'**
+  String get homeAccessSuspended;
+
+  /// No description provided for @homeLoginToSee.
+  ///
+  /// In en, this message translates to:
+  /// **'Please log in to see your classes'**
+  String get homeLoginToSee;
+
+  /// No description provided for @homeAuthFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to authenticate. Please try logging in again.'**
+  String get homeAuthFailed;
 }
 
 class _AppLocalizationsDelegate

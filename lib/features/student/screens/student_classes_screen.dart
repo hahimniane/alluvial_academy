@@ -94,7 +94,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     } else {
       AppLogger.debug('  ❌ Auth failed to initialize - no userId found');
       setState(() {
-        _error = 'Unable to authenticate. Please try logging in again.';
+        _error = AppLocalizations.of(context)!.homeAuthFailed;
         _isLoading = false;
       });
     }
@@ -112,7 +112,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
       AppLogger.debug('  Using userId: ${userId ?? "null"}');
       if (userId == null) {
         setState(() {
-          _error = 'Please log in to see your classes';
+          _error = AppLocalizations.of(context)!.homeLoginToSee;
           _isLoading = false;
         });
         return;
@@ -200,9 +200,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return AppLocalizations.of(context)!.homeGoodMorning;
+    if (hour < 17) return AppLocalizations.of(context)!.homeGoodAfternoon;
+    return AppLocalizations.of(context)!.homeGoodEvening;
   }
 
   @override
@@ -251,11 +251,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                       children: [
                         // Today's Classes
                         _buildSectionTitle(
-                            'Today\'s Classes', Icons.today_rounded),
+                            AppLocalizations.of(context)!.homeTodaysClasses, Icons.today_rounded),
                         const SizedBox(height: 12),
                         if (_todayClasses.isEmpty)
                           _buildEmptyState(
-                              'No classes today', 'Enjoy your free time!')
+                              AppLocalizations.of(context)!.homeNoClassesToday, AppLocalizations.of(context)!.homeEnjoyFreeTime)
                         else
                           ..._todayClasses.asMap().entries.map((entry) {
                             final index = entry.key;
@@ -275,11 +275,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
 
                         // Upcoming Classes
                         _buildSectionTitle(
-                            'Upcoming Classes', Icons.calendar_month_rounded),
+                            AppLocalizations.of(context)!.homeUpcomingClasses, Icons.calendar_month_rounded),
                         const SizedBox(height: 12),
                         if (_upcomingClasses.isEmpty)
-                          _buildEmptyState('No upcoming classes',
-                              'Check back later for your schedule')
+                          _buildEmptyState(AppLocalizations.of(context)!.homeNoUpcoming,
+                              AppLocalizations.of(context)!.homeCheckBackLater)
                         else
                           ..._upcomingClasses.asMap().entries.map((entry) {
                             final index = entry.key;
@@ -421,7 +421,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                 },
                 icon: const Icon(Icons.video_library_outlined),
                 color: Colors.white70,
-                tooltip: 'Class Recordings',
+                tooltip: AppLocalizations.of(context)!.homeClassRecordings,
               ),
               IconButton(
                 onPressed: () => _startAppTour(),
@@ -444,12 +444,12 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             children: [
               _buildStatBadge(
                 '${_todayClasses.length}',
-                'Today',
+                AppLocalizations.of(context)!.homeToday,
                 Icons.today_rounded,
               ),
               _buildStatBadge(
                 '${_upcomingClasses.length}',
-                'Upcoming',
+                AppLocalizations.of(context)!.homeUpcoming,
                 Icons.calendar_month_rounded,
               ),
             ],
@@ -598,7 +598,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _error ?? 'Please try again',
+              _error ?? AppLocalizations.of(context)!.homePleaseTryAgain,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xFF6B7280),
@@ -635,7 +635,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     final days = timeUntil.inDays;
 
     if (totalMinutes <= 0) {
-      return 'Starting now';
+      return AppLocalizations.of(context)!.homeStartingNow;
     } else if (totalMinutes < 2) {
       return 'Starting in 1 min';
     } else if (totalMinutes < 60) {
@@ -982,7 +982,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           ),
         ),
         title: Text(
-          'Class Access Suspended',
+          AppLocalizations.of(context)!.homeAccessSuspended,
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w700,
             fontSize: 17,
