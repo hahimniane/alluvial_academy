@@ -7264,5 +7264,6 @@
   "quizCat_companions_desc": "Les compagnons du Prophète ﷺ",
   "quizCat_islamic_manners_name": "Bonnes manières islamiques",
   "quizCat_islamic_manners_desc": "Bonnes manières et caractère (adab)",
-  "moreSubtitle": "Autres outils et fonctionnalités"
+  "moreSubtitle": "Autres outils et fonctionnalités",
+  "studentAccountExistedLinked": "Ce parent a déjà un élève portant ce nom. Le compte existant (ID : {studentCode}) a été relié."
 }

@@ -21,7 +21,10 @@ const record = (value: unknown): Record<string, unknown> =>
 
 const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
-export type CreatedStudent = { studentId: string; studentCode: string };
+export type CreatedStudent = { studentId: string; studentCode: string
+  /** True when the parent already had a child with this name and that account was reused. */
+  existing: boolean;
+};
 
 /**
  * Creates the student's login.
@@ -64,6 +67,7 @@ export async function createStudentAccount(enrollmentId: string): Promise<Create
 
   const studentId = text(result.data?.studentId);
   const studentCode = text(result.data?.studentCode);
+  const existing = result.data?.existing === true;
 
   // Persist the uid so a later session can find the account without creating a
   // second one. A failure here must not lose the account that already exists.
@@ -79,7 +83,7 @@ export async function createStudentAccount(enrollmentId: string): Promise<Create
     }
   }
 
-  return { studentId, studentCode };
+  return { studentId, studentCode, existing };
 }
 
 export type ParentInviteResult = { status: string; message: string };
