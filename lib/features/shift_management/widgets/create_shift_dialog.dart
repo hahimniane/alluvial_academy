@@ -27,6 +27,8 @@ class CreateShiftDialog extends StatefulWidget {
   // Optional initial values for pre-filling form from enrollment/job opportunity
   final String? initialTeacherId; // Teacher UID or email
   final String? initialStudentEmail; // Student email
+  /// Student document ids to preselect — every child of a family class.
+  final List<String>? initialStudentIds;
   final String?
       initialSubjectName; // Subject name (will be matched to subject ID)
   final List<String>? initialDays; // Preferred days (e.g., ['Mon', 'Tue'])
@@ -50,6 +52,7 @@ class CreateShiftDialog extends StatefulWidget {
     required this.onShiftCreated,
     this.initialTeacherId,
     this.initialStudentEmail,
+    this.initialStudentIds,
     this.initialSubjectName,
     this.initialDays,
     this.initialTimeSlots,
@@ -605,6 +608,19 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             _applyVideoProviderForSelectedTeacher(_availableTeachers);
           });
         }
+      }
+    }
+
+    // Preselect by id: the account the setup created, or all the siblings.
+    final wantedIds = widget.initialStudentIds ?? const <String>[];
+    if (wantedIds.isNotEmpty && _availableStudents.isNotEmpty && mounted) {
+      final found = wantedIds
+          .where((id) => _availableStudents.any((s) => s.documentId == id))
+          .toSet();
+      if (found.isNotEmpty) setState(() => _selectedStudentIds = found);
+      if (found.length < wantedIds.length) {
+        AppLogger.debug(
+            'CreateShiftDialog: ${wantedIds.length - found.length} preselected student(s) not in the list yet');
       }
     }
 

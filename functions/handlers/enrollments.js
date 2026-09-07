@@ -1132,14 +1132,15 @@ const inviteParentForEnrollment = async (request) => {
   if (!parentSnap.exists) {
     parentDocUpdate.date_added = now;
     parentDocUpdate.password_reset_required = true;
-    parentDocUpdate.children_ids = [studentUid];
+    parentDocUpdate.children_ids = studentUids;
     // Generate a kiosque code for the new parent so they can be linked later.
     parentDocUpdate.kiosk_code = await generateKiosqueCodeForParent();
     await parentRef.set(parentDocUpdate, { merge: true });
   } else {
-    // Merge children_ids idempotently.
+    // Merge children_ids idempotently — every child on the card, not only the
+    // clicked one, or the parent's record lists one sibling of a family class.
     const existingType = String((parentSnap.data() || {}).user_type || '').toLowerCase();
-    const update = { ...parentDocUpdate, children_ids: admin.firestore.FieldValue.arrayUnion(studentUid) };
+    const update = { ...parentDocUpdate, children_ids: admin.firestore.FieldValue.arrayUnion(...studentUids) };
     // A staff account that is a parent only through secondary_roles keeps its primary role.
     if (existingType && existingType !== 'parent') delete update.user_type;
     await parentRef.set(update, { merge: true });

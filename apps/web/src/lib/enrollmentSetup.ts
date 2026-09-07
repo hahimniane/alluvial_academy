@@ -63,6 +63,9 @@ export async function createStudentAccount(enrollmentId: string): Promise<Create
     ...(studentEmail ? { email: studentEmail } : {}),
     phoneNumber: text(contact.phone),
     guardianIds: guardianId ? [guardianId] : [],
+    // Lets the server recognise a child the parent already has even before
+    // the parent is linked to this application.
+    ...(!isAdult && text(contact.email) ? { contactEmail: text(contact.email) } : {}),
   });
 
   const studentId = text(result.data?.studentId);

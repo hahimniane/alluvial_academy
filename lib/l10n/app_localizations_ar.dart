@@ -18119,4 +18119,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String linkParentRoleConflict(String email, String role) {
     return '$email يخص حساب $role ولا يمكن تحويله إلى ولي أمر. أدخل بريد ولي الأمر.';
   }
+
+  @override
+  String familyClassMembers(String names) {
+    return 'صف عائلي · $names';
+  }
+
+  @override
+  String familyAccountsReady(int created, int reused, String names) {
+    return 'تم إنشاء $created وكان $reused موجودًا بالفعل لـ $names. أكّد الجدول الآن.';
+  }
 }

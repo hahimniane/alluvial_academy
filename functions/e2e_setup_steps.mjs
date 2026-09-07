@@ -1,5 +1,6 @@
-// End-to-end proof of the setup sequence on the "test1" enrollment: account →
-// schedule → existing parent linked and notified (no invite). Runs as a
+// End-to-end proof of the setup sequence on the "test1" enrollment: accounts
+// for a child and a sibling → schedule → existing parent linked to both and
+// notified (no invite) → applying again finds the child, no duplicate. Runs as a
 // throwaway admin created for the run and deleted afterwards; every write is
 // snapshotted first and restored at the end.
 //
@@ -54,6 +55,7 @@ check(signIn.idToken, 'throwaway admin signed in');
 const token = signIn.idToken;
 
 let studentUid = '';
+let siblingUid = '';
 let shiftId = '';
 try {
   // ---- step 3 pre-flight: who has the email? ----------------------------------
@@ -72,6 +74,14 @@ try {
   check(studentUid && created.existing !== true, `account created (${studentUid}, code ${created.studentCode})`);
   await enrollmentRef.set({metadata: {studentUserId: studentUid, studentAccountCreatedAt: admin.firestore.FieldValue.serverTimestamp()}}, {merge: true});
 
+  // A sibling in the same family class gets a login of their own.
+  const sibling = await call('createStudentAccount', token, {
+    firstName: 'test1sib', lastName: 'Unknown', isAdultStudent: false, phoneNumber: '', guardianIds: [],
+    contactEmail: 'support@alluwaleducationhub.org',
+  });
+  siblingUid = sibling.studentId;
+  check(siblingUid && sibling.existing !== true, `sibling account created (${siblingUid})`);
+
   // Parent step must still be locked: no schedule yet.
   const noShift = await db.collection('teaching_shifts').where('student_ids', 'array-contains', studentUid).limit(1).get();
   check(noShift.empty, 'schedule step is what the client sees next (no shift yet → parent locked)');
@@ -80,7 +90,7 @@ try {
   const start = new Date(Date.now() + 14 * 86400000);
   const end = new Date(start.getTime() + 3600000);
   const shiftRef = await db.collection('teaching_shifts').add({
-    teacher_id: TEST_TEACHER, student_ids: [studentUid], subject: 'E2E setup check', subject_id: 'e2e',
+    teacher_id: TEST_TEACHER, student_ids: [studentUid, siblingUid], subject: 'E2E setup check', subject_id: 'e2e',
     shift_start: admin.firestore.Timestamp.fromDate(start), shift_end: admin.firestore.Timestamp.fromDate(end),
     status: 'scheduled', category: 'class', e2e: true, created_at: admin.firestore.FieldValue.serverTimestamp(),
   });
@@ -90,7 +100,7 @@ try {
 
   // ---- step 3: existing parent → link + notify, no invite -----------------------
   const linked = await call('inviteParentForEnrollment', token, {
-    enrollmentId: ENROLLMENT, studentUid, email: 'support@alluwaleducationhub.org',
+    enrollmentId: ENROLLMENT, studentUid, studentUids: [studentUid, siblingUid], email: 'support@alluwaleducationhub.org',
     firstName: p1.firstName || 'test', lastName: p1.lastName || 'parent', phone: '',
   });
   check(linked.status === 'linked' && linked.parentAlreadyExists === true && linked.createdAuthUser === false,
@@ -103,15 +113,26 @@ try {
   check((studentAfter.guardian_ids || []).includes(TEST_PARENT), 'student.guardian_ids has the parent');
   const parentAfter = (await parentRef.get()).data();
   check((parentAfter.children_ids || []).includes(studentUid), 'parent.children_ids has the student');
+  check((parentAfter.children_ids || []).includes(siblingUid), 'parent.children_ids has the sibling too (two-sided link for the whole family)');
   check(parentAfter.user_type === 'parent', 'parent role untouched');
+
+  // Applying again for the same child, before any guardian is on the new
+  // application, must return the existing account — found through the email.
+  // (The sibling's name is unique under this parent; "test1 Unknown" is not,
+  // the owner's own test data already holds one.)
+  const again = await call('createStudentAccount', token, {
+    firstName: 'TEST1SIB', lastName: 'unknown', isAdultStudent: false, phoneNumber: '', guardianIds: [],
+    contactEmail: 'support@alluwaleducationhub.org',
+  });
+  check(again.existing === true && again.studentId === siblingUid, 'same child applied again → existing account via the contact email, no duplicate');
   log('ALL CHECKS PASSED');
 } finally {
   // ---- restore everything --------------------------------------------------------
   log('cleaning up…');
   if (shiftId) await db.collection('teaching_shifts').doc(shiftId).delete().catch((e) => log('shift delete', e.message));
-  if (studentUid) {
-    await admin.auth().deleteUser(studentUid).catch((e) => log('student auth delete', e.message));
-    await db.collection('users').doc(studentUid).delete().catch((e) => log('student doc delete', e.message));
+  for (const uid of [studentUid, siblingUid].filter(Boolean)) {
+    await admin.auth().deleteUser(uid).catch((e) => log('student auth delete', e.message));
+    await db.collection('users').doc(uid).delete().catch((e) => log('student doc delete', e.message));
   }
   await parentRef.set(parentBefore);
   await enrollmentRef.set(enrollmentBefore);

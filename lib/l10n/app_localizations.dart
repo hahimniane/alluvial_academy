@@ -32995,6 +32995,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{email} belongs to a {role} account and cannot be made a parent. Enter the parent\'s own email.'**
   String linkParentRoleConflict(String email, String role);
+
+  /// No description provided for @familyClassMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Family class · {names}'**
+  String familyClassMembers(String names);
+
+  /// No description provided for @familyAccountsReady.
+  ///
+  /// In en, this message translates to:
+  /// **'{created} created, {reused} already existed for {names}. Now confirm the schedule.'**
+  String familyAccountsReady(int created, int reused, String names);
 }
 
 class _AppLocalizationsDelegate
