@@ -15,6 +15,7 @@ import '../../shift_management/widgets/create_shift_dialog.dart';
 import 'enrollment_applicant_details.dart';
 import 'enrollment_card.dart';
 import 'invite_parent_dialog.dart';
+import '../utils/family_class.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Card for enrollments in `matched` status (teacher accepted).
@@ -33,7 +34,6 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   bool _isCreatingStudent = false;
   bool _isRevoking = false;
   bool _isClosing = false;
-  bool _studentCreatedSuccessfully = false;
   String? _teacherName;
   String? _teacherEmail;
   String? _teacherTimezone;
@@ -61,7 +61,15 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   bool _lookingUpParent = false;
   bool _isLinkingParent = false;
 
-  bool get _hasAccount => _studentUid != null && _studentUid!.isNotEmpty;
+  /// Every child of this class, this enrollment first. One entry unless the
+  /// application is an exclusive family class with siblings.
+  List<FamilyMember> _family = const [];
+
+  bool get _hasAccount =>
+      _studentUid != null && _studentUid!.isNotEmpty && _family.every((m) => m.uid.isNotEmpty);
+  List<String> get _familyUids => _family.map((m) => m.uid).where((u) => u.isNotEmpty).toList();
+  List<String> get _familyEnrollmentIds => _family.map((m) => m.enrollmentId).toList();
+  String get _familyNames => listNames(_family.map((m) => m.name));
 
   @override
   void initState() {
@@ -93,9 +101,31 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       // Pick up a previously-created student UID (if any) so the Invite Parent
       // action is available on card re-renders.
       _studentUid = metadata['studentUserId'] as String?;
-      if (_studentUid != null && _studentUid!.isNotEmpty) {
-        _studentCreatedSuccessfully = true;
+
+      // Siblings in the same exclusive family class: same submission, same
+      // subject, also matched. They are set up together from this card.
+      final selfName = ((data['student'] as Map?)?['name'] ?? data['studentName'] ?? e.studentName ?? 'Student').toString();
+      final members = <FamilyMember>[FamilyMember(enrollmentId: e.id!, name: selfName, uid: _studentUid ?? '')];
+      final familyKey = familyClassKey(data);
+      if (familyKey != null) {
+        final linkId = (metadata['parentLinkId'] ?? '').toString();
+        final siblings = await FirebaseFirestore.instance
+            .collection('enrollments')
+            .where('metadata.parentLinkId', isEqualTo: linkId)
+            .get();
+        for (final d in siblings.docs) {
+          if (d.id == e.id) continue;
+          final y = d.data();
+          if (familyClassKey(y) != familyKey) continue;
+          if (((y['metadata'] as Map?)?['status'] ?? '') != 'matched') continue;
+          members.add(FamilyMember(
+            enrollmentId: d.id,
+            name: ((y['student'] as Map?)?['name'] ?? y['studentName'] ?? 'Student').toString(),
+            uid: ((y['metadata'] as Map?)?['studentUserId'] ?? '').toString(),
+          ));
+        }
       }
+      _family = members;
       // Parent link / invite status.
       final rawStatus = metadata['parentInviteStatus'] as String?;
       if (rawStatus == 'linked' || rawStatus == 'invited') {
@@ -413,6 +443,22 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
 
                 const SizedBox(height: 8),
 
+                if (_family.length > 1) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.family_restroom, size: 14, color: Color(0xff4F46E5)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          l.familyClassMembers(_familyNames),
+                          style: GoogleFonts.inter(
+                              fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xff4F46E5)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 // The setup, in the order it has to happen: only the current
                 // step can be pressed; the ones after it wait for their turn.
                 _stepRow(
@@ -651,6 +697,8 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
           .call<Map<String, dynamic>>({
         'enrollmentId': e.id,
         'studentUid': _studentUid,
+        if (_family.length > 1) 'enrollmentIds': _familyEnrollmentIds,
+        if (_family.length > 1) 'studentUids': _familyUids,
         'email': e.email.trim(),
         'firstName': (existing['firstName']?.toString() ?? '').isNotEmpty
             ? existing['firstName'].toString()
@@ -669,7 +717,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
           ? existing['name'].toString()
           : e.email;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(l.linkParentExistingDone(parentName, e.studentName ?? '')),
+        content: Text(l.linkParentExistingDone(parentName, _familyNames)),
         backgroundColor: Colors.green,
         duration: const Duration(seconds: 6),
       ));
@@ -745,6 +793,8 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       builder: (_) => InviteParentDialog(
         enrollmentId: e.id!,
         studentUid: _studentUid!,
+        enrollmentIds: _family.length > 1 ? _familyEnrollmentIds : null,
+        studentUids: _family.length > 1 ? _familyUids : null,
         note: note,
         initialEmail: note == null ? e.email : '',
         initialFirstName:
@@ -922,112 +972,134 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
     }
   }
 
-  Future<void> _createStudentAccount() async {
-    if (_studentCreatedSuccessfully) return;
+  /// Creates the login for one application row and stamps the uid on it.
+  /// Returns (uid, studentCode, existed).
+  Future<(String, String, bool)> _createAccountFor(String enrollmentId) async {
     final e = widget.enrollment;
+    final enrollmentDoc = await FirebaseFirestore.instance
+        .collection('enrollments')
+        .doc(enrollmentId)
+        .get();
+    if (!enrollmentDoc.exists) throw Exception('Enrollment not found');
+
+    final enrollmentData = enrollmentDoc.data()!;
+    final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
+    final studentDoc = enrollmentData['student'] as Map<String, dynamic>? ?? {};
+    final metadata = enrollmentData['metadata'] as Map<String, dynamic>? ?? {};
+
+    // Prefer the firstName/lastName stored on the student subdoc at
+    // submission time; fall back to splitting the name, then to defaults.
+    String firstName = (studentDoc['firstName'] as String?)?.trim() ?? '';
+    String lastName = (studentDoc['lastName'] as String?)?.trim() ?? '';
+    if (firstName.isEmpty || lastName.isEmpty) {
+      final fullName = (studentDoc['name'] ?? enrollmentData['studentName'] ?? e.studentName ?? '').toString().trim();
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+        if (firstName.isEmpty && parts.isNotEmpty) firstName = parts.first;
+        if (lastName.isEmpty && parts.length > 1) lastName = parts.sublist(1).join(' ');
+      }
+    }
+    if (firstName.isEmpty) firstName = 'Student';
+    if (lastName.isEmpty) lastName = 'Unknown';
+
+    // Only pass an email for adult students. For minors, the contact email
+    // belongs to the parent and must NOT be used as the student's auth email.
+    // Leaving `email` null causes createStudentAccount to generate an alias
+    // email (e.g. yyyy@alluwaleducationhub.org) from the student_code.
+    final isAdult = (metadata['isAdult'] == true) || (enrollmentId == e.id && e.isAdult);
+    final contactEmail = (contact['email'] as String?)?.trim() ?? '';
+    final String? studentEmail = isAdult ? contactEmail : null;
+
+    final studentData = {
+      'firstName': firstName,
+      'lastName': lastName,
+      'isAdultStudent': isAdult,
+      if (studentEmail != null && studentEmail.isNotEmpty) 'email': studentEmail,
+      'phoneNumber': contact['phone'],
+      'guardianIds': contact['guardianId'] != null ? [contact['guardianId']] : [],
+      // Lets the server recognise a child the parent already has even before
+      // the parent is linked to this application.
+      if (!isAdult && contactEmail.isNotEmpty) 'contactEmail': contactEmail,
+    };
+
+    final callable = FirebaseFunctions.instance.httpsCallable('createStudentAccount');
+    final result = await callable.call(studentData);
+    final uid = result.data['studentId']?.toString() ?? '';
+    final code = result.data['studentCode']?.toString() ?? '';
+    final existed = result.data['existing'] == true;
+
+    // Persist the uid so a later session finds the account instead of making
+    // a second one. A failure here must not lose the account that now exists.
+    if (uid.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('enrollments').doc(enrollmentId).set({
+          'metadata': {
+            'studentUserId': uid,
+            'studentAccountCreatedAt': FieldValue.serverTimestamp(),
+          },
+        }, SetOptions(merge: true));
+      } catch (persistErr) {
+        AppLogger.error('Failed to persist studentUserId on enrollment: $persistErr');
+      }
+    }
+    return (uid, code, existed);
+  }
+
+  Future<void> _createStudentAccount() async {
+    if (_hasAccount) return;
+    final e = widget.enrollment;
+    if (e.id == null) return;
 
     setState(() => _isCreatingStudent = true);
     try {
-      final enrollmentDoc = await FirebaseFirestore.instance
-          .collection('enrollments')
-          .doc(e.id)
+      // An exclusive family class needs a login per child, but they are
+      // taught together, so one schedule follows for all of them.
+      var created = 0;
+      var reused = 0;
+      String lastCode = '';
+      bool lastExisted = false;
+      for (final member in _family) {
+        if (member.uid.isNotEmpty) continue;
+        final (uid, code, existed) = await _createAccountFor(member.enrollmentId);
+        if (uid.isEmpty) throw Exception('No account id returned for ${member.name}');
+        member.uid = uid;
+        if (member.enrollmentId == e.id) _studentUid = uid;
+        lastCode = code;
+        lastExisted = existed;
+        if (existed) {
+          reused++;
+        } else {
+          created++;
+        }
+      }
+
+      if (!mounted) return;
+      final l = AppLocalizations.of(context)!;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_family.length > 1
+              ? l.familyAccountsReady(created, reused, _familyNames)
+              : lastExisted
+                  ? l.studentAccountExistedLinked(lastCode)
+                  : l.studentAccountCreatedIdStudentcode(lastCode)),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      // A child the parent already had may already be on the calendar.
+      final shifts = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .where('student_ids', arrayContains: _studentUid)
+          .limit(1)
           .get();
-      if (!enrollmentDoc.exists) throw Exception('Enrollment not found');
-
-      final enrollmentData = enrollmentDoc.data()!;
-      final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
-      final studentDoc =
-          enrollmentData['student'] as Map<String, dynamic>? ?? {};
-      final metadata = enrollmentData['metadata'] as Map<String, dynamic>? ?? {};
-
-      // Prefer the firstName/lastName stored on the student subdoc at
-      // submission time; fall back to splitting studentName, then to defaults.
-      String firstName = (studentDoc['firstName'] as String?)?.trim() ?? '';
-      String lastName = (studentDoc['lastName'] as String?)?.trim() ?? '';
-
-      if (firstName.isEmpty || lastName.isEmpty) {
-        final fullName = (e.studentName ?? studentDoc['name'] ?? '').toString().trim();
-        if (fullName.isNotEmpty) {
-          final parts = fullName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-          if (firstName.isEmpty && parts.isNotEmpty) firstName = parts.first;
-          if (lastName.isEmpty && parts.length > 1) lastName = parts.sublist(1).join(' ');
-        }
-      }
-      if (firstName.isEmpty) firstName = 'Student';
-      if (lastName.isEmpty) lastName = 'Unknown';
-
-      // Only pass an email for adult students. For minors, the contact email
-      // belongs to the parent and must NOT be used as the student's auth email.
-      // Leaving `email` null causes createStudentAccount to generate an alias
-      // email (e.g. yyyy@alluwaleducationhub.org) from the student_code.
-      final isAdult = e.isAdult || (metadata['isAdult'] == true);
-      final String? studentEmail = isAdult
-          ? (contact['email'] as String?)?.trim()
-          : null;
-
-      final studentData = {
-        'firstName': firstName,
-        'lastName': lastName,
-        'isAdultStudent': isAdult,
-        if (studentEmail != null && studentEmail.isNotEmpty)
-          'email': studentEmail,
-        'phoneNumber': contact['phone'],
-        'guardianIds':
-            contact['guardianId'] != null ? [contact['guardianId']] : [],
-      };
-
-      final callable = FirebaseFunctions.instance.httpsCallable('createStudentAccount');
-      final result = await callable.call(studentData);
-
-      // Capture the newly-created student auth UID so the Invite Parent action
-      // has a target. Also persist it on the enrollment doc for future sessions.
-      final newStudentUid = result.data['studentId']?.toString();
-      if (newStudentUid != null && newStudentUid.isNotEmpty) {
-        _studentUid = newStudentUid;
-        try {
-          await FirebaseFirestore.instance
-              .collection('enrollments')
-              .doc(e.id)
-              .set({
-            'metadata': {
-              'studentUserId': newStudentUid,
-              'studentAccountCreatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-          }, SetOptions(merge: true));
-        } catch (persistErr) {
-          AppLogger.error(
-              'Failed to persist studentUserId on enrollment: $persistErr');
-        }
-      }
-
-      if (mounted) {
-        final studentCode = result.data['studentCode']?.toString() ?? '';
-        final existed = result.data['existing'] == true;
-        setState(() => _studentCreatedSuccessfully = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(existed
-                ? AppLocalizations.of(context)!.studentAccountExistedLinked(studentCode)
-                : AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode(studentCode)),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-        // A child the parent already had may already be on the calendar.
-        final shifts = await FirebaseFirestore.instance
-            .collection('teaching_shifts')
-            .where('student_ids', arrayContains: _studentUid)
-            .limit(1)
-            .get();
-        if (!mounted) return;
-        setState(() => _hasSchedule = shifts.docs.isNotEmpty);
-        // The schedule is the next step; open it rather than wait for a tap.
-        if (!_hasSchedule) {
-          await _createShift();
-        } else if (_parentInviteStatus == null) {
-          await _advanceToParent();
-        }
+      if (!mounted) return;
+      setState(() => _hasSchedule = shifts.docs.isNotEmpty);
+      // The schedule is the next step; open it rather than wait for a tap.
+      if (!_hasSchedule) {
+        await _createShift();
+      } else if (_parentInviteStatus == null) {
+        await _advanceToParent();
       }
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
@@ -1058,7 +1130,6 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       if (!enrollmentDoc.exists) return;
 
       final enrollmentData = enrollmentDoc.data() as Map<String, dynamic>;
-      final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
       final preferences = enrollmentData['preferences'] as Map<String, dynamic>? ?? {};
       final program = enrollmentData['program'] as Map<String, dynamic>? ?? {};
       final metadata = enrollmentData['metadata'] as Map<String, dynamic>? ?? {};
@@ -1073,41 +1144,9 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
         return;
       }
 
-      // Find student by email
-      final studentEmail = contact['email'] as String?;
-      Employee? preloadedStudent;
-      if (studentEmail != null && studentEmail.isNotEmpty) {
-        try {
-          final q = await FirebaseFirestore.instance
-              .collection('users')
-              .where('e-mail', isEqualTo: studentEmail)
-              .where('user_type', isEqualTo: 'student')
-              .limit(1)
-              .get();
-          if (q.docs.isNotEmpty) {
-            final doc = q.docs.first;
-            final data = doc.data();
-            String fmtTs(dynamic ts) => ts is Timestamp ? ts.toDate().toString() : ts?.toString() ?? 'Never';
-            preloadedStudent = Employee(
-              firstName: data['first_name'] ?? '',
-              lastName: data['last_name'] ?? '',
-              email: data['e-mail'] ?? '',
-              countryCode: data['country_code'] ?? '',
-              mobilePhone: data['phone_number'] ?? '',
-              userType: data['user_type'] ?? 'student',
-              title: data['title'] ?? '',
-              employmentStartDate: fmtTs(data['employment_start_date']),
-              kioskCode: data['kiosk_code'] ?? doc.id,
-              studentCode: data['student_code'] ?? data['studentCode'] ?? '',
-              dateAdded: fmtTs(data['date_added']),
-              lastLogin: fmtTs(data['last_login']),
-              documentId: doc.id,
-              isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
-              isActive: data['is_active'] as bool? ?? true,
-            );
-          }
-        } catch (_) {}
-      }
+      // The students are the accounts the setup created — every child of a
+      // family class — selected by id. The contact email is the parent's and
+      // never identifies a child's account.
 
       // Load teacher
       Employee? preloadedTeacher;
@@ -1177,13 +1216,12 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
         context: context,
         builder: (context) => CreateShiftDialog(
           initialTeacherId: _teacherEmail ?? matchedTeacherId,
-          initialStudentEmail: studentEmail,
+          initialStudentIds: _familyUids,
           initialSubjectName: enrollmentData['subject'] as String? ?? e.subject,
           initialDays: rawDays?.map((d) => d.toString()).toList(),
           initialTimezone: teacherTzName,
           initialTime: initialStartTime,
           preloadedTeacher: preloadedTeacher,
-          preloadedStudent: preloadedStudent,
           sessionDuration: sessionDuration,
           onShiftCreated: () {
             Navigator.pop(context);

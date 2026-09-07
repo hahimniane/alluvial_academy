@@ -23,6 +23,10 @@ class InviteParentDialog extends StatefulWidget {
   /// Shown above the form, e.g. why the application's email could not be used.
   final String? note;
 
+  /// Every enrollment and student of a family class, so the siblings are linked too.
+  final List<String>? enrollmentIds;
+  final List<String>? studentUids;
+
   const InviteParentDialog({
     super.key,
     required this.enrollmentId,
@@ -33,6 +37,8 @@ class InviteParentDialog extends StatefulWidget {
     this.initialPhone,
     this.initialCountryCode,
     this.note,
+    this.enrollmentIds,
+    this.studentUids,
   });
 
   @override
@@ -77,6 +83,10 @@ class _InviteParentDialogState extends State<InviteParentDialog> {
       final result = await callable.call<Map<String, dynamic>>({
         'enrollmentId': widget.enrollmentId,
         'studentUid': widget.studentUid,
+        if ((widget.enrollmentIds ?? const []).isNotEmpty)
+          'enrollmentIds': widget.enrollmentIds,
+        if ((widget.studentUids ?? const []).isNotEmpty)
+          'studentUids': widget.studentUids,
         'email': _emailController.text.trim(),
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),

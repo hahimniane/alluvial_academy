@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/enrollment_request.dart';
 import '../widgets/enrollment_card.dart';
 import '../widgets/matched_enrollment_card.dart';
+import '../utils/family_class.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class EnrollmentManagementScreen extends StatefulWidget {
@@ -1011,7 +1012,7 @@ class _EnrollmentListState extends State<_EnrollmentList>
           );
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final docs = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
 
         docs.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -1156,6 +1157,17 @@ class _MatchedEnrollmentListState extends State<_MatchedEnrollmentList>
           if (aAt == null) return 1;
           if (bAt == null) return -1;
           return bAt.compareTo(aAt);
+        });
+
+        // An exclusive family class is one class over several applications
+        // (one per child, same submission and subject). One card acts on all
+        // of them, so the siblings' own rows are not shown again.
+        final familyKeys = <String>{};
+        docs.removeWhere((d) {
+          final data = d.data() as Map<String, dynamic>;
+          final key = familyClassKey(data);
+          if (key == null) return false;
+          return !familyKeys.add(key);
         });
 
         if (snapshot.hasData) {

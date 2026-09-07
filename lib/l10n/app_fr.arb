@@ -7274,5 +7274,7 @@
   "setupCheckingParent": "Vérification du parent…",
   "linkParentActionLabel": "Relier le parent et l'informer",
   "linkParentExistingDone": "{parentName} avait déjà un compte, aucune invitation n'a donc été envoyée. {studentName} a été relié et un e-mail les informe que le compte est prêt.",
-  "linkParentRoleConflict": "{email} appartient à un compte {role} et ne peut pas devenir parent. Saisissez l'e-mail du parent."
+  "linkParentRoleConflict": "{email} appartient à un compte {role} et ne peut pas devenir parent. Saisissez l'e-mail du parent.",
+  "familyClassMembers": "Classe familiale · {names}",
+  "familyAccountsReady": "{created} créé(s), {reused} existai(en)t déjà pour {names}. Confirmez maintenant le calendrier."
 }

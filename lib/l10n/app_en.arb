@@ -8091,5 +8091,9 @@
   "linkParentExistingDone": "{parentName} already had an account, so no invite was sent. {studentName} was linked and they were emailed that the account is ready.",
   "linkParentRoleConflict": "{email} belongs to a {role} account and cannot be made a parent. Enter the parent's own email.",
   "@linkParentExistingDone": {"placeholders": {"parentName": {"type": "String"}, "studentName": {"type": "String"}}},
-  "@linkParentRoleConflict": {"placeholders": {"email": {"type": "String"}, "role": {"type": "String"}}}
+  "@linkParentRoleConflict": {"placeholders": {"email": {"type": "String"}, "role": {"type": "String"}}},
+  "familyClassMembers": "Family class · {names}",
+  "familyAccountsReady": "{created} created, {reused} already existed for {names}. Now confirm the schedule.",
+  "@familyClassMembers": {"placeholders": {"names": {"type": "String"}}},
+  "@familyAccountsReady": {"placeholders": {"created": {"type": "int"}, "reused": {"type": "int"}, "names": {"type": "String"}}}
 }

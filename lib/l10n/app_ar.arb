@@ -6416,5 +6416,7 @@
   "setupCheckingParent": "جارٍ التحقق من ولي الأمر…",
   "linkParentActionLabel": "ربط ولي الأمر وإبلاغه",
   "linkParentExistingDone": "لدى {parentName} حساب بالفعل، لذلك لم تُرسل دعوة. تم ربط {studentName} وإبلاغهم بالبريد أن الحساب جاهز.",
-  "linkParentRoleConflict": "{email} يخص حساب {role} ولا يمكن تحويله إلى ولي أمر. أدخل بريد ولي الأمر."
+  "linkParentRoleConflict": "{email} يخص حساب {role} ولا يمكن تحويله إلى ولي أمر. أدخل بريد ولي الأمر.",
+  "familyClassMembers": "صف عائلي · {names}",
+  "familyAccountsReady": "تم إنشاء {created} وكان {reused} موجودًا بالفعل لـ {names}. أكّد الجدول الآن."
 }

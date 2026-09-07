@@ -1328,13 +1328,10 @@ class _QuestionCardState extends State<_QuestionCard> {
   /// Editor for a display block: body text for a title/section, a link for
   /// image and video. Nothing here is answered by the person filling the form.
   Widget _buildBlockContentEditor({required String hint, int maxLines = 1}) {
-    final controller = TextEditingController(text: widget.question.content);
-    controller.selection =
-        TextSelection.collapsed(offset: controller.text.length);
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
-      child: TextField(
-        controller: controller,
+      child: _InlineTextField(
+        value: widget.question.content,
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
@@ -1547,8 +1544,8 @@ class _QuestionCardState extends State<_QuestionCard> {
       children: [
         ...widget.question.options.asMap().entries.map((entry) {
           final index = entry.key;
-          final controller = TextEditingController(text: entry.value);
           return Padding(
+            key: ValueKey('option-$index'),
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
@@ -1562,8 +1559,8 @@ class _QuestionCardState extends State<_QuestionCard> {
                 const SizedBox(width: 12),
                 
                 Expanded(
-                  child: TextField(
-                    controller: controller,
+                  child: _InlineTextField(
+                    value: entry.value,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -1679,8 +1676,8 @@ class _QuestionCardState extends State<_QuestionCard> {
         Row(
         children: [
             Expanded(
-              child: TextField(
-                controller: TextEditingController(text: widget.question.scaleLabelMin),
+              child: _InlineTextField(
+                value: widget.question.scaleLabelMin,
                 onChanged: (v) {
                   widget.question.scaleLabelMin = v;
                   widget.onChanged();
@@ -1698,8 +1695,8 @@ class _QuestionCardState extends State<_QuestionCard> {
             ),
             const SizedBox(width: 24),
             Expanded(
-              child: TextField(
-                controller: TextEditingController(text: widget.question.scaleLabelMax),
+              child: _InlineTextField(
+                value: widget.question.scaleLabelMax,
                 onChanged: (v) {
                   widget.question.scaleLabelMax = v;
                   widget.onChanged();
@@ -1862,5 +1859,63 @@ class _QuestionCardState extends State<_QuestionCard> {
       ),
     );
   }
+  }
+}
+
+/// A text field that keeps its own controller across rebuilds.
+///
+/// The builder redraws the whole question card on every keystroke (the form
+/// is marked dirty). A controller created inside `build` was replaced each
+/// time, which put the caret back at the start, so typed text came out
+/// reversed. The value is pushed in only when it changed elsewhere.
+class _InlineTextField extends StatefulWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  final InputDecoration decoration;
+  final TextStyle? style;
+  final int maxLines;
+
+  const _InlineTextField({
+    required this.value,
+    required this.onChanged,
+    required this.decoration,
+    this.style,
+    this.maxLines = 1,
+  });
+
+  @override
+  State<_InlineTextField> createState() => _InlineTextFieldState();
+}
+
+class _InlineTextFieldState extends State<_InlineTextField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.value);
+
+  @override
+  void didUpdateWidget(_InlineTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      maxLines: widget.maxLines,
+      decoration: widget.decoration,
+      style: widget.style,
+      onChanged: widget.onChanged,
+    );
   }
 }

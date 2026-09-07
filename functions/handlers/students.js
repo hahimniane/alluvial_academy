@@ -75,14 +75,30 @@ const createStudentAccount = async (data, context) => {
     // second account: when a student with the same name already exists under
     // one of these guardians, that account is returned instead.
     const guardianList = Array.isArray(guardianIds) ? guardianIds.map(String).filter(Boolean) : [];
-    if (guardianList.length && studentData.reuseExisting !== false) {
+    // During setup the parent is linked last, so the application usually
+    // carries no guardian yet. The contact email still identifies the parent
+    // when they already have an account — used here only to find the child,
+    // never to link anyone.
+    let dedupeGuardians = guardianList;
+    const contactEmail = String(studentData.contactEmail || '').trim().toLowerCase();
+    if (!dedupeGuardians.length && contactEmail.includes('@') && studentData.reuseExisting !== false) {
+      try {
+        const parentAuth = await admin.auth().getUserByEmail(contactEmail);
+        const parentDoc = (await admin.firestore().collection('users').doc(parentAuth.uid).get()).data() || {};
+        const parentRole = String(parentDoc.user_type || parentDoc.role || '').toLowerCase();
+        if (parentRole === 'parent' || parentRole === 'guardian') dedupeGuardians = [parentAuth.uid];
+      } catch (e) {
+        if (e.code !== 'auth/user-not-found') console.warn('contactEmail lookup failed:', e.message || e);
+      }
+    }
+    if (dedupeGuardians.length && studentData.reuseExisting !== false) {
       const candidates = await admin.firestore().collection('users')
-        .where('guardian_ids', 'array-contains-any', guardianList.slice(0, 10)).get();
+        .where('guardian_ids', 'array-contains-any', dedupeGuardians.slice(0, 10)).get();
       const match = candidates.docs.find((d) => {
         const u = d.data() || {};
         const role = String(u.user_type || u.role || '').toLowerCase();
         return role === 'student' && u.is_active !== false && !u.merged_into
-          && sameChild({firstName, lastName, guardianIds: guardianList}, u);
+          && sameChild({firstName, lastName, guardianIds: dedupeGuardians}, u);
       });
       if (match) {
         const u = match.data();

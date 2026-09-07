@@ -18170,4 +18170,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String linkParentRoleConflict(String email, String role) {
     return '$email belongs to a $role account and cannot be made a parent. Enter the parent\'s own email.';
   }
+
+  @override
+  String familyClassMembers(String names) {
+    return 'Family class · $names';
+  }
+
+  @override
+  String familyAccountsReady(int created, int reused, String names) {
+    return '$created created, $reused already existed for $names. Now confirm the schedule.';
+  }
 }
