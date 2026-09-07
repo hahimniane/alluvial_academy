@@ -7989,5 +7989,87 @@
   "quranLiveHint": "Follows your voice live — repeat freely; skips buzz right away.",
   "quranCheckHint": "Recite the selection, then it checks pronunciation and replays where you slipped.",
   "quranReciterWord": "Reciter · word",
-  "quranReciterAyah": "Reciter · ayah"
+  "quranReciterAyah": "Reciter · ayah",
+  "quizTitle": "Islamic Quiz",
+  "quizSubtitle": "Test your knowledge!",
+  "quizChooseCategory": "Choose a Category",
+  "quizCategoriesQuestions": "{cats} categories • {qs}+ questions",
+  "@quizCategoriesQuestions": {
+    "placeholders": {
+      "cats": {
+        "type": "String"
+      },
+      "qs": {
+        "type": "String"
+      }
+    }
+  },
+  "quizPlay": "Play",
+  "quizLoadingQuestions": "Loading questions...",
+  "quizNoQuestions": "No questions available yet",
+  "quizQuestionOf": "Question {i} of {n}",
+  "@quizQuestionOf": {
+    "placeholders": {
+      "i": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quizQuestionN": "Question {i}",
+  "@quizQuestionN": {
+    "placeholders": {
+      "i": {
+        "type": "String"
+      }
+    }
+  },
+  "quizNextQuestion": "Next Question",
+  "quizSeeResults": "See Results",
+  "quizQuitTitle": "Quit Quiz?",
+  "quizQuitBody": "Your progress will be lost. Are you sure?",
+  "quizContinue": "Continue",
+  "quizScore": "Score",
+  "quizPercentage": "Percentage",
+  "quizGrade": "Grade",
+  "quizLoadFailed": "Failed to load questions: {error}",
+  "@quizLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "quizEncourage90": "Excellent! MashaAllah!",
+  "quizEncourage80": "Great job! Keep learning!",
+  "quizEncourage70": "Good work! You're doing well!",
+  "quizEncourage60": "Nice try! Practice more!",
+  "quizEncourage50": "Keep going! You can do it!",
+  "quizEncourage0": "Don't give up! Try again!",
+  "bayanahJoinFailed": "Could not join that game.",
+  "bayanahJoinFailedCode": "Could not join that game. Check the code and try again.",
+  "bayanahYoureIn": "You're in. Wait for your teacher to start.",
+  "bayanahCorrect": "Correct!",
+  "bayanahNotThisTime": "Not this time",
+  "bayanahTooSlow": "Too slow",
+  "quizCat_five_pillars_name": "Five Pillars",
+  "quizCat_five_pillars_desc": "Learn about the 5 pillars of Islam",
+  "quizCat_prophets_name": "Prophets",
+  "quizCat_prophets_desc": "Stories of the Prophets",
+  "quizCat_quran_basics_name": "Quran Basics",
+  "quizCat_quran_basics_desc": "Learn about the Holy Quran",
+  "quizCat_daily_duas_name": "Daily Duas",
+  "quizCat_daily_duas_desc": "Everyday prayers and supplications",
+  "quizCat_islamic_history_name": "Islamic History",
+  "quizCat_islamic_history_desc": "Important events in Islamic history",
+  "quizCat_arabic_letters_name": "Arabic Letters",
+  "quizCat_arabic_letters_desc": "Learn Arabic letters and words",
+  "quizCat_prophet_life_name": "Life of the Prophet",
+  "quizCat_prophet_life_desc": "The life story of Prophet Muhammad ﷺ",
+  "quizCat_companions_name": "The Companions",
+  "quizCat_companions_desc": "The companions of the Prophet ﷺ",
+  "quizCat_islamic_manners_name": "Islamic Manners",
+  "quizCat_islamic_manners_desc": "Good manners and character (adab)"
 }

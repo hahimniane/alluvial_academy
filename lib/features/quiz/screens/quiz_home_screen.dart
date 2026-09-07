@@ -550,7 +550,7 @@ class _QuizHomeScreenState extends State<QuizHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Islamic Quiz',
+                      AppLocalizations.of(context)!.quizTitle,
                       style: GoogleFonts.inter(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -559,7 +559,7 @@ class _QuizHomeScreenState extends State<QuizHomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Test your knowledge!',
+                      AppLocalizations.of(context)!.quizSubtitle,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xFF6B7280),
@@ -598,7 +598,7 @@ class _QuizHomeScreenState extends State<QuizHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Choose a Category',
+                        AppLocalizations.of(context)!.quizChooseCategory,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -659,7 +659,7 @@ class _QuizHomeScreenState extends State<QuizHomeScreen> {
             const SizedBox(height: 6),
             // Category Name
             Text(
-              category.name,
+              localizedQuizCategoryName(AppLocalizations.of(context)!, category),
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -695,7 +695,7 @@ class _QuizHomeScreenState extends State<QuizHomeScreen> {
                       color: Colors.white, size: 14),
                   const SizedBox(width: 2),
                   Text(
-                    'Play',
+                    AppLocalizations.of(context)!.quizPlay,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,

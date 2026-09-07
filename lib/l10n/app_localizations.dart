@@ -32641,6 +32641,294 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reciter · ayah'**
   String get quranReciterAyah;
+
+  /// No description provided for @quizTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Quiz'**
+  String get quizTitle;
+
+  /// No description provided for @quizSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Test your knowledge!'**
+  String get quizSubtitle;
+
+  /// No description provided for @quizChooseCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a Category'**
+  String get quizChooseCategory;
+
+  /// No description provided for @quizCategoriesQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'{cats} categories • {qs}+ questions'**
+  String quizCategoriesQuestions(String cats, String qs);
+
+  /// No description provided for @quizPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get quizPlay;
+
+  /// No description provided for @quizLoadingQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading questions...'**
+  String get quizLoadingQuestions;
+
+  /// No description provided for @quizNoQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'No questions available yet'**
+  String get quizNoQuestions;
+
+  /// No description provided for @quizQuestionOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {i} of {n}'**
+  String quizQuestionOf(String i, String n);
+
+  /// No description provided for @quizQuestionN.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {i}'**
+  String quizQuestionN(String i);
+
+  /// No description provided for @quizNextQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Question'**
+  String get quizNextQuestion;
+
+  /// No description provided for @quizSeeResults.
+  ///
+  /// In en, this message translates to:
+  /// **'See Results'**
+  String get quizSeeResults;
+
+  /// No description provided for @quizQuitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit Quiz?'**
+  String get quizQuitTitle;
+
+  /// No description provided for @quizQuitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your progress will be lost. Are you sure?'**
+  String get quizQuitBody;
+
+  /// No description provided for @quizContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get quizContinue;
+
+  /// No description provided for @quizScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get quizScore;
+
+  /// No description provided for @quizPercentage.
+  ///
+  /// In en, this message translates to:
+  /// **'Percentage'**
+  String get quizPercentage;
+
+  /// No description provided for @quizGrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Grade'**
+  String get quizGrade;
+
+  /// No description provided for @quizLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load questions: {error}'**
+  String quizLoadFailed(String error);
+
+  /// No description provided for @quizEncourage90.
+  ///
+  /// In en, this message translates to:
+  /// **'Excellent! MashaAllah!'**
+  String get quizEncourage90;
+
+  /// No description provided for @quizEncourage80.
+  ///
+  /// In en, this message translates to:
+  /// **'Great job! Keep learning!'**
+  String get quizEncourage80;
+
+  /// No description provided for @quizEncourage70.
+  ///
+  /// In en, this message translates to:
+  /// **'Good work! You\'re doing well!'**
+  String get quizEncourage70;
+
+  /// No description provided for @quizEncourage60.
+  ///
+  /// In en, this message translates to:
+  /// **'Nice try! Practice more!'**
+  String get quizEncourage60;
+
+  /// No description provided for @quizEncourage50.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep going! You can do it!'**
+  String get quizEncourage50;
+
+  /// No description provided for @quizEncourage0.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t give up! Try again!'**
+  String get quizEncourage0;
+
+  /// No description provided for @bayanahJoinFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not join that game.'**
+  String get bayanahJoinFailed;
+
+  /// No description provided for @bayanahJoinFailedCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not join that game. Check the code and try again.'**
+  String get bayanahJoinFailedCode;
+
+  /// No description provided for @bayanahYoureIn.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in. Wait for your teacher to start.'**
+  String get bayanahYoureIn;
+
+  /// No description provided for @bayanahCorrect.
+  ///
+  /// In en, this message translates to:
+  /// **'Correct!'**
+  String get bayanahCorrect;
+
+  /// No description provided for @bayanahNotThisTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Not this time'**
+  String get bayanahNotThisTime;
+
+  /// No description provided for @bayanahTooSlow.
+  ///
+  /// In en, this message translates to:
+  /// **'Too slow'**
+  String get bayanahTooSlow;
+
+  /// No description provided for @quizCat_five_pillars_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Five Pillars'**
+  String get quizCat_five_pillars_name;
+
+  /// No description provided for @quizCat_five_pillars_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn about the 5 pillars of Islam'**
+  String get quizCat_five_pillars_desc;
+
+  /// No description provided for @quizCat_prophets_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Prophets'**
+  String get quizCat_prophets_name;
+
+  /// No description provided for @quizCat_prophets_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Stories of the Prophets'**
+  String get quizCat_prophets_desc;
+
+  /// No description provided for @quizCat_quran_basics_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Quran Basics'**
+  String get quizCat_quran_basics_name;
+
+  /// No description provided for @quizCat_quran_basics_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn about the Holy Quran'**
+  String get quizCat_quran_basics_desc;
+
+  /// No description provided for @quizCat_daily_duas_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Duas'**
+  String get quizCat_daily_duas_name;
+
+  /// No description provided for @quizCat_daily_duas_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyday prayers and supplications'**
+  String get quizCat_daily_duas_desc;
+
+  /// No description provided for @quizCat_islamic_history_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic History'**
+  String get quizCat_islamic_history_name;
+
+  /// No description provided for @quizCat_islamic_history_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Important events in Islamic history'**
+  String get quizCat_islamic_history_desc;
+
+  /// No description provided for @quizCat_arabic_letters_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Arabic Letters'**
+  String get quizCat_arabic_letters_name;
+
+  /// No description provided for @quizCat_arabic_letters_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn Arabic letters and words'**
+  String get quizCat_arabic_letters_desc;
+
+  /// No description provided for @quizCat_prophet_life_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Life of the Prophet'**
+  String get quizCat_prophet_life_name;
+
+  /// No description provided for @quizCat_prophet_life_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'The life story of Prophet Muhammad ﷺ'**
+  String get quizCat_prophet_life_desc;
+
+  /// No description provided for @quizCat_companions_name.
+  ///
+  /// In en, this message translates to:
+  /// **'The Companions'**
+  String get quizCat_companions_name;
+
+  /// No description provided for @quizCat_companions_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'The companions of the Prophet ﷺ'**
+  String get quizCat_companions_desc;
+
+  /// No description provided for @quizCat_islamic_manners_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic Manners'**
+  String get quizCat_islamic_manners_name;
+
+  /// No description provided for @quizCat_islamic_manners_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Good manners and character (adab)'**
+  String get quizCat_islamic_manners_desc;
 }
 
 class _AppLocalizationsDelegate

@@ -17975,4 +17975,160 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get quranReciterAyah => 'Reciter · ayah';
+
+  @override
+  String get quizTitle => 'Islamic Quiz';
+
+  @override
+  String get quizSubtitle => 'Test your knowledge!';
+
+  @override
+  String get quizChooseCategory => 'Choose a Category';
+
+  @override
+  String quizCategoriesQuestions(String cats, String qs) {
+    return '$cats categories • $qs+ questions';
+  }
+
+  @override
+  String get quizPlay => 'Play';
+
+  @override
+  String get quizLoadingQuestions => 'Loading questions...';
+
+  @override
+  String get quizNoQuestions => 'No questions available yet';
+
+  @override
+  String quizQuestionOf(String i, String n) {
+    return 'Question $i of $n';
+  }
+
+  @override
+  String quizQuestionN(String i) {
+    return 'Question $i';
+  }
+
+  @override
+  String get quizNextQuestion => 'Next Question';
+
+  @override
+  String get quizSeeResults => 'See Results';
+
+  @override
+  String get quizQuitTitle => 'Quit Quiz?';
+
+  @override
+  String get quizQuitBody => 'Your progress will be lost. Are you sure?';
+
+  @override
+  String get quizContinue => 'Continue';
+
+  @override
+  String get quizScore => 'Score';
+
+  @override
+  String get quizPercentage => 'Percentage';
+
+  @override
+  String get quizGrade => 'Grade';
+
+  @override
+  String quizLoadFailed(String error) {
+    return 'Failed to load questions: $error';
+  }
+
+  @override
+  String get quizEncourage90 => 'Excellent! MashaAllah!';
+
+  @override
+  String get quizEncourage80 => 'Great job! Keep learning!';
+
+  @override
+  String get quizEncourage70 => 'Good work! You\'re doing well!';
+
+  @override
+  String get quizEncourage60 => 'Nice try! Practice more!';
+
+  @override
+  String get quizEncourage50 => 'Keep going! You can do it!';
+
+  @override
+  String get quizEncourage0 => 'Don\'t give up! Try again!';
+
+  @override
+  String get bayanahJoinFailed => 'Could not join that game.';
+
+  @override
+  String get bayanahJoinFailedCode =>
+      'Could not join that game. Check the code and try again.';
+
+  @override
+  String get bayanahYoureIn => 'You\'re in. Wait for your teacher to start.';
+
+  @override
+  String get bayanahCorrect => 'Correct!';
+
+  @override
+  String get bayanahNotThisTime => 'Not this time';
+
+  @override
+  String get bayanahTooSlow => 'Too slow';
+
+  @override
+  String get quizCat_five_pillars_name => 'Five Pillars';
+
+  @override
+  String get quizCat_five_pillars_desc => 'Learn about the 5 pillars of Islam';
+
+  @override
+  String get quizCat_prophets_name => 'Prophets';
+
+  @override
+  String get quizCat_prophets_desc => 'Stories of the Prophets';
+
+  @override
+  String get quizCat_quran_basics_name => 'Quran Basics';
+
+  @override
+  String get quizCat_quran_basics_desc => 'Learn about the Holy Quran';
+
+  @override
+  String get quizCat_daily_duas_name => 'Daily Duas';
+
+  @override
+  String get quizCat_daily_duas_desc => 'Everyday prayers and supplications';
+
+  @override
+  String get quizCat_islamic_history_name => 'Islamic History';
+
+  @override
+  String get quizCat_islamic_history_desc =>
+      'Important events in Islamic history';
+
+  @override
+  String get quizCat_arabic_letters_name => 'Arabic Letters';
+
+  @override
+  String get quizCat_arabic_letters_desc => 'Learn Arabic letters and words';
+
+  @override
+  String get quizCat_prophet_life_name => 'Life of the Prophet';
+
+  @override
+  String get quizCat_prophet_life_desc =>
+      'The life story of Prophet Muhammad ﷺ';
+
+  @override
+  String get quizCat_companions_name => 'The Companions';
+
+  @override
+  String get quizCat_companions_desc => 'The companions of the Prophet ﷺ';
+
+  @override
+  String get quizCat_islamic_manners_name => 'Islamic Manners';
+
+  @override
+  String get quizCat_islamic_manners_desc =>
+      'Good manners and character (adab)';
 }

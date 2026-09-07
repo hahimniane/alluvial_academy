@@ -91,7 +91,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load questions: $e';
+          _error = AppLocalizations.of(context)!.quizLoadFailed('$e');
           _isLoading = false;
         });
       }
@@ -226,7 +226,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               CircularProgressIndicator(color: widget.category.color),
               const SizedBox(height: 16),
               Text(
-                'Loading questions...',
+                AppLocalizations.of(context)!.quizLoadingQuestions,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   color: widget.category.color,
@@ -253,7 +253,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
               Icon(Icons.quiz_outlined, size: 64, color: Colors.grey[400]),
               const SizedBox(height: 16),
               Text(
-                _error ?? 'No questions available yet',
+                _error ?? AppLocalizations.of(context)!.quizNoQuestions,
                 style: GoogleFonts.inter(fontSize: 16, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
@@ -327,7 +327,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                   ),
                 ),
                 Text(
-                  'Question ${_currentQuestionIndex + 1} of $_totalQuestions',
+                  AppLocalizations.of(context)!.quizQuestionOf('${_currentQuestionIndex + 1}', '$_totalQuestions'),
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -411,7 +411,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Question ${_currentQuestionIndex + 1}',
+                AppLocalizations.of(context)!.quizQuestionN('${_currentQuestionIndex + 1}'),
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -578,7 +578,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Text(
-                  _isLastQuestion ? 'See Results' : 'Next Question',
+                  _isLastQuestion ? AppLocalizations.of(context)!.quizSeeResults : AppLocalizations.of(context)!.quizNextQuestion,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -595,18 +595,18 @@ class _QuizPlayScreenState extends State<QuizPlayScreen>
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Quit Quiz?',
+          AppLocalizations.of(context)!.quizQuitTitle,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Your progress will be lost. Are you sure?',
+          AppLocalizations.of(context)!.quizQuitBody,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Continue',
+              AppLocalizations.of(context)!.quizContinue,
               style: GoogleFonts.inter(color: Colors.grey[600]),
             ),
           ),
@@ -654,7 +654,7 @@ class _QuizResultScreen extends StatelessWidget {
 
               // Encouragement
               Text(
-                result.encouragement,
+                localizedEncouragement(AppLocalizations.of(context)!, result.scorePercentage.round()),
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
@@ -758,21 +758,21 @@ class _QuizResultScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildStatItem(
-                'Score',
+                AppLocalizations.of(context)!.quizScore,
                 '${result.correctAnswers}/${result.totalQuestions}',
                 Icons.check_circle_outline_rounded,
                 const Color(0xFF10B981),
               ),
               Container(height: 50, width: 1, color: Colors.grey[200]),
               _buildStatItem(
-                'Percentage',
+                AppLocalizations.of(context)!.quizPercentage,
                 '${result.scorePercentage.toStringAsFixed(0)}%',
                 Icons.percent_rounded,
                 category.color,
               ),
               Container(height: 50, width: 1, color: Colors.grey[200]),
               _buildStatItem(
-                'Grade',
+                AppLocalizations.of(context)!.quizGrade,
                 result.grade,
                 Icons.grade_rounded,
                 const Color(0xFFF59E0B),
