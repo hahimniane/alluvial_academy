@@ -785,10 +785,13 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
 
       if (mounted) {
         final studentCode = result.data['studentCode']?.toString() ?? '';
+        final existed = result.data['existing'] == true;
         setState(() => _studentCreatedSuccessfully = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode(studentCode)),
+            content: Text(existed
+                ? AppLocalizations.of(context)!.studentAccountExistedLinked(studentCode)
+                : AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode(studentCode)),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
           ),

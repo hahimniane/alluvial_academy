@@ -32935,6 +32935,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Additional tools and features'**
   String get moreSubtitle;
+
+  /// No description provided for @studentAccountExistedLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'This parent already has a student with this name. The existing account (ID: {studentCode}) was linked.'**
+  String studentAccountExistedLinked(String studentCode);
 }
 
 class _AppLocalizationsDelegate

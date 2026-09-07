@@ -504,6 +504,19 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
           final result = await callable.call(studentData);
           AppLogger.debug('Student creation result: ${result.data}');
+          if (result.data is Map && (result.data as Map)['existing'] == true) {
+            // The parent already has a child with this name: nothing was
+            // created, the existing account stands.
+            if (mounted) {
+              final code = (result.data as Map)['studentCode']?.toString() ?? '';
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(AppLocalizations.of(context)!.studentAccountExistedLinked(code)),
+                backgroundColor: Colors.orange,
+              ));
+              setState(() => _isLoading = false);
+            }
+            return;
+          }
 
           // Store email notification info for success message
           _emailNotificationInfo = null;

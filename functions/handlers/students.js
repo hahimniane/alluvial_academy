@@ -3,6 +3,7 @@ const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendStudentNotificationEmail} = require('../services/email/senders');
+const {sameChild} = require('../utils/student_identity');
 
 const normalizeString = (str) =>
   str
@@ -68,6 +69,34 @@ const createStudentAccount = async (data, context) => {
     }
 
     console.log('All required fields validated successfully');
+
+    // One child, one account. A parent who applies for two programs, or
+    // applies again for a child who already has a login, must not get a
+    // second account: when a student with the same name already exists under
+    // one of these guardians, that account is returned instead.
+    const guardianList = Array.isArray(guardianIds) ? guardianIds.map(String).filter(Boolean) : [];
+    if (guardianList.length && studentData.reuseExisting !== false) {
+      const candidates = await admin.firestore().collection('users')
+        .where('guardian_ids', 'array-contains-any', guardianList.slice(0, 10)).get();
+      const match = candidates.docs.find((d) => {
+        const u = d.data() || {};
+        const role = String(u.user_type || u.role || '').toLowerCase();
+        return role === 'student' && u.is_active !== false && !u.merged_into
+          && sameChild({firstName, lastName, guardianIds: guardianList}, u);
+      });
+      if (match) {
+        const u = match.data();
+        console.log(`Student ${firstName} ${lastName} already exists for this guardian: ${match.id}`);
+        return {
+          success: true,
+          existing: true,
+          studentId: match.id,
+          studentCode: u.student_code || '',
+          email: u.email || '',
+          message: 'This parent already has a student with this name; the existing account was used.',
+        };
+      }
+    }
 
     let studentCode;
     let attempts = 0;

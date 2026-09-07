@@ -102,20 +102,26 @@ export function MatchedSetupActions({
           onAction={async () => {
             // An exclusive family class needs a login per child, but they are
             // taught together, so one shift follows for all of them.
+            // The same child can appear on several rows (one per program), and
+            // the server hands back the existing account for a child the parent
+            // already has — so ids are de-duplicated before the schedule is made.
             const targets = classmates ?? [{ enrollmentId, studentName, studentUserId }];
-            const ids: string[] = [];
+            const ids = new Set<string>();
+            let created = 0;
+            let reused = 0;
             for (const target of targets) {
-              if (target.studentUserId) { ids.push(target.studentUserId); continue; }
-              const created = await createStudentAccount(target.enrollmentId);
-              ids.push(created.studentId);
+              if (target.studentUserId) { ids.add(target.studentUserId); continue; }
+              const account = await createStudentAccount(target.enrollmentId);
+              ids.add(account.studentId);
+              if (account.existing) reused += 1; else created += 1;
             }
-            onMessage(
-              ids.length > 1
-                ? `${ids.length} accounts created for ${studentName}. Now confirm the schedule.`
-                : `Account created for ${studentName}. Now confirm the schedule.`,
-            );
+            const parts = [
+              created ? `${created} account${created === 1 ? "" : "s"} created` : "",
+              reused ? `${reused} existing account${reused === 1 ? "" : "s"} linked` : "",
+            ].filter(Boolean);
+            onMessage(`${parts.join(", ") || "Accounts ready"} for ${studentName}. Now confirm the schedule.`);
             onChanged();
-            await openScheduleEditor(ids);
+            await openScheduleEditor([...ids]);
           }}
         />
       ) : !hasSchedule ? (

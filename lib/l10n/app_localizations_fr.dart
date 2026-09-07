@@ -18484,4 +18484,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get moreSubtitle => 'Autres outils et fonctionnalités';
+
+  @override
+  String studentAccountExistedLinked(String studentCode) {
+    return 'Ce parent a déjà un élève portant ce nom. Le compte existant (ID : $studentCode) a été relié.';
+  }
 }

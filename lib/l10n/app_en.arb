@@ -8072,5 +8072,13 @@
   "quizCat_companions_desc": "The companions of the Prophet ﷺ",
   "quizCat_islamic_manners_name": "Islamic Manners",
   "quizCat_islamic_manners_desc": "Good manners and character (adab)",
-  "moreSubtitle": "Additional tools and features"
+  "moreSubtitle": "Additional tools and features",
+  "studentAccountExistedLinked": "This parent already has a student with this name. The existing account (ID: {studentCode}) was linked.",
+  "@studentAccountExistedLinked": {
+    "placeholders": {
+      "studentCode": {
+        "type": "String"
+      }
+    }
+  }
 }
