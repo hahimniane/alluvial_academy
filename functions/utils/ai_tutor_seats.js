@@ -57,6 +57,8 @@ const normalizeSettings = (raw) => {
     /** Optional per-language Cloud TTS voice overrides, e.g. {en: 'en-US-Chirp3-HD-Kore'}. */
     voices: data.voices && typeof data.voices === 'object' ? data.voices : {},
     ttsMonthlyCharBudget: data.ttsMonthlyCharBudget === 0 ? 0 : _int(data.ttsMonthlyCharBudget, DEFAULT_SETTINGS.ttsMonthlyCharBudget),
+    /** Month (yyyy-LL) in which the tutor was paused for the voice budget; set by the pause, read on resume. */
+    voiceBudgetPausedMonth: typeof data.voiceBudgetPausedMonth === 'string' ? data.voiceBudgetPausedMonth : null,
   };
 };
 
@@ -219,6 +221,20 @@ const usageMonthKey = (date = new Date()) => DateTime.fromJSDate(date, {zone: 'u
 /** Whether `chars` more cloud-voice characters fit inside this month's budget. */
 const ttsBudgetAllows = ({used, chars, budget}) => budget > 0 && (Number(used) || 0) + chars <= budget;
 
+/**
+ * What to do when a reply would go over the month's voice budget.
+ * - 'synthesize': within budget.
+ * - 'pause': over budget for the first time this month — switch the tutor
+ *   off and tell the owner.
+ * - 'paid': over budget, but the owner already re-enabled the tutor this
+ *   month after being told; they chose to keep going on paid characters.
+ */
+const voiceBudgetDecision = ({allowed, enabled, pausedMonth, month}) => {
+  if (allowed) return 'synthesize';
+  if (enabled && pausedMonth === month) return 'paid';
+  return 'pause';
+};
+
 /** Seats a walk-in could take this minute (never below zero). */
 const freeSeatsNow = ({settings, activeCount, slotBookings, uid}) => {
   const heldForOthers = slotBookings.filter((b) => !b.started && b.userId !== uid).length;
@@ -276,5 +292,6 @@ module.exports = {
   freeSeatsNow,
   usageMonthKey,
   ttsBudgetAllows,
+  voiceBudgetDecision,
   SYSTEM_PROMPT,
 };

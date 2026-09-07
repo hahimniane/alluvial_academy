@@ -266,7 +266,7 @@ export function StudentTutorPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The tutor could not answer.";
       setNotice(msg);
-      if (/hour is up|has ended/i.test(msg)) { aliveRef.current = false; setSessionId(null); setPhase("idle"); void loadAvailability(); return; }
+      if (/hour is up|has ended|paused|switched off/i.test(msg)) { aliveRef.current = false; setSessionId(null); setPhase("idle"); void loadAvailability(); return; }
       if (aliveRef.current) listen();
     }
   }, [listen, say, supported, stopListening, loadAvailability]);

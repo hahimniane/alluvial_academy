@@ -339,7 +339,7 @@ class _StudentAiTutorScreenState extends State<StudentAiTutorScreen> {
       if (!mounted) return;
       final msg = _errorText(e);
       setState(() => _notice = msg);
-      if (RegExp(r'hour is up|has ended', caseSensitive: false).hasMatch(msg)) {
+      if (RegExp(r'hour is up|has ended|paused|switched off', caseSensitive: false).hasMatch(msg)) {
         await _endSession();
         return;
       }

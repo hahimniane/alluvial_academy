@@ -16,6 +16,8 @@ const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {DateTime} = require('luxon');
 const seats = require('../utils/ai_tutor_seats');
 const tts = require('../services/ai_tutor_tts');
+const {createTransporter} = require('../services/email/transporter');
+const {brandedEmailHtml} = require('../services/email/branding');
 
 const SETTINGS_DOC = 'settings/ai_tutor';
 const SESSIONS = 'ai_tutor_sessions';
@@ -207,21 +209,100 @@ const USAGE = 'ai_tutor_usage';
  */
 const reserveTtsChars = async (db, settings, chars) => {
   if (!chars) return false;
-  const ref = db.collection(USAGE).doc(seats.usageMonthKey());
+  const month = seats.usageMonthKey();
+  const ref = db.collection(USAGE).doc(month);
+  let decision = 'pause';
+  let used = 0;
   try {
-    return await db.runTransaction(async (tx) => {
+    decision = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
-      const used = snap.exists ? Number(snap.data().ttsChars) || 0 : 0;
-      if (!seats.ttsBudgetAllows({used, chars, budget: settings.ttsMonthlyCharBudget})) {
+      used = snap.exists ? Number(snap.data().ttsChars) || 0 : 0;
+      const allowed = seats.ttsBudgetAllows({used, chars, budget: settings.ttsMonthlyCharBudget});
+      const what = seats.voiceBudgetDecision({allowed, enabled: settings.enabled, pausedMonth: settings.voiceBudgetPausedMonth, month});
+      if (what === 'pause') {
         tx.set(ref, {ttsCharsRefused: admin.firestore.FieldValue.increment(chars), updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
-        return false;
+        return what;
       }
-      tx.set(ref, {ttsChars: used + chars, budget: settings.ttsMonthlyCharBudget, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
-      return true;
+      tx.set(ref, {ttsChars: used + chars, ...(what === 'paid' ? {paidChars: admin.firestore.FieldValue.increment(chars)} : {}), budget: settings.ttsMonthlyCharBudget, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      return what;
     });
   } catch (e) {
     console.error('[ai_tutor_voice] budget check failed, using the device voice:', e.message);
     return false;
+  }
+  if (decision === 'pause') {
+    await pauseTutorForVoiceBudget(db, settings, {used, budget: settings.ttsMonthlyCharBudget, month}).catch((e) => console.error('[ai_tutor_voice] pause failed:', e.message));
+    return false;
+  }
+  return true;
+};
+
+/**
+ * The free voice characters are used up: switch the tutor off and tell the
+ * admins. Resuming is the owner's call — set `enabled` back to true in
+ * settings/ai_tutor; further characters this month are then paid for.
+ */
+const pauseTutorForVoiceBudget = async (db, settings, {used, budget, month}) => {
+  const settingsRef = db.doc(SETTINGS_DOC);
+  const first = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(settingsRef);
+    const data = snap.exists ? snap.data() : {};
+    if (data.voiceBudgetPausedMonth === month) return false; // already paused (or resumed) this month
+    tx.set(settingsRef, {enabled: false, pausedReason: 'voice_budget', pausedAt: admin.firestore.FieldValue.serverTimestamp(), voiceBudgetPausedMonth: month}, {merge: true});
+    return true;
+  });
+  if (!first) return;
+  const title = 'AI tutor paused: free voice budget used up';
+  const body = `The tutor used ${used.toLocaleString('en-US')} of its ${budget.toLocaleString('en-US')} free voice characters for ${month} and has paused itself. Students see "The tutor is switched off at the moment." To resume on paid characters (about $30 per million), set enabled to true in settings/ai_tutor.`;
+  console.warn('[ai_tutor_voice]', title, body);
+  await Promise.all([notifyAdminsPush(db, {title, body, type: 'ai_tutor_paused'}), notifyAdminsEmail(db, {title, body})]);
+};
+
+const adminUsers = async (db) => {
+  const [byRole, byType] = await Promise.all([
+    db.collection('users').where('role', '==', 'admin').get(),
+    db.collection('users').where('user_type', '==', 'admin').get(),
+  ]);
+  const seen = new Map();
+  for (const d of [...byRole.docs, ...byType.docs]) seen.set(d.id, d.data() || {});
+  return [...seen.values()];
+};
+
+const notifyAdminsPush = async (db, {title, body, type}) => {
+  try {
+    const tokens = new Set();
+    for (const data of await adminUsers(db)) {
+      for (const entry of Array.isArray(data.fcmTokens) ? data.fcmTokens : []) {
+        const value = String(entry?.token || '').trim();
+        if (value) tokens.add(value);
+      }
+      const legacy = String(data.fcmToken || data.fcm_token || '').trim();
+      if (legacy) tokens.add(legacy);
+    }
+    if (!tokens.size) return 0;
+    await admin.messaging().sendEachForMulticast({notification: {title, body: body.slice(0, 240)}, data: {type}, tokens: [...tokens]});
+    return tokens.size;
+  } catch (e) {
+    console.error('[ai_tutor_voice] admin push failed:', e.message);
+    return 0;
+  }
+};
+
+const notifyAdminsEmail = async (db, {title, body}) => {
+  try {
+    const emails = [...new Set((await adminUsers(db)).map((u) => String(u.email || '').trim().toLowerCase()).filter((e) => e.includes('@')))];
+    if (!emails.length) return 0;
+    const transporter = await createTransporter();
+    const html = brandedEmailHtml({
+      heading: title,
+      bodyHtml: `<p>${body}</p><p>Open <strong>Firestore → settings → ai_tutor</strong> and set <code>enabled</code> to <code>true</code> to resume. Raise <code>ttsMonthlyCharBudget</code> if you want a bigger free-of-surprises limit next month.</p>`,
+      footerNote: 'Sent by the AI tutor when its monthly voice budget is reached.',
+    });
+    await transporter.sendMail({from: '"Alluwal Education Hub" <no-reply@alluwaleducationhub.org>', to: emails.join(', '), subject: title, html});
+    return emails.length;
+  } catch (e) {
+    console.error('[ai_tutor_voice] admin email failed:', e.message);
+    return 0;
   }
 };
 
@@ -363,6 +444,7 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
   const last = history[history.length - 1];
   if (!last || last.role !== 'user') throw new HttpsError('invalid-argument', 'Nothing to answer.');
 
+  if (!settings.enabled) throw new HttpsError('failed-precondition', 'The tutor is paused right now. Please come back later.');
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new HttpsError('failed-precondition', 'The tutor is not configured.');
   const language = seats.languageOf(last.text);

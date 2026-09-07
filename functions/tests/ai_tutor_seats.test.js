@@ -203,6 +203,14 @@ describe('the voice budget', () => {
     expect(seats.normalizeSettings({ttsMonthlyCharBudget: 0}).ttsMonthlyCharBudget).toBe(0);
     expect(seats.normalizeSettings({ttsMonthlyCharBudget: 'lots'}).ttsMonthlyCharBudget).toBe(1000000);
   });
+  test('over budget pauses once; an owner who re-enabled this month keeps going on paid characters', () => {
+    expect(seats.voiceBudgetDecision({allowed: true, enabled: true, pausedMonth: null, month: '2026-09'})).toBe('synthesize');
+    expect(seats.voiceBudgetDecision({allowed: false, enabled: true, pausedMonth: null, month: '2026-09'})).toBe('pause');
+    expect(seats.voiceBudgetDecision({allowed: false, enabled: false, pausedMonth: '2026-09', month: '2026-09'})).toBe('pause');
+    expect(seats.voiceBudgetDecision({allowed: false, enabled: true, pausedMonth: '2026-09', month: '2026-09'})).toBe('paid');
+    // A new month starts fresh: the old pause month no longer counts as consent.
+    expect(seats.voiceBudgetDecision({allowed: false, enabled: true, pausedMonth: '2026-09', month: '2026-10'})).toBe('pause');
+  });
   test('usage is counted per calendar month', () => {
     expect(seats.usageMonthKey(new Date('2026-09-06T23:59:00Z'))).toBe('2026-09');
     expect(seats.usageMonthKey(new Date('2026-10-01T00:00:00Z'))).toBe('2026-10');
