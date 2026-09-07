@@ -6445,5 +6445,6 @@
   "publicSiteCmsTestimonialNeedsQuoteAndName": "اكتب الاقتباس واسم الشخص قبل الحفظ.",
   "publicSiteCmsTestimonialReplacePhoto": "استبدال الصورة",
   "publicSiteCmsTestimonialRemovePhoto": "إزالة الصورة",
-  "publicSiteCmsTestimonialPhotoHint": "تُعرض كصورة دائرية بجانب الاسم. بدون صورة تظهر الأحرف الأولى."
+  "publicSiteCmsTestimonialPhotoHint": "تُعرض كصورة دائرية بجانب الاسم. بدون صورة تظهر الأحرف الأولى.",
+  "publicSiteCmsTestimonialDeleted": "تم حذف الشهادة."
 }

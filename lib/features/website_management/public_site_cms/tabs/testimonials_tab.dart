@@ -21,6 +21,14 @@ class PublicSiteTestimonialsTab extends StatefulWidget {
 class _PublicSiteTestimonialsTabState extends State<PublicSiteTestimonialsTab> {
   bool _importing = false;
 
+  /// Bumped after every save, delete or import so the list re-reads at once.
+  /// On the web the admin stream is a poll, and waiting for the next tick made
+  /// a deleted quote linger as if nothing had happened.
+  int _listVersion = 0;
+  void _reload() {
+    if (mounted) setState(() => _listVersion++);
+  }
+
   String _categoryLabel(AppLocalizations l, String category) {
     switch (category) {
       case 'parent':
@@ -42,6 +50,7 @@ class _PublicSiteTestimonialsTabState extends State<PublicSiteTestimonialsTab> {
     try {
       final r = await PublicSiteCmsService.importDefaultTestimonials();
       if (!mounted) return;
+      _reload();
       messenger?.showSnackBar(
         SnackBar(content: Text(l.publicSiteCmsTestimonialImportDone(r.imported, r.skipped))),
       );
@@ -70,6 +79,11 @@ class _PublicSiteTestimonialsTabState extends State<PublicSiteTestimonialsTab> {
     if (ok == true && mounted) {
       try {
         await PublicSiteCmsService.deleteTestimonial(t.id);
+        if (!mounted) return;
+        _reload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.publicSiteCmsTestimonialDeleted)),
+        );
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -90,6 +104,7 @@ class _PublicSiteTestimonialsTabState extends State<PublicSiteTestimonialsTab> {
     try {
       await PublicSiteCmsService.saveTestimonial(saved);
       if (!mounted) return;
+      _reload();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(saved.active ? l.publicSiteCmsTestimonialPublished : l.publicSiteCmsTestimonialDraftSaved)),
       );
@@ -106,6 +121,7 @@ class _PublicSiteTestimonialsTabState extends State<PublicSiteTestimonialsTab> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return StreamBuilder<List<PublicSiteTestimonial>>(
+      key: ValueKey(_listVersion),
       stream: PublicSiteCmsService.testimonialsAdminCmsStream(),
       builder: (context, snap) {
         if (snap.hasError) {

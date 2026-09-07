@@ -18271,4 +18271,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get publicSiteCmsTestimonialPhotoHint =>
       'Shown as a round avatar next to the name. Initials show without one.';
+
+  @override
+  String get publicSiteCmsTestimonialDeleted => 'Testimonial deleted.';
 }

@@ -18621,4 +18621,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get publicSiteCmsTestimonialPhotoHint =>
       'Affichée en avatar rond à côté du nom. Sans photo, les initiales s\'affichent.';
+
+  @override
+  String get publicSiteCmsTestimonialDeleted => 'Témoignage supprimé.';
 }
