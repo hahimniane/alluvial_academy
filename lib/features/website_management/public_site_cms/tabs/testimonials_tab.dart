@@ -1,5 +1,8 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/core/utils/platform_image_bytes.dart';
 import 'package:alluwalacademyadmin/core/models/public_site_cms_models.dart';
 import 'package:alluwalacademyadmin/core/services/public_site_cms_service.dart';
 import 'package:alluwalacademyadmin/features/website_management/public_site_cms/theme/public_site_cms_tokens.dart';
@@ -241,20 +244,64 @@ class _TestimonialEditorDialogState extends State<_TestimonialEditorDialog> {
   late final TextEditingController _quote = TextEditingController(text: widget.existing?.quote ?? '');
   late final TextEditingController _name = TextEditingController(text: widget.existing?.name ?? '');
   late final TextEditingController _role = TextEditingController(text: widget.existing?.role ?? '');
-  late final TextEditingController _imageUrl = TextEditingController(text: widget.existing?.imageUrl ?? '');
+  late final String _id = widget.existing?.id ?? PublicSiteCmsService.newTestimonialId();
+  String? _imageUrl;
+  bool _uploading = false;
   late final TextEditingController _sortOrder =
       TextEditingController(text: '${widget.existing?.sortOrder ?? widget.nextSortOrder}');
   late String _category = widget.existing?.category ?? 'parent';
   late bool _active = widget.existing?.active ?? true;
 
   @override
+  void initState() {
+    super.initState();
+    _imageUrl = widget.existing?.imageUrl;
+  }
+
+  @override
   void dispose() {
     _quote.dispose();
     _name.dispose();
     _role.dispose();
-    _imageUrl.dispose();
     _sortOrder.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUpload() async {
+    final l = AppLocalizations.of(context)!;
+    try {
+      final r = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: !kIsWeb,
+        withReadStream: kIsWeb,
+      );
+      if (r == null || r.files.isEmpty) return;
+      final f = r.files.first;
+      final bytes = await readPlatformImageBytes(f);
+      if (bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.publicSiteCmsUploadNoBytes)));
+        }
+        return;
+      }
+      setState(() => _uploading = true);
+      final url = await PublicSiteCmsService.uploadTestimonialPhoto(
+        testimonialId: _id,
+        bytes: bytes,
+        fileName: f.name,
+      );
+      if (!mounted) return;
+      setState(() => _imageUrl = url);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.publicSiteCmsUploadDone)));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   void _submit() {
@@ -268,12 +315,12 @@ class _TestimonialEditorDialogState extends State<_TestimonialEditorDialog> {
       return;
     }
     Navigator.of(context).pop(PublicSiteTestimonial(
-      id: widget.existing?.id ?? '',
+      id: _id,
       quote: quote,
       name: name,
       role: _role.text.trim(),
       category: _category,
-      imageUrl: _imageUrl.text.trim().isEmpty ? null : _imageUrl.text.trim(),
+      imageUrl: _imageUrl,
       sortOrder: int.tryParse(_sortOrder.text.trim()) ?? widget.nextSortOrder,
       active: _active,
     ));
@@ -312,7 +359,47 @@ class _TestimonialEditorDialogState extends State<_TestimonialEditorDialog> {
               const SizedBox(height: 12),
               TextField(controller: _role, decoration: deco(l.publicSiteCmsTestimonialRole)),
               const SizedBox(height: 12),
-              TextField(controller: _imageUrl, decoration: deco(l.publicSiteCmsTestimonialPhotoUrl)),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: const Color(0xFFE6EEF8),
+                    foregroundColor: PublicSiteCmsTheme.accentNavy,
+                    backgroundImage: (_imageUrl ?? '').isNotEmpty ? NetworkImage(_imageUrl!) : null,
+                    child: (_imageUrl ?? '').isNotEmpty
+                        ? null
+                        : Text(publicSiteInitials(_name.text).isEmpty ? '?' : publicSiteInitials(_name.text),
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _uploading ? null : _pickAndUpload,
+                          icon: _uploading
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.upload_outlined, size: 18),
+                          label: Text((_imageUrl ?? '').isNotEmpty
+                              ? l.publicSiteCmsTestimonialReplacePhoto
+                              : l.publicSiteCmsUploadPhoto),
+                        ),
+                        if ((_imageUrl ?? '').isNotEmpty)
+                          TextButton(
+                            onPressed: _uploading ? null : () => setState(() => _imageUrl = null),
+                            child: Text(l.publicSiteCmsTestimonialRemovePhoto),
+                          )
+                        else
+                          Text(
+                            l.publicSiteCmsTestimonialPhotoHint,
+                            style: GoogleFonts.inter(fontSize: 12, color: PublicSiteCmsTheme.textTertiary),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _sortOrder,
@@ -333,7 +420,7 @@ class _TestimonialEditorDialogState extends State<_TestimonialEditorDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.commonCancel)),
         FilledButton(
-          onPressed: _submit,
+          onPressed: _uploading ? null : _submit,
           child: Text(_active ? l.publicSiteCmsTestimonialPublish : l.publicSiteCmsTestimonialSaveDraft),
         ),
       ],

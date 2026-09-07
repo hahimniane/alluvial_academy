@@ -1057,7 +1057,40 @@ abstract final class PublicSiteCmsService {
     if (FirebaseAuth.instance.currentUser == null) {
       throw StateError('Must be signed in');
     }
+    String? imageUrl;
+    try {
+      final snap = await _db.collection(testimonialsCollection).doc(id).get();
+      imageUrl = snap.data()?['imageUrl']?.toString();
+    } catch (_) {}
     await _db.collection(testimonialsCollection).doc(id).delete();
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      try {
+        await FirebaseStorage.instance.refFromURL(imageUrl).delete();
+      } catch (_) {
+        // Best effort: the photo may already be gone.
+      }
+    }
+  }
+
+  /// A new testimonial's id, chosen before the photo upload so the file is keyed to it.
+  static String newTestimonialId() => _db.collection(testimonialsCollection).doc().id;
+
+  static Future<String> uploadTestimonialPhoto({
+    required String testimonialId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw StateError('Must be signed in');
+    await syncAdminClaimForPublicSiteStorage(force: true);
+    await user.getIdToken(true);
+    final safeName = fileName.replaceAll(RegExp(r'[^\w.\-]'), '_');
+    final path =
+        'public_site_assets/cms/${user.uid}/testimonials/${testimonialId}_${DateTime.now().millisecondsSinceEpoch}_$safeName';
+    final ref = FirebaseStorage.instance.ref(path);
+    final task = ref.putData(bytes, SettableMetadata(contentType: _inferImageContentType(bytes, fileName)));
+    final snapshot = await task;
+    return snapshot.ref.getDownloadURL();
   }
 
   /// Copies the built-in quotes in so they can be edited or retired one by one.

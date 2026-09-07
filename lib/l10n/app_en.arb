@@ -8111,7 +8111,6 @@
   "publicSiteCmsTestimonialCategoryTeacher": "Teacher",
   "publicSiteCmsTestimonialCategoryOther": "Community",
   "publicSiteCmsTestimonialRole": "Shown under the name, e.g. “Parent of two students · Bronx, NY”",
-  "publicSiteCmsTestimonialPhotoUrl": "Photo URL (optional)",
   "publicSiteCmsTestimonialSortOrder": "Sort order",
   "publicSiteCmsTestimonialPublishedToggle": "Published on the home page",
   "publicSiteCmsTestimonialPublish": "Publish",
@@ -8121,5 +8120,8 @@
   "publicSiteCmsTestimonialDraftBadge": "Draft",
   "publicSiteCmsTestimonialDeleteTitle": "Delete this testimonial?",
   "publicSiteCmsTestimonialNeedsQuoteAndName": "Write the quote and the person's name before saving.",
-  "@publicSiteCmsTestimonialImportDone": {"placeholders": {"imported": {"type": "int"}, "skipped": {"type": "int"}}}
+  "@publicSiteCmsTestimonialImportDone": {"placeholders": {"imported": {"type": "int"}, "skipped": {"type": "int"}}},
+  "publicSiteCmsTestimonialReplacePhoto": "Replace photo",
+  "publicSiteCmsTestimonialRemovePhoto": "Remove photo",
+  "publicSiteCmsTestimonialPhotoHint": "Shown as a round avatar next to the name. Initials show without one."
 }

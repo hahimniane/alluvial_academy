@@ -18182,9 +18182,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'يظهر تحت الاسم، مثل «ولي أمر طالبين · برونكس، نيويورك»';
 
   @override
-  String get publicSiteCmsTestimonialPhotoUrl => 'رابط الصورة (اختياري)';
-
-  @override
   String get publicSiteCmsTestimonialSortOrder => 'ترتيب العرض';
 
   @override
@@ -18212,4 +18209,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get publicSiteCmsTestimonialNeedsQuoteAndName =>
       'اكتب الاقتباس واسم الشخص قبل الحفظ.';
+
+  @override
+  String get publicSiteCmsTestimonialReplacePhoto => 'استبدال الصورة';
+
+  @override
+  String get publicSiteCmsTestimonialRemovePhoto => 'إزالة الصورة';
+
+  @override
+  String get publicSiteCmsTestimonialPhotoHint =>
+      'تُعرض كصورة دائرية بجانب الاسم. بدون صورة تظهر الأحرف الأولى.';
 }
