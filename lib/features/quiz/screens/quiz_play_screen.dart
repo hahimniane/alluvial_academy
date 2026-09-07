@@ -665,7 +665,7 @@ class _QuizResultScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
               // Score Card
-              _buildScoreCard(),
+              _buildScoreCard(context),
 
               const Spacer(),
 
@@ -738,7 +738,7 @@ class _QuizResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildScoreCard() {
+  Widget _buildScoreCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
