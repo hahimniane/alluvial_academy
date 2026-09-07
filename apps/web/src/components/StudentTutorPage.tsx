@@ -123,6 +123,7 @@ export function StudentTutorPage() {
   const langRef = useRef<Lang>("en");
   const messagesRef = useRef<Message[]>([]);
   const sessionRef = useRef<string | null>(null);
+  const endSessionRef = useRef<() => Promise<void>>(async () => {});
   const supported = useMemo(() => Boolean(speechCtor()), []);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -266,7 +267,7 @@ export function StudentTutorPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The tutor could not answer.";
       setNotice(msg);
-      if (/hour is up|has ended/i.test(msg)) { aliveRef.current = false; setSessionId(null); setPhase("idle"); void loadAvailability(); return; }
+      if (/hour is up|has ended|paused|switched off/i.test(msg)) { void endSessionRef.current(); return; }
       if (aliveRef.current) listen();
     }
   }, [listen, say, supported, stopListening, loadAvailability]);
@@ -310,6 +311,7 @@ export function StudentTutorPage() {
     if (sid) { try { await call<{ sessionId: string }, unknown>("aiTutorEndSession")({ sessionId: sid }); } catch { /* the sweeper closes it */ } }
     await loadAvailability();
   }, [stopListening, hush, loadAvailability]);
+  useEffect(() => { endSessionRef.current = endSession; }, [endSession]);
 
   // Tapping while the tutor speaks interrupts it and hands the floor back.
   const interrupt = useCallback(() => {
