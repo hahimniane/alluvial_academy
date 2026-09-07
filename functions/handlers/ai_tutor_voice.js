@@ -198,6 +198,39 @@ const aiTutorCancelBooking = onCall(async (request) => {
 
 /* -------------------------------------------------------------- session -- */
 
+const USAGE = 'ai_tutor_usage';
+
+/**
+ * Reserves cloud-voice characters against this month's budget. Returns true
+ * when the reply may be synthesised; false means the phone reads it itself.
+ * Counted before synthesis so ten students at once cannot overshoot together.
+ */
+const reserveTtsChars = async (db, settings, chars) => {
+  if (!chars) return false;
+  const ref = db.collection(USAGE).doc(seats.usageMonthKey());
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const used = snap.exists ? Number(snap.data().ttsChars) || 0 : 0;
+      if (!seats.ttsBudgetAllows({used, chars, budget: settings.ttsMonthlyCharBudget})) {
+        tx.set(ref, {ttsCharsRefused: admin.firestore.FieldValue.increment(chars), updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+        return false;
+      }
+      tx.set(ref, {ttsChars: used + chars, budget: settings.ttsMonthlyCharBudget, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      return true;
+    });
+  } catch (e) {
+    console.error('[ai_tutor_voice] budget check failed, using the device voice:', e.message);
+    return false;
+  }
+};
+
+const speakIfWithinBudget = async (db, settings, text, language) => {
+  const chars = Math.min(String(text || '').length, tts.MAX_CHARS);
+  if (!(await reserveTtsChars(db, settings, chars))) return null;
+  return tts.synthesize({text, language, settings, projectId: process.env.GCLOUD_PROJECT});
+};
+
 const GREETING = (firstName) => `Assalamu alaikum ${firstName}. I'm Alluwal, your tutor. What are we working on today?`;
 
 const aiTutorStartSession = onCall(async (request) => {
@@ -211,7 +244,7 @@ const aiTutorStartSession = onCall(async (request) => {
   const greeting = GREETING(caller.firstName);
   const [started, spoken] = await Promise.all([
     startSessionTx({db, uid, caller, settings, now}),
-    tts.synthesize({text: greeting, language: 'en', settings, projectId: process.env.GCLOUD_PROJECT}),
+    speakIfWithinBudget(db, settings, greeting, 'en'),
   ]);
   if (spoken) await db.collection(SESSIONS).doc(started.sessionId).update({ttsChars: admin.firestore.FieldValue.increment(spoken.chars), ttsVoice: spoken.voice}).catch(() => {});
   return {...started, greeting, greetingAudio: spoken ? spoken.audio : null, audioMime: spoken ? spoken.mime : null};
@@ -344,7 +377,7 @@ const aiTutorTurn = onCall({secrets: ['GEMINI_API_KEY'], timeoutSeconds: 60}, as
   }
 
   const replyLanguage = seats.languageOf(reply.text);
-  const spoken = await tts.synthesize({text: reply.text, language: replyLanguage, settings, projectId: process.env.GCLOUD_PROJECT});
+  const spoken = await speakIfWithinBudget(admin.firestore(), settings, reply.text, replyLanguage);
 
   await ref.update({
     turns: admin.firestore.FieldValue.increment(1),

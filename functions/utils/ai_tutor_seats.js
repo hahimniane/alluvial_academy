@@ -22,6 +22,12 @@ const DEFAULT_SETTINGS = Object.freeze({
   models: ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
   /** Longest a single conversation is kept when sent to the model. */
   maxHistoryMessages: 16,
+  /**
+   * Cloud voice characters allowed per calendar month. Google gives the first
+   * million free; past the budget the phone's own voice reads the replies, so
+   * the voice bill cannot grow on its own.
+   */
+  ttsMonthlyCharBudget: 1000000,
 });
 
 const _int = (value, fallback) => {
@@ -50,6 +56,7 @@ const normalizeSettings = (raw) => {
     maxHistoryMessages: _int(data.maxHistoryMessages, DEFAULT_SETTINGS.maxHistoryMessages),
     /** Optional per-language Cloud TTS voice overrides, e.g. {en: 'en-US-Chirp3-HD-Kore'}. */
     voices: data.voices && typeof data.voices === 'object' ? data.voices : {},
+    ttsMonthlyCharBudget: data.ttsMonthlyCharBudget === 0 ? 0 : _int(data.ttsMonthlyCharBudget, DEFAULT_SETTINGS.ttsMonthlyCharBudget),
   };
 };
 
@@ -206,6 +213,12 @@ const ageProfile = ({user = {}, enrollmentAges = [], now = new Date()} = {}) => 
   return {age: null, band: 'unknown'};
 };
 
+/** The usage document for a moment: one per calendar month, UTC. */
+const usageMonthKey = (date = new Date()) => DateTime.fromJSDate(date, {zone: 'utc'}).toFormat('yyyy-LL');
+
+/** Whether `chars` more cloud-voice characters fit inside this month's budget. */
+const ttsBudgetAllows = ({used, chars, budget}) => budget > 0 && (Number(used) || 0) + chars <= budget;
+
 /** Seats a walk-in could take this minute (never below zero). */
 const freeSeatsNow = ({settings, activeCount, slotBookings, uid}) => {
   const heldForOthers = slotBookings.filter((b) => !b.started && b.userId !== uid).length;
@@ -261,5 +274,7 @@ module.exports = {
   languageOf,
   ageProfile,
   freeSeatsNow,
+  usageMonthKey,
+  ttsBudgetAllows,
   SYSTEM_PROMPT,
 };

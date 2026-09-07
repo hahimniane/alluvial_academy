@@ -191,6 +191,24 @@ describe('the voice', () => {
   });
 });
 
+describe('the voice budget', () => {
+  test('a month of characters fits until the budget, then the phone reads', () => {
+    expect(seats.ttsBudgetAllows({used: 0, chars: 500, budget: 1000000})).toBe(true);
+    expect(seats.ttsBudgetAllows({used: 999600, chars: 400, budget: 1000000})).toBe(true);
+    expect(seats.ttsBudgetAllows({used: 999700, chars: 400, budget: 1000000})).toBe(false);
+    expect(seats.ttsBudgetAllows({used: 0, chars: 1, budget: 0})).toBe(false);
+  });
+  test('the budget defaults to the free tier and can be set to zero', () => {
+    expect(seats.normalizeSettings({}).ttsMonthlyCharBudget).toBe(1000000);
+    expect(seats.normalizeSettings({ttsMonthlyCharBudget: 0}).ttsMonthlyCharBudget).toBe(0);
+    expect(seats.normalizeSettings({ttsMonthlyCharBudget: 'lots'}).ttsMonthlyCharBudget).toBe(1000000);
+  });
+  test('usage is counted per calendar month', () => {
+    expect(seats.usageMonthKey(new Date('2026-09-06T23:59:00Z'))).toBe('2026-09');
+    expect(seats.usageMonthKey(new Date('2026-10-01T00:00:00Z'))).toBe('2026-10');
+  });
+});
+
 describe('free seats now', () => {
   test('seats held for other bookers are not free; my own hold is', () => {
     const held = [{started: false, userId: 'a'}, {started: false, userId: 'me'}, {started: true, userId: 'b'}];
