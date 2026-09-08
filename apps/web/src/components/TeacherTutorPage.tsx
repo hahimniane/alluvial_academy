@@ -43,6 +43,7 @@ import {
   TeacherTutorWhiteboard,
   type TutorWhiteboardProject,
 } from "@/components/TeacherTutorWhiteboard";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type Mode = "voice" | "text";
@@ -224,7 +225,7 @@ export function TeacherTutorPage() {
         clientNowEpochMs: Date.now(),
       });
       if (!response.data.success)
-        throw new Error("Failed to start AI Tutor session");
+        throw new Error(tr("Failed to start AI Tutor session"));
       requestedRoomName = response.data.roomName;
       setRoomName(requestedRoomName);
       const room = new Room({ adaptiveStream: true, dynacast: true });
@@ -466,7 +467,7 @@ export function TeacherTutorPage() {
         <header className="flex items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 py-3">
           <button
             type="button"
-            aria-label="Open teacher menu"
+            aria-label={tr("Open teacher menu")}
             onClick={openTeacherMobileMenu}
             className="grid h-11 w-11 place-items-center rounded-xl lg:hidden"
           >
@@ -474,12 +475,12 @@ export function TeacherTutorPage() {
           </button>
           <Bot className="text-[#0E72ED]" />
           <h1 className="min-w-0 flex-1 truncate text-lg font-extrabold">
-            AI Tutor
+            {tr("AI Tutor")}
           </h1>
           {connection === "connected" ? (
             <button
               type="button"
-              aria-label="Open AI Tutor whiteboard"
+              aria-label={tr("Open AI Tutor whiteboard")}
               onClick={() => setWhiteboardOpen(true)}
               className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"
             >
@@ -488,7 +489,7 @@ export function TeacherTutorPage() {
           ) : null}
           <button
             type="button"
-            aria-label="Tutor preferences"
+            aria-label={tr("Tutor preferences")}
             onClick={() => setSettingsOpen(true)}
             className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"
           >
@@ -501,7 +502,7 @@ export function TeacherTutorPage() {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-200 px-3 font-bold text-red-600"
             >
               <Square size={16} />
-              End
+              {tr("End")}
             </button>
           ) : null}
         </header>
@@ -522,10 +523,10 @@ export function TeacherTutorPage() {
                   size={42}
                 />
                 <h2 className="mt-5 text-xl font-extrabold">
-                  Connecting to Alluwal…
+                  {tr("Connecting to Alluwal…")}
                 </h2>
                 <p className="mt-2 text-[#64748B]">
-                  Preparing your private tutor session.
+                  {tr("Preparing your private tutor session.")}
                 </p>
               </div>
             </div>
@@ -604,30 +605,30 @@ function ModeSelection({
           <Bot size={42} />
         </span>
         <h2 className="mt-5 text-2xl font-extrabold">
-          How would you like to interact?
+          {tr("How would you like to interact?")}
         </h2>
         <p className="mt-2 text-[#64748B]">
-          Choose your preferred way to communicate with Alluwal.
+          {tr("Choose your preferred way to communicate with Alluwal.")}
         </p>
         <div className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 text-left text-sm text-[#475569]">
           <p>
-            <strong>Voice:</strong> {voiceLabel(voice)}
+            <strong>{tr("Voice:")}</strong> {voiceLabel(voice)}
           </p>
           <p className="mt-1">
-            <strong>Background:</strong> {backgroundLabel(background)}
+            <strong>{tr("Background:")}</strong> {backgroundLabel(background)}
           </p>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <ModeButton
             icon={Mic}
-            title="Voice"
+            title={tr("Voice")}
             subtitle="Speak and listen to Alluwal"
             color="emerald"
             onClick={() => onSelect("voice")}
           />
           <ModeButton
             icon={MessageSquare}
-            title="Text"
+            title={tr("Text")}
             subtitle="Type messages to Alluwal"
             color="blue"
             onClick={() => onSelect("text")}
@@ -702,21 +703,21 @@ function ConnectedView({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-extrabold">
-            {agentJoined ? "Alluwal is ready" : "Waiting for the tutor agent"}
+            {agentJoined ? tr("Alluwal is ready") : tr("Waiting for the tutor agent")}
           </p>
           <p className="text-sm text-[#64748B]">
             {mode === "voice"
               ? micEnabled
-                ? "Listening — speak now"
-                : "Microphone is off"
-              : "Text conversation"}
+                ? tr("Listening — speak now")
+                : tr("Microphone is off")
+              : tr("Text conversation")}
           </p>
         </div>
         {mode === "voice" ? (
           <button
             type="button"
             aria-label={
-              micEnabled ? "Turn microphone off" : "Turn microphone on"
+              micEnabled ? tr("Turn microphone off") : tr("Turn microphone on")
             }
             onClick={onToggleMic}
             className={`grid h-12 w-12 place-items-center rounded-full ${micEnabled ? "bg-[#0E72ED] text-white" : "bg-red-100 text-red-600"}`}
@@ -737,7 +738,7 @@ function ConnectedView({
       ) : null}
       <div
         className="min-h-64 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white p-4"
-        aria-label="Tutor conversation"
+        aria-label={tr("Tutor conversation")}
       >
         {messages.length ? (
           messages.map((message) => (
@@ -756,7 +757,7 @@ function ConnectedView({
           <div className="grid h-full min-h-56 place-items-center text-center text-[#94A3B8]">
             <div>
               <Bot className="mx-auto" size={34} />
-              <p className="mt-3">Your conversation will appear here.</p>
+              <p className="mt-3">{tr("Your conversation will appear here.")}</p>
             </div>
           </div>
         )}
@@ -769,20 +770,20 @@ function ConnectedView({
         className="mt-4 flex gap-2"
       >
         <label className="sr-only" htmlFor="tutor-message">
-          Message Alluwal
+          {tr("Message Alluwal")}
         </label>
         <input
           id="tutor-message"
           value={draft}
           onChange={(event) => onDraft(event.target.value)}
           disabled={!agentJoined}
-          placeholder={agentJoined ? "Type a message…" : "Waiting for agent…"}
+          placeholder={agentJoined ? tr("Type a message…") : tr("Waiting for agent…")}
           className="h-12 min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-white px-4 outline-none focus:border-[#0E72ED] disabled:bg-[#F1F5F9]"
         />
         <button
           type="submit"
           disabled={!draft.trim() || !agentJoined}
-          aria-label="Send tutor message"
+          aria-label={tr("Send tutor message")}
           className="grid h-12 w-12 place-items-center rounded-xl bg-[#0E72ED] text-white disabled:opacity-40"
         >
           <Send size={20} />
@@ -819,45 +820,45 @@ function TutorSettings({
       className="fixed inset-0 z-[90] grid items-end bg-black/45 sm:place-items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Tutor preferences"
+      aria-label={tr("Tutor preferences")}
     >
       <div className="w-full rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-3xl">
         <header className="flex items-center">
-          <h2 className="flex-1 text-xl font-extrabold">Tutor preferences</h2>
+          <h2 className="flex-1 text-xl font-extrabold">{tr("Tutor preferences")}</h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close tutor preferences"
+            aria-label={tr("Close tutor preferences")}
             className="grid h-10 w-10 place-items-center"
           >
             <X size={20} />
           </button>
         </header>
         <label className="mt-5 block text-sm font-bold">
-          Interaction mode
+          {tr("Interaction mode")}
           <select
             value={nextMode}
             onChange={(event) => setNextMode(event.target.value as Mode)}
             className="mt-2 h-11 w-full rounded-xl border border-[#CBD5E1] px-3"
           >
-            <option value="voice">Voice</option>
-            <option value="text">Text</option>
+            <option value="voice">{tr("Voice")}</option>
+            <option value="text">{tr("Text")}</option>
           </select>
         </label>
         <label className="mt-4 block text-sm font-bold">
-          Tutor voice
+          {tr("Tutor voice")}
           <select
             value={nextVoice}
             onChange={(event) => setNextVoice(event.target.value as Voice)}
             className="mt-2 h-11 w-full rounded-xl border border-[#CBD5E1] px-3"
           >
-            <option value="blake">Blake (Default)</option>
-            <option value="jacqueline">Jacqueline</option>
-            <option value="robyn">Robyn</option>
+            <option value="blake">{tr("Blake (Default)")}</option>
+            <option value="jacqueline">{tr("Jacqueline")}</option>
+            <option value="robyn">{tr("Robyn")}</option>
           </select>
         </label>
         <label className="mt-4 block text-sm font-bold">
-          Background sound
+          {tr("Background sound")}
           <select
             value={nextBackground}
             onChange={(event) =>
@@ -876,7 +877,7 @@ function TutorSettings({
         </label>
         {connected ? (
           <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-            Applying changes restarts the current tutor session.
+            {tr("Applying changes restarts the current tutor session.")}
           </p>
         ) : null}
         <button
@@ -886,7 +887,7 @@ function TutorSettings({
           }
           className="mt-5 min-h-11 w-full rounded-xl bg-[#0E72ED] font-bold text-white"
         >
-          Apply preferences
+          {tr("Apply preferences")}
         </button>
       </div>
     </section>
@@ -902,7 +903,7 @@ function ErrorCard({
   return (
     <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-900">
       <AlertTriangle className="mx-auto" size={34} />
-      <h2 className="mt-3 text-lg font-extrabold">AI Tutor unavailable</h2>
+      <h2 className="mt-3 text-lg font-extrabold">{tr("AI Tutor unavailable")}</h2>
       <p className="mt-2 text-sm">{message}</p>
       {onRetry ? (
         <button
@@ -910,7 +911,7 @@ function ErrorCard({
           onClick={onRetry}
           className="mt-5 min-h-11 rounded-xl bg-red-600 px-5 font-bold text-white"
         >
-          Try Again
+          {tr("Try Again")}
         </button>
       ) : null}
     </div>
@@ -983,9 +984,9 @@ async function executeTutorClockIn(args: Record<string, unknown>) {
   try {
     await runTransaction(db, async (transaction) => {
       const fresh = await transaction.get(shiftRef);
-      if (!fresh.exists()) throw new Error("This shift is no longer available.");
+      if (!fresh.exists()) throw new Error(tr("This shift is no longer available."));
       const current = fresh.data() as Record<string, unknown>;
-      if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error("You are already clocked in to this shift.");
+      if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error(tr("You are already clocked in to this shift."));
       transaction.set(timesheetRef, { teacher_id: user.uid, teacher_email: user.email, teacher_name: text(shift.teacher_name) || user.displayName || user.email, shift_id: shiftId, shift_category: text(shift.shift_category ?? shift.category) || "teaching", date: formatDate(now), student_name: studentNames.join(", ") || title, start_time: formatClock(now), end_time: "", total_hours: "00:00", hourly_rate: hourlyRate, pay_rate_source: hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate", is_subject_billable: true, description: `Teaching session: ${text(shift.subject) || title} - ${title}`, status: "pending", source: "shift_clock_in", completion_method: "pending", clock_in_timestamp: Timestamp.fromDate(now), clock_in_status: clockDeviationStatus(now, start), clock_in_deviation_minutes: Math.round((now.getTime() - start.getTime()) / 60_000), clock_in_platform: "web", clock_in_latitude: location.latitude, clock_in_longitude: location.longitude, clock_in_address: "Browser location", clock_in_neighborhood: "", shift_title: title, scheduled_start: Timestamp.fromDate(start), scheduled_end: Timestamp.fromDate(end), scheduled_duration_minutes: Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000)), created_at: serverTimestamp(), updated_at: serverTimestamp() });
       transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), status: "active", clock_out_time: null, clock_in_time: Timestamp.fromDate(now), last_clock_in_platform: "web" });
     });
@@ -1022,6 +1023,6 @@ function numberValue(value: unknown) { return typeof value === "number" && Numbe
 function stringList(value: unknown) { return Array.isArray(value) ? value.map(text).filter(Boolean) : text(value) ? [text(value)] : []; }
 function browserLocation() { return new Promise<{ latitude: number; longitude: number } | null>((resolve) => { if (!navigator.geolocation) { resolve(null); return; } navigator.geolocation.getCurrentPosition((position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }), () => resolve(null), { enableHighAccuracy: true, timeout: 15000, maximumAge: 30_000 }); }); }
 function formatDate(value: Date) { return `${String(value.getMonth() + 1).padStart(2, "0")}/${String(value.getDate()).padStart(2, "0")}/${value.getFullYear()}`; }
-function formatClock(value: Date) { return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).format(value); }
+function formatClock(value: Date) { return new Intl.DateTimeFormat(dateLocale(), { hour: "numeric", minute: "2-digit", hour12: true }).format(value); }
 function clockDeviationStatus(now: Date, start: Date) { const minutes = Math.round((now.getTime() - start.getTime()) / 60_000); return minutes < -1 ? "early" : minutes > 5 ? "late" : "on_time"; }
 function callableMessage(cause: unknown) { return cause instanceof Error && cause.message ? cause.message : "The scheduling service is unavailable."; }

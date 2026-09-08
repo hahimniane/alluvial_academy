@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2, Lock, LockOpen, RefreshCw, UserMinus, Users, Video,
 import { auth, db, functions } from "@/lib/firebase";
 import { isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt } from "@/components/TeacherDashboardHome";
+import { tr, markLocaleHydrated } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type RoomStatus = "idle" | "token" | "connecting" | "ready" | "error";
@@ -54,6 +55,7 @@ type ClassroomShift = {
 
 export function TeacherClassroomPage() {
   const searchParams = useSearchParams();
+  useEffect(() => markLocaleHydrated(), []);
   const shiftId = searchParams.get("shiftId")?.trim() ?? "";
   const [access, setAccess] = useState<AccessState>("checking");
   const [status, setStatus] = useState<RoomStatus>("idle");
@@ -243,22 +245,22 @@ export function TeacherClassroomPage() {
   return (
     <main className="min-h-screen bg-black text-white">
       <header className="fixed left-0 right-0 top-0 z-20 flex min-h-14 items-center gap-2 bg-black/70 px-3 backdrop-blur">
-        <Link href="/teacher/classes/" aria-label="Back to classes" className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
+        <Link href="/teacher/classes/" aria-label={tr("Back to classes")} className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
           <ArrowLeft size={22} />
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-bold">{shiftName}</h1>
-          <p className="truncate text-xs text-white/70">{status === "ready" ? "Connected" : message}</p>
+          <p className="truncate text-xs text-white/70">{status === "ready" ? tr("Connected") : message}</p>
         </div>
         {status === "ready" ? (
           <>
-            <button type="button" aria-label="Reconnect to class" onClick={reconnect} className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
+            <button type="button" aria-label={tr("Reconnect to class")} onClick={reconnect} className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
               <RefreshCw size={19} />
             </button>
-            <button type="button" aria-label={roomLocked ? "Unlock class" : "Lock class"} onClick={toggleRoomLock} disabled={controlBusy === "lock"} className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10 disabled:opacity-50">
+            <button type="button" aria-label={roomLocked ? tr("Unlock class") : tr("Lock class")} onClick={toggleRoomLock} disabled={controlBusy === "lock"} className="grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10 disabled:opacity-50">
               {controlBusy === "lock" ? <Loader2 size={19} className="animate-spin" /> : roomLocked ? <Lock size={19} /> : <LockOpen size={19} />}
             </button>
-            <button type="button" aria-label="Show class participants" onClick={() => setRosterOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
+            <button type="button" aria-label={tr("Show class participants")} onClick={() => setRosterOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl text-white hover:bg-white/10">
               <Users size={20} />
               <span className="absolute right-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-[#0E72ED] px-1 text-[10px] font-black">{participants.length}</span>
             </button>
@@ -284,16 +286,16 @@ export function TeacherClassroomPage() {
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#0E72ED]/20 text-[#60A5FA]">
               {status === "error" ? <Video size={32} /> : <Loader2 size={32} className="animate-spin" />}
             </div>
-            <h2 className="mt-5 text-xl font-bold">{status === "error" ? "Could not join class" : "Connecting to Class"}</h2>
+            <h2 className="mt-5 text-xl font-bold">{status === "error" ? tr("Could not join class") : tr("Connecting to Class")}</h2>
             <p className="mt-2 text-sm leading-6 text-white/70">{message}</p>
             {status === "error" ? (
               <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button type="button" onClick={reconnect} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-bold text-white">
                   <RefreshCw size={18} />
-                  Reconnect
+                  {tr("Reconnect")}
                 </button>
                 <Link href="/teacher/classes/" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-bold text-white">
-                  Back to Classes
+                  {tr("Back to Classes")}
                 </Link>
               </div>
             ) : null}
@@ -308,15 +310,15 @@ export function TeacherClassroomPage() {
       ) : null}
 
       {rosterOpen ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/45" role="dialog" aria-modal="true" aria-label="Class participants">
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/45" role="dialog" aria-modal="true" aria-label={tr("Class participants")}>
           <section className="flex h-full w-full max-w-sm flex-col bg-[#0F172A] shadow-2xl">
             <header className="flex min-h-16 items-center gap-3 border-b border-white/10 px-4">
               <Users size={21} className="text-[#60A5FA]" />
               <div className="min-w-0 flex-1">
-                <h2 className="font-bold">Class participants</h2>
-                <p className="text-xs text-white/60">{participants.length} currently connected</p>
+                <h2 className="font-bold">{tr("Class participants")}</h2>
+                <p className="text-xs text-white/60">{participants.length} {tr("currently connected")}</p>
               </div>
-              <button type="button" aria-label="Close participants" onClick={() => setRosterOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-white/10">
+              <button type="button" aria-label={tr("Close participants")} onClick={() => setRosterOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-white/10">
                 <X size={20} />
               </button>
             </header>
@@ -343,7 +345,7 @@ export function TeacherClassroomPage() {
                   })}
                 </div>
               ) : (
-                <div className="grid min-h-48 place-items-center text-center text-sm text-white/55">No participants are visible yet.</div>
+                <div className="grid min-h-48 place-items-center text-center text-sm text-white/55">{tr("No participants are visible yet.")}</div>
               )}
             </div>
           </section>
@@ -375,14 +377,15 @@ async function loadClassroomShift(shiftId: string): Promise<ClassroomShift | nul
 }
 
 function classAvailability(shift: ClassroomShift) {
-  if (!shift.start || !shift.end) return { kind: "blocked", message: "Class time is not set." } as const;
+  if (!shift.start || !shift.end) return { kind: "blocked", message: tr("Class time is not set.") } as const;
   const now = new Date();
   const joinWindowStart = addMinutes(shift.start, -10);
   const joinWindowEnd = addMinutes(shift.end, 10);
   if (now < joinWindowStart) {
-    return { kind: "blocked", message: `Class opens in ${Math.max(1, Math.ceil((joinWindowStart.getTime() - now.getTime()) / 60000))} minutes` } as const;
+    const minutes = Math.max(1, Math.ceil((joinWindowStart.getTime() - now.getTime()) / 60000));
+    return { kind: "blocked", message: minutes === 1 ? tr("Class opens in 1 minute") : tr("Class opens in {n} minutes", { n: minutes }) } as const;
   }
-  if (now > joinWindowEnd) return { kind: "blocked", message: "This class has ended" } as const;
+  if (now > joinWindowEnd) return { kind: "blocked", message: tr("This class has ended") } as const;
   return { kind: "ready" } as const;
 }
 
@@ -395,9 +398,9 @@ function classroomErrorMessage(error: unknown) {
     normalized === "internal" ||
     normalized.includes("internal")
   ) {
-    return "Class video is unavailable in this Firebase project. RealtimeKit functions or secrets are not configured.";
+    return tr("Class video is unavailable in this Firebase project. RealtimeKit functions or secrets are not configured.");
   }
-  return raw.trim() || "Unable to join this class.";
+  return raw.trim() || tr("Unable to join this class.");
 }
 
 function functionErrorMessage(error: unknown, fallback: string) {

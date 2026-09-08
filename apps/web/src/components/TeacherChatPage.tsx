@@ -9,6 +9,7 @@ import type { LucideIcon } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type ChatTab = "recent" | "contacts";
@@ -318,10 +319,10 @@ export function TeacherChatPage() {
           <div className="rounded-[10px] bg-[#F1F5F9] p-1">
             <div className="grid grid-cols-2 gap-1">
               <ChatTabButton active={activeTab === "recent"} onClick={() => setActiveTab("recent")}>
-                Recent Chats
+                {tr("Recent Chats")}
               </ChatTabButton>
               <ChatTabButton active={activeTab === "contacts"} onClick={() => setActiveTab("contacts")}>
-                My Contacts
+                {tr("My Contacts")}
               </ChatTabButton>
             </div>
           </div>
@@ -333,8 +334,8 @@ export function TeacherChatPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search conversations and users..."
-              aria-label="Search conversations and users"
+              placeholder={tr("Search conversations and users...")}
+              aria-label={tr("Search conversations and users")}
               className="h-full w-full rounded-xl border-0 bg-[#F3F4F6] pl-12 pr-4 text-[15px] text-[#111827] outline-none ring-0 placeholder:text-[#9CA3AF] focus:ring-2 focus:ring-[#0386FF]"
             />
           </label>
@@ -374,12 +375,12 @@ export function TeacherChatPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-[64px] grid-cols-[48px_1fr_80px] items-center bg-white px-3 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-9 w-9 place-items-center rounded-xl text-[#111827]"><Shuffle size={17} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-9 w-9 place-items-center rounded-xl text-[#111827]"><Shuffle size={17} /></button>
         <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[12px] font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -398,7 +399,7 @@ function RecentChats({ chats, search, onOpen }: { chats: ChatPreview[]; search: 
   if (chats.length === 0) {
     return (
       <EmptyChatState
-        title={search.trim() ? "No chats found" : "No conversations yet"}
+        title={search.trim() ? tr("No chats found") : tr("No conversations yet")}
         subtitle={search.trim() ? "Try a different search term" : "Start a conversation by browsing all users"}
       />
     );
@@ -426,7 +427,7 @@ function ContactsList({
 }) {
   const showSupport = !search.trim() || "admin support".includes(search.trim().toLowerCase());
   if (groups.length === 0 && !showSupport) {
-    return <EmptyChatState title="No contacts match your search" subtitle="Try a different search term" />;
+    return <EmptyChatState title={tr("No contacts match your search")} subtitle="Try a different search term" />;
   }
 
   return (
@@ -437,7 +438,7 @@ function ContactsList({
             <span className="grid h-6 w-6 place-items-center rounded-md bg-[#FEE2E2] text-[#EF4444]">
               <ShieldCheck size={15} />
             </span>
-            <h2 className="text-[13px] font-bold tracking-wide text-[#6B7280]">Support</h2>
+            <h2 className="text-[13px] font-bold tracking-wide text-[#6B7280]">{tr("Support")}</h2>
           </div>
           <SupportContactRow onOpen={onOpenSupport} />
           {groups.length ? <div className="mx-4 my-3 border-t border-[#E5E7EB]" /> : null}
@@ -468,8 +469,8 @@ function SupportContactRow({ onOpen }: { onOpen: () => void }) {
         <ShieldCheck size={24} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-semibold text-[#111827]">Admin Support</div>
-        <div className="truncate text-sm text-[#6B7280]">Message the school administrators</div>
+        <div className="truncate text-base font-semibold text-[#111827]">{tr("Admin Support")}</div>
+        <div className="truncate text-sm text-[#6B7280]">{tr("Message the school administrators")}</div>
       </div>
       <span className="text-xl text-[#9CA3AF]">›</span>
     </button>
@@ -568,27 +569,27 @@ function ConversationPanel({
     <aside className="fixed inset-0 z-40 flex bg-white lg:left-auto lg:w-[460px] lg:border-l lg:border-[#E5E7EB] lg:shadow-2xl">
       <div className="flex min-h-0 w-full flex-col">
         <header className="flex min-h-[72px] items-center gap-3 border-b border-[#E5E7EB] bg-white px-4">
-          <button type="button" onClick={onClose} aria-label="Back to chats" className="grid h-10 w-10 place-items-center rounded-xl text-[#334155] hover:bg-[#F1F5F9]">
+          <button type="button" onClick={onClose} aria-label={tr("Back to chats")} className="grid h-10 w-10 place-items-center rounded-xl text-[#334155] hover:bg-[#F1F5F9]">
             <ArrowLeft size={21} />
           </button>
           <Avatar label={conversation.displayName} />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-bold text-[#111827]">{conversation.displayName}</h2>
-            <p className="truncate text-sm text-[#64748B]">{conversation.isSupport ? "School administrators" : conversation.email || (conversation.isGroup ? "Group chat" : "Conversation")}</p>
+            <p className="truncate text-sm text-[#64748B]">{conversation.isSupport ? tr("School administrators") : conversation.email || (conversation.isGroup ? "Group chat" : "Conversation")}</p>
           </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFC] px-4 py-5">
           {loading ? (
-            <div className="grid h-full min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">Loading conversation...</div>
+            <div className="grid h-full min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">{tr("Loading conversation...")}</div>
           ) : messages.length === 0 ? (
             <div className="grid h-full min-h-[360px] place-items-center text-center">
               <div>
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#DBEAFE] text-[#0386FF]">
                   <MessageSquare size={28} />
                 </div>
-                <h3 className="mt-4 text-base font-bold text-[#111827]">No messages yet</h3>
-                <p className="mt-2 text-sm text-[#64748B]">Send a message to begin chatting with {conversation.displayName}.</p>
+                <h3 className="mt-4 text-base font-bold text-[#111827]">{tr("No messages yet")}</h3>
+                <p className="mt-2 text-sm text-[#64748B]">{tr("Send a message to begin chatting with")} {conversation.displayName}.</p>
               </div>
             </div>
           ) : (
@@ -604,9 +605,9 @@ function ConversationPanel({
           {error ? <p className="mb-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#DC2626]">{error}</p> : null}
           {recordingError ? <p className="mb-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#DC2626]">{recordingError}</p> : null}
           <div className="flex items-end gap-2">
-            <input ref={fileInputRef} type="file" className="sr-only" aria-label="Attach a file" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onAttachment(file); }} />
-            <button type="button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} disabled={attachmentSending || recording} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#E5E7EB] text-[#475569] disabled:opacity-50"><Paperclip size={20} /></button>
-            <button type="button" aria-label={recording ? "Stop voice recording" : "Record voice message"} onClick={() => void toggleRecording()} disabled={attachmentSending} className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${recording ? "border-red-300 bg-red-50 text-red-600" : "border-[#E5E7EB] text-[#475569]"} disabled:opacity-50`}>
+            <input ref={fileInputRef} type="file" className="sr-only" aria-label={tr("Attach a file")} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onAttachment(file); }} />
+            <button type="button" aria-label={tr("Attach file")} onClick={() => fileInputRef.current?.click()} disabled={attachmentSending || recording} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#E5E7EB] text-[#475569] disabled:opacity-50"><Paperclip size={20} /></button>
+            <button type="button" aria-label={recording ? tr("Stop voice recording") : tr("Record voice message")} onClick={() => void toggleRecording()} disabled={attachmentSending} className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${recording ? "border-red-300 bg-red-50 text-red-600" : "border-[#E5E7EB] text-[#475569]"} disabled:opacity-50`}>
               {recording ? <Square size={17} fill="currentColor" /> : <Mic size={20} />}
             </button>
             <textarea
@@ -618,8 +619,8 @@ function ConversationPanel({
                   onSend();
                 }
               }}
-              placeholder="Type a message..."
-              aria-label="Type a message"
+              placeholder={tr("Type a message...")}
+              aria-label={tr("Type a message")}
               rows={1}
               className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-sm text-[#111827] outline-none focus:border-[#0386FF] focus:ring-2 focus:ring-[#BFDBFE]"
             />
@@ -627,7 +628,7 @@ function ConversationPanel({
               type="button"
               onClick={onSend}
               disabled={sending || !draft.trim()}
-              aria-label="Send message"
+              aria-label={tr("Send message")}
               className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0386FF] text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#BFDBFE]"
             >
               <Send size={20} />
@@ -651,7 +652,7 @@ function MessageBubble({ message, mine }: { message: ChatMessageRecord; mine: bo
         {message.messageType === "voice" && fileUrl ? <audio src={fileUrl} controls className="mb-2 max-w-full" /> : null}
         {message.messageType === "file" && fileUrl ? <a href={fileUrl} target="_blank" rel="noreferrer" className={`mb-2 block rounded-lg px-3 py-2 text-sm font-bold underline ${mine ? "bg-white/15" : "bg-[#EFF6FF] text-[#0369A1]"}`}>{fileName}</a> : null}
         <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
-        <p className={`mt-1 text-right text-[11px] ${mine ? "text-white/75" : "text-[#94A3B8]"}`}>{message.timestamp ? shortMessageTime(message.timestamp) : "Sending..."}</p>
+        <p className={`mt-1 text-right text-[11px] ${mine ? "text-white/75" : "text-[#94A3B8]"}`}>{message.timestamp ? shortMessageTime(message.timestamp) : tr("Sending...")}</p>
       </div>
     </div>
   );
@@ -684,7 +685,7 @@ function LoadingMessages() {
     <div className="grid min-h-[520px] place-items-center text-center">
       <div>
         <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#DBEAFE] border-t-[#0386FF]" />
-        <p className="mt-4 text-base font-medium text-[#64748B]">Loading messages...</p>
+        <p className="mt-4 text-base font-medium text-[#64748B]">{tr("Loading messages...")}</p>
       </div>
     </div>
   );
@@ -838,7 +839,7 @@ async function sendChatMessage({
   messageType?: string;
   metadata?: Record<string, unknown> | null;
 }) {
-  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
   const chatRef = doc(db, "chats", chatId);
   const messageData = {
     sender_id: currentUser.uid,
@@ -1025,7 +1026,7 @@ function mergeSentPreview(chats: ChatPreview[], conversation: Conversation, cont
 }
 
 function shortMessageTime(date: Date) {
-  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 function initialsFromName(source: string) {

@@ -7,7 +7,7 @@ import { Check, ClipboardCheck, Loader2, RefreshCw, Send, Sparkles, Users, X } f
 import { auth, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell } from "@/components/TeacherDashboardHome";
-import { useT } from "@/lib/i18n";
+import { useT, tr } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type TeacherSummary = { displayName: string; firstName: string; initials: string };
@@ -355,7 +355,7 @@ function QuestionCard({
           className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#FECACA] px-3 text-sm font-semibold text-[#B91C1C] hover:bg-[#FEF2F2] disabled:opacity-60"
         >
           <X size={17} />
-          Reject
+          {tr("Reject")}
         </button>
         <button
           type="button"
@@ -364,7 +364,7 @@ function QuestionCard({
           className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#059669] px-4 text-sm font-semibold text-white disabled:opacity-60"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={17} />}
-          Approve
+          {tr("Approve")}
         </button>
       </div>
     </article>
@@ -383,23 +383,23 @@ function RejectDialog({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Why reject this question?">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={tr("Why reject this question?")}>
       <div className="w-full max-w-[460px] rounded-[20px] bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
-        <h2 className="text-lg font-bold text-[#111827]">Why reject this question?</h2>
+        <h2 className="text-lg font-bold text-[#111827]">{tr("Why reject this question?")}</h2>
         <p className="mt-2 line-clamp-2 text-[13px] text-[#64748B]">{question.question}</p>
         <label className="mt-4 grid gap-1.5 text-[11px] font-semibold text-[#1E293B]">
-          Rejection reason
+          {tr("Rejection reason")}
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="For example: duplicate, inaccurate, or unclear"
+            placeholder={tr("For example: duplicate, inaccurate, or unclear")}
             className="min-h-[92px] rounded-lg border border-[#CBD5E1] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
           />
         </label>
         {error ? <p role="alert" className="mt-2 text-xs font-semibold text-[#DC2626]">{error}</p> : null}
         <div className="mt-5 flex items-center justify-end gap-2">
           <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-semibold text-[#475569]">
-            Cancel
+            {tr("Cancel")}
           </button>
           <button
             type="button"
@@ -412,7 +412,7 @@ function RejectDialog({
             }}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#B91C1C] px-4 text-sm font-semibold text-white"
           >
-            Reject question
+            {tr("Reject question")}
           </button>
         </div>
       </div>

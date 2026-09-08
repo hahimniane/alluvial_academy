@@ -8,6 +8,7 @@ import { CalendarDays, CheckCircle2, Clock3, Loader2, Lock, Menu, Search, Shuffl
 import { auth, db, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -168,14 +169,14 @@ export function TeacherTasksPage() {
         <MobileTeacherTopBar summary={summary} />
         <section className="border-b border-[#DDE3EA] bg-white px-3 py-2 lg:px-4">
           <div className="flex items-center gap-3">
-            <h1 className="shrink-0 text-[20px] font-bold text-[#111827]">Tasks</h1>
+            <h1 className="shrink-0 text-[20px] font-bold text-[#111827]">{tr("Tasks")}</h1>
             <label className="relative block h-[35px] min-w-0 flex-1 lg:h-[35px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" size={19} />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search Tasks"
-                aria-label="Search tasks"
+                placeholder={tr("Search Tasks")}
+                aria-label={tr("Search tasks")}
                 className="h-full w-full rounded-full border border-[#CBD5E1] bg-white pl-11 pr-3 text-[15px] font-medium text-[#374151] outline-none focus:border-[#0386FF]"
               />
             </label>
@@ -198,7 +199,7 @@ export function TeacherTasksPage() {
 
           <button type="button" onClick={() => setFiltersOpen((current) => !current)} className="mt-2 inline-flex min-h-8 items-center gap-2 text-sm font-medium text-[#0386FF]">
             <SlidersHorizontal size={18} />
-            {filtersOpen ? "Hide filters" : "Show filters"}
+            {filtersOpen ? tr("Hide filters") : tr("Show filters")}
           </button>
 
           {filtersOpen ? (
@@ -244,12 +245,12 @@ export function TeacherTasksPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-[64px] grid-cols-[56px_1fr_96px] items-center bg-white px-3 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={18} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={18} /></button>
         <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[12px] font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -263,7 +264,7 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
       <select value={value} onChange={(event) => onChange(event.target.value)} className="bg-transparent text-sm font-semibold outline-none">
         {options.map((option) => (
           <option key={option} value={option}>
-            {option === "all" ? "All" : labelFor(option)}
+            {option === "all" ? tr("All") : labelFor(option)}
           </option>
         ))}
       </select>
@@ -278,8 +279,8 @@ function EmptyTasks() {
         <div className="mx-auto grid h-[100px] w-[100px] place-items-center rounded-full bg-[#E5E7EB] text-[#BDBDBD]">
           <Search size={54} />
         </div>
-        <div className="mt-7 text-2xl font-semibold text-[#111827]">No Tasks Found</div>
-        <div className="mt-3 text-base tracking-wide text-[#6B7280]">Try Adjusting Your Filters Or Search</div>
+        <div className="mt-7 text-2xl font-semibold text-[#111827]">{tr("No Tasks Found")}</div>
+        <div className="mt-3 text-base tracking-wide text-[#6B7280]">{tr("Try Adjusting Your Filters Or Search")}</div>
       </div>
     </div>
   );
@@ -290,9 +291,9 @@ function TaskLoadFailure({ message, onRetry }: { message: string; onRetry: () =>
     <div className="grid min-h-[590px] place-items-center px-4 lg:min-h-[660px]" role="alert">
       <div className="max-w-md text-center">
         <div className="mx-auto grid h-[82px] w-[82px] place-items-center rounded-full bg-[#FEE2E2] text-[#B91C1C]"><Lock size={38} /></div>
-        <h2 className="mt-5 text-xl font-bold text-[#111827]">Could not load tasks</h2>
+        <h2 className="mt-5 text-xl font-bold text-[#111827]">{tr("Could not load tasks")}</h2>
         <p className="mt-2 text-sm text-[#64748B]">{message}</p>
-        <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">Try again</button>
+        <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">{tr("Try again")}</button>
       </div>
     </div>
   );
@@ -314,13 +315,13 @@ function TaskCard({ task, onOpen }: { task: TeacherTask; onOpen: () => void }) {
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#64748B]">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold ${overdue ? "bg-[#FEE2E2] text-[#B91C1C]" : "bg-[#F8FAFC]"}`}>
           <CalendarDays size={13} />
-          {task.dueDate ? `Due ${task.dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "No due date"}
+          {task.dueDate ? `Due ${task.dueDate.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" })}` : tr("No due date")}
         </span>
         <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.status)}</span>
         <span className="rounded-full bg-[#F8FAFC] px-2 py-1 font-semibold">{labelFor(task.priority)}</span>
       </div>
       <button type="button" onClick={onOpen} className="mt-4 min-h-10 w-full rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] text-sm font-bold text-[#0369A1] hover:bg-[#DBEAFE]">
-        View and update
+        {tr("View and update")}
       </button>
     </article>
   );
@@ -332,18 +333,18 @@ function TaskDetailsDialog({ task, busy, error, onClose, onStatusChange }: { tas
       <section className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-2xl">
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-wide text-[#0386FF]">Task details</p>
+            <p className="text-xs font-black uppercase tracking-wide text-[#0386FF]">{tr("Task details")}</p>
             <h2 className="mt-1 text-xl font-black text-[#111827]">{task.title}</h2>
           </div>
-          <button type="button" aria-label="Close task details" onClick={onClose} disabled={busy} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9] disabled:opacity-50"><X size={20} /></button>
+          <button type="button" aria-label={tr("Close task details")} onClick={onClose} disabled={busy} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9] disabled:opacity-50"><X size={20} /></button>
         </header>
         <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[#475569]">{task.description || "No description"}</p>
         <div className="mt-4 grid gap-2 rounded-xl bg-[#F8FAFC] p-4 text-sm">
-          <p><span className="font-bold text-[#64748B]">Due:</span> {task.dueDate ? task.dueDate.toLocaleString() : "No due date"}</p>
-          <p><span className="font-bold text-[#64748B]">Priority:</span> {labelFor(task.priority)}</p>
-          {task.labels.length ? <p><span className="font-bold text-[#64748B]">Labels:</span> {task.labels.join(", ")}</p> : null}
+          <p><span className="font-bold text-[#64748B]">{tr("Due:")}</span> {task.dueDate ? task.dueDate.toLocaleString() : tr("No due date")}</p>
+          <p><span className="font-bold text-[#64748B]">{tr("Priority:")}</span> {labelFor(task.priority)}</p>
+          {task.labels.length ? <p><span className="font-bold text-[#64748B]">{tr("Labels:")}</span> {task.labels.join(", ")}</p> : null}
         </div>
-        <h3 className="mt-5 text-sm font-black text-[#111827]">Update status</h3>
+        <h3 className="mt-5 text-sm font-black text-[#111827]">{tr("Update status")}</h3>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {(["todo", "inProgress", "done"] as TaskStatus[]).map((status) => (
             <button key={status} type="button" onClick={() => onStatusChange(status)} disabled={busy || status === task.status} className={`min-h-11 rounded-xl px-2 text-xs font-bold disabled:cursor-default ${status === task.status ? "bg-[#0386FF] text-white" : "border border-[#CBD5E1] bg-white text-[#475569] hover:bg-[#F8FAFC]"}`}>

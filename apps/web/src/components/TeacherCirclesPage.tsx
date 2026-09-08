@@ -49,6 +49,7 @@ import {
 } from "@/components/TeacherDashboardHome";
 import { auth, db, storage } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type Data = Record<string, unknown>;
@@ -182,7 +183,7 @@ export function TeacherCirclesPage() {
             <section className="rounded-3xl bg-gradient-to-br from-[#0F766E] to-[#10B981] p-6 text-white shadow-lg sm:p-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-3xl font-black">Savings Circles</h1>
+                  <h1 className="text-3xl font-black">{tr("Savings Circles")}</h1>
                   <p className="mt-2 max-w-2xl text-emerald-50">
                     Save together, contribute on schedule, and follow every
                     payout transparently.
@@ -194,7 +195,7 @@ export function TeacherCirclesPage() {
                   className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 font-extrabold text-[#0F766E]"
                 >
                   <Plus size={19} />
-                  Create Circle
+                  {tr("Create Circle")}
                 </button>
               </div>
             </section>
@@ -248,7 +249,7 @@ export function TeacherCirclesPage() {
                 />
                 <section className="mt-6">
                   <h2 className="text-xl font-extrabold text-[#111827]">
-                    My Circles
+                    {tr("My Circles")}
                   </h2>
                   {circles.length ? (
                     <div className="mt-3 grid gap-4 md:grid-cols-2">
@@ -394,7 +395,7 @@ function CircleDetail({
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-emerald-100">Total pot</p>
+            <p className="text-sm text-emerald-100">{tr("Total pot")}</p>
             <p className="text-3xl font-black">
               {currency(text(circle.currency), totalPot)}
             </p>
@@ -414,7 +415,7 @@ function CircleDetail({
         <div className="space-y-5">
           <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-extrabold">Current Cycle</h2>
+              <h2 className="text-lg font-extrabold">{tr("Current Cycle")}</h2>
               {cycle ? <Status value={text(cycle.status)} /> : null}
             </div>
             {cycle ? (
@@ -440,12 +441,12 @@ function CircleDetail({
               <div className="mt-3 rounded-xl bg-amber-50 p-4 text-amber-900">
                 <p className="font-semibold">
                   {text(circle.status) === "active"
-                    ? "Cycle setup is still pending. Refresh after the savings service creates the first cycle."
-                    : "The first cycle begins when the circle is activated."}
+                    ? tr("Cycle setup is still pending. Refresh after the savings service creates the first cycle.")
+                    : tr("The first cycle begins when the circle is activated.")}
                 </p>
                 {text(circle.status) === "active" ? (
                   <button type="button" onClick={() => void load()} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400 bg-white px-3 text-sm font-bold">
-                    <RefreshCw size={16} /> Refresh Cycle
+                    <RefreshCw size={16} /> {tr("Refresh Cycle")}
                   </button>
                 ) : null}
               </div>
@@ -454,7 +455,7 @@ function CircleDetail({
           <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-extrabold">
-                Payout Order & Payments
+                {tr("Payout Order & Payments")}
               </h2>
               {isHead ? (
                 <button
@@ -463,7 +464,7 @@ function CircleDetail({
                   className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#0F766E] px-3 text-sm font-bold text-[#0F766E]"
                 >
                   <UserPlus size={17} />
-                  Invite Member
+                  {tr("Invite Member")}
                 </button>
               ) : null}
             </div>
@@ -538,7 +539,7 @@ function CircleDetail({
         </div>
         <aside className="space-y-4">
           <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-            <h2 className="font-extrabold">Actions</h2>
+            <h2 className="font-extrabold">{tr("Actions")}</h2>
             {cycle &&
             !isHead &&
             text(myContribution?.status) !== "confirmed" ? (
@@ -548,7 +549,7 @@ function CircleDetail({
                 className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0F766E] font-bold text-white"
               >
                 <Upload size={18} />
-                Submit Payment
+                {tr("Submit Payment")}
               </button>
             ) : null}
             {isHead && text(circle.status) === "forming" ? (
@@ -570,7 +571,7 @@ function CircleDetail({
                 }}
                 className="mt-3 min-h-11 w-full rounded-xl bg-[#0F766E] font-bold text-white disabled:opacity-40"
               >
-                Activate Circle
+                {tr("Activate Circle")}
               </button>
             ) : null}
             {isHead &&
@@ -589,7 +590,7 @@ function CircleDetail({
                 }}
                 className="mt-3 min-h-11 w-full rounded-xl border border-[#0F766E] font-bold text-[#0F766E]"
               >
-                Mark Payout Sent
+                {tr("Mark Payout Sent")}
               </button>
             ) : null}
             <p className="mt-4 whitespace-pre-wrap text-sm text-[#64748B]">
@@ -641,7 +642,7 @@ function InviteSection({
   if (!invites.length) return null;
   return (
     <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-      <h2 className="font-extrabold text-amber-950">Pending Invitations</h2>
+      <h2 className="font-extrabold text-amber-950">{tr("Pending Invitations")}</h2>
       <div className="mt-3 space-y-3">
         {invites.map((invite) => (
           <div
@@ -653,14 +654,14 @@ function InviteSection({
                 {text(invite.circle_name) || "Savings Circle"}
               </p>
               <p className="text-sm text-[#64748B]">
-                You have been invited to join.
+                {tr("You have been invited to join.")}
               </p>
             </div>
             <button
               onClick={() => onAccept(invite)}
               className="min-h-10 rounded-xl bg-amber-600 px-4 font-bold text-white"
             >
-              Review & Join
+              {tr("Review & Join")}
             </button>
           </div>
         ))}
@@ -678,7 +679,7 @@ function OpenSection({
   if (!circles.length) return null;
   return (
     <section className="mt-6">
-      <h2 className="text-xl font-extrabold">Available Teacher Circles</h2>
+      <h2 className="text-xl font-extrabold">{tr("Available Teacher Circles")}</h2>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         {circles.map((circle) => (
           <div
@@ -693,7 +694,7 @@ function OpenSection({
               onClick={() => onJoin(circle)}
               className="mt-4 min-h-10 w-full rounded-xl bg-[#0F766E] font-bold text-white"
             >
-              Join Circle
+              {tr("Join Circle")}
             </button>
           </div>
         ))}
@@ -726,7 +727,7 @@ function CircleCard({
         {money(circle)} · {frequency(circle)}
       </p>
       <p className="mt-3 text-xs font-bold uppercase text-[#94A3B8]">
-        {created ? "Created by you" : "Joined circle"}
+        {created ? tr("Created by you") : tr("Joined circle")}
       </p>
     </button>
   );
@@ -799,7 +800,7 @@ function CreateCircle({
   }
   return (
     <Modal label="Create savings circle" onClose={onClose}>
-      <h2 className="text-xl font-extrabold">Create Circle</h2>
+      <h2 className="text-xl font-extrabold">{tr("Create Circle")}</h2>
       <div className="mt-5 space-y-4">
         <Field label="Circle name" value={title} onChange={setTitle} />
         <Field
@@ -809,29 +810,29 @@ function CreateCircle({
           type="number"
         />
         <label className="block text-sm font-bold">
-          Currency
+          {tr("Currency")}
           <select
             value={currencyCode}
             onChange={(e) => setCurrency(e.target.value)}
             className="mt-2 h-11 w-full rounded-xl border px-3"
           >
-            <option>USD</option>
-            <option>CAD</option>
-            <option>EUR</option>
-            <option>GBP</option>
+            <option>{tr("USD")}</option>
+            <option>{tr("CAD")}</option>
+            <option>{tr("EUR")}</option>
+            <option>{tr("GBP")}</option>
           </select>
         </label>
         <label className="block text-sm font-bold">
-          Frequency
+          {tr("Frequency")}
           <select
             value={frequencyValue}
             onChange={(e) => setFrequency(e.target.value)}
             className="mt-2 h-11 w-full rounded-xl border px-3"
           >
-            <option value="weekly">Weekly</option>
-            <option value="biweekly">Biweekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
+            <option value="weekly">{tr("Weekly")}</option>
+            <option value="biweekly">{tr("Biweekly")}</option>
+            <option value="monthly">{tr("Monthly")}</option>
+            <option value="quarterly">{tr("Quarterly")}</option>
           </select>
         </label>
         <Field
@@ -841,7 +842,7 @@ function CreateCircle({
           type="date"
         />
         <label className="block text-sm font-bold">
-          Payment instructions
+          {tr("Payment instructions")}
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
@@ -860,7 +861,7 @@ function CreateCircle({
         onClick={() => void save()}
         className="mt-5 min-h-11 w-full rounded-xl bg-[#0F766E] font-bold text-white disabled:opacity-50"
       >
-        {busy ? "Creating…" : "Create Circle"}
+        {busy ? tr("Creating…") : tr("Create Circle")}
       </button>
     </Modal>
   );
@@ -901,10 +902,10 @@ function InviteDialog({
           ),
         );
       if (snap.empty)
-        throw new Error("No existing user was found with that email.");
+        throw new Error(tr("No existing user was found with that email."));
       const target = snap.docs[0];
       if (members.some((m) => text(m.user_id) === target.id))
-        throw new Error("This user is already in the circle.");
+        throw new Error(tr("This user is already in the circle."));
       const data = target.data();
       const batch = writeBatch(db);
       const memberRef = doc(collection(db, "circle_members"));
@@ -948,9 +949,9 @@ function InviteDialog({
   }
   return (
     <Modal label="Invite circle member" onClose={onClose}>
-      <h2 className="text-xl font-extrabold">Invite Member</h2>
+      <h2 className="text-xl font-extrabold">{tr("Invite Member")}</h2>
       <p className="mt-1 text-sm text-[#64748B]">
-        Invite an existing Alluwal user by email.
+        {tr("Invite an existing Alluwal user by email.")}
       </p>
       <div className="mt-5">
         <Field
@@ -970,7 +971,7 @@ function InviteDialog({
         onClick={() => void invite()}
         className="mt-5 min-h-11 w-full rounded-xl bg-[#0F766E] font-bold text-white disabled:opacity-50"
       >
-        {busy ? "Inviting…" : "Send Invitation"}
+        {busy ? tr("Inviting…") : tr("Send Invitation")}
       </button>
     </Modal>
   );
@@ -1057,7 +1058,7 @@ function PaymentDialog({
   }
   return (
     <Modal label="Submit circle payment" onClose={onClose}>
-      <h2 className="text-xl font-extrabold">Submit Payment</h2>
+      <h2 className="text-xl font-extrabold">{tr("Submit Payment")}</h2>
       <div className="mt-5 space-y-4">
         <Field
           label="Amount paid"
@@ -1072,9 +1073,9 @@ function PaymentDialog({
           type="date"
         />
         <label className="block text-sm font-bold">
-          Payment receipt
+          {tr("Payment receipt")}
           <input
-            aria-label="Payment receipt"
+            aria-label={tr("Payment receipt")}
             type="file"
             accept="image/*,.pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -1092,7 +1093,7 @@ function PaymentDialog({
         onClick={() => void save()}
         className="mt-5 min-h-11 w-full rounded-xl bg-[#0F766E] font-bold text-white disabled:opacity-50"
       >
-        {busy ? "Submitting…" : "Submit for Review"}
+        {busy ? tr("Submitting…") : tr("Submit for Review")}
       </button>
     </Modal>
   );
@@ -1108,11 +1109,11 @@ async function acceptInvite(invite: Item, user: User) {
       limit(1),
     ),
   );
-  if (memberSnap.empty) throw new Error("Circle member record not found.");
+  if (memberSnap.empty) throw new Error(tr("Circle member record not found."));
   await runTransaction(db, async (transaction) => {
     const fresh = await transaction.get(inviteRef);
     if (!fresh.exists() || text(fresh.data().status) !== "pending")
-      throw new Error("Invite is no longer available.");
+      throw new Error(tr("Invite is no longer available."));
     transaction.update(inviteRef, {
       status: "accepted",
       accepted_by: user.uid,
@@ -1135,7 +1136,7 @@ async function joinOpenCircle(circle: Item, user: User, displayName: string) {
       text(fresh.data().status) !== "forming" ||
       text(fresh.data().enrollment_mode) !== "open"
     )
-      throw new Error("This circle is no longer accepting members.");
+      throw new Error(tr("This circle is no longer accepting members."));
     const existing = await getDocs(
       query(
         collection(db, "circle_members"),
@@ -1145,7 +1146,7 @@ async function joinOpenCircle(circle: Item, user: User, displayName: string) {
       ),
     );
     if (!existing.empty)
-      throw new Error("You are already a member of this circle.");
+      throw new Error(tr("You are already a member of this circle."));
     const all = await getDocs(
       query(
         collection(db, "circle_members"),
@@ -1153,7 +1154,7 @@ async function joinOpenCircle(circle: Item, user: User, displayName: string) {
       ),
     );
     const max = number(fresh.data().max_members);
-    if (max && all.size >= max) throw new Error("This circle is full.");
+    if (max && all.size >= max) throw new Error(tr("This circle is full."));
     transaction.set(doc(collection(db, "circle_members")), {
       circle_id: circle.id,
       user_id: user.uid,
@@ -1175,13 +1176,13 @@ function MobileHeader() {
   return (
     <header className="flex items-center gap-3 border-b bg-white px-4 py-3 lg:hidden">
       <button
-        aria-label="Open teacher menu"
+        aria-label={tr("Open teacher menu")}
         onClick={openTeacherMobileMenu}
         className="grid h-11 w-11 place-items-center"
       >
         <Menu size={22} />
       </button>
-      <p className="font-extrabold">Savings Circles</p>
+      <p className="font-extrabold">{tr("Savings Circles")}</p>
     </header>
   );
 }
@@ -1256,7 +1257,7 @@ function ErrorCard({ message }: { message: string }) {
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
       <CircleDollarSign className="mx-auto text-amber-600" size={36} />
       <h1 className="mt-3 text-xl font-extrabold">
-        Savings Circles unavailable
+        {tr("Savings Circles unavailable")}
       </h1>
       <p className="mt-2 text-sm text-amber-900">{message}</p>
     </div>
@@ -1266,12 +1267,12 @@ function Empty({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="mt-3 rounded-2xl border border-dashed p-10 text-center">
       <Users className="mx-auto text-[#94A3B8]" size={38} />
-      <h3 className="mt-3 font-extrabold">No circles yet</h3>
+      <h3 className="mt-3 font-extrabold">{tr("No circles yet")}</h3>
       <button
         onClick={onCreate}
         className="mt-4 min-h-10 rounded-xl bg-[#0F766E] px-4 font-bold text-white"
       >
-        Create your first circle
+        {tr("Create your first circle")}
       </button>
     </div>
   );
@@ -1352,7 +1353,7 @@ function frequency(circle: Item) {
 function dateLabel(v: unknown) {
   const d = v instanceof Timestamp ? v.toDate() : v instanceof Date ? v : null;
   return d
-    ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(d)
+    ? new Intl.DateTimeFormat(dateLocale(), { dateStyle: "medium" }).format(d)
     : "Not set";
 }
 function safe(v: string) {

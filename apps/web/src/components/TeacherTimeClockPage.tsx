@@ -7,6 +7,7 @@ import { AlertTriangle, CalendarDays, Clock3, Download, Eye, LogIn, LogOut, MapP
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -304,12 +305,12 @@ export function TeacherTimeClockPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-[68px] grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={28} />
       </button>
-      <div className="min-w-0 text-center text-[20px] font-black text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-[20px] font-black text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]"><Shuffle size={24} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]"><Shuffle size={24} /></button>
         <span className="grid h-11 w-11 place-items-center rounded-full bg-[#009688] text-base font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -366,7 +367,7 @@ function ClockStatusPanel({ shift, busy, onClockAction }: { shift: TeacherShift 
               className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold text-white shadow-md transition disabled:cursor-not-allowed disabled:bg-[#CBD5E1] ${actionStyle}`}
             >
               {action.kind === "clockOut" ? <LogOut size={18} /> : <LogIn size={18} />}
-              {busy ? "Processing..." : action.label}
+              {busy ? tr("Processing...") : tr(action.label)}
             </button>
           </div>
         </div>
@@ -392,10 +393,10 @@ function TimesheetToolbar({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
-      <h1 className="text-[18px] font-bold text-[#263238]">My Timesheet</h1>
+      <h1 className="text-[18px] font-bold text-[#263238]">{tr("My Timesheet")}</h1>
       <div className="flex items-center gap-2">
         <label className="sr-only" htmlFor="teacher-time-filter">
-          Timesheet range
+          {tr("Timesheet range")}
         </label>
         <select
           id="teacher-time-filter"
@@ -405,7 +406,7 @@ function TimesheetToolbar({
         >
           {timeFilters.map((filter) => (
             <option key={filter} value={filter}>
-              {filter}
+              {tr(filter)}
             </option>
           ))}
         </select>
@@ -415,7 +416,7 @@ function TimesheetToolbar({
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#F3F4F6] px-4 text-sm font-semibold text-[#111827]"
         >
           <Download size={16} />
-          Export
+          {tr("Export")}
         </button>
         {draftCount ? (
           <button
@@ -425,7 +426,7 @@ function TimesheetToolbar({
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-4 text-sm font-semibold text-white disabled:bg-[#94A3B8]"
           >
             <Send size={16} />
-            {submittingDrafts ? "Submitting..." : `Submit Drafts (${draftCount})`}
+            {submittingDrafts ? tr("Submitting...") : tr("Submit Drafts ({n})", { n: draftCount })}
           </button>
         ) : null}
       </div>
@@ -449,8 +450,8 @@ function TimesheetTable({
   const columns = [
     "Date",
     "Student",
-    "Start",
-    "End",
+    "Start|timesheet",
+    "End|timesheet",
     "Total Hours",
     "Clock-in Location",
     "Clock-out Location",
@@ -467,7 +468,7 @@ function TimesheetTable({
               <th key={column} className="border-r border-[#D7E5F0] px-2 py-4 text-center text-sm font-semibold text-[#263238] last:border-r-0">
                 <span className="inline-flex items-center justify-center gap-2">
                   <span className="text-xl leading-none text-[#263238]">↕</span>
-                  <span>{column}</span>
+                  <span>{tr(column)}</span>
                 </span>
               </th>
             ))}
@@ -477,7 +478,7 @@ function TimesheetTable({
           {loading ? (
             <tr>
               <td className="px-4 py-8 text-sm font-semibold text-[#64748B]" colSpan={columns.length}>
-                Loading timesheet...
+                {tr("Loading timesheet...")}
               </td>
             </tr>
           ) : entries.length ? (
@@ -501,7 +502,7 @@ function TimesheetTable({
                           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#0386FF]"
                         >
                           <Pencil size={14} />
-                          Edit
+                          {tr("Edit")}
                         </button>
                         <button
                           type="button"
@@ -509,7 +510,7 @@ function TimesheetTable({
                           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#10B981]"
                         >
                           <Send size={14} />
-                          Submit
+                          {tr("Submit")}
                         </button>
                       </>
                     ) : (
@@ -519,7 +520,7 @@ function TimesheetTable({
                         className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#6B7280]"
                       >
                         <Eye size={14} />
-                        View
+                        {tr("View")}
                       </button>
                     )}
                   </div>
@@ -529,7 +530,7 @@ function TimesheetTable({
           ) : (
             <tr>
               <td className="px-4 py-20 text-center text-sm font-semibold text-[#64748B]" colSpan={columns.length}>
-                No timesheet entries found.
+                {tr("No timesheet entries found.")}
               </td>
             </tr>
           )}
@@ -553,9 +554,9 @@ function MobileTimesheetHeader({
   return (
     <div className="bg-white px-4 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-3">
-        <h1 className="min-w-0 flex-1 text-[18px] font-bold text-[#111827]">Timesheet</h1>
+        <h1 className="min-w-0 flex-1 text-[18px] font-bold text-[#111827]">{tr("Timesheet")}</h1>
         <label className="sr-only" htmlFor="teacher-mobile-status-filter">
-          Timesheet status
+          {tr("Timesheet status")}
         </label>
         <select
           id="teacher-mobile-status-filter"
@@ -565,7 +566,7 @@ function MobileTimesheetHeader({
         >
           {statusFilters.map((filter) => (
             <option key={filter} value={filter}>
-              {filter}
+              {tr(filter)}
             </option>
           ))}
         </select>
@@ -580,7 +581,7 @@ function MobileTimesheetHeader({
               onClick={() => onTimeFilterChange(filter)}
               className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold ${selected ? "bg-[#0386FF] text-white" : "bg-[#F3F4F6] text-[#6B7280]"}`}
             >
-              {filter}
+              {tr(filter)}
             </button>
           );
         })}
@@ -603,7 +604,7 @@ function MobileTimesheetCards({
   onViewEntry: (entry: TimesheetEntry) => void;
 }) {
   if (loading) {
-    return <div className="grid min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">Loading timesheet...</div>;
+    return <div className="grid min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">{tr("Loading timesheet...")}</div>;
   }
   if (!entries.length) {
     return (
@@ -612,8 +613,8 @@ function MobileTimesheetCards({
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#F3F4F6] text-[#9CA3AF]">
             <TimerReset size={40} />
           </div>
-          <h2 className="mt-4 text-base font-semibold text-[#6B7280]">No timesheet entries found</h2>
-          <p className="mt-2 text-sm text-[#9CA3AF]">Clock in to create your first entry</p>
+          <h2 className="mt-4 text-base font-semibold text-[#6B7280]">{tr("No timesheet entries found")}</h2>
+          <p className="mt-2 text-sm text-[#9CA3AF]">{tr("Clock in to create your first entry")}</p>
         </div>
       </div>
     );
@@ -648,7 +649,7 @@ function MobileTimesheetCards({
             <div className="flex justify-end gap-2 border-t border-[#EEF2F7] p-3">
               <button type="button" onClick={() => onEditEntry(entry)} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold text-[#0386FF]">
                 <Pencil size={17} />
-                Edit
+                {tr("Edit")}
               </button>
               <button
                 type="button"
@@ -656,14 +657,14 @@ function MobileTimesheetCards({
                 className="inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold text-[#10B981]"
               >
                 <Send size={17} />
-                Submit
+                {tr("Submit")}
               </button>
             </div>
           ) : (
             <div className="flex justify-end border-t border-[#EEF2F7] p-3">
               <button type="button" onClick={() => onViewEntry(entry)} className="inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold text-[#6B7280]">
                 <Eye size={17} />
-                View
+                {tr("View")}
               </button>
             </div>
           )}
@@ -682,7 +683,7 @@ type TimesheetEditValues = {
 
 function TimesheetDetailsDialog({ entry, onClose }: { entry: TimesheetEntry; onClose: () => void }) {
   return (
-    <DialogFrame title="Timesheet Details" icon={<Eye size={20} />} onClose={onClose}>
+    <DialogFrame title={tr("Timesheet Details")} icon={<Eye size={20} />} onClose={onClose}>
       <div className="space-y-2">
         <DetailRow label="Date" value={entry.date || "-"} />
         <DetailRow label="Student" value={entry.student || "-"} />
@@ -697,7 +698,7 @@ function TimesheetDetailsDialog({ entry, onClose }: { entry: TimesheetEntry; onC
         <div className="mt-4 rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#047857]">
             <MapPin size={16} />
-            Location Information
+            {tr("Location Information")}
           </div>
           {entry.clockInLocation ? <DetailRow label="Clock In" value={entry.clockInLocation} /> : null}
           {entry.clockOutLocation ? <DetailRow label="Clock Out" value={entry.clockOutLocation} /> : null}
@@ -705,7 +706,7 @@ function TimesheetDetailsDialog({ entry, onClose }: { entry: TimesheetEntry; onC
       ) : null}
       <div className="mt-5 flex justify-end">
         <button type="button" onClick={onClose} className="rounded-lg bg-[#F3F4F6] px-4 py-2 text-sm font-semibold text-[#374151]">
-          Close
+          {tr("Close")}
         </button>
       </div>
     </DialogFrame>
@@ -749,16 +750,16 @@ function TimesheetEditDialog({
   };
 
   return (
-    <DialogFrame title="Edit Timesheet" icon={<Pencil size={20} />} onClose={onClose}>
+    <DialogFrame title={tr("Edit Timesheet")} icon={<Pencil size={20} />} onClose={onClose}>
       <div className="rounded-lg border border-[#FCD34D] bg-[#FEF3C7] p-3 text-[13px] text-[#92400E]">
-        Edits update the timesheet and may need admin review before payment is finalized.
+        {tr("Edits update the timesheet and may need admin review before payment is finalized.")}
       </div>
       <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
         <DetailRow label="Date" value={entry.date || "-"} />
         <DetailRow label="Student" value={entry.student || "-"} />
       </div>
       <label className="mt-4 block text-sm font-semibold text-[#64748B]" htmlFor="timesheet-start-time">
-        Clock In Time
+        {tr("Clock In Time")}
       </label>
       <input
         id="timesheet-start-time"
@@ -768,7 +769,7 @@ function TimesheetEditDialog({
         className="mt-2 h-12 w-full rounded-xl border border-[#E2E8F0] px-4 text-base font-semibold text-[#1E293B] outline-none focus:border-[#0386FF]"
       />
       <label className="mt-4 block text-sm font-semibold text-[#64748B]" htmlFor="timesheet-end-time">
-        Clock Out Time
+        {tr("Clock Out Time")}
       </label>
       <input
         id="timesheet-end-time"
@@ -782,7 +783,7 @@ function TimesheetEditDialog({
         <DetailRow label="Payment" value={`$${pay.toFixed(2)}`} />
       </div>
       <label className="mt-4 block text-sm font-semibold text-[#64748B]" htmlFor="timesheet-notes">
-        Notes
+        {tr("Notes")}
       </label>
       <textarea
         id="timesheet-notes"
@@ -794,7 +795,7 @@ function TimesheetEditDialog({
       {error ? <div className="mt-3 rounded-lg bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">{error}</div> : null}
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B]">
-          Cancel
+          {tr("Cancel")}
         </button>
         <button
           type="button"
@@ -802,7 +803,7 @@ function TimesheetEditDialog({
           disabled={saving}
           className="rounded-lg bg-[#0386FF] px-4 py-2 text-sm font-semibold text-white disabled:bg-[#94A3B8]"
         >
-          {saving ? "Saving..." : "Save Changes"}
+          {saving ? tr("Saving...") : tr("Save Changes")}
         </button>
       </div>
     </DialogFrame>
@@ -811,8 +812,8 @@ function TimesheetEditDialog({
 
 function SubmitTimesheetDialog({ entry, submitting, onClose, onConfirm }: { entry: TimesheetEntry; submitting: boolean; onClose: () => void; onConfirm: () => void }) {
   return (
-    <DialogFrame title="Submit for Review" icon={<Send size={20} />} onClose={onClose}>
-      <p className="text-sm text-[#374151]">Submit this timesheet for admin review?</p>
+    <DialogFrame title={tr("Submit for Review")} icon={<Send size={20} />} onClose={onClose}>
+      <p className="text-sm text-[#374151]">{tr("Submit this timesheet for admin review?")}</p>
       <div className="mt-4 rounded-xl bg-[#F3F4F6] p-4">
         <DetailRow label="Date" value={entry.date || "-"} />
         <DetailRow label="Student" value={entry.student || "-"} />
@@ -820,14 +821,14 @@ function SubmitTimesheetDialog({ entry, submitting, onClose, onConfirm }: { entr
       </div>
       <div className="mt-4 flex gap-2 rounded-xl border border-[#FCD34D] bg-[#FEF3C7] p-3 text-xs font-medium text-[#92400E]">
         <AlertTriangle size={16} className="shrink-0" />
-        Once submitted, this entry moves to pending review.
+        {tr("Once submitted, this entry moves to pending review.")}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B] disabled:opacity-60">
-          Cancel
+          {tr("Cancel")}
         </button>
         <button type="button" onClick={onConfirm} disabled={submitting} className="rounded-lg bg-[#10B981] px-4 py-2 text-sm font-semibold text-white disabled:bg-[#94A3B8]">
-          {submitting ? "Submitting..." : "Submit for Review"}
+          {submitting ? tr("Submitting...") : tr("Submit for Review")}
         </button>
       </div>
     </DialogFrame>
@@ -835,14 +836,14 @@ function SubmitTimesheetDialog({ entry, submitting, onClose, onConfirm }: { entr
 }
 
 async function submitDraftEntries(entries: TimesheetEntry[]) {
-  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
   await runTransaction(db, async (transaction) => {
     const refs = entries.map((entry) => doc(db, "timesheet_entries", entry.id));
     const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
     snapshots.forEach((snapshot) => {
-      if (!snapshot.exists()) throw new Error("A draft timesheet is no longer available. Refresh and try again.");
+      if (!snapshot.exists()) throw new Error(tr("A draft timesheet is no longer available. Refresh and try again."));
       if (stringValue(snapshot.data().status).toLowerCase() !== "draft") {
-        throw new Error("This timesheet has already been submitted. Refresh to see its current status.");
+        throw new Error(tr("This timesheet has already been submitted. Refresh to see its current status."));
       }
     });
     refs.forEach((ref) => {
@@ -873,7 +874,7 @@ function DialogFrame({ title, icon, onClose, children }: { title: string; icon: 
           <h2 id="timesheet-dialog-title" className="min-w-0 flex-1 text-xl font-bold text-[#1E293B]">
             {title}
           </h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-lg text-[#64748B] hover:bg-[#F3F4F6]">
+          <button type="button" aria-label={tr("Close")} onClick={onClose} className="grid h-10 w-10 place-items-center rounded-lg text-[#64748B] hover:bg-[#F3F4F6]">
             <X size={20} />
           </button>
         </div>
@@ -886,7 +887,7 @@ function DialogFrame({ title, icon, onClose, children }: { title: string; icon: 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[112px_1fr] gap-3 py-1.5 text-sm">
-      <span className="font-medium text-[#64748B]">{label}:</span>
+      <span className="font-medium text-[#64748B]">{tr(label)}:</span>
       <span className="min-w-0 break-words font-semibold text-[#1E293B]">{value}</span>
     </div>
   );
@@ -897,7 +898,7 @@ function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value
     <div className="flex min-w-0 items-center gap-2">
       <span className="shrink-0 text-[#6B7280]">{icon}</span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-medium text-[#6B7280]">{label}</span>
+        <span className="block text-[11px] font-medium text-[#6B7280]">{tr(label)}</span>
         <span className="block truncate text-[13px] font-semibold text-[#374151]">{value}</span>
       </span>
     </div>
@@ -1073,9 +1074,9 @@ type BrowserLocation = {
 };
 
 async function clockInToShift(user: User, shift: TeacherShift, location: BrowserLocation) {
-  if (!canClockInNow(shift)) throw new Error("Shift not found or not valid for clock-in right now");
+  if (!canClockInNow(shift)) throw new Error(tr("Shift not found or not valid for clock-in right now"));
   const openEntry = await findOpenTimesheetEntry(user.uid, shift.id);
-  if (openEntry) throw new Error("You are already clocked in to this shift");
+  if (openEntry) throw new Error(tr("You are already clocked in to this shift"));
   const now = new Date();
   const payRateSource = shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate";
   const timesheetRef = doc(collection(db, "timesheet_entries"));
@@ -1123,11 +1124,11 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
   };
   await runTransaction(db, async (transaction) => {
     const shiftSnap = await transaction.get(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    if (!shiftSnap.exists()) throw new Error(tr("This shift is no longer available."));
     const current = shiftSnap.data() as Record<string, unknown>;
     const currentClockIn = dateValue(current.clock_in_time ?? current.clockInTime);
     const currentClockOut = dateValue(current.clock_out_time ?? current.clockOutTime);
-    if (currentClockIn && !currentClockOut) throw new Error("You are already clocked in to this shift");
+    if (currentClockIn && !currentClockOut) throw new Error(tr("You are already clocked in to this shift"));
     transaction.set(timesheetRef, timesheetData);
     transaction.update(shiftRef, {
       last_modified: Timestamp.fromDate(now),
@@ -1142,7 +1143,7 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
 
 async function clockOutOfShift(user: User, shift: TeacherShift, location: BrowserLocation) {
   const openEntry = await findOpenTimesheetEntry(user.uid, shift.id);
-  if (!openEntry) throw new Error("No active clock-in found for this shift.");
+  if (!openEntry) throw new Error(tr("No active clock-in found for this shift."));
   const now = new Date();
   const clockIn = dateValue(openEntry.data.clock_in_timestamp) ?? shift.clockInTime ?? shift.start ?? now;
   const effectiveStart = shift.start && clockIn < shift.start ? shift.start : clockIn;
@@ -1179,13 +1180,13 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
   };
   await runTransaction(db, async (transaction) => {
     const entrySnap = await transaction.get(openEntry.ref);
-    if (!entrySnap.exists()) throw new Error("No active clock-in found for this shift.");
+    if (!entrySnap.exists()) throw new Error(tr("No active clock-in found for this shift."));
     const entry = entrySnap.data() as Record<string, unknown>;
     if (dateValue(entry.clock_out_timestamp) || stringValue(entry.end_time)) {
-      throw new Error("This shift has already been clocked out.");
+      throw new Error(tr("This shift has already been clocked out."));
     }
     const shiftSnap = await transaction.get(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    if (!shiftSnap.exists()) throw new Error(tr("This shift is no longer available."));
     transaction.update(openEntry.ref, entryUpdate);
     transaction.update(shiftRef, {
       last_modified: Timestamp.fromDate(now),
@@ -1207,7 +1208,7 @@ async function findOpenTimesheetEntry(teacherId: string, shiftId: string) {
 
 async function getBrowserLocation(): Promise<BrowserLocation> {
   if (!("geolocation" in navigator)) {
-    throw new Error("Location access is required to clock in or out. Enable location services and try again.");
+    throw new Error(tr("Location access is required to clock in or out. Enable location services and try again."));
   }
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -1221,7 +1222,7 @@ async function getBrowserLocation(): Promise<BrowserLocation> {
       neighborhood: "GPS coordinates",
     };
   } catch {
-    throw new Error("Location access is required to clock in or out. Allow location access and try again.");
+    throw new Error(tr("Location access is required to clock in or out. Allow location access and try again."));
   }
 }
 
@@ -1241,7 +1242,8 @@ function clockDeviationStatus(actual: Date, scheduled: Date | null) {
 }
 
 function exportCsv(entries: TimesheetEntry[]) {
-  const headers = ["Date", "Student", "Start", "End", "Total Hours", "Clock-in Location", "Clock-out Location", "Status"];
+  // Exported columns follow the language the teacher is reading the table in.
+  const headers = ["Date", "Student", "Start|timesheet", "End|timesheet", "Total Hours", "Clock-in Location", "Clock-out Location", "Status"].map((column) => tr(column));
   const rows = entries.map((entry) => [
     entry.date,
     entry.student,
@@ -1376,12 +1378,12 @@ function durationMsFromLabel(value: string) {
 }
 
 function formatDate(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "2-digit", day: "2-digit", year: "numeric" });
 }
 
 function formatTime(date: Date | null) {
   if (!date) return "";
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return date.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" });
 }
 
 function formatTimeRange(start: Date | null, end: Date | null) {
@@ -1390,7 +1392,7 @@ function formatTimeRange(start: Date | null, end: Date | null) {
 }
 
 function formatTimesheetDate(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "short", day: "2-digit", year: "numeric" });
 }
 
 function formatDurationHms(durationMs: number) {

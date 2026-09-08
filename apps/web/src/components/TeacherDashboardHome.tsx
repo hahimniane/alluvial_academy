@@ -41,7 +41,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
-import { applyLocale, useT } from "@/lib/i18n";
+import { applyLocale, useT, tr, dateLocale, markLocaleHydrated } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -292,10 +292,10 @@ function TeacherHomeContent({
     <main className="min-h-[calc(100vh-56px)] overflow-y-auto bg-[#F5F5F5] px-5 pb-20 pt-0 text-[#111827] lg:px-5 lg:pb-8">
       <header className="lg:hidden">
         <div className="grid min-h-14 grid-cols-[44px_1fr_48px] items-center bg-white text-[#0F172A]">
-          <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl">
+          <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl">
             <Menu size={22} />
           </button>
-          <div className="min-w-0 text-center text-base font-bold">Alluwal Education Hub</div>
+          <div className="min-w-0 text-center text-base font-bold">{tr("Alluwal Education Hub")}</div>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
         </div>
       </header>
@@ -303,7 +303,7 @@ function TeacherHomeContent({
       {loadError ? (
         <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E] sm:flex-row sm:items-center" role="alert">
           <p className="min-w-0 flex-1 font-semibold">{loadError}</p>
-          <button type="button" onClick={onRetry} disabled={loading} className="min-h-10 rounded-xl bg-[#92400E] px-4 text-xs font-bold text-white disabled:opacity-60">{loading ? "Retrying..." : "Try again"}</button>
+          <button type="button" onClick={onRetry} disabled={loading} className="min-h-10 rounded-xl bg-[#92400E] px-4 text-xs font-bold text-white disabled:opacity-60">{loading ? tr("Retrying...") : tr("Try again")}</button>
         </section>
       ) : null}
 
@@ -322,15 +322,15 @@ function TeacherHomeContent({
         <EarningCell label="Month" value={money(monthPay)} />
       </section>
 
-      {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length} Readiness Form{pendingFormShifts.length === 1 ? "" : "s"} Required</span><span className="mt-1 block text-sm text-white/90">Complete a report for each completed or missed class.</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
+      {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length === 1 ? tr("{n} Readiness Form Required", { n: pendingFormShifts.length }) : tr("{n} Readiness Forms Required", { n: pendingFormShifts.length })}</span><span className="mt-1 block text-sm text-white/90">{tr("Complete a report for each completed or missed class.")}</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
 
       {activeShift ? <ActiveSessionCard shift={activeShift} busy={clockBusy} notice={clockNotice} onClockAction={() => void performClockAction()} /> : null}
 
       <section className="mt-5">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-[21px] font-black text-[#111827]">Next Class</h1>
+          <h1 className="text-[21px] font-black text-[#111827]">{tr("Next Class")}</h1>
           <Link href="/teacher/shifts/" className="text-sm font-bold text-[#0386FF]">
-            See All
+            {tr("See All")}
           </Link>
         </div>
         {nextClass ? <NextClassCard shift={nextClass} /> : <EmptyNextClass />}
@@ -339,17 +339,17 @@ function TeacherHomeContent({
           className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#0386FF] bg-white px-4 text-sm font-medium text-[#0369F6]"
         >
           <CalendarClock size={17} />
-          View Full Schedule
+          {tr("View Full Schedule")}
         </Link>
       </section>
 
       <section className="mt-6">
-        {recentTasks.length ? <div className="mb-6" aria-labelledby="teacher-recent-tasks"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-[#EF4444]"><CheckCircle2 size={20} /></span><h2 id="teacher-recent-tasks" className="text-xl font-black text-[#1F2937]">My Tasks</h2></div><Link href="/teacher/tasks/" className="text-sm font-bold text-[#0386FF]">See All</Link></div><div className="grid gap-3">{recentTasks.map((task) => <DashboardTaskCard key={task.id} task={task} />)}</div></div> : null}
+        {recentTasks.length ? <div className="mb-6" aria-labelledby="teacher-recent-tasks"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-[#EF4444]"><CheckCircle2 size={20} /></span><h2 id="teacher-recent-tasks" className="text-xl font-black text-[#1F2937]">{tr("My Tasks")}</h2></div><Link href="/teacher/tasks/" className="text-sm font-bold text-[#0386FF]">{tr("See All")}</Link></div><div className="grid gap-3">{recentTasks.map((task) => <DashboardTaskCard key={task.id} task={task} />)}</div></div> : null}
         <div className="mb-4 flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#DBEAFE] text-[#0386FF]">
             <Grid3X3 size={21} />
           </span>
-          <h2 className="text-xl font-black text-[#1F2937]">Quick Access</h2>
+          <h2 className="text-xl font-black text-[#1F2937]">{tr("Quick Access")}</h2>
         </div>
         <div className="grid grid-cols-4 gap-3 lg:grid-cols-5">
           {quickAccess.map((item) => (
@@ -357,22 +357,22 @@ function TeacherHomeContent({
           ))}
         </div>
       </section>
-      <section className="mt-6 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm" aria-labelledby="teacher-islamic-resources"><div className="mb-4 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-pink-50 text-[#EC4899]"><Landmark size={21} /></span><h2 id="teacher-islamic-resources" className="text-xl font-black text-[#1F2937]">Islamic Resources</h2></div><div className="grid gap-1">{islamicResources.map((resource) => { const Icon = resource.icon; const content = <><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ color: resource.color, backgroundColor: `${resource.color}16` }}><Icon size={18} /></span><span className="min-w-0 flex-1 text-sm font-semibold text-[#374151]">{resource.label}</span>{resource.internal ? <span aria-hidden="true" className="text-[#94A3B8]">›</span> : <ExternalLink size={15} className="text-[#94A3B8]" />}</>; return resource.internal ? <Link key={resource.label} href={resource.href} className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</Link> : <a key={resource.label} href={resource.href} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</a>; })}</div></section>
+      <section className="mt-6 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm" aria-labelledby="teacher-islamic-resources"><div className="mb-4 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-pink-50 text-[#EC4899]"><Landmark size={21} /></span><h2 id="teacher-islamic-resources" className="text-xl font-black text-[#1F2937]">{tr("Islamic Resources")}</h2></div><div className="grid gap-1">{islamicResources.map((resource) => { const Icon = resource.icon; const content = <><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ color: resource.color, backgroundColor: `${resource.color}16` }}><Icon size={18} /></span><span className="min-w-0 flex-1 text-sm font-semibold text-[#374151]">{tr(resource.label)}</span>{resource.internal ? <span aria-hidden="true" className="text-[#94A3B8]">›</span> : <ExternalLink size={15} className="text-[#94A3B8]" />}</>; return resource.internal ? <Link key={resource.label} href={resource.href} className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</Link> : <a key={resource.label} href={resource.href} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">{content}</a>; })}</div></section>
       {pendingFormsOpen ? <PendingFormsDialog shifts={pendingFormShifts} onClose={() => setPendingFormsOpen(false)} /> : null}
     </main>
   );
 }
 
-function DashboardTaskCard({ task }: { task: TeacherTask }) { const normalized = task.status.toLowerCase().replace(/[_\s-]+/g, ""); const done = normalized === "done" || normalized === "completed"; const inProgress = normalized === "inprogress"; const overdue = Boolean(task.dueDate && task.dueDate < new Date() && !done); return <Link href={`/teacher/tasks/?task=${encodeURIComponent(task.id)}`} className={`flex min-h-16 items-center gap-3 rounded-xl border bg-white p-4 shadow-sm ${overdue ? "border-red-200" : "border-[#E2E8F0]"}`}><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${done ? "bg-emerald-50 text-emerald-600" : inProgress ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-[#0386FF]"}`}><CheckCircle2 size={19} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[#1E293B]">{task.title}</span><span className={`mt-1 block text-xs ${overdue ? "font-bold text-red-600" : "text-[#64748B]"}`}>{task.dueDate ? `Due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(task.dueDate)}` : "No due date"}</span></span><span aria-hidden="true" className="text-[#94A3B8]">›</span></Link>; }
+function DashboardTaskCard({ task }: { task: TeacherTask }) { const normalized = task.status.toLowerCase().replace(/[_\s-]+/g, ""); const done = normalized === "done" || normalized === "completed"; const inProgress = normalized === "inprogress"; const overdue = Boolean(task.dueDate && task.dueDate < new Date() && !done); return <Link href={`/teacher/tasks/?task=${encodeURIComponent(task.id)}`} className={`flex min-h-16 items-center gap-3 rounded-xl border bg-white p-4 shadow-sm ${overdue ? "border-red-200" : "border-[#E2E8F0]"}`}><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${done ? "bg-emerald-50 text-emerald-600" : inProgress ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-[#0386FF]"}`}><CheckCircle2 size={19} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[#1E293B]">{task.title}</span><span className={`mt-1 block text-xs ${overdue ? "font-bold text-red-600" : "text-[#64748B]"}`}>{task.dueDate ? `Due ${new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric" }).format(task.dueDate)}` : tr("No due date")}</span></span><span aria-hidden="true" className="text-[#94A3B8]">›</span></Link>; }
 
 function ActiveSessionCard({ shift, busy, notice, onClockAction }: { shift: TeacherShift; busy: boolean; notice: string; onClockAction: () => void }) {
   const clockedIn = isDashboardClockedIn(shift);
   const elapsed = clockedIn ? elapsedLabel(shift.clockInTime && shift.start && shift.clockInTime < shift.start ? shift.start : shift.clockInTime ?? shift.start) : "";
-  return <section className={`mt-4 rounded-3xl bg-gradient-to-br p-5 text-white shadow-lg ${clockedIn ? "from-[#10B981] to-[#059669]" : "from-[#0E72ED] to-[#0386FF]"}`} aria-label="Active teacher session"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20"><Clock3 size={21} /></span><p className="min-w-0 flex-1 text-sm font-bold text-white/90">{clockedIn ? "Active Session" : "Upcoming Session"}</p><span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{clockedIn ? "In Progress" : "Ready"}</span></div><h2 className="mt-4 text-xl font-extrabold">{shift.title}</h2><p className="mt-1 text-sm text-white/80">{formatDateTimeRange(shift.start, shift.end)}</p>{elapsed ? <p className="mt-3 rounded-xl border border-white/20 bg-white/15 p-3 font-bold">Elapsed time: {elapsed}</p> : null}<div className="mt-4 grid grid-cols-2 gap-3"><Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} className="flex min-h-11 items-center justify-center rounded-xl border border-white font-bold">View Session</Link><button type="button" disabled={busy} onClick={onClockAction} className={`min-h-11 rounded-xl bg-white font-extrabold disabled:opacity-60 ${clockedIn ? "text-[#EF4444]" : "text-[#0E72ED]"}`}>{busy ? "Working…" : clockedIn ? "Clock Out" : "Clock In"}</button></div>{notice ? <p role="status" className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${/^Successfully/.test(notice) ? "bg-white/15 text-white" : "bg-red-950/25 text-white"}`}>{notice}</p> : null}</section>;
+  return <section className={`mt-4 rounded-3xl bg-gradient-to-br p-5 text-white shadow-lg ${clockedIn ? "from-[#10B981] to-[#059669]" : "from-[#0E72ED] to-[#0386FF]"}`} aria-label={tr("Active teacher session")}><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20"><Clock3 size={21} /></span><p className="min-w-0 flex-1 text-sm font-bold text-white/90">{clockedIn ? tr("Active Session") : tr("Upcoming Session")}</p><span className="rounded-full bg-white/20 px-3 py-1 text-xs font-extrabold">{clockedIn ? tr("In Progress") : tr("Ready")}</span></div><h2 className="mt-4 text-xl font-extrabold">{shift.title}</h2><p className="mt-1 text-sm text-white/80">{formatDateTimeRange(shift.start, shift.end)}</p>{elapsed ? <p className="mt-3 rounded-xl border border-white/20 bg-white/15 p-3 font-bold">{tr("Elapsed time:")} {elapsed}</p> : null}<div className="mt-4 grid grid-cols-2 gap-3"><Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} className="flex min-h-11 items-center justify-center rounded-xl border border-white font-bold">{tr("View Session")}</Link><button type="button" disabled={busy} onClick={onClockAction} className={`min-h-11 rounded-xl bg-white font-extrabold disabled:opacity-60 ${clockedIn ? "text-[#EF4444]" : "text-[#0E72ED]"}`}>{busy ? tr("Working…") : clockedIn ? tr("Clock Out") : tr("Clock In")}</button></div>{notice ? <p role="status" className={`mt-3 rounded-xl px-3 py-2 text-sm font-semibold ${/^Successfully/.test(notice) ? "bg-white/15 text-white" : "bg-red-950/25 text-white"}`}>{notice}</p> : null}</section>;
 }
 
 function PendingFormsDialog({ shifts, onClose }: { shifts: TeacherShift[]; onClose: () => void }) {
-  return <section className="fixed inset-0 z-[90] grid items-end bg-black/45 sm:place-items-center" role="dialog" aria-modal="true" aria-label="Pending readiness forms"><div className="max-h-[78vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"><header className="flex items-center gap-3 border-b border-[#E2E8F0] p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-600"><ClipboardList size={22} /></span><div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-[#111827]">Pending Readiness Forms</h2><p className="text-sm text-[#64748B]">Select a class to complete its report.</p></div><button type="button" aria-label="Close pending forms" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"><X size={20} /></button></header><div className="max-h-[calc(78vh-84px)] divide-y divide-[#E2E8F0] overflow-y-auto">{shifts.map((shift) => <div key={shift.id} className="flex flex-wrap items-center gap-3 p-5"><div className="min-w-0 flex-1"><p className="truncate font-bold text-[#334155]">{shift.title}</p><p className="mt-1 text-sm text-[#64748B]">{formatDateTimeRange(shift.start, shift.end)}</p><span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-bold ${isMissedStatus(shift.status) ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{isMissedStatus(shift.status) ? "Missed" : "Completed"}</span></div><Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-4 text-sm font-bold text-white">Fill Form</Link></div>)}</div></div></section>;
+  return <section className="fixed inset-0 z-[90] grid items-end bg-black/45 sm:place-items-center" role="dialog" aria-modal="true" aria-label={tr("Pending readiness forms")}><div className="max-h-[78vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"><header className="flex items-center gap-3 border-b border-[#E2E8F0] p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-600"><ClipboardList size={22} /></span><div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-[#111827]">{tr("Pending Readiness Forms")}</h2><p className="text-sm text-[#64748B]">{tr("Select a class to complete its report.")}</p></div><button type="button" aria-label={tr("Close pending forms")} onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]"><X size={20} /></button></header><div className="max-h-[calc(78vh-84px)] divide-y divide-[#E2E8F0] overflow-y-auto">{shifts.map((shift) => <div key={shift.id} className="flex flex-wrap items-center gap-3 p-5"><div className="min-w-0 flex-1"><p className="truncate font-bold text-[#334155]">{shift.title}</p><p className="mt-1 text-sm text-[#64748B]">{formatDateTimeRange(shift.start, shift.end)}</p><span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-bold ${isMissedStatus(shift.status) ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{isMissedStatus(shift.status) ? tr("Missed") : tr("Completed")}</span></div><Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-4 text-sm font-bold text-white">{tr("Fill Form")}</Link></div>)}</div></div></section>;
 }
 
 export function TeacherShell({
@@ -387,6 +387,9 @@ export function TeacherShell({
   children: ReactNode;
 }) {
   const t = useT();
+  // Hydration is done by the time effects run; let tr() start translating and
+  // re-render the tree below in one pass.
+  useEffect(() => markLocaleHydrated(), []);
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [favoritedItems, setFavoritedItems] = useState<Set<string>>(new Set());
@@ -483,7 +486,7 @@ export function TeacherShell({
       <div className="flex h-screen overflow-hidden">
         <aside className="hidden h-screen w-[260px] shrink-0 flex-col border-r border-[#D7DEE8] bg-white shadow-[4px_0_18px_rgba(15,23,42,0.04)] lg:flex">
           <div className="flex min-h-14 items-center justify-center border-b border-black/5 px-4">
-            <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-12 w-auto object-contain" />
+            <img src="/assets/Alluwal_Education_Hub_Logo.png" alt={tr("Alluwal Education Hub")} className="h-12 w-auto object-contain" />
           </div>
           <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
             <p className="text-[21px] font-black text-[#0F172A]">{t("Menu")}</p>
@@ -497,7 +500,7 @@ export function TeacherShell({
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={16} />
               <input
                 id="teacher-shell-search"
-                placeholder="Search..."
+                placeholder={tr("Search...")}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="h-10 w-full rounded-xl border border-black/10 bg-white px-9 text-sm text-[#334155] outline-none focus:border-[#0386FF]"
@@ -505,7 +508,7 @@ export function TeacherShell({
               {searchQuery.trim() ? (
                 <button
                   type="button"
-                  aria-label="Clear search"
+                  aria-label={tr("Clear search")}
                   onClick={() => setSearchQuery("")}
                   className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-[#94A3B8] hover:bg-black/5 hover:text-[#334155]"
                 >
@@ -514,7 +517,7 @@ export function TeacherShell({
               ) : null}
             </div>
           </div>
-          <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Teacher dashboard navigation">
+          <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label={tr("Teacher dashboard navigation")}>
             {favoriteSidebarItems.length > 0 ? (
               <SidebarFavorites
                 items={favoriteSidebarItems}
@@ -532,7 +535,7 @@ export function TeacherShell({
                     onClick={() => toggleSection(section.title)}
                     className="flex min-h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8] hover:bg-[#F8FAFC]"
                     aria-expanded={!isCollapsed}
-                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.title}`}
+                    aria-label={`${isCollapsed ? tr("Expand") : tr("Collapse")} ${section.title}`}
                   >
                     <Grid3X3 size={14} />
                     <span className="min-w-0 flex-1 truncate">{t(section.title)}</span>
@@ -564,27 +567,27 @@ export function TeacherShell({
 
         <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <header className="hidden min-h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4 lg:flex">
-            <p className="text-sm font-bold text-[#64748B]">{breadcrumb}</p>
+            <p className="text-sm font-bold text-[#64748B]">{breadcrumb.split(" / ").map((part) => tr(part)).join(" / ")}</p>
             <div className="flex items-center gap-3">
-              <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">Teacher</span>
-              <Link href="/teacher/report/" aria-label={notificationCount ? `${notificationCount} unread report notification${notificationCount === 1 ? "" : "s"}` : "Open report notifications"} className="relative grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0386FF]"><Bell size={20} />{notificationCount ? <span className="absolute right-1 top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{notificationCount > 99 ? "99+" : notificationCount}</span> : null}</Link>
+              <span className="inline-flex min-h-9 items-center rounded-full bg-[#0386FF] px-4 text-xs font-black text-white">{tr("Teacher")}</span>
+              <Link href="/teacher/report/" aria-label={notificationCount ? `${notificationCount} unread report notification${notificationCount === 1 ? "" : "s"}` : tr("Open report notifications")} className="relative grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0386FF]"><Bell size={20} />{notificationCount ? <span className="absolute right-1 top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{notificationCount > 99 ? "99+" : notificationCount}</span> : null}</Link>
               <div className="relative">
-                <button type="button" aria-label="Open teacher account menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((current) => !current)} className="flex min-h-11 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">
+                <button type="button" aria-label={tr("Open teacher account menu")} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((current) => !current)} className="flex min-h-11 items-center gap-3 rounded-xl px-2 hover:bg-[#F8FAFC]">
                   <span className="max-w-[240px] truncate text-sm font-semibold text-[#2563EB]">{summary.displayName}</span>
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">{summary.initials}</span>
                 </button>
                 {accountMenuOpen ? (
-                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label="Teacher account menu">
-                    <Link href="/teacher/profile/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={18} />View Profile</Link>
-                    <Link href="/teacher/settings/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={18} />Settings</Link>
-                    {canSwitchToAdmin ? <Link href="/admin/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={18} />Switch to Admin</Link> : null}
-                    <button type="button" role="menuitem" onClick={() => void logout()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={18} />Log out</button>
+                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-xl" role="menu" aria-label={tr("Teacher account menu")}>
+                    <Link href="/teacher/profile/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={18} />{tr("View Profile")}</Link>
+                    <Link href="/teacher/settings/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={18} />{tr("Settings")}</Link>
+                    {canSwitchToAdmin ? <Link href="/admin/" role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={18} />{tr("Switch to Admin")}</Link> : null}
+                    <button type="button" role="menuitem" onClick={() => void logout()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={18} />{tr("Log out")}</button>
                   </div>
                 ) : null}
               </div>
             </div>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto" aria-label="Teacher page content">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto" aria-label={tr("Teacher page content")}>{children}</div>
         </section>
       </div>
       {mobileMenuOpen ? (
@@ -597,7 +600,7 @@ export function TeacherShell({
           onClose={() => setMobileMenuOpen(false)}
         />
       ) : null}
-      {aiTutorEnabled ? <Link href="/teacher/tutor/" aria-label="Open AI Tutor" className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0E72ED] px-5 font-extrabold text-white shadow-xl hover:bg-[#075FC9]"><Bot size={20} />AI Tutor</Link> : null}
+      {aiTutorEnabled ? <Link href="/teacher/tutor/" aria-label={tr("Open AI Tutor")} className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0E72ED] px-5 font-extrabold text-white shadow-xl hover:bg-[#075FC9]"><Bot size={20} />{tr("AI Tutor")}</Link> : null}
     </main>
   );
 }
@@ -619,12 +622,12 @@ function TeacherMobileMenu({
 }) {
   const t = useT();
   return (
-    <section className="fixed inset-0 z-[80] lg:hidden" aria-label="Teacher mobile menu">
-      <button type="button" aria-label="Close teacher menu backdrop" onClick={onClose} className="absolute inset-0 bg-black/40" />
+    <section className="fixed inset-0 z-[80] lg:hidden" aria-label={tr("Teacher mobile menu")}>
+      <button type="button" aria-label={tr("Close teacher menu backdrop")} onClick={onClose} className="absolute inset-0 bg-black/40" />
       <aside className="absolute inset-y-0 left-0 flex w-[310px] max-w-[86vw] flex-col bg-white shadow-2xl">
         <div className="flex min-h-16 items-center gap-3 border-b border-black/10 px-4">
-          <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-11 w-auto object-contain" />
-          <button type="button" aria-label="Close teacher menu" onClick={onClose} className="ml-auto grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+          <img src="/assets/Alluwal_Education_Hub_Logo.png" alt={tr("Alluwal Education Hub")} className="h-11 w-auto object-contain" />
+          <button type="button" aria-label={tr("Close teacher menu")} onClick={onClose} className="ml-auto grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
           </button>
         </div>
@@ -632,10 +635,10 @@ function TeacherMobileMenu({
           <span className="grid h-10 w-10 place-items-center rounded-full bg-[#009688] text-sm font-black text-white">{summary.initials}</span>
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-[#0F172A]">{summary.displayName}</p>
-            <p className="text-xs font-bold text-[#64748B]">Teacher</p>
+            <p className="text-xs font-bold text-[#64748B]">{tr("Teacher")}</p>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Teacher mobile navigation">
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label={tr("Teacher mobile navigation")}>
           {teacherSections.map((section) => (
             <div key={section.title} className="mb-5">
               <p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]">
@@ -665,13 +668,13 @@ function TeacherMobileMenu({
               </div>
             </div>
           ))}
-          {tontineEnabled ? <div className="mb-5"><p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]"><Grid3X3 size={14} />Savings</p><Link href="/teacher/circles/" onClick={onClose} className={`flex min-h-12 items-center gap-3 rounded-2xl px-3 text-sm font-bold ${activeLabel === "Circles" ? "bg-[#E6EEF8] text-[#001E4E]" : "text-[#334155] hover:bg-[#F1F4F8]"}`}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F8FAFC] text-[#0F766E]"><Landmark size={19} /></span>Circles</Link></div> : null}
+          {tontineEnabled ? <div className="mb-5"><p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]"><Grid3X3 size={14} />{tr("Savings")}</p><Link href="/teacher/circles/" onClick={onClose} className={`flex min-h-12 items-center gap-3 rounded-2xl px-3 text-sm font-bold ${activeLabel === "Circles" ? "bg-[#E6EEF8] text-[#001E4E]" : "text-[#334155] hover:bg-[#F1F4F8]"}`}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F8FAFC] text-[#0F766E]"><Landmark size={19} /></span>{tr("Circles")}</Link></div> : null}
         </nav>
         <div className="border-t border-black/10 p-3">
-          <Link href="/teacher/profile/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={19} />View Profile</Link>
-          <Link href="/teacher/settings/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={19} />Settings</Link>
-          {canSwitchToAdmin ? <Link href="/admin/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={19} />Switch to Admin</Link> : null}
-          <button type="button" onClick={onLogout} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={19} />Log out</button>
+          <Link href="/teacher/profile/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><CircleUserRound size={19} />{tr("View Profile")}</Link>
+          <Link href="/teacher/settings/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><Settings size={19} />{tr("Settings")}</Link>
+          {canSwitchToAdmin ? <Link href="/admin/" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]"><ShieldCheck size={19} />{tr("Switch to Admin")}</Link> : null}
+          <button type="button" onClick={onLogout} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"><LogOut size={19} />{tr("Log out")}</button>
         </div>
       </aside>
     </section>
@@ -696,7 +699,7 @@ function MetricCard({
       <Icon size={17} style={{ color: iconColor }} />
       <div className="text-center">
         <p className="text-base font-black text-[#111827]">{loading ? "..." : value}</p>
-        <p className="max-w-full truncate text-[10px] font-medium text-[#64748B] lg:text-[11px]">{label}</p>
+        <p className="max-w-full truncate text-[10px] font-medium text-[#64748B] lg:text-[11px]">{tr(label)}</p>
       </div>
     </div>
   );
@@ -707,7 +710,7 @@ function EarningCell({ label, value }: { label: string; value: string }) {
     <div className="grid min-h-[52px] place-items-center border-r border-white/20 px-2 py-2 last:border-r-0">
       <div className="text-center">
         <p className="text-sm font-black">{value}</p>
-        <p className="mt-0.5 text-[10px] font-bold">{label}</p>
+        <p className="mt-0.5 text-[10px] font-bold">{tr(label)}</p>
       </div>
     </div>
   );
@@ -720,8 +723,8 @@ function EmptyNextClass() {
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#F1F5F9] text-[#94A3B8]">
           <CalendarCheck size={32} />
         </span>
-        <h2 className="mt-5 text-lg font-black text-[#64748B]">No Upcoming Classes</h2>
-        <p className="mt-2 text-sm font-medium text-[#94A3B8]">Enjoy your free time!</p>
+        <h2 className="mt-5 text-lg font-black text-[#64748B]">{tr("No Upcoming Classes")}</h2>
+        <p className="mt-2 text-sm font-medium text-[#94A3B8]">{tr("Enjoy your free time!")}</p>
       </div>
     </div>
   );
@@ -730,7 +733,7 @@ function EmptyNextClass() {
 function NextClassCard({ shift }: { shift: TeacherShift }) {
   return (
     <Link href={`/teacher/shifts/?shift=${encodeURIComponent(shift.id)}`} aria-label={`View ${shift.title} session details`} className="block w-full max-w-[420px] rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-sm hover:border-[#0386FF] hover:shadow-md">
-      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#0386FF]">Upcoming class</p>
+      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#0386FF]">{tr("Upcoming class")}</p>
       <h2 className="mt-2 text-lg font-black text-[#111827]">{shift.title}</h2>
       <p className="mt-2 text-sm font-semibold text-[#64748B]">{shift.studentNames.join(", ") || "Students"}</p>
       <p className="mt-3 text-sm font-medium text-[#334155]">{formatDateTimeRange(shift.start, shift.end)}</p>
@@ -767,10 +770,10 @@ function SidebarFavorites({
 }) {
   const t = useT();
   return (
-    <div aria-label="Pinned dashboard items" className="mb-3 rounded-2xl border border-black/10 bg-[#F8FAFC] p-3">
+    <div aria-label={tr("Pinned dashboard items")} className="mb-3 rounded-2xl border border-black/10 bg-[#F8FAFC] p-3">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">
         <Star size={14} className="fill-[#F59E0B] text-[#F59E0B]" />
-        Favorites
+        {tr("Favorites")}
       </div>
       <SidebarItems items={items} favoritedItems={favoritedItems} activeLabel={activeLabel} onToggleFavorite={onToggleFavorite} />
     </div>
@@ -809,7 +812,7 @@ function SidebarItems({
             </Link>
             <button
               type="button"
-              aria-label={`${favoritedItems.has(item.label) ? "Unpin" : "Pin"} ${item.label}`}
+              aria-label={`${favoritedItems.has(item.label) ? tr("Unpin") : tr("Pin")} ${item.label}`}
               onClick={() => onToggleFavorite(item.label)}
               className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#F59E0B]"
             >
@@ -830,13 +833,13 @@ export function TeacherAccessPrompt({ access }: { access: AccessState }) {
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#E6F3FF] text-[#0386FF]">
           <LayoutDashboard size={24} />
         </div>
-        <h1 className="mt-4 text-2xl font-black">{checking ? "Checking teacher access" : access === "signedOut" ? "Teacher sign-in required" : "Teacher access required"}</h1>
+        <h1 className="mt-4 text-2xl font-black">{checking ? tr("Checking teacher access") : access === "signedOut" ? tr("Teacher sign-in required") : tr("Teacher access required")}</h1>
         <p className="mt-2 text-sm leading-6 text-[#64748B]">
-          {checking ? "Please wait while we verify your account." : "Sign in with a teacher account to open the teacher dashboard."}
+          {checking ? tr("Please wait while we verify your account.") : tr("Sign in with a teacher account to open the teacher dashboard.")}
         </p>
         {!checking ? (
           <Link href="/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">
-            Go to login
+            {tr("Go to login")}
           </Link>
         ) : null}
       </section>
@@ -1016,25 +1019,25 @@ function canDashboardClockIn(shift: TeacherShift) { if (!shift.start || !shift.e
 function elapsedLabel(start: Date | null) { const milliseconds = start ? Math.max(0, Date.now() - start.getTime()) : 0; const hours = Math.floor(milliseconds / 3_600_000); const minutes = Math.floor(milliseconds % 3_600_000 / 60_000); return `${hours}h ${String(minutes).padStart(2, "0")}m`; }
 
 type DashboardLocation = { latitude: number; longitude: number; address: string; neighborhood: string };
-async function getDashboardLocation(): Promise<DashboardLocation> { if (!("geolocation" in navigator)) throw new Error("Location access is required to clock in or out."); try { const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 })); const { latitude, longitude } = position.coords; return { latitude, longitude, address: `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, neighborhood: "GPS coordinates" }; } catch { throw new Error("Location access is required to clock in or out. Allow location access and try again."); } }
+async function getDashboardLocation(): Promise<DashboardLocation> { if (!("geolocation" in navigator)) throw new Error(tr("Location access is required to clock in or out.")); try { const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 })); const { latitude, longitude } = position.coords; return { latitude, longitude, address: `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, neighborhood: "GPS coordinates" }; } catch { throw new Error(tr("Location access is required to clock in or out. Allow location access and try again.")); } }
 
 async function dashboardClockIn(user: User, shift: TeacherShift, location: DashboardLocation) {
-  if (!canDashboardClockIn(shift)) throw new Error("This shift is not available for clock-in right now.");
-  if (await findDashboardOpenEntry(user.uid, shift.id)) throw new Error("You are already clocked in to this shift.");
+  if (!canDashboardClockIn(shift)) throw new Error(tr("This shift is not available for clock-in right now."));
+  if (await findDashboardOpenEntry(user.uid, shift.id)) throw new Error(tr("You are already clocked in to this shift."));
   const now = new Date(); const timesheetRef = doc(collection(db, "timesheet_entries")); const shiftRef = doc(db, "teaching_shifts", shift.id);
   await runTransaction(db, async (transaction) => {
-    const currentSnap = await transaction.get(shiftRef); if (!currentSnap.exists()) throw new Error("This shift is no longer available.");
-    const current = currentSnap.data() as Record<string, unknown>; if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error("You are already clocked in to this shift.");
+    const currentSnap = await transaction.get(shiftRef); if (!currentSnap.exists()) throw new Error(tr("This shift is no longer available."));
+    const current = currentSnap.data() as Record<string, unknown>; if (dateValue(current.clock_in_time ?? current.clockInTime) && !dateValue(current.clock_out_time ?? current.clockOutTime)) throw new Error(tr("You are already clocked in to this shift."));
     transaction.set(timesheetRef, { teacher_id: user.uid, teacher_email: user.email, teacher_name: shift.teacherName, shift_id: shift.id, shift_category: shift.category, date: dashboardDate(now), student_name: shift.studentNames.join(", ") || shift.title, start_time: dashboardTime(now), end_time: "", total_hours: "00:00", hourly_rate: shift.hourlyRate, pay_rate_source: shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate", is_subject_billable: shift.category === "teaching", description: `Teaching session: ${shift.subject || shift.title} - ${shift.title}`, status: "pending", source: "shift_clock_in", completion_method: "pending", clock_in_timestamp: Timestamp.fromDate(now), clock_in_status: deviationStatus(now, shift.start), clock_in_deviation_minutes: deviationMinutes(now, shift.start), clock_in_platform: "web", clock_in_latitude: location.latitude, clock_in_longitude: location.longitude, clock_in_address: location.address, clock_in_neighborhood: location.neighborhood, shift_title: shift.title, scheduled_start: shift.start ? Timestamp.fromDate(shift.start) : null, scheduled_end: shift.end ? Timestamp.fromDate(shift.end) : null, scheduled_duration_minutes: shift.start && shift.end ? Math.max(0, Math.round((shift.end.getTime() - shift.start.getTime()) / 60_000)) : 0, created_at: serverTimestamp(), updated_at: serverTimestamp() });
     transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), status: "active", clock_out_time: null, clock_in_time: Timestamp.fromDate(now), last_clock_in_platform: "web" });
   });
-  return `Successfully clocked in to ${shift.title}`;
+  return tr("Successfully clocked in to {name}", { name: shift.title });
 }
 
 async function dashboardClockOut(user: User, shift: TeacherShift, location: DashboardLocation) {
-  const open = await findDashboardOpenEntry(user.uid, shift.id); if (!open) throw new Error("No active clock-in found for this shift.");
+  const open = await findDashboardOpenEntry(user.uid, shift.id); if (!open) throw new Error(tr("No active clock-in found for this shift."));
   const now = new Date(); const clockIn = dateValue(open.data.clock_in_timestamp) ?? shift.clockInTime ?? shift.start ?? now; const effectiveStart = shift.start && clockIn < shift.start ? shift.start : clockIn; const effectiveEnd = shift.end && now > shift.end ? shift.end : now; const duration = Math.max(0, effectiveEnd.getTime() - effectiveStart.getTime()); const hours = duration / 3_600_000; const shiftRef = doc(db, "teaching_shifts", shift.id);
-  await runTransaction(db, async (transaction) => { const entrySnap = await transaction.get(open.ref); if (!entrySnap.exists() || dateValue(entrySnap.data().clock_out_timestamp) || stringValue(entrySnap.data().end_time)) throw new Error("This shift has already been clocked out."); const shiftSnap = await transaction.get(shiftRef); if (!shiftSnap.exists()) throw new Error("This shift is no longer available."); transaction.update(open.ref, { end_time: dashboardTime(effectiveEnd), total_hours: dashboardDuration(duration), clock_out_timestamp: Timestamp.fromDate(now), effective_end_timestamp: Timestamp.fromDate(effectiveEnd), total_pay: hours * shift.hourlyRate, payment_amount: hours * shift.hourlyRate, status: "pending", completion_method: "manual", clock_out_status: deviationStatus(now, shift.end), clock_out_deviation_minutes: deviationMinutes(now, shift.end), clock_out_latitude: location.latitude, clock_out_longitude: location.longitude, clock_out_address: location.address, clock_out_neighborhood: location.neighborhood, clock_out_platform: "web", updated_at: serverTimestamp() }); transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), clock_out_time: Timestamp.fromDate(now) }); });
+  await runTransaction(db, async (transaction) => { const entrySnap = await transaction.get(open.ref); if (!entrySnap.exists() || dateValue(entrySnap.data().clock_out_timestamp) || stringValue(entrySnap.data().end_time)) throw new Error(tr("This shift has already been clocked out.")); const shiftSnap = await transaction.get(shiftRef); if (!shiftSnap.exists()) throw new Error(tr("This shift is no longer available.")); transaction.update(open.ref, { end_time: dashboardTime(effectiveEnd), total_hours: dashboardDuration(duration), clock_out_timestamp: Timestamp.fromDate(now), effective_end_timestamp: Timestamp.fromDate(effectiveEnd), total_pay: hours * shift.hourlyRate, payment_amount: hours * shift.hourlyRate, status: "pending", completion_method: "manual", clock_out_status: deviationStatus(now, shift.end), clock_out_deviation_minutes: deviationMinutes(now, shift.end), clock_out_latitude: location.latitude, clock_out_longitude: location.longitude, clock_out_address: location.address, clock_out_neighborhood: location.neighborhood, clock_out_platform: "web", updated_at: serverTimestamp() }); transaction.update(shiftRef, { last_modified: Timestamp.fromDate(now), clock_out_time: Timestamp.fromDate(now) }); });
   return `Successfully clocked out from ${shift.title}`;
 }
 
@@ -1056,9 +1059,9 @@ function money(value: number) {
 
 function formatDateTimeRange(start: Date | null, end: Date | null) {
   if (!start && !end) return "Schedule pending";
-  const day = start?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) ?? "Date pending";
-  const startTime = start?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) ?? "-";
-  const endTime = end?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) ?? "-";
+  const day = start?.toLocaleDateString(dateLocale(), { weekday: "short", month: "short", day: "numeric" }) ?? "Date pending";
+  const startTime = start?.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" }) ?? "-";
+  const endTime = end?.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" }) ?? "-";
   return `${day} · ${startTime}-${endTime}`;
 }
 

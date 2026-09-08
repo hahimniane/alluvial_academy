@@ -27,6 +27,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -185,9 +186,9 @@ export function TeacherShiftsPage() {
           <div className="py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-              <h1 className="text-[22px] font-black leading-tight text-[#111827] lg:text-[22px]">Weekly Calendar</h1>
+              <h1 className="text-[22px] font-black leading-tight text-[#111827] lg:text-[22px]">{tr("Weekly Calendar")}</h1>
               <p className="mt-1 text-[13px] font-medium leading-5 text-[#64748B] lg:text-[13px]">
-                Grid shows three days at a time; list shows your agenda.
+                {tr("Grid shows three days at a time; list shows your agenda.")}
               </p>
               </div>
               <ViewModeToggle value={viewMode} onChange={setViewMode} />
@@ -269,12 +270,12 @@ export function TeacherShiftsPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-[68px] grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={28} />
       </button>
-      <div className="min-w-0 text-center text-[20px] font-black text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-[20px] font-black text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]"><Shuffle size={24} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]"><Shuffle size={24} /></button>
         <span className="grid h-11 w-11 place-items-center rounded-full bg-[#009688] text-base font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -293,15 +294,15 @@ function ScheduleToolbar({
 }) {
   return (
     <div className="flex min-h-[88px] items-center gap-2 bg-white px-3 lg:min-h-14 lg:border-b lg:border-black/5">
-      <Link href="/teacher/" aria-label="Back to teacher dashboard" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[#475569] hover:bg-[#F8FAFC]">
+      <Link href="/teacher/" aria-label={tr("Back to teacher dashboard")} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[#475569] hover:bg-[#F8FAFC]">
         <ArrowLeft size={24} />
       </Link>
-      <h1 className="min-w-0 flex-1 truncate text-[21px] font-black text-[#111827] lg:text-[22px]">Schedule</h1>
+      <h1 className="min-w-0 flex-1 truncate text-[21px] font-black text-[#111827] lg:text-[22px]">{tr("Schedule")}</h1>
       <div className="flex shrink-0 items-center gap-1 lg:gap-2">
         <RangeButton icon={PanelTop} label="Day" active={rangeMode === "day"} onClick={() => onRangeModeChange("day")} />
         <RangeButton icon={List} label="Week" active={rangeMode === "week"} onClick={() => onRangeModeChange("week")} />
         <RangeButton icon={CalendarDays} label="Month" active={rangeMode === "month"} onClick={() => onRangeModeChange("month")} />
-        <button type="button" aria-label="Schedule settings" onClick={onSettings} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+        <button type="button" aria-label={tr("Schedule settings")} onClick={onSettings} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
           <Settings size={22} />
         </button>
       </div>
@@ -329,7 +330,7 @@ function RangeButton({
       }`}
     >
       <Icon size={18} />
-      <span>{label}</span>
+      <span>{tr(label)}</span>
     </button>
   );
 }
@@ -357,8 +358,8 @@ function ActiveSessionCard({
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/20">
           {isActive ? <Clock size={20} /> : <Timer size={20} />}
         </span>
-        <p className="min-w-0 flex-1 text-sm font-semibold text-white/90">{isActive ? "Active Session" : "Upcoming Session"}</p>
-        <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase">{isActive ? "In Progress" : "Ready"}</span>
+        <p className="min-w-0 flex-1 text-sm font-semibold text-white/90">{isActive ? tr("Active Session") : tr("Upcoming Session")}</p>
+        <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase">{isActive ? tr("In Progress") : tr("Ready")}</span>
       </div>
       <h2 className="mt-4 line-clamp-2 text-lg font-bold">{shift.studentNames.join(", ") || shift.title}</h2>
       <p className="mt-2 text-sm text-white/80">{formatTimeRange(shift.start, shift.end)}</p>
@@ -368,7 +369,7 @@ function ActiveSessionCard({
           onClick={() => onView(shift)}
           className="min-h-11 rounded-xl border border-white bg-transparent text-sm font-semibold text-white hover:bg-white/10"
         >
-          View Session
+          {tr("View Session")}
         </button>
         <button
           type="button"
@@ -379,7 +380,7 @@ function ActiveSessionCard({
           } disabled:opacity-70`}
         >
           <Clock size={18} />
-          {busy ? "Updating..." : action.kind === "clockOut" ? "Clock Out" : "Clock In"}
+          {busy ? tr("Updating...") : action.kind === "clockOut" ? tr("Clock Out") : tr("Clock In")}
         </button>
       </div>
     </article>
@@ -397,7 +398,7 @@ function ViewModeToggle({ value, onChange }: { value: "grid" | "list"; onChange:
         }`}
       >
         <Grid2X2 size={18} />
-        Grid
+        {tr("Grid")}
       </button>
       <button
         type="button"
@@ -407,7 +408,7 @@ function ViewModeToggle({ value, onChange }: { value: "grid" | "list"; onChange:
         }`}
       >
         <List size={18} />
-        List
+        {tr("List")}
       </button>
     </div>
   );
@@ -426,13 +427,13 @@ function WeekNavigator({
 }) {
   return (
     <div className="mb-3 grid min-h-10 grid-cols-[1fr_80px_1fr] items-center rounded-xl border border-[#DDE6F0] bg-white shadow-sm">
-      <button type="button" aria-label="Previous week" onClick={onPrevious} className="grid h-10 place-items-center rounded-l-xl text-[#475569] hover:bg-[#F8FAFC]">
+      <button type="button" aria-label={tr("Previous week")} onClick={onPrevious} className="grid h-10 place-items-center rounded-l-xl text-[#475569] hover:bg-[#F8FAFC]">
         <ChevronLeft size={24} />
       </button>
-      <button type="button" aria-label={`Current week ${formatWeekRange(weekStart)}`} onClick={onToday} className="mx-auto grid h-10 w-12 place-items-center rounded-full bg-[#DFF0FF] text-[#0386FF]">
+      <button type="button" aria-label={tr("Current week {range}", { range: formatWeekRange(weekStart) })} onClick={onToday} className="mx-auto grid h-10 w-12 place-items-center rounded-full bg-[#DFF0FF] text-[#0386FF]">
         <CalendarCheck size={24} />
       </button>
-      <button type="button" aria-label="Next week" onClick={onNext} className="grid h-10 place-items-center rounded-r-xl text-[#475569] hover:bg-[#F8FAFC]">
+      <button type="button" aria-label={tr("Next week")} onClick={onNext} className="grid h-10 place-items-center rounded-r-xl text-[#475569] hover:bg-[#F8FAFC]">
         <ChevronRight size={24} />
       </button>
     </div>
@@ -448,7 +449,7 @@ function WeeklyList({ days, shifts, loading, onSelectShift }: { days: Date[]; sh
         <h2 className="text-[22px] font-medium text-[#9CA3AF]">{formatWeekRange(firstDay)}</h2>
       </div>
       {loading ? (
-        <div className="grid min-h-[360px] place-items-center text-sm font-bold text-[#64748B]">Loading schedule...</div>
+        <div className="grid min-h-[360px] place-items-center text-sm font-bold text-[#64748B]">{tr("Loading schedule...")}</div>
       ) : hasShifts ? (
         <div className="divide-y divide-[#EEF2F7]">
           {days.map((day) => (
@@ -466,7 +467,7 @@ function WeeklyGrid({ days, shifts, loading, onSelectShift }: { days: Date[]; sh
   return (
     <section className="grid min-h-[590px] grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-sm lg:min-h-[828px] lg:grid-cols-3">
       {loading ? (
-        <div className="col-span-full grid min-h-[360px] place-items-center text-sm font-bold text-[#64748B]">Loading schedule...</div>
+        <div className="col-span-full grid min-h-[360px] place-items-center text-sm font-bold text-[#64748B]">{tr("Loading schedule...")}</div>
       ) : (
         days.map((day) => (
           <div key={day.toISOString()} className="border-b border-[#EEF2F7] p-5 lg:border-b-0 lg:border-r lg:last:border-r-0">
@@ -477,7 +478,7 @@ function WeeklyGrid({ days, shifts, loading, onSelectShift }: { days: Date[]; sh
                 {shifts.filter((shift) => isSameDay(shift.start, day)).length ? (
                   shifts.filter((shift) => isSameDay(shift.start, day)).map((shift) => <ShiftPill key={shift.id} shift={shift} onSelect={onSelectShift} />)
                 ) : (
-                  <p className="text-base font-medium text-[#9CA3AF]">No events</p>
+                  <p className="text-base font-medium text-[#9CA3AF]">{tr("No events")}</p>
                 )}
               </div>
             </div>
@@ -493,7 +494,7 @@ function DayAgenda({ day, shifts, onSelectShift }: { day: Date; shifts: TeacherS
     <div className="grid min-h-[88px] grid-cols-[96px_1fr] items-start gap-5 px-6 py-5">
       <DayBadge day={day} />
       <div className="pt-4">
-        {shifts.length ? shifts.map((shift) => <ShiftPill key={shift.id} shift={shift} onSelect={onSelectShift} />) : <p className="text-base font-medium text-[#9CA3AF]">No events</p>}
+        {shifts.length ? shifts.map((shift) => <ShiftPill key={shift.id} shift={shift} onSelect={onSelectShift} />) : <p className="text-base font-medium text-[#9CA3AF]">{tr("No events")}</p>}
       </div>
     </div>
   );
@@ -503,7 +504,7 @@ function NoEventsDay({ day }: { day: Date }) {
   return (
     <div className="grid min-h-[88px] grid-cols-[96px_1fr] items-start gap-5 border-b border-[#EEF2F7] px-6 py-5 lg:grid-cols-[128px_1fr]">
       <DayBadge day={day} />
-      <p className="pt-4 text-base font-medium text-[#9CA3AF]">No events</p>
+      <p className="pt-4 text-base font-medium text-[#9CA3AF]">{tr("No events")}</p>
     </div>
   );
 }
@@ -551,7 +552,7 @@ function DaySchedule({
     <section>
       <div className="mb-3 rounded-2xl bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-black text-[#1E293B]">{anchorDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+          <h2 className="text-lg font-black text-[#1E293B]">{anchorDate.toLocaleDateString(dateLocale(), { month: "long", year: "numeric" })}</h2>
           <Calendar size={22} className="text-[#64748B]" />
         </div>
         <div className="flex gap-3 overflow-x-auto pb-1">
@@ -568,18 +569,18 @@ function DaySchedule({
       </div>
       <div className="mb-0 flex items-center gap-2 border-b border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
         <Calendar size={18} className="text-[#64748B]" />
-        <h2 className="text-sm font-bold text-[#334155]">{anchorDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h2>
+        <h2 className="text-sm font-bold text-[#334155]">{anchorDate.toLocaleDateString(dateLocale(), { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h2>
         {shifts.length ? <span className="ml-auto rounded-full bg-[#DFF0FF] px-3 py-1 text-xs font-bold text-[#0386FF]">{shifts.length} shift{shifts.length === 1 ? "" : "s"}</span> : null}
       </div>
       <div className="min-h-[540px] rounded-b-2xl bg-white p-5 shadow-sm">
         {loading ? (
-          <div className="grid min-h-[260px] place-items-center text-sm font-bold text-[#64748B]">Loading schedule...</div>
+          <div className="grid min-h-[260px] place-items-center text-sm font-bold text-[#64748B]">{tr("Loading schedule...")}</div>
         ) : shifts.length === 0 ? (
           <div className="grid min-h-[360px] place-items-center text-center">
             <div>
               <CalendarCheck size={60} className="mx-auto text-[#CBD5E1]" />
-              <h3 className="mt-4 text-lg font-bold text-[#9CA3AF]">No Shifts Today</h3>
-              <p className="mt-2 text-sm text-[#9CA3AF]">Enjoy your free time!</p>
+              <h3 className="mt-4 text-lg font-bold text-[#9CA3AF]">{tr("No Shifts Today")}</h3>
+              <p className="mt-2 text-sm text-[#9CA3AF]">{tr("Enjoy your free time!")}</p>
             </div>
           </div>
         ) : (
@@ -643,7 +644,7 @@ function TimelineShiftCard({
           }`}
         >
           <Clock size={16} />
-          {busy ? "Updating..." : action.label}
+          {busy ? tr("Updating...") : tr(action.label)}
         </button>
       </article>
     </div>
@@ -653,8 +654,8 @@ function TimelineShiftCard({
 function MonthSchedule({ days, anchorDate, shifts, loading, onSelectDate, onSelectShift }: { days: Date[]; anchorDate: Date; shifts: TeacherShift[]; loading: boolean; onSelectDate: (date: Date) => void; onSelectShift: (shift: TeacherShift) => void }) {
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
-      <h2 className="mb-4 text-lg font-black text-[#1E293B]">{anchorDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
-      {loading ? <div className="grid min-h-[320px] place-items-center text-sm font-bold text-[#64748B]">Loading schedule...</div> : null}
+      <h2 className="mb-4 text-lg font-black text-[#1E293B]">{anchorDate.toLocaleDateString(dateLocale(), { month: "long", year: "numeric" })}</h2>
+      {loading ? <div className="grid min-h-[320px] place-items-center text-sm font-bold text-[#64748B]">{tr("Loading schedule...")}</div> : null}
       <div className="grid grid-cols-7 gap-2">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => <p key={label} className="py-2 text-center text-xs font-black uppercase text-[#94A3B8]">{label}</p>)}
         {days.map((day) => {
@@ -699,23 +700,23 @@ function ShiftDetailsDialog({
             <h2 className="text-xl font-black text-[#111827]">{shift.studentNames.join(", ") || shift.title}</h2>
             <p className="mt-1 text-sm font-semibold text-[#64748B]">{shift.subject || shift.title}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close shift details" className="grid h-9 w-9 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
+          <button type="button" onClick={onClose} aria-label={tr("Close shift details")} className="grid h-9 w-9 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
             <X size={18} />
           </button>
         </div>
         <div className="mt-5 grid gap-3 text-sm">
-          <InfoRow label="Date" value={shift.start ? shift.start.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "Date TBD"} />
+          <InfoRow label="Date" value={shift.start ? shift.start.toLocaleDateString(dateLocale(), { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "Date TBD"} />
           <InfoRow label="Time" value={formatTimeRange(shift.start, shift.end)} />
           <InfoRow label="Teacher" value={shift.teacherName || "Teacher"} />
           <InfoRow label="Students" value={shift.studentNames.join(", ") || "No students listed"} />
           <InfoRow label="Status" value={shiftVisualConfig(shift).label} />
         </div>
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          {joinable ? <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-[#0E72ED] px-4 py-2 text-sm font-bold text-white"><Video size={16} />Join Class</Link> : null}
-          {reportRequired ? shift.formResponseId ? <Link href="/teacher/form-submissions/" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><FileCheck2 size={16} />View Class Report</Link> : <Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[#BFDBFE] px-4 py-2 text-sm font-bold text-[#0369F6] hover:bg-[#EFF6FF]"><FileCheck2 size={16} />Fill Class Report</Link> : null}
+          {joinable ? <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-[#0E72ED] px-4 py-2 text-sm font-bold text-white"><Video size={16} />{tr("Join Class")}</Link> : null}
+          {reportRequired ? shift.formResponseId ? <Link href="/teacher/form-submissions/" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><FileCheck2 size={16} />{tr("View Class Report")}</Link> : <Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[#BFDBFE] px-4 py-2 text-sm font-bold text-[#0369F6] hover:bg-[#EFF6FF]"><FileCheck2 size={16} />{tr("Fill Class Report")}</Link> : null}
           <button type="button" onClick={onReportIssue} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-4 py-2 text-sm font-bold text-orange-700 hover:bg-orange-50">
             <Info size={16} />
-            Report Issue
+            {tr("Report Issue")}
           </button>
           {canAct ? (
             <button
@@ -727,10 +728,10 @@ function ShiftDetailsDialog({
               }`}
             >
               <Clock size={16} />
-              {busy ? "Updating..." : action.kind === "clockOut" ? "Clock Out" : "Clock In"}
+              {busy ? tr("Updating...") : action.kind === "clockOut" ? tr("Clock Out") : tr("Clock In")}
             </button>
           ) : null}
-          <button type="button" onClick={onClose} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white">Done</button>
+          <button type="button" onClick={onClose} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white">{tr("Done")}</button>
         </div>
       </section>
     </div>
@@ -751,10 +752,10 @@ function ScheduleSettingsDialog({ shifts, onClose, onReportShift, onTimezoneOnly
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[380px] rounded-3xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between">
-          <h2 className="text-2xl font-black text-[#111827]">Report Schedule Issue</h2>
-          <button type="button" onClick={onClose} aria-label="Close settings" className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
+          <h2 className="text-2xl font-black text-[#111827]">{tr("Report Schedule Issue")}</h2>
+          <button type="button" onClick={onClose} aria-label={tr("Close settings")} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
         </div>
-        <p className="mt-4 text-center text-sm text-[#334155]">Select a shift to report an issue</p>
+        <p className="mt-4 text-center text-sm text-[#334155]">{tr("Select a shift to report an issue")}</p>
         <div className="mt-5 grid gap-2">
           {shifts.map((shift) => (
             <button key={shift.id} type="button" onClick={() => onReportShift(shift)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#F8FAFC]">
@@ -768,8 +769,8 @@ function ScheduleSettingsDialog({ shifts, onClose, onReportShift, onTimezoneOnly
           <button type="button" onClick={onTimezoneOnly} className="flex items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#F8FAFC]">
             <Clock className="text-[#F59E0B]" size={22} />
             <span>
-              <span className="block text-sm font-bold text-[#1E293B]">Fix My Timezone Only</span>
-              <span className="block text-xs text-[#64748B]">Update timezone without reporting a shift</span>
+              <span className="block text-sm font-bold text-[#1E293B]">{tr("Fix My Timezone Only")}</span>
+              <span className="block text-xs text-[#64748B]">{tr("Update timezone without reporting a shift")}</span>
             </span>
           </button>
         </div>
@@ -813,21 +814,21 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-black text-[#1E293B]">Report Schedule Issue</h2>
-          <button type="button" onClick={onClose} aria-label="Close report issue" className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
+          <h2 className="text-lg font-black text-[#1E293B]">{tr("Report Schedule Issue")}</h2>
+          <button type="button" onClick={onClose} aria-label={tr("Close report issue")} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
         </div>
-        <p className="mt-4 text-sm font-bold text-[#374151]">What’s the issue?</p>
+        <p className="mt-4 text-sm font-bold text-[#374151]">{tr("What’s the issue?")}</p>
         <div className="mt-2 grid gap-2">
           {[["timezone", "My timezone is wrong"], ["incorrect_time", "Shift time is incorrect"], ["publish", "Offer shift to other teachers"], ["other", "Other issue"]].map(([value, label]) => (
             <button key={value} type="button" onClick={() => setIssueType(value)} className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${issueType === value ? "border-[#0386FF] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#334155]"}`}>{label}</button>
           ))}
         </div>
-        <label className="mt-4 block text-sm font-bold text-[#374151]">Additional Notes (Optional)</label>
-        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder="Explain the issue" className="mt-2 w-full rounded-xl border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0386FF]" />
+        <label className="mt-4 block text-sm font-bold text-[#374151]">{tr("Additional Notes (Optional)")}</label>
+        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder={tr("Explain the issue")} className="mt-2 w-full rounded-xl border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0386FF]" />
         {error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-bold text-[#64748B]">Cancel</button>
-          <button type="button" onClick={submit} disabled={saving} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? "Submitting..." : "Submit"}</button>
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-bold text-[#64748B]">{tr("Cancel")}</button>
+          <button type="button" onClick={submit} disabled={saving} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? tr("Submitting...") : tr("Submit")}</button>
         </div>
       </section>
     </div>
@@ -844,7 +845,7 @@ function TimezoneDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
         timezone,
         timezone_updated_at: serverTimestamp(),
       });
-      onSaved(`Timezone updated to ${timezone}`);
+      onSaved(tr("Timezone updated to {zone}", { zone: timezone }));
       onClose();
     } finally {
       setSaving(false);
@@ -854,16 +855,16 @@ function TimezoneDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-black text-[#1E293B]">Fix Timezone</h2>
-          <button type="button" onClick={onClose} aria-label="Close timezone" className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
+          <h2 className="text-lg font-black text-[#1E293B]">{tr("Fix Timezone")}</h2>
+          <button type="button" onClick={onClose} aria-label={tr("Close timezone")} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
         </div>
-        <label className="mt-4 block text-sm font-bold text-[#374151]">Select your correct timezone</label>
+        <label className="mt-4 block text-sm font-bold text-[#374151]">{tr("Select your correct timezone")}</label>
         <select value={timezone} onChange={(event) => setTimezone(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#0386FF]">
           {["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC", "Africa/Conakry"].map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-bold text-[#64748B]">Cancel</button>
-          <button type="button" onClick={save} disabled={saving} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? "Updating..." : "Update"}</button>
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-bold text-[#64748B]">{tr("Cancel")}</button>
+          <button type="button" onClick={save} disabled={saving} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? tr("Updating...") : tr("Update")}</button>
         </div>
       </section>
     </div>
@@ -918,11 +919,11 @@ type BrowserLocation = {
 
 async function clockInToShift(user: User, shift: TeacherShift, location: BrowserLocation) {
   if (!canClockInNow(shift)) {
-    throw new Error("Shift not found or not valid for clock-in right now");
+    throw new Error(tr("Shift not found or not valid for clock-in right now"));
   }
   const openEntry = await findOpenTimesheetEntry(user.uid, shift.id);
   if (openEntry) {
-    throw new Error("You are already clocked in to this shift");
+    throw new Error(tr("You are already clocked in to this shift"));
   }
   const now = new Date();
   const payRateSource = shift.hourlyRate > 0 ? "teaching_shift_rate" : "timesheet_fallback_rate";
@@ -971,11 +972,11 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
   };
   await runTransaction(db, async (transaction) => {
     const shiftSnap = await transaction.get(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    if (!shiftSnap.exists()) throw new Error(tr("This shift is no longer available."));
     const current = shiftSnap.data() as Record<string, unknown>;
     const currentClockIn = dateValue(current.clock_in_time ?? current.clockInTime);
     const currentClockOut = dateValue(current.clock_out_time ?? current.clockOutTime);
-    if (currentClockIn && !currentClockOut) throw new Error("You are already clocked in to this shift");
+    if (currentClockIn && !currentClockOut) throw new Error(tr("You are already clocked in to this shift"));
     transaction.set(timesheetRef, timesheetData);
     transaction.update(shiftRef, {
       last_modified: Timestamp.fromDate(now),
@@ -985,13 +986,13 @@ async function clockInToShift(user: User, shift: TeacherShift, location: Browser
       last_clock_in_platform: "web",
     });
   });
-  return { message: `Successfully clocked in to ${shift.title}` };
+  return { message: tr("Successfully clocked in to {name}", { name: shift.title }) };
 }
 
 async function clockOutOfShift(user: User, shift: TeacherShift, location: BrowserLocation) {
   const openEntry = await findOpenTimesheetEntry(user.uid, shift.id);
   if (!openEntry) {
-    throw new Error("No active clock-in found for this shift.");
+    throw new Error(tr("No active clock-in found for this shift."));
   }
   const now = new Date();
   const clockIn = dateValue(openEntry.data.clock_in_timestamp) ?? shift.clockInTime ?? shift.start ?? now;
@@ -1029,20 +1030,20 @@ async function clockOutOfShift(user: User, shift: TeacherShift, location: Browse
   };
   await runTransaction(db, async (transaction) => {
     const entrySnap = await transaction.get(openEntry.ref);
-    if (!entrySnap.exists()) throw new Error("No active clock-in found for this shift.");
+    if (!entrySnap.exists()) throw new Error(tr("No active clock-in found for this shift."));
     const entry = entrySnap.data() as Record<string, unknown>;
     if (dateValue(entry.clock_out_timestamp) || stringValue(entry.end_time)) {
-      throw new Error("This shift has already been clocked out.");
+      throw new Error(tr("This shift has already been clocked out."));
     }
     const shiftSnap = await transaction.get(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("This shift is no longer available.");
+    if (!shiftSnap.exists()) throw new Error(tr("This shift is no longer available."));
     transaction.update(openEntry.ref, entryUpdate);
     transaction.update(shiftRef, {
       last_modified: Timestamp.fromDate(now),
       clock_out_time: Timestamp.fromDate(now),
     });
   });
-  return { message: `Successfully clocked out from ${shift.title}` };
+  return { message: tr("Successfully clocked out from {name}", { name: shift.title }) };
 }
 
 async function findOpenTimesheetEntry(teacherId: string, shiftId: string) {
@@ -1057,7 +1058,7 @@ async function findOpenTimesheetEntry(teacherId: string, shiftId: string) {
 
 async function getBrowserLocation(): Promise<BrowserLocation> {
   if (!("geolocation" in navigator)) {
-    throw new Error("Location access is required to clock in or out. Enable location services and try again.");
+    throw new Error(tr("Location access is required to clock in or out. Enable location services and try again."));
   }
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -1071,7 +1072,7 @@ async function getBrowserLocation(): Promise<BrowserLocation> {
       neighborhood: "GPS coordinates",
     };
   } catch {
-    throw new Error("Location access is required to clock in or out. Allow location access and try again.");
+    throw new Error(tr("Location access is required to clock in or out. Allow location access and try again."));
   }
 }
 
@@ -1165,7 +1166,7 @@ function shiftDuration(shift: TeacherShift) {
 }
 
 function formatTime24(date: Date) {
-  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(dateLocale(), { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 type ClockAction =
@@ -1225,11 +1226,11 @@ function buildShiftTypeString(shift: TeacherShift) {
 }
 
 function formatTimesheetDate(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "short", day: "2-digit", year: "numeric" });
 }
 
 function formatClockTime(date: Date) {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return date.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 function formatDurationHms(durationMs: number) {
@@ -1251,15 +1252,15 @@ function formatWeekRange(start: Date) {
 }
 
 function weekdayLabel(date: Date) {
-  return date.toLocaleDateString("en-US", { weekday: "short" });
+  return date.toLocaleDateString(dateLocale(), { weekday: "short" });
 }
 
 function monthDayTiny(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "short", weekday: "short" }).replace(",", "");
+  return date.toLocaleDateString(dateLocale(), { month: "short", weekday: "short" }).replace(",", "");
 }
 
 function shortMonth(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "short" });
+  return date.toLocaleDateString(dateLocale(), { month: "short" });
 }
 
 function formatTimeRange(start: Date | null, end: Date | null) {
@@ -1268,5 +1269,5 @@ function formatTimeRange(start: Date | null, end: Date | null) {
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return date.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" });
 }

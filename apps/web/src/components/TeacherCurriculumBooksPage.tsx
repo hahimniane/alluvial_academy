@@ -6,6 +6,7 @@ import { BookOpen, Download, ExternalLink, Menu, Presentation, Shuffle, Users } 
 import { auth } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -107,9 +108,9 @@ export function TeacherCurriculumBooksPage() {
         <section className="mx-auto max-w-[1280px] px-6 py-6 lg:px-6">
           <div className="rounded-[28px] border border-[#D9F0FF] bg-gradient-to-br from-[#ECFEFF] to-[#EFF6FF] px-7 py-7">
             <span className="inline-flex min-h-8 items-center rounded-full bg-white px-3 text-xs font-bold text-[#0369A1]">
-              Shared Learning Materials
+              {tr("Shared Learning Materials")}
             </span>
-            <h1 className="mt-5 max-w-lg text-[32px] font-black leading-[1.05] text-[#0F172A] sm:text-[36px]">Curriculum Books</h1>
+            <h1 className="mt-5 max-w-lg text-[32px] font-black leading-[1.05] text-[#0F172A] sm:text-[36px]">{tr("Curriculum Books")}</h1>
             <p className="mt-3 max-w-[1040px] text-[15px] font-medium leading-7 text-[#475569]">
               These are the Arabic curriculum PowerPoints used across classes. Teachers, students, parents, and administrators can open or download them from here.
             </p>
@@ -134,12 +135,12 @@ export function TeacherCurriculumBooksPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-14 grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -182,7 +183,7 @@ function BookCard({ book }: { book: CurriculumBook }) {
           style={{ backgroundColor: book.accent, borderColor: book.accent }}
         >
           <ExternalLink size={18} />
-          Open
+          {tr("Open")}
         </a>
         <a
           href={book.downloadUrl}
@@ -192,7 +193,7 @@ function BookCard({ book }: { book: CurriculumBook }) {
           style={{ color: book.accent, borderColor: `${book.accent}59` }}
         >
           <Download size={18} />
-          Download
+          {tr("Download")}
         </a>
       </div>
     </article>

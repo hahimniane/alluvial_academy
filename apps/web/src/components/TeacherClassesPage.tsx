@@ -10,6 +10,7 @@ import { BookOpen, ChevronLeft, Clock3, Copy, Info, Link as LinkIcon, Menu, Mic,
 import { auth, db, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -151,11 +152,11 @@ export function TeacherClassesPage() {
         <MobileTeacherTopBar summary={summary} />
         <header className="border-b border-[#EEF2F7] bg-white">
           <div className="grid min-h-14 grid-cols-[48px_1fr_48px] items-center px-3 sm:px-4">
-            <Link href="/teacher/" aria-label="Back to dashboard" className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+            <Link href="/teacher/" aria-label={tr("Back to dashboard")} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
               <ChevronLeft size={24} />
             </Link>
-            <h1 className="truncate text-center text-[21px] font-black text-[#111827]">Classes</h1>
-            <Link href="/teacher/recordings/" aria-label="Class Recordings" className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+            <h1 className="truncate text-center text-[21px] font-black text-[#111827]">{tr("Classes")}</h1>
+            <Link href="/teacher/recordings/" aria-label={tr("Class Recordings")} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
               <VideoIcon size={23} />
             </Link>
           </div>
@@ -200,12 +201,12 @@ export function TeacherClassesPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-14 grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -219,8 +220,8 @@ function NoClassesState() {
         <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-[#DCEEFF] text-[#0E72ED]">
           <VideoOff size={44} />
         </div>
-        <h2 className="mt-5 text-xl font-bold text-[#1E293B]">No Classes Right Now</h2>
-        <p className="mt-2 text-sm leading-6 text-[#64748B]">Your Scheduled Classes Will Appear Here</p>
+        <h2 className="mt-5 text-xl font-bold text-[#1E293B]">{tr("No Classes Right Now")}</h2>
+        <p className="mt-2 text-sm leading-6 text-[#64748B]">{tr("Your Scheduled Classes Will Appear Here")}</p>
       </div>
     </section>
   );
@@ -231,7 +232,7 @@ function LoadingClasses() {
     <section className="grid min-h-[calc(100vh-112px)] place-items-center px-6 py-10 text-center lg:min-h-[calc(100vh-168px)]">
       <div>
         <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-[#DCEEFF] border-t-[#0E72ED]" />
-        <p className="mt-4 text-sm font-semibold text-[#64748B]">Loading classes...</p>
+        <p className="mt-4 text-sm font-semibold text-[#64748B]">{tr("Loading classes...")}</p>
       </div>
     </section>
   );
@@ -244,7 +245,7 @@ function ClassesHeaderCard() {
         <VideoIcon size={24} />
       </span>
       <div className="min-w-0">
-        <h2 className="text-base font-bold text-[#1E293B]">Your classes</h2>
+        <h2 className="text-base font-bold text-[#1E293B]">{tr("Your classes")}</h2>
         <p className="mt-1 text-sm leading-5 text-[#64748B]">Join your classes directly in the app. The Join button becomes active 10 minutes before the class starts.</p>
       </div>
     </section>
@@ -286,7 +287,7 @@ function ClassCard({
             <div className="mt-1.5 grid gap-1 text-xs text-[#374151]">
               <span className="flex min-w-0 items-center gap-1.5">
                 <UserRound size={14} className="shrink-0 text-[#6B7280]" />
-                <span className="truncate">Teacher: {classItem.teacherName || "Unknown"}</span>
+                <span className="truncate">{tr("Teacher:")} {classItem.teacherName || "Unknown"}</span>
               </span>
               <span className="flex min-w-0 items-center gap-1.5">
                 <BookOpen size={14} className="shrink-0 text-[#6B7280]" />
@@ -329,7 +330,7 @@ function ClassCard({
                 className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-[#0E72ED] px-3 text-sm font-bold text-white hover:bg-[#0369F6] sm:px-4"
               >
                 <LinkIcon size={16} />
-                Join
+                {tr("Join")}
               </Link>
             ) : (
               <button type="button" disabled className="min-h-9 cursor-not-allowed rounded-xl bg-[#E2E8F0] px-4 text-sm font-bold text-[#64748B]">
@@ -350,9 +351,9 @@ function PresenceStrip({ presence }: { presence?: ClassPresence }) {
     <section className="mt-3 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] p-3">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-        <span className="text-xs font-bold text-[#047857]">Live participants</span>
+        <span className="text-xs font-bold text-[#047857]">{tr("Live participants")}</span>
         <span className="ml-auto text-xs font-bold text-[#047857]">
-          {presence ? `${presence.participantCount} in class` : "Loading..."}
+          {presence ? `${presence.participantCount} in class` : tr("Loading...")}
         </span>
       </div>
       {presence?.error ? (
@@ -362,10 +363,10 @@ function PresenceStrip({ presence }: { presence?: ClassPresence }) {
           {participants.slice(0, 3).map((participant) => (
             <ParticipantRow key={participant.identity || participant.name} participant={participant} compact />
           ))}
-          {participants.length > 3 ? <p className="text-xs font-semibold text-[#64748B]">+{participants.length - 3} more in class</p> : null}
+          {participants.length > 3 ? <p className="text-xs font-semibold text-[#64748B]">+{participants.length - 3} {tr("more in class")}</p> : null}
         </div>
       ) : presence ? (
-        <p className="mt-2 text-xs italic text-[#64748B]">No one has joined yet</p>
+        <p className="mt-2 text-xs italic text-[#64748B]">{tr("No one has joined yet")}</p>
       ) : null}
     </section>
   );
@@ -376,37 +377,37 @@ function ClassDetailsDialog({ classItem, presence, onClose }: { classItem: Teach
   const action = classAction(classItem, now);
   const canJoin = action.kind === "join";
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/35 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Class details">
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/35 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true" aria-label={tr("Class details")}>
       <section className="max-h-[88vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-2xl">
         <header className="flex items-start gap-3 border-b border-[#EEF2F7] p-5">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-xl font-black text-[#1E293B]">{classItem.title || "Class Details"}</h2>
             <p className="mt-1 text-sm text-[#64748B]">{formatClassDateTime(classItem)}</p>
           </div>
-          <button type="button" aria-label="Close class details" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+          <button type="button" aria-label={tr("Close class details")} onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
           </button>
         </header>
         <div className="max-h-[calc(88vh-88px)] overflow-y-auto p-5">
-          <DetailSection title="Teacher" icon={<Users size={18} />}>
+          <DetailSection title={tr("Teacher")} icon={<Users size={18} />}>
             <InfoRow label="Name" value={classItem.teacherName || "Unknown"} />
             {classItem.clockInTime ? <InfoRow label="Clocked in" value={shortTime(classItem.clockInTime)} /> : null}
           </DetailSection>
-          <DetailSection title={`Assigned Students (${classItem.studentNames.length})`} icon={<Users size={18} />}>
+          <DetailSection title={tr("Assigned Students ({n})", { n: classItem.studentNames.length })} icon={<Users size={18} />}>
             {classItem.studentNames.length > 0 ? classItem.studentNames.map((name) => <InfoRow key={name} label="" value={name} />) : <InfoRow label="Students" value="No students assigned" />}
           </DetailSection>
-          <DetailSection title={`Currently in Class (${presence?.participantCount ?? 0})`} icon={<VideoIcon size={18} />}>
+          <DetailSection title={tr("Currently in Class ({n})", { n: presence?.participantCount ?? 0 })} icon={<VideoIcon size={18} />}>
             {presence?.error ? (
               <p className="rounded-xl bg-[#FEF3C7] px-3 py-2 text-sm font-semibold text-[#92400E]">{presence.error}</p>
             ) : presence?.participants.length ? (
               presence.participants.map((participant) => <ParticipantRow key={participant.identity || participant.name} participant={participant} />)
             ) : presence ? (
-              <p className="text-sm italic text-[#64748B]">No one has joined yet</p>
+              <p className="text-sm italic text-[#64748B]">{tr("No one has joined yet")}</p>
             ) : (
-              <p className="text-sm text-[#64748B]">Loading participants...</p>
+              <p className="text-sm text-[#64748B]">{tr("Loading participants...")}</p>
             )}
           </DetailSection>
-          <DetailSection title="Class Information" icon={<Info size={18} />}>
+          <DetailSection title={tr("Class Information")} icon={<Info size={18} />}>
             <InfoRow label="Duration" value={`${classItem.durationHours.toFixed(1)} hours`} />
             <InfoRow label="Subject" value={classItem.subject || "Class"} />
             <InfoRow label="Status" value={statusLabel(classItem, now)} />
@@ -415,7 +416,7 @@ function ClassDetailsDialog({ classItem, presence, onClose }: { classItem: Teach
           {canJoin ? (
             <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(classItem.id)}`} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#10B981] px-4 text-sm font-black text-white hover:bg-[#059669]">
               <VideoIcon size={18} />
-              Join Class Now
+              {tr("Join Class Now")}
             </Link>
           ) : null}
         </div>
@@ -619,16 +620,16 @@ function shortDate(date: Date) {
   const tomorrow = addDays(today, 1);
   if (sameDate(date, today)) return "Today";
   if (sameDate(date, tomorrow)) return "Tomorrow";
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric" }).format(date);
 }
 
 function shortTime(date: Date) {
-  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 function formatClassDateTime(classItem: TeacherClass) {
   if (!classItem.start) return "Time not set";
-  const date = new Intl.DateTimeFormat("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(classItem.start);
+  const date = new Intl.DateTimeFormat(dateLocale(), { weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(classItem.start);
   return classItem.end ? `${date} • ${shortTime(classItem.start)}` : `${date} • Time not set`;
 }
 
@@ -663,7 +664,7 @@ function groupLabel(date: Date) {
   const tomorrow = addDays(today, 1);
   if (sameDate(date, today)) return "Today";
   if (sameDate(date, tomorrow)) return "Tomorrow";
-  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "short", month: "short", day: "numeric" }).format(date);
 }
 
 function dateValue(value: unknown): Date | null {

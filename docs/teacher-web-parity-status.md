@@ -87,8 +87,53 @@ The weekday workflow still reports who is on the console and compares clocked
 hours against each audit, so a pay gap opened by this move shows up the next
 morning rather than at the end of the month.
 
-## Not exercised by hand
+## Exercised by hand, second pass (8 Sep 2026)
 
-Surah Podcasts, Curriculum Books, Assignments, Profile, Classroom, the AI tutor
-and Circles. They load, and their code is the same shape as the screens above,
-but "loads" is not "works".
+Every remaining screen, with a throwaway teacher and student since deleted.
+
+| Screen | What was done | Result |
+|---|---|---|
+| Surah Podcasts | Opened the library, opened Al-Fatiha, played the audio card, opened the share picker | Audio, video, PDF and text all render; the picker's refusal matches the Flutter string exactly |
+| Curriculum Books | Requested all eight linked files | 4 PDFs and 4 PPTX, every one HTTP 200 with the right content type |
+| Assignments | Created, edited and deleted an assignment against a seeded student | All three write paths work; edit prefills the selected student |
+| Profile | Saved every field, reloaded | Persisted. The empty "Full name" on first open matches Flutter, which also seeds only from `teacher_profiles` |
+| Classroom | Loaded a future, a past and a live class | All three gates correct; the live one fetched a real join token and connected to the room |
+| Circles | Loaded disabled, enabled `tontine_enabled`, created a circle | Both states correct; circle created with payout order and activate/invite actions |
+| AI Tutor | Started a text session | Page, token and room all fine — but no agent ever joins (see below) |
+
+## Known broken, and not from this port
+
+**The AI Tutor never gets an agent.** `getAITutorToken` creates the room and
+dispatches the agent successfully — the LiveKit room shows a dispatch for agent
+`Alluwal` with only the teacher in it, so the agent worker in `livekit-agent/`
+is not answering on LiveKit Cloud. The Flutter screen calls the same callable
+and joins the same room, so this is broken in both clients, and was before the
+move.
+
+**Assignments offers every student in the school.** A teacher with no assigned
+students is shown all 269. `_loadMyStudents` in the Flutter screen queries
+every `user_type == "student"` document despite its name, so the web page is at
+parity with a pre-existing bug rather than introducing one. Worth fixing in
+both, together.
+
+## French
+
+The first pass translated the shell only; every page body was still English,
+including the dashboard. Now translated: 436 strings wrapped from JSX, 113 from
+expressions, 29 error messages, plus breadcrumbs, metric tiles, timesheet
+columns, and the visible template-literal text. Dates and times follow the
+language too — French renders 24-hour times and French month and day names.
+
+Two mechanics worth knowing:
+
+- `tr()` in `lib/i18n.ts` translates outside a component, so nested render
+  helpers need no hook. It holds English until `markLocaleHydrated()` fires,
+  because the site is a static export built in English and a translated first
+  render would not match the served markup.
+- A key may carry a context after a pipe — `"End|timesheet"` — when one English
+  word needs two French ones. Only the part before the pipe is ever shown.
+
+Not translated, deliberately: brand and product names, currency codes, and the
+outside sites in Islamic Resources. Still English: aria-labels built from
+template literals (`Close ${label}` and similar), which screen readers will
+read in English.

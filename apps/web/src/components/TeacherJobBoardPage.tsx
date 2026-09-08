@@ -38,6 +38,7 @@ import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, s
 import { convertTimeSlot, zoneAbbreviation } from "@/lib/timeZoneConvert";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -283,8 +284,8 @@ export function TeacherJobBoardPage() {
     <div className="min-h-screen bg-[#F9FAFB]">
       <main className="min-h-screen overflow-y-auto bg-[#F9FAFB] text-[#111827]">
         <section className="bg-white px-6 py-7 lg:w-fit lg:min-w-[375px] lg:px-6 lg:py-8">
-          <h1 className="text-[24px] font-black leading-tight text-[#111827]">New Student Opportunities</h1>
-          <p className="mt-1 text-[14px] font-medium text-[#6B7280]">Accept new students to fill your schedule</p>
+          <h1 className="text-[24px] font-black leading-tight text-[#111827]">{tr("New Student Opportunities")}</h1>
+          <p className="mt-1 text-[14px] font-medium text-[#6B7280]">{tr("Accept new students to fill your schedule")}</p>
         </section>
 
         <section className="relative min-h-[calc(100vh-154px)]">
@@ -320,7 +321,7 @@ export function TeacherJobBoardPage() {
               </div>
               {filledJobs.length > 0 ? (
                 <section className="mt-6">
-                  <h2 className="mb-4 text-lg font-semibold text-[#B91C1C]">Filled Opportunities</h2>
+                  <h2 className="mb-4 text-lg font-semibold text-[#B91C1C]">{tr("Filled Opportunities")}</h2>
                   <div className="grid gap-4">
                     {filledJobs.map((job) => (
                       <JobCard
@@ -381,12 +382,12 @@ export function TeacherJobBoardPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-[64px] grid-cols-[48px_1fr_80px] items-center bg-white px-3 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-[16px] font-semibold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-9 w-9 place-items-center rounded-xl text-[#111827]"><Shuffle size={17} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-9 w-9 place-items-center rounded-xl text-[#111827]"><Shuffle size={17} /></button>
         <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[12px] font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -398,7 +399,7 @@ function EmptyJobBoard() {
     <div className="grid min-h-[calc(100vh-176px)] place-items-center">
       <div className="text-center">
         <ClipboardCheck size={58} strokeWidth={2.4} className="mx-auto text-[#D9D9D9]" />
-        <p className="mt-6 text-[18px] font-normal text-[#9E9E9E]">No opportunities right now</p>
+        <p className="mt-6 text-[18px] font-normal text-[#9E9E9E]">{tr("No opportunities right now")}</p>
       </div>
     </div>
   );
@@ -434,26 +435,26 @@ function JobCard({
           <span className={`rounded-full border px-3 py-1 text-xs font-bold ${isFilled ? "border-[#FCA5A5] bg-[#FEE2E2] text-[#7F1D1D]" : "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"}`}>
             {displaySubject(job)}
           </span>
-          {isFilled ? <span className="rounded-full bg-[#EF4444] px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-white">Filled</span> : null}
+          {isFilled ? <span className="rounded-full bg-[#EF4444] px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-white">{tr("Filled")}</span> : null}
         </div>
         <time className="shrink-0 text-xs font-medium text-[#9CA3AF]">{formatMonthDay(job.createdAt)}</time>
       </div>
 
       <h2 className="mt-4 text-xl font-black text-[#111827]">{job.studentName || "Student"}</h2>
       <div className="mt-3 grid gap-2 text-sm text-[#4B5563]">
-        <InfoRow icon={UserRound} text={`Age: ${job.studentAge || "N/A"}`} />
-        <InfoRow icon={BookOpen} text={`Program: ${displaySubject(job)}`} />
-        <InfoRow icon={GraduationCap} text={`Grade: ${job.gradeLevel || "N/A"}`} />
+        <InfoRow icon={UserRound} text={tr("Age: {value}", { value: job.studentAge || "N/A" })} />
+        <InfoRow icon={BookOpen} text={tr("Program: {value}", { value: displaySubject(job) })} />
+        <InfoRow icon={GraduationCap} text={tr("Grade: {value}", { value: job.gradeLevel || "N/A" })} />
         <div className="flex flex-wrap items-center gap-2">
           <Timer size={16} className="text-[#9CA3AF]" />
           <span className="rounded border border-[#F59E0B] bg-[#FEF3C7] px-2 py-0.5 text-xs font-bold text-[#92400E]">{durationDisplay(job.sessionDuration)}</span>
           {job.classType ? <span className="rounded border border-[#8B5CF6] bg-[#EDE9FE] px-2 py-0.5 text-xs font-bold text-[#5B21B6]">{job.classType}</span> : null}
         </div>
-        <InfoRow icon={Globe2} text={job.scheduleTimezoneRef ? `Timezone: ${timezoneAbbr(job.timeZone)} (times in ${job.scheduleTimezoneRef})` : `Timezone: ${timezoneAbbr(job.timeZone)}`} />
+        <InfoRow icon={Globe2} text={job.scheduleTimezoneRef ? `Timezone: ${timezoneAbbr(job.timeZone)} (times in ${job.scheduleTimezoneRef})` : tr("Timezone: {value}", { value: timezoneAbbr(job.timeZone) })} />
         {job.adminNotesForTeachers ? <AdminNote text={job.adminNotesForTeachers} /> : null}
         {response ? <TeacherResponseNote response={response} /> : null}
         {job.classRoster.length > 1 ? <ClassRoster roster={job.classRoster} /> : null}
-        <InfoRow icon={CalendarDays} text={`Days: ${job.days.join(", ") || "N/A"}`} />
+        <InfoRow icon={CalendarDays} text={tr("Days: {value}", { value: job.days.join(", ") || "N/A" })} />
         <InfoRow
           icon={Clock3}
           text={
@@ -468,10 +469,10 @@ function JobCard({
         />
         {showConverted ? (
           <p className="pl-6 text-xs font-semibold text-[#2563EB]">
-            Shown in your time ({zoneAbbreviation(teacherTimezone)}). The family gave these hours in {timezoneAbbr(job.timeZone)}.
+            {tr("Shown in your time (")}{zoneAbbreviation(teacherTimezone)}). The family gave these hours in {timezoneAbbr(job.timeZone)}.
           </p>
         ) : null}
-        {isFilled && job.acceptedAt ? <InfoRow icon={CheckCircle2} text={`Accepted on ${formatFullDate(job.acceptedAt)}`} /> : null}
+        {isFilled && job.acceptedAt ? <InfoRow icon={CheckCircle2} text={tr("Accepted on {date}", { date: formatFullDate(job.acceptedAt) })} /> : null}
         {isFilled && Object.keys(job.teacherSelectedTimes).length > 0 ? <SelectedTimes times={job.teacherSelectedTimes} /> : null}
       </div>
 
@@ -480,19 +481,19 @@ function JobCard({
           isMyAcceptedJob ? (
             <button type="button" onClick={onWithdraw} disabled={withdrawing} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#EA580C] px-4 text-base font-bold text-white disabled:opacity-70">
               {withdrawing ? <RotateCw size={18} className="animate-spin" /> : null}
-              {withdrawing ? "Withdrawing..." : "Withdraw & Re-broadcast"}
+              {withdrawing ? tr("Withdrawing...") : tr("Withdraw & Re-broadcast")}
             </button>
           ) : (
             <button type="button" disabled className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[#EF4444] px-4 text-base font-bold text-[#B91C1C] opacity-80">
-              Filled by Another Teacher
+              {tr("Filled by Another Teacher")}
             </button>
           )
         ) : (
           <>
             <button type="button" onClick={onRespond} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#10B981] px-4 text-base font-bold text-white">
-              Submit availability
+              {tr("Submit availability")}
             </button>
-            <p className="mt-2 text-center text-xs text-[#6B7280]">Tell admin if you are available or partially available.</p>
+            <p className="mt-2 text-center text-xs text-[#6B7280]">{tr("Tell admin if you are available or partially available.")}</p>
           </>
         )}
       </div>
@@ -518,10 +519,10 @@ function WithdrawDialog({
       <section role="dialog" aria-modal="true" aria-labelledby="job-withdraw-title" className="w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="job-withdraw-title" className="text-xl font-black text-[#111827]">Withdraw from this student?</h2>
+            <h2 id="job-withdraw-title" className="text-xl font-black text-[#111827]">{tr("Withdraw from this student?")}</h2>
             <p className="mt-1 text-sm font-semibold text-[#475569]">{job.studentName || "Student"} • {displaySubject(job)}</p>
           </div>
-          <button type="button" aria-label="Close withdraw dialog" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
+          <button type="button" aria-label={tr("Close withdraw dialog")} onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
             <X size={18} />
           </button>
         </div>
@@ -530,10 +531,10 @@ function WithdrawDialog({
         {error ? <p className="mt-4 rounded-lg bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
 
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={submitting} className="min-h-10 rounded-xl px-4 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">Cancel</button>
+          <button type="button" onClick={onClose} disabled={submitting} className="min-h-10 rounded-xl px-4 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">{tr("Cancel")}</button>
           <button type="button" onClick={onSubmit} disabled={submitting} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#DC2626] px-5 text-sm font-bold text-white disabled:opacity-70">
             {submitting ? <RotateCw size={16} className="animate-spin" /> : null}
-            {submitting ? "Withdrawing..." : "Withdraw"}
+            {submitting ? tr("Withdrawing...") : tr("Withdraw")}
           </button>
         </div>
       </section>
@@ -555,7 +556,7 @@ function AdminNote({ text }: { text: string }) {
     <div className="flex gap-2 rounded-lg border border-[#FCD34D] bg-[#FFFBEB] p-3">
       <Info size={16} className="mt-0.5 shrink-0 text-[#D97706]" />
       <div>
-        <p className="text-[11px] font-black uppercase text-[#92400E]">Admin Note</p>
+        <p className="text-[11px] font-black uppercase text-[#92400E]">{tr("Admin Note")}</p>
         <p className="mt-0.5 text-xs leading-5 text-[#78350F]">{text}</p>
       </div>
     </div>
@@ -570,7 +571,7 @@ function TeacherResponseNote({ response }: { response: TeacherResponse }) {
       : "border-[#16A34A]/40 bg-[#DCFCE7]/70 text-[#166534]";
   return (
     <div className={`rounded-lg border p-3 text-xs ${className}`}>
-      <p className="font-black">Your last response: {statusLabel}</p>
+      <p className="font-black">{tr("Your last response:")} {statusLabel}</p>
       {response.comment ? <p className="mt-1 text-[#374151]">{response.comment}</p> : null}
     </div>
   );
@@ -579,7 +580,7 @@ function TeacherResponseNote({ response }: { response: TeacherResponse }) {
 function SelectedTimes({ times }: { times: Record<string, string> }) {
   return (
     <div className="rounded-lg border border-[#10B981] bg-[#D1FAE5] p-3 text-xs text-[#047857]">
-      <p className="font-bold text-[#065F46]">Your Selected Times:</p>
+      <p className="font-bold text-[#065F46]">{tr("Your Selected Times:")}</p>
       <div className="mt-2 grid gap-1">
         {Object.entries(times).map(([day, time]) => (
           <p key={day}>{day}: {time}</p>
@@ -614,47 +615,47 @@ function ResponseDialog({
       <section role="dialog" aria-modal="true" aria-labelledby="job-response-title" className="max-h-full w-full max-w-[560px] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="job-response-title" className="text-xl font-black text-[#111827]">Reply to broadcast</h2>
+            <h2 id="job-response-title" className="text-xl font-black text-[#111827]">{tr("Reply to broadcast")}</h2>
             <p className="mt-1 text-sm font-semibold text-[#475569]">{job.studentName || "Student"} • {displaySubject(job)}</p>
           </div>
-          <button type="button" aria-label="Close response dialog" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
+          <button type="button" aria-label={tr("Close response dialog")} onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#64748B] hover:bg-[#F1F5F9]">
             <X size={18} />
           </button>
         </div>
 
         <label className="mt-4 block text-xs font-bold text-[#334155]">
-          How available are you for this request?
+          {tr("How available are you for this request?")}
           <select
             value={draft.status}
             onChange={(event) => onChange({ ...draft, status: event.target.value as AvailabilityStatus })}
             className="mt-2 h-11 w-full rounded border border-[#CBD5E1] bg-white px-3 text-sm font-semibold outline-none focus:border-[#0386FF]"
           >
-            <option value="available">Available</option>
-            <option value="partial">Partially available</option>
+            <option value="available">{tr("Available")}</option>
+            <option value="partial">{tr("Partially available")}</option>
           </select>
         </label>
-        <p className="mt-2 text-[11px] leading-5 text-[#64748B]">If you are not available, leave this opportunity open and do not submit a response.</p>
+        <p className="mt-2 text-[11px] leading-5 text-[#64748B]">{tr("If you are not available, leave this opportunity open and do not submit a response.")}</p>
 
         <label className="mt-4 block text-xs font-bold text-[#334155]">
-          {requiresComment ? "Comment (required)" : "Comment (optional)"}
+          {requiresComment ? tr("Comment (required)") : tr("Comment (optional)")}
           <textarea
             value={draft.comment}
             onChange={(event) => onChange({ ...draft, comment: event.target.value })}
             rows={3}
-            placeholder={requiresComment ? "Example: Not available Tuesday 6 PM due to another class." : "Any note for admin..."}
+            placeholder={requiresComment ? tr("Example: Not available Tuesday 6 PM due to another class.") : tr("Any note for admin...")}
             className="mt-2 w-full rounded border border-[#CBD5E1] px-3 py-2 text-sm outline-none focus:border-[#0386FF]"
           />
         </label>
 
         <SlotPicker job={job} teacherTimezone={teacherTimezone} draft={draft} onChange={onChange} />
-        <p className="mt-2 text-[11px] leading-5 text-[#64748B]">Admin will review responses and confirm the final match.</p>
+        <p className="mt-2 text-[11px] leading-5 text-[#64748B]">{tr("Admin will review responses and confirm the final match.")}</p>
         {error ? <p className="mt-3 rounded-lg bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
 
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={submitting} className="min-h-10 rounded-xl px-4 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">Cancel</button>
+          <button type="button" onClick={onClose} disabled={submitting} className="min-h-10 rounded-xl px-4 text-sm font-bold text-[#334155] hover:bg-[#F1F5F9]">{tr("Cancel")}</button>
           <button type="button" onClick={onSubmit} disabled={submitting} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white disabled:opacity-70">
             {submitting ? <RotateCw size={16} className="animate-spin" /> : null}
-            Submit
+            {tr("Submit")}
           </button>
         </div>
       </section>
@@ -681,10 +682,10 @@ function ClassRoster({ roster }: { roster: { name: string; age: string; level: s
     <div className="mb-2 rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-3">
       <div className="flex items-center gap-2">
         <Users size={16} className="text-[#4F46E5]" />
-        <p className="text-[13px] font-bold text-[#1E293B]">Who you&rsquo;d be teaching</p>
+        <p className="text-[13px] font-bold text-[#1E293B]">{tr("Who you&rsquo;d be teaching")}</p>
       </div>
       <p className="ml-6 text-xs text-[#64748B]">
-        {roster.length} children in one class, taught together.
+        {roster.length} {tr("children in one class, taught together.")}
       </p>
       <div className="mt-2 grid gap-1.5">
         {roster.map((child, index) => (
@@ -740,7 +741,7 @@ function SlotPicker({
   if (!block || slots.length === 0) {
     return (
       <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#FAFBFC] p-3">
-        <p className="text-xs font-bold text-[#334155]">Pick the slots you can teach</p>
+        <p className="text-xs font-bold text-[#334155]">{tr("Pick the slots you can teach")}</p>
         <p className="mt-1 text-[11px] leading-5 text-[#64748B]">
           {block
             ? `A session of ${sessionLabel(job.sessionMinutes)} does not fit inside ${block.label.toLowerCase()}, ${blockRangeLabel(block)}. Use the comment box above to tell admin what would work.`
@@ -752,14 +753,14 @@ function SlotPicker({
 
   return (
     <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#FAFBFC] p-3">
-      <p className="text-xs font-bold text-[#334155]">Pick the slots you can teach</p>
+      <p className="text-xs font-bold text-[#334155]">{tr("Pick the slots you can teach")}</p>
       <p className="mt-0.5 text-[11px] text-[#64748B]">
-        {block.label}, {blockRangeLabel(block)} · {sessionLabel(job.sessionMinutes)} per session
+        {block.label}, {blockRangeLabel(block)} · {sessionLabel(job.sessionMinutes)} {tr("per session")}
         {needed > 0 ? ` · ${needed} a week` : ""}
       </p>
       {familyTz && teacherTimezone && familyTz !== teacherTimezone ? (
         <p className="mt-1 text-[11px] font-semibold text-[#2563EB]">
-          Slots are the family&apos;s hours ({timezoneAbbr(familyTz)}); your own time is under each one.
+          {tr("Slots are the family&apos;s hours (")}{timezoneAbbr(familyTz)}); your own time is under each one.
         </p>
       ) : null}
 
@@ -788,7 +789,7 @@ function SlotPicker({
                 {slot}
                 {convert(slot) !== slot ? (
                   <span className="block text-[10px] font-semibold text-[#2563EB]">
-                    {convert(slot)} your time
+                    {convert(slot)} {tr("your time")}
                   </span>
                 ) : null}
               </span>
@@ -799,7 +800,7 @@ function SlotPicker({
 
       {draft.rankedSlots.length > 0 ? (
         <div className="mt-3">
-          <p className="text-[11px] font-bold text-[#334155]">Your order of preference</p>
+          <p className="text-[11px] font-bold text-[#334155]">{tr("Your order of preference")}</p>
           <div className="mt-1.5 grid gap-1.5">
             {draft.rankedSlots.map((slot, index) => (
               <div
@@ -864,7 +865,7 @@ function SlotPicker({
 }
 
 async function submitTeacherAvailability(job: JobOpportunity, user: User, draft: ResponseDraft) {
-  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
   const normalizedComment = draft.comment.trim();
   const rankedSlots = draft.rankedSlots.map((slot) => slot.trim()).filter(Boolean);
   const jobRef = doc(db, "job_board", job.id);
@@ -873,13 +874,13 @@ async function submitTeacherAvailability(job: JobOpportunity, user: User, draft:
 
   await runTransaction(db, async (transaction) => {
     const jobSnap = await transaction.get(jobRef);
-    if (!jobSnap.exists()) throw new Error("Job not found.");
+    if (!jobSnap.exists()) throw new Error(tr("Job not found."));
     const jobData = jobSnap.data() as Record<string, unknown>;
     const status = stringValue(jobData.status);
     if (status !== "open") {
       throw new Error(status === "closed" ? "This opportunity is closed. Ask an admin to reopen it if needed." : `This opportunity is not open for availability responses (current status: ${status}).`);
     }
-    if (!stringValue(jobData.enrollmentId)) throw new Error("Job is missing enrollment reference.");
+    if (!stringValue(jobData.enrollmentId)) throw new Error(tr("Job is missing enrollment reference."));
 
     const userSnap = await transaction.get(userRef);
     const userData = userSnap.exists() ? (userSnap.data() as Record<string, unknown>) : null;
@@ -929,24 +930,24 @@ async function submitTeacherAvailability(job: JobOpportunity, user: User, draft:
 }
 
 async function withdrawTeacherFromJob(jobId: string, user: User) {
-  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
   const jobRef = doc(db, "job_board", jobId);
   const userRef = doc(db, "users", user.uid);
   const notificationRef = doc(collection(db, "admin_notifications"));
 
   await runTransaction(db, async (transaction) => {
     const jobSnap = await transaction.get(jobRef);
-    if (!jobSnap.exists()) throw new Error("Job not found.");
+    if (!jobSnap.exists()) throw new Error(tr("Job not found."));
     const jobData = jobSnap.data() as Record<string, unknown>;
     if (stringValue(jobData.acceptedByTeacherId) !== user.uid) {
-      throw new Error("You can only withdraw from jobs you accepted.");
+      throw new Error(tr("You can only withdraw from jobs you accepted."));
     }
     if (stringValue(jobData.status) !== "accepted") {
-      throw new Error("Can only withdraw from accepted jobs.");
+      throw new Error(tr("Can only withdraw from accepted jobs."));
     }
 
     const enrollmentId = stringValue(jobData.enrollmentId);
-    if (!enrollmentId) throw new Error("Job is missing enrollment reference.");
+    if (!enrollmentId) throw new Error(tr("Job is missing enrollment reference."));
     const enrollmentRef = doc(db, "enrollments", enrollmentId);
     const userSnap = await transaction.get(userRef);
     const userData = userSnap.exists() ? (userSnap.data() as Record<string, unknown>) : null;
@@ -1088,11 +1089,11 @@ function timezoneAbbr(value: string) {
 }
 
 function formatMonthDay(value: Date) {
-  return value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return value.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 }
 
 function formatFullDate(value: Date) {
-  return value.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return value.toLocaleDateString(dateLocale(), { month: "short", day: "numeric", year: "numeric" });
 }
 
 function dateValue(value: unknown): Date | null {

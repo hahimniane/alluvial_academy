@@ -80,6 +80,24 @@ export function adoptRemoteLocale(value: unknown) {
   applyLocale(value);
 }
 
+/**
+ * Whether the client has taken over from the prerendered HTML.
+ *
+ * The site is a static export: every page is built in English, so a translated
+ * first client render would not match the served markup and React would throw
+ * away the tree. useT() sidesteps this through its server snapshot; tr() is not
+ * a hook and needs the same discipline, so it returns English until the shell
+ * reports that hydration is done and re-renders everything below it.
+ */
+let hydrated = false;
+
+/** Called once from a mount effect, after hydration has finished. */
+export function markLocaleHydrated() {
+  if (hydrated) return;
+  hydrated = true;
+  listeners.forEach((fn) => fn());
+}
+
 function subscribe(callback: () => void) {
   listeners.add(callback);
   return () => listeners.delete(callback);
@@ -98,7 +116,22 @@ export function useLocale(): Locale {
  * follow the browser locale rather than the in-app toggle).
  */
 export function dateLocale(): string {
-  return currentLocale === "fr" ? "fr-FR" : "en-US";
+  return hydrated && currentLocale === "fr" ? "fr-FR" : "en-US";
+}
+
+/**
+ * Split a source key into the text to show and its disambiguating context.
+ *
+ * The dictionary is keyed by English source text, which breaks when one
+ * English word has two meanings — "End" is a column header in a timesheet and
+ * a verb on a button, and French needs "Fin" for one and "Terminer" for the
+ * other. Writing the key as "End|timesheet" keeps them apart: the part after
+ * the pipe selects the translation and never reaches the screen, so English
+ * still reads "End" whether or not anyone has translated it.
+ */
+function splitKey(key: string): { key: string; english: string } {
+  const bar = key.indexOf("|");
+  return bar === -1 ? { key, english: key } : { key, english: key.slice(0, bar) };
 }
 
 function interpolate(text: string, vars?: Record<string, string | number>) {
@@ -110,7 +143,24 @@ function interpolate(text: string, vars?: Record<string, string | number>) {
 export function useT() {
   const locale = useLocale();
   return (en: string, vars?: Record<string, string | number>) => {
-    const base = locale === "fr" ? FR[en] ?? en : en;
+    const { key, english } = splitKey(en);
+    const base = locale === "fr" ? FR[key] ?? english : english;
     return interpolate(base, vars);
   };
+}
+
+/**
+ * Translate outside a component, for the same source-keyed dictionary as
+ * useT().
+ *
+ * The locale lives in a module variable, so this needs no hook and can be
+ * called from nested render helpers that are not components in their own
+ * right. It does not subscribe: a locale change re-renders the shell, and the
+ * page tree under it re-renders with it. Reach for useT() in a component that
+ * can render independently of the shell.
+ */
+export function tr(en: string, vars?: Record<string, string | number>) {
+  const { key, english } = splitKey(en);
+  const base = hydrated && currentLocale === "fr" ? FR[key] ?? english : english;
+  return interpolate(base, vars);
 }

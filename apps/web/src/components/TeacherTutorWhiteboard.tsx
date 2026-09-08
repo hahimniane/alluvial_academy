@@ -2,6 +2,7 @@
 
 import { Eraser, Redo2, Undo2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { tr } from "@/lib/i18n";
 
 export type TutorStroke = {
   id: string;
@@ -52,15 +53,15 @@ export function TeacherTutorWhiteboard({
       className="fixed inset-0 z-[85] flex flex-col bg-[#F8FAFC]"
       role="dialog"
       aria-modal="true"
-      aria-label="AI Tutor whiteboard"
+      aria-label={tr("AI Tutor whiteboard")}
     >
       <header className="flex min-h-14 items-center gap-2 border-b border-[#E2E8F0] bg-white px-3">
         <h2 className="min-w-0 flex-1 truncate font-extrabold">
-          AI Tutor Whiteboard
+          {tr("AI Tutor Whiteboard")}
         </h2>
         <button
           type="button"
-          aria-label="Undo whiteboard stroke"
+          aria-label={tr("Undo whiteboard stroke")}
           disabled={!strokes.length || !drawingEnabled}
           onClick={() => {
             const removed = strokes.at(-1);
@@ -74,7 +75,7 @@ export function TeacherTutorWhiteboard({
         </button>
         <button
           type="button"
-          aria-label="Redo whiteboard stroke"
+          aria-label={tr("Redo whiteboard stroke")}
           disabled={!redo.length || !drawingEnabled}
           onClick={() => {
             const restored = redo.at(-1);
@@ -88,7 +89,7 @@ export function TeacherTutorWhiteboard({
         </button>
         <button
           type="button"
-          aria-label="Clear whiteboard"
+          aria-label={tr("Clear whiteboard")}
           disabled={!strokes.length || !drawingEnabled}
           onClick={() => {
             setRedo(strokes);
@@ -97,11 +98,11 @@ export function TeacherTutorWhiteboard({
           className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-bold text-red-600 disabled:opacity-40"
         >
           <Eraser size={18} />
-          Clear
+          {tr("Clear")}
         </button>
         <button
           type="button"
-          aria-label="Close whiteboard"
+          aria-label={tr("Close whiteboard")}
           onClick={onClose}
           className="grid h-10 w-10 place-items-center rounded-xl"
         >
@@ -110,7 +111,7 @@ export function TeacherTutorWhiteboard({
       </header>
       {!drawingEnabled ? (
         <p className="bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-900">
-          The tutor has temporarily disabled drawing.
+          {tr("The tutor has temporarily disabled drawing.")}
         </p>
       ) : null}
       <svg

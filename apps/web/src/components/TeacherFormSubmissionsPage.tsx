@@ -19,6 +19,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type SubmissionRecord = {
@@ -150,18 +151,18 @@ export function TeacherFormSubmissionsPage() {
     <TeacherShell activeLabel="My Form Submissions" breadcrumb="Forms / My Form Submissions" summary={summary}>
     <main className="min-h-full bg-[#F5F7FA] text-[#1E293B]">
       <header className="grid min-h-14 grid-cols-[56px_1fr_minmax(112px,auto)] items-center border-b border-[#E2E8F0] bg-white px-2 max-[700px]:grid-cols-[48px_1fr_44px]">
-        <Link href="/teacher/" aria-label="Back" className="grid h-11 w-11 place-items-center rounded-xl text-[#111827] hover:bg-[#F8FAFC]">
+        <Link href="/teacher/" aria-label={tr("Back")} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827] hover:bg-[#F8FAFC]">
           <ArrowLeft size={24} />
         </Link>
-        <h1 className="truncate text-center text-xl font-bold text-[#1E293B] max-[700px]:text-base">My Form Submissions</h1>
+        <h1 className="truncate text-center text-xl font-bold text-[#1E293B] max-[700px]:text-base">{tr("My Form Submissions")}</h1>
         <button
           type="button"
           onClick={() => setMonthPickerOpen(true)}
           className="inline-flex min-h-10 items-center justify-end gap-2 rounded-xl px-3 text-sm font-semibold text-[#0386FF] hover:bg-[#EFF6FF] max-[700px]:px-1"
-          aria-label="Select month"
+          aria-label={tr("Select month")}
         >
           <Calendar size={17} />
-          <span className="max-[700px]:sr-only">{showAllMonths ? "All Time" : monthDisplayName(selectedYearMonth)}</span>
+          <span className="max-[700px]:sr-only">{showAllMonths ? tr("All Time") : monthDisplayName(selectedYearMonth)}</span>
         </button>
       </header>
 
@@ -172,28 +173,28 @@ export function TeacherFormSubmissionsPage() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-[#1E293B]">{monthDisplayName(selectedYearMonth)}</p>
-            <p className="mt-0.5 text-xs text-[#64748B]">{currentMonthCount} {currentMonthCount === 1 ? "submission" : "submissions"} this month</p>
-            <p className="mt-1 text-[11px] leading-4 text-[#64748B]">Only submissions dated in the selected month are shown. Use View all to see other months.</p>
+            <p className="mt-0.5 text-xs text-[#64748B]">{currentMonthCount} {currentMonthCount === 1 ? "submission" : "submissions"} {tr("this month")}</p>
+            <p className="mt-1 text-[11px] leading-4 text-[#64748B]">{tr("Only submissions dated in the selected month are shown. Use View all to see other months.")}</p>
           </div>
           <button type="button" onClick={() => setShowAllMonths(true)} className="rounded-xl px-3 py-2 text-xs font-semibold text-[#0386FF] hover:bg-white">
-            View All
+            {tr("View All")}
           </button>
         </section>
       ) : null}
 
       <section className="bg-white p-4">
         <label className="relative block">
-          <span className="sr-only">Search by form name or status</span>
+          <span className="sr-only">{tr("Search by form name or status")}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" size={21} />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by form name or status"
-            aria-label="Search by form name or status"
+            placeholder={tr("Search by form name or status")}
+            aria-label={tr("Search by form name or status")}
             className="min-h-12 w-full rounded-lg border-0 bg-[#F8FAFC] pl-11 pr-11 text-base text-[#1E293B] outline-none ring-1 ring-[#E2E8F0] placeholder:text-[#94A3B8] focus:ring-2 focus:ring-[#0386FF]"
           />
           {search ? (
-            <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#64748B] hover:bg-[#E2E8F0]">
+            <button type="button" onClick={() => setSearch("")} aria-label={tr("Clear search")} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#64748B] hover:bg-[#E2E8F0]">
               <X size={18} />
             </button>
           ) : null}
@@ -208,9 +209,9 @@ export function TeacherFormSubmissionsPage() {
         ) : loadError ? (
           <div className="grid min-h-[460px] place-items-center px-6 text-center" role="alert">
             <div className="max-w-md">
-              <h2 className="text-xl font-bold text-[#1E293B]">Could not load submissions</h2>
+              <h2 className="text-xl font-bold text-[#1E293B]">{tr("Could not load submissions")}</h2>
               <p className="mt-2 text-sm text-[#64748B]">{loadError}</p>
-              <button type="button" onClick={() => void retryLoad()} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">Try again</button>
+              <button type="button" onClick={() => void retryLoad()} className="mt-5 min-h-11 rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">{tr("Try again")}</button>
             </div>
           </div>
         ) : groupedSubmissions.length === 0 ? (
@@ -266,8 +267,8 @@ function EmptySubmissions({ search }: { search: string }) {
         <span className="mx-auto grid h-28 w-28 place-items-center rounded-2xl bg-[#F1F5F9] text-[#64748B]">
           <ClipboardList size={64} />
         </span>
-        <h2 className="mt-6 text-xl font-bold text-[#1E293B]">{search.trim() ? "No results found" : "No form submissions yet"}</h2>
-        <p className="mt-2 text-base text-[#64748B]">{search.trim() ? "Try adjusting your search" : "Your submitted forms will appear here"}</p>
+        <h2 className="mt-6 text-xl font-bold text-[#1E293B]">{search.trim() ? tr("No results found") : tr("No form submissions yet")}</h2>
+        <p className="mt-2 text-base text-[#64748B]">{search.trim() ? tr("Try adjusting your search") : tr("Your submitted forms will appear here")}</p>
       </div>
     </div>
   );
@@ -287,7 +288,7 @@ function SubmissionGroupCard({ group, onOpen }: { group: SubmissionGroup; onOpen
           <MiniChip icon={ClipboardList} text={`${group.submissions.length} ${group.submissions.length === 1 ? "submission" : "submissions"}`} />
           {completed > 0 ? <MiniChip icon={Check} text={`${completed} completed`} tone="green" /> : null}
         </span>
-        {latest?.submittedAt ? <span className="mt-2 block text-xs text-[#64748B]">Last submitted {shortDate(latest.submittedAt)}</span> : null}
+        {latest?.submittedAt ? <span className="mt-2 block text-xs text-[#64748B]">{tr("Last submitted")} {shortDate(latest.submittedAt)}</span> : null}
       </span>
       <ChevronRight size={17} className="text-[#94A3B8]" />
     </button>
@@ -320,17 +321,17 @@ function MonthPicker({
   onSelectMonth: (month: string) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-40 grid place-items-end bg-black/30" role="dialog" aria-modal="true" aria-label="Select Month">
+    <div className="fixed inset-0 z-40 grid place-items-end bg-black/30" role="dialog" aria-modal="true" aria-label={tr("Select Month")}>
       <div className="max-h-[80vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-2xl lg:mx-auto lg:max-w-xl">
         <div className="flex min-h-16 items-center border-b border-[#E2E8F0] px-4">
-          <h2 className="text-lg font-bold text-[#1E293B]">Select Month</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="ml-auto grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+          <h2 className="text-lg font-bold text-[#1E293B]">{tr("Select Month")}</h2>
+          <button type="button" onClick={onClose} aria-label={tr("Close")} className="ml-auto grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
           </button>
         </div>
         <button type="button" onClick={onSelectAll} className="flex min-h-14 w-full items-center gap-3 px-4 text-left hover:bg-[#F8FAFC]">
           <Infinity size={20} className={showAllMonths ? "text-[#0386FF]" : "text-[#64748B]"} />
-          <span className={`flex-1 text-sm ${showAllMonths ? "font-bold text-[#0386FF]" : "font-medium text-[#1E293B]"}`}>All Time</span>
+          <span className={`flex-1 text-sm ${showAllMonths ? "font-bold text-[#0386FF]" : "font-medium text-[#1E293B]"}`}>{tr("All Time")}</span>
           {showAllMonths ? <Check size={19} className="text-[#0386FF]" /> : null}
         </button>
         <div className="h-px bg-[#E2E8F0]" />
@@ -343,7 +344,7 @@ function MonthPicker({
                 <Calendar size={19} className={selected ? "text-[#0386FF]" : "text-[#64748B]"} />
                 <span className={`flex min-w-0 flex-1 items-center gap-2 text-sm ${selected ? "font-bold text-[#0386FF]" : "font-medium text-[#1E293B]"}`}>
                   <span className="truncate">{monthDisplayName(month)}</span>
-                  {isCurrent ? <span className="rounded bg-[#DCFCE7] px-1.5 py-0.5 text-[10px] font-semibold text-[#10B981]">Current Month</span> : null}
+                  {isCurrent ? <span className="rounded bg-[#DCFCE7] px-1.5 py-0.5 text-[10px] font-semibold text-[#10B981]">{tr("Current Month")}</span> : null}
                 </span>
                 {selected ? <Check size={19} className="text-[#0386FF]" /> : null}
               </button>
@@ -365,7 +366,7 @@ function GroupSheet({ group, onClose, onView }: { group: SubmissionGroup; onClos
             <h2 className="truncate text-xl font-bold text-[#1E293B]">{group.title}</h2>
             <p className="mt-1 text-sm text-[#64748B]">{group.submissions.length} {group.submissions.length === 1 ? "submission" : "submissions"}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+          <button type="button" onClick={onClose} aria-label={tr("Close")} className="grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
           </button>
         </div>
@@ -373,7 +374,7 @@ function GroupSheet({ group, onClose, onView }: { group: SubmissionGroup; onClos
           {group.submissions.map((submission) => (
             <button key={submission.id} type="button" onClick={() => onView(submission)} className="mb-3 grid min-h-[76px] w-full grid-cols-[1fr_20px] items-center gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 text-left hover:border-[#BFDBFE]">
               <span className="min-w-0">
-                <span className="block text-sm font-bold text-[#1E293B]">{submission.submittedAt ? fullDate(submission.submittedAt) : "Submission date unknown"}</span>
+                <span className="block text-sm font-bold text-[#1E293B]">{submission.submittedAt ? fullDate(submission.submittedAt) : tr("Submission date unknown")}</span>
                 <span className="mt-2 inline-flex rounded-md bg-[#EFF6FF] px-2 py-1 text-xs font-semibold text-[#0386FF]">{submission.status || "Submitted"}</span>
               </span>
               <ChevronRight size={17} className="text-[#94A3B8]" />
@@ -397,12 +398,12 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
               <h2 className="min-w-0 flex-1 text-xl font-bold text-[#1E293B]">{submission.formTitle || "Form Submission"}</h2>
               <span className="inline-flex items-center gap-1 rounded-md bg-[#EFF6FF] px-2.5 py-1 text-xs font-semibold text-[#0386FF]">
                 <FileText size={14} />
-                Read Only
+                {tr("Read Only")}
               </span>
             </div>
-            <p className="mt-2 text-sm text-[#64748B]">{submission.submittedAt ? `Submitted on ${fullDate(submission.submittedAt)}` : "Submission date unknown"}</p>
+            <p className="mt-2 text-sm text-[#64748B]">{submission.submittedAt ? tr("Submitted on {date}", { date: fullDate(submission.submittedAt) }) : tr("Submission date unknown")}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="ml-3 grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+          <button type="button" onClick={onClose} aria-label={tr("Close")} className="ml-3 grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
           </button>
         </div>
@@ -411,7 +412,7 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
             <div className="grid min-h-[280px] place-items-center text-center">
               <div>
                 <ClipboardList className="mx-auto text-[#94A3B8]" size={64} />
-                <p className="mt-4 text-base font-semibold text-[#64748B]">No responses recorded</p>
+                <p className="mt-4 text-base font-semibold text-[#64748B]">{tr("No responses recorded")}</p>
               </div>
             </div>
           ) : (
@@ -537,15 +538,15 @@ function yearMonthFor(date: Date) {
 function monthDisplayName(yearMonth: string) {
   const [year, month] = yearMonth.split("-").map((part) => Number(part));
   if (!year || !month) return yearMonth;
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+  return new Intl.DateTimeFormat(dateLocale(), { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
 }
 
 function shortDate(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function fullDate(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 function formatFieldLabel(field: string) {

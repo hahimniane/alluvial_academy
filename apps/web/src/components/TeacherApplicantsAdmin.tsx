@@ -19,6 +19,7 @@ import {
 import { AdminDashboardShell } from "@/components/AdminDashboardShell";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type TeacherStatus = "All" | "Pending" | "Reviewed" | "Approved" | "Rejected";
@@ -190,12 +191,12 @@ export function TeacherApplicantsAdmin() {
       <main className="min-h-[calc(100vh-56px)] bg-white text-[#111827]">
         <header className="lg:hidden">
           <div className="grid min-h-14 grid-cols-[48px_1fr_48px] items-center bg-white px-3">
-            <button type="button" aria-label="Menu" className="grid h-11 w-11 place-items-center rounded-xl">
+            <button type="button" aria-label={tr("Menu")} className="grid h-11 w-11 place-items-center rounded-xl">
               <span className="h-0.5 w-4 bg-current" />
               <span className="-mt-5 h-0.5 w-4 bg-current" />
             </button>
             <div className="min-w-0 text-center">
-              <div className="truncate text-sm font-black">Alluwal Education Hub</div>
+              <div className="truncate text-sm font-black">{tr("Alluwal Education Hub")}</div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[#009688] text-[11px] font-black text-white">
               {initialsFor(user)}
@@ -207,8 +208,8 @@ export function TeacherApplicantsAdmin() {
           <div className="flex items-center gap-4">
             <Users className="shrink-0 text-[#8B5CF6]" size={32} />
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold leading-tight text-[#111827]">Teacher Applicants</h1>
-              <p className="mt-1 text-sm text-[#6B7280]">{applications.length} total applications</p>
+              <h1 className="text-2xl font-bold leading-tight text-[#111827]">{tr("Teacher Applicants")}</h1>
+              <p className="mt-1 text-sm text-[#6B7280]">{applications.length} {tr("total applications")}</p>
             </div>
             {selectedIds.size > 0 ? (
               <button
@@ -217,14 +218,14 @@ export function TeacherApplicantsAdmin() {
                 className="hidden min-h-10 items-center gap-2 rounded-lg bg-[#8B5CF6] px-4 text-sm font-semibold text-white sm:inline-flex"
               >
                 <Check size={17} />
-                Mark As Reviewed
+                {tr("Mark As Reviewed")}
               </button>
             ) : null}
             <button
               type="button"
               onClick={exportCsv}
               className="grid h-10 w-10 place-items-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]"
-              aria-label="Export To Csv"
+              aria-label={tr("Export To Csv")}
             >
               <Download size={20} />
             </button>
@@ -260,13 +261,13 @@ export function TeacherApplicantsAdmin() {
                 className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#9CA3AF] bg-white px-5 text-sm text-[#007AFF]"
               >
                 <Calendar size={16} />
-                {dateStart || dateEnd ? `${shortDateLabel(dateStart) || "Start"} - ${shortDateLabel(dateEnd) || "End"}` : "Select Date Range"}
+                {dateStart || dateEnd ? `${shortDateLabel(dateStart) || "Start"} - ${shortDateLabel(dateEnd) || "End"}` : tr("Select Date Range")}
                 <ChevronDown size={15} className="text-[#6B7280]" />
               </button>
               {showDateControls ? (
                 <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-xl border border-black/10 bg-white p-3 shadow-xl">
                   <label className="block text-xs font-bold text-[#6B7280]" htmlFor="teacher-applications-start">
-                    Start date
+                    {tr("Start date")}
                   </label>
                   <input
                     id="teacher-applications-start"
@@ -276,7 +277,7 @@ export function TeacherApplicantsAdmin() {
                     className="mt-1 h-10 w-full rounded-lg border border-[#D1D5DB] px-3 text-sm"
                   />
                   <label className="mt-3 block text-xs font-bold text-[#6B7280]" htmlFor="teacher-applications-end">
-                    End date
+                    {tr("End date")}
                   </label>
                   <input
                     id="teacher-applications-end"
@@ -294,14 +295,14 @@ export function TeacherApplicantsAdmin() {
                       }}
                       className="rounded-lg px-3 py-2 text-sm font-semibold text-[#6B7280]"
                     >
-                      Clear
+                      {tr("Clear")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowDateControls(false)}
                       className="rounded-lg bg-[#111827] px-3 py-2 text-sm font-semibold text-white"
                     >
-                      Apply
+                      {tr("Apply")}
                     </button>
                   </div>
                 </div>
@@ -330,7 +331,7 @@ export function TeacherApplicantsAdmin() {
                   <th className="w-[60px] border border-[#E5E7EB] px-5 py-4">
                     <input
                       type="checkbox"
-                      aria-label="Select all applications"
+                      aria-label={tr("Select all applications")}
                       checked={allVisibleSelected}
                       onChange={(event) => {
                         if (event.target.checked) setSelectedIds(new Set(filteredApplications.map((application) => application.id)));
@@ -424,12 +425,12 @@ function TeacherApplicationTableRow({
               className="absolute inset-0 cursor-pointer opacity-0"
             >
               <option value="" disabled>
-                Actions
+                {tr("Actions")}
               </option>
-              <option value="Reviewed">Mark As Reviewed</option>
-              <option value="Approved">Approve</option>
-              <option value="Rejected">Reject</option>
-              <option value="Pending">Mark As Pending</option>
+              <option value="Reviewed">{tr("Mark As Reviewed")}</option>
+              <option value="Approved">{tr("Approve")}</option>
+              <option value="Rejected">{tr("Reject")}</option>
+              <option value="Pending">{tr("Mark As Pending")}</option>
             </select>
           </label>
         </div>
@@ -464,7 +465,7 @@ function EmptyState() {
     <div className="grid min-h-[420px] place-items-center text-center">
       <div>
         <Inbox className="mx-auto text-[#9CA3AF]" size={64} />
-        <p className="mt-4 text-lg text-[#6B7280]">No Applications Found</p>
+        <p className="mt-4 text-lg text-[#6B7280]">{tr("No Applications Found")}</p>
       </div>
     </div>
   );
@@ -475,13 +476,13 @@ function TeacherApplicationDetails({ application, onClose }: { application: Teac
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 py-8">
       <section className="max-h-full w-full max-w-[700px] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <header className="flex items-center gap-4">
-          <h2 className="min-w-0 flex-1 text-xl font-bold">Application Details</h2>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]" aria-label="Close details">
+          <h2 className="min-w-0 flex-1 text-xl font-bold">{tr("Application Details")}</h2>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]" aria-label={tr("Close details")}>
             <X size={20} />
           </button>
         </header>
         <div className="my-4 border-t border-[#E5E7EB]" />
-        <DetailSection title="Personal Info" />
+        <DetailSection title={tr("Personal Info")} />
         <DetailRow label="Name" value={application.fullName} />
         <DetailRow label="Email" value={application.email} />
         <DetailRow label="Phone" value={application.phoneNumber} />
@@ -490,39 +491,39 @@ function TeacherApplicationDetails({ application, onClose }: { application: Teac
         <DetailRow label="Gender" value={application.gender} />
         <DetailRow label="Status" value={application.currentStatus} />
 
-        <DetailSection title="Teaching Program" />
+        <DetailSection title={tr("Teaching Program")} />
         <DetailRow label="Programs" value={application.teachingPrograms.join(", ")} />
         {application.englishSubjects.length > 0 ? <DetailRow label="English Subjects" value={application.englishSubjects.join(", ")} /> : null}
         <DetailRow label="Languages" value={application.languages.join(", ")} />
 
         {application.teachingPrograms.some((program) => program.toLowerCase().includes("islamic")) ? (
           <>
-            <DetailSection title="Islamic Studies" />
+            <DetailSection title={tr("Islamic Studies")} />
             <DetailRow label="Tajwid Level" value={application.tajwidLevel} />
             <DetailRow label="Quran Memorization" value={application.quranMemorization} />
             <DetailRow label="Arabic Proficiency" value={application.arabicProficiency} />
           </>
         ) : null}
 
-        <DetailSection title="Experience & Commitment" />
+        <DetailSection title={tr("Experience & Commitment")} />
         <DetailRow label="Time Discipline" value={application.timeDiscipline} />
         <DetailRow label="Schedule Balance" value={application.scheduleBalance} />
         <DetailRow label="Electricity Access" value={application.electricityAccess} />
         <DetailRow label="Teaching Comfort" value={application.teachingComfort} />
         <DetailRow label="Start Date" value={application.availabilityStart} />
 
-        <DetailSection title="Technical" />
+        <DetailSection title={tr("Technical")} />
         <DetailRow label="Device" value={application.teachingDevice} />
         <DetailRow label="Internet" value={application.internetAccess} />
 
-        <DetailSection title="Motivation" />
+        <DetailSection title={tr("Motivation")} />
         <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-sm leading-6 text-[#111827]">
           {application.interestReason || "-"}
         </div>
 
         <footer className="mt-6 flex justify-end">
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#374151] hover:bg-[#F3F4F6]">
-            Close
+            {tr("Close")}
           </button>
         </footer>
       </section>
@@ -552,18 +553,18 @@ function TeacherApplicantsAccessPrompt({ access }: { access: AccessState }) {
           <Lock size={24} />
         </div>
         <h1 className="mt-4 text-xl font-bold">
-          {checking ? "Checking admin access" : access === "signedOut" ? "Admin sign-in required" : "Administrator access required"}
+          {checking ? tr("Checking admin access") : access === "signedOut" ? tr("Admin sign-in required") : tr("Administrator access required")}
         </h1>
         <p className="mt-2 text-sm leading-6 text-[#64748B]">
           {checking
-            ? "Please wait while we verify your dashboard permissions."
+            ? tr("Please wait while we verify your dashboard permissions.")
             : access === "signedOut"
-              ? "Sign in with an administrator account before managing teacher applicants."
-              : "Your signed-in account does not have administrator permissions for this module."}
+              ? tr("Sign in with an administrator account before managing teacher applicants.")
+              : tr("Your signed-in account does not have administrator permissions for this module.")}
         </p>
         {!checking ? (
           <Link href="/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#001E4E] px-5 text-sm font-semibold text-white">
-            Go to login
+            {tr("Go to login")}
           </Link>
         ) : null}
       </section>
@@ -626,7 +627,7 @@ function dateValue(value: unknown) {
 
 function formatDate(value: Date | null) {
   if (!value) return "-";
-  return value.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return value.toLocaleDateString(dateLocale(), { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatDateTime(value: Date | null) {
@@ -636,7 +637,7 @@ function formatDateTime(value: Date | null) {
 
 function shortDateLabel(value: string) {
   if (!value) return "";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(`${value}T00:00:00`).toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
 }
 
 function startOfDay(value: string) {

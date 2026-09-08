@@ -34,6 +34,7 @@ import type { LucideIcon } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type Frequency = "perSession" | "weekly" | "monthly" | "onDemand";
@@ -497,33 +498,33 @@ export function TeacherSubmitFormPage() {
         <MobileTeacherTopBar summary={summary} />
         <section className="relative overflow-hidden bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] px-5 pb-7 pt-5 text-white lg:min-h-[200px]">
           <div className="flex items-center justify-between">
-            <Link href="/teacher/" aria-label="Back to teacher dashboard" className="grid h-11 w-11 place-items-center rounded-xl text-2xl leading-none hover:bg-white/10"><ChevronLeft size={26} /></Link>
-            <Link href="/teacher/form-submissions/" aria-label="My submissions" className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10">
+            <Link href="/teacher/" aria-label={tr("Back to teacher dashboard")} className="grid h-11 w-11 place-items-center rounded-xl text-2xl leading-none hover:bg-white/10"><ChevronLeft size={26} /></Link>
+            <Link href="/teacher/form-submissions/" aria-label={tr("My submissions")} className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10">
               <History size={22} />
             </Link>
           </div>
-          <p className="mt-7 text-sm text-white/80 max-[700px]:mt-5 max-[700px]:text-base">Submit Reports Feedback</p>
+          <p className="mt-7 text-sm text-white/80 max-[700px]:mt-5 max-[700px]:text-base">{tr("Submit Reports Feedback")}</p>
           <div className="mt-5 flex gap-3 overflow-x-auto">
             <StatusPill label="Daily" status={submitted.daily ? "Done" : "Due"} complete={submitted.daily} />
             <StatusPill label="Weekly" status={isWeeklyAvailable() ? (submitted.weekly ? "Done" : "Due") : "Sun-Tue"} complete={submitted.weekly} available={isWeeklyAvailable()} />
             <StatusPill label="Monthly" status={isMonthlyAvailable() ? (submitted.monthly ? "Done" : "Due") : "End/Start"} complete={submitted.monthly} available={isMonthlyAvailable()} />
           </div>
-          <h1 className="mt-1 text-center text-[34px] font-black leading-tight tracking-normal text-white max-[700px]:mt-0 max-[700px]:text-[34px]">Forms Reports</h1>
+          <h1 className="mt-1 text-center text-[34px] font-black leading-tight tracking-normal text-white max-[700px]:mt-0 max-[700px]:text-[34px]">{tr("Forms Reports")}</h1>
         </section>
 
         <section className="px-4 py-4">
           <label className="relative block">
-            <span className="sr-only">Search forms</span>
+            <span className="sr-only">{tr("Search forms")}</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E293B]" size={22} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search Forms"
-              aria-label="Search forms"
+              placeholder={tr("Search Forms")}
+              aria-label={tr("Search forms")}
               className="h-[46px] w-full rounded-xl border border-[#E5E7EB] bg-white pl-12 pr-10 text-base text-[#1E293B] shadow-[0_2px_8px_rgba(100,116,139,0.08)] outline-none placeholder:text-[#64748B] focus:border-[#6366F1]"
             />
             {search ? (
-              <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center text-[#64748B]">
+              <button type="button" onClick={() => setSearch("")} aria-label={tr("Clear search")} className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center text-[#64748B]">
                 <X size={18} />
               </button>
             ) : null}
@@ -570,12 +571,12 @@ export function TeacherSubmitFormPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-14 grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -720,7 +721,7 @@ function TeacherFormSheet({
     setNotice("");
     let uploadedPaths: string[] = [];
     try {
-      if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+      if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
       const uploadResult = await uploadPendingFiles(values, user.uid);
       const uploadedValues = uploadResult.values;
       uploadedPaths = uploadResult.storagePaths;
@@ -766,7 +767,7 @@ function TeacherFormSheet({
           const existing = await getDoc(responseRef).catch(() => null);
           const existingData = existing?.exists() ? (existing.data() as Record<string, unknown>) : null;
           if (existingData && stringValue(existingData.userId) === user.uid && stringValue(existingData.shiftId ?? existingData.shift_id) === selectedShift.id) {
-            throw new Error("This form has already been submitted for the selected shift.");
+            throw new Error(tr("This form has already been submitted for the selected shift."));
           }
           throw error;
         }
@@ -789,7 +790,7 @@ function TeacherFormSheet({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0F172A]/45 px-4 py-5">
       <div className="mx-auto max-w-[800px]">
         <div className="mb-4 flex justify-end">
-          <button type="button" onClick={onClose} aria-label="Close form" className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
+          <button type="button" onClick={onClose} aria-label={tr("Close form")} className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
             <X size={20} />
           </button>
         </div>
@@ -812,7 +813,7 @@ function TeacherFormSheet({
 
         <div className="mt-6">
           {fields.length === 0 ? (
-            <div className="rounded-lg border border-[#F59E0B] bg-[#FEF3C7] p-4 text-sm font-semibold text-[#B45309]">No form fields are currently visible.</div>
+            <div className="rounded-lg border border-[#F59E0B] bg-[#FEF3C7] p-4 text-sm font-semibold text-[#B45309]">{tr("No form fields are currently visible.")}</div>
           ) : (
             fields.map((item) => (
               <FormQuestionCard key={item.id} field={item} value={values[item.id]} error={errors[item.id]} onChange={(value) => setValue(item.id, value)} />
@@ -824,7 +825,7 @@ function TeacherFormSheet({
           {notice ? <p className={`mb-4 rounded-xl px-4 py-3 text-sm font-semibold ${notice.includes("success") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{notice}</p> : null}
           <div className="flex flex-wrap justify-end gap-3 max-[700px]:grid max-[700px]:grid-cols-1">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#E5E7EB] px-5 py-3 text-sm font-bold text-[#6B7280] hover:bg-[#F8FAFC]">
-              Cancel
+              {tr("Cancel")}
             </button>
             <button
               type="button"
@@ -833,7 +834,7 @@ function TeacherFormSheet({
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-6 py-3 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#93C5FD]"
             >
               {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              {submitting ? "Submitting..." : "Submit Form"}
+              {submitting ? tr("Submitting...") : tr("Submit Form")}
             </button>
           </div>
         </section>
@@ -981,11 +982,11 @@ function FileFieldInput({ field, value, onChange }: { field: TemplateField; valu
         <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
           <Check size={20} className="shrink-0 text-green-600" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[#111827]">{kind === "signature" ? "Signature captured" : selectedFileName}</p>
+            <p className="truncate text-sm font-semibold text-[#111827]">{kind === "signature" ? tr("Signature captured") : selectedFileName}</p>
             <p className="text-xs text-[#6B7280]">{formatFileSize(selectedSize)}</p>
           </div>
           <label className="cursor-pointer rounded-lg px-3 py-2 text-xs font-bold text-[#0386FF] hover:bg-white">
-            Change
+            {tr("Change")}
             <input type="file" accept="image/*" onChange={onFileSelected} className="sr-only" aria-label={`Change ${field.label}`} />
           </label>
         </div>
@@ -1000,8 +1001,8 @@ function FileFieldInput({ field, value, onChange }: { field: TemplateField; valu
         <span className={`grid rounded-full ${kind === "signature" ? "bg-[#9B51E0]/10 p-3 text-[#9B51E0]" : "bg-[#0386FF]/10 p-4 text-[#0386FF]"}`}>
           {kind === "signature" ? <PenLine size={24} /> : <Upload size={32} />}
         </span>
-        <span className="mt-3 block text-sm font-bold text-[#111827]">{kind === "signature" ? "Click to add signature" : "Click to upload image"}</span>
-        <span className="mt-1 block text-xs text-[#6B7280]">{kind === "signature" ? "Upload image or use signature pad" : "JPG, PNG, GIF up to 10MB"}</span>
+        <span className="mt-3 block text-sm font-bold text-[#111827]">{kind === "signature" ? tr("Click to add signature") : tr("Click to upload image")}</span>
+        <span className="mt-1 block text-xs text-[#6B7280]">{kind === "signature" ? tr("Upload image or use signature pad") : tr("JPG, PNG, GIF up to 10MB")}</span>
         <input type="file" accept="image/*" onChange={onFileSelected} className="sr-only" aria-label={field.label} />
       </label>
       {fileError ? <p className="rounded-lg bg-[#FEF2F2] px-3 py-2 text-sm font-semibold text-[#DC2626]">{fileError}</p> : null}
@@ -1156,10 +1157,10 @@ function ShiftSelectionSheet({ template, user, onClose, onSelect }: { template: 
         <div className="mx-auto max-w-[760px]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-[#111827]">Select a Shift</h2>
+              <h2 className="text-xl font-bold text-[#111827]">{tr("Select a Shift")}</h2>
               <p className="mt-1 text-sm text-[#64748B]">{template.name}</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Close shift selection" className="grid h-9 w-9 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
+            <button type="button" onClick={onClose} aria-label={tr("Close shift selection")} className="grid h-9 w-9 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]">
               <X size={19} />
             </button>
           </div>
@@ -1170,7 +1171,7 @@ function ShiftSelectionSheet({ template, user, onClose, onSelect }: { template: 
           ) : error ? (
             <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>
           ) : shifts.length === 0 ? (
-            <p className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-4 text-sm font-semibold text-[#64748B]">No recent shifts found to report.</p>
+            <p className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-4 text-sm font-semibold text-[#64748B]">{tr("No recent shifts found to report.")}</p>
           ) : (
             <div className="mt-5 grid gap-3">
               {timesheetNotice ? <p className="rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#64748B]">{timesheetNotice}</p> : null}
@@ -1186,7 +1187,7 @@ function ShiftSelectionSheet({ template, user, onClose, onSelect }: { template: 
                     <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${shiftStatusClass(shift.status)}`}>{shift.status}</span>
                   </div>
                   {shift.formResponseId ? (
-                    <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-semibold text-green-700">Form already submitted</p>
+                    <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-semibold text-green-700">{tr("Form already submitted")}</p>
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
@@ -1196,7 +1197,7 @@ function ShiftSelectionSheet({ template, user, onClose, onSelect }: { template: 
                         shift.formResponseId ? "border-green-300 text-green-700 hover:bg-green-50" : "border-blue-300 text-blue-600 hover:bg-blue-50"
                       }`}
                     >
-                      {shift.formResponseId ? "View Form" : "Form"}
+                      {shift.formResponseId ? tr("View Form") : tr("Form")}
                     </button>
                     <button
                       type="button"
@@ -1205,14 +1206,14 @@ function ShiftSelectionSheet({ template, user, onClose, onSelect }: { template: 
                       className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] px-4 py-2 text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC] disabled:cursor-wait disabled:opacity-70"
                     >
                       {timesheetLoadingId === shift.id ? <Loader2 size={14} className="animate-spin" /> : null}
-                      {timesheetLoadingId === shift.id ? "Loading..." : "Timesheet"}
+                      {timesheetLoadingId === shift.id ? tr("Loading...") : tr("Timesheet")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveShiftDetail(shift)}
                       className="rounded-lg border border-orange-300 px-4 py-2 text-xs font-semibold text-orange-600 hover:bg-orange-50"
                     >
-                      Details
+                      {tr("Details")}
                     </button>
                   </div>
                 </article>
@@ -1232,7 +1233,7 @@ function ShiftDetailSheet({ shift, onClose }: { shift: ShiftOption; onClose: () 
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#0F172A]/55 px-4 py-5">
       <div className="mx-auto max-w-[680px]">
         <div className="mb-4 flex justify-end">
-          <button type="button" onClick={onClose} aria-label="Close shift details" className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
+          <button type="button" onClick={onClose} aria-label={tr("Close shift details")} className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
             <X size={20} />
           </button>
         </div>
@@ -1242,7 +1243,7 @@ function ShiftDetailSheet({ shift, onClose }: { shift: ShiftOption; onClose: () 
               <AlertCircle size={24} />
             </span>
             <div>
-              <h2 className="text-2xl font-bold text-[#111827]">Shift Details</h2>
+              <h2 className="text-2xl font-bold text-[#111827]">{tr("Shift Details")}</h2>
               <p className="mt-1 text-sm font-semibold text-[#64748B]">{shift.title}</p>
             </div>
           </div>
@@ -1265,7 +1266,7 @@ function TimesheetDetailSheet({ timesheet, onClose }: { timesheet: TimesheetDeta
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#0F172A]/55 px-4 py-5">
       <div className="mx-auto max-w-[680px]">
         <div className="mb-4 flex justify-end">
-          <button type="button" onClick={onClose} aria-label="Close timesheet" className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
+          <button type="button" onClick={onClose} aria-label={tr("Close timesheet")} className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
             <X size={20} />
           </button>
         </div>
@@ -1275,8 +1276,8 @@ function TimesheetDetailSheet({ timesheet, onClose }: { timesheet: TimesheetDeta
               <Clock size={24} />
             </span>
             <div>
-              <h2 className="text-2xl font-bold text-[#111827]">Timesheet</h2>
-              <p className="mt-1 text-sm font-semibold text-[#64748B]">Status: {humanizeFieldId(timesheet.status || "pending")}</p>
+              <h2 className="text-2xl font-bold text-[#111827]">{tr("Timesheet")}</h2>
+              <p className="mt-1 text-sm font-semibold text-[#64748B]">{tr("Status:")} {humanizeFieldId(timesheet.status || "pending")}</p>
             </div>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -1288,7 +1289,7 @@ function TimesheetDetailSheet({ timesheet, onClose }: { timesheet: TimesheetDeta
             <TimesheetValue label="Class Report" value={timesheet.formCompleted || timesheet.formResponseId ? "Submitted" : "Not submitted"} />
           </div>
           {timesheet.formResponseId ? (
-            <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">Linked form response: {timesheet.formResponseId}</p>
+            <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">{tr("Linked form response:")} {timesheet.formResponseId}</p>
           ) : null}
         </section>
       </div>
@@ -1311,7 +1312,7 @@ function ExistingSubmissionSheet({ submission, onClose }: { submission: Existing
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0F172A]/45 px-4 py-5">
       <div className="mx-auto max-w-[760px]">
         <div className="mb-4 flex justify-end">
-          <button type="button" onClick={onClose} aria-label="Close submitted form" className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
+          <button type="button" onClick={onClose} aria-label={tr("Close submitted form")} className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#334155] shadow-sm">
             <X size={20} />
           </button>
         </div>
@@ -1323,14 +1324,14 @@ function ExistingSubmissionSheet({ submission, onClose }: { submission: Existing
             <div>
               <h2 className="text-2xl font-bold text-[#111827]">{submission.formTitle || "Submitted Form"}</h2>
               <p className="mt-1 text-sm font-semibold text-[#64748B]">
-                {submission.submittedAt ? `Submitted ${formatShortDate(submission.submittedAt)} at ${formatTime(submission.submittedAt)}` : "Submitted form response"}
+                {submission.submittedAt ? `Submitted ${formatShortDate(submission.submittedAt)} at ${formatTime(submission.submittedAt)}` : tr("Submitted form response")}
               </p>
             </div>
           </div>
         </section>
         <section className="mt-5 rounded-2xl bg-white p-6 shadow-[0_4px_10px_rgba(15,23,42,0.08)]">
           {entries.length === 0 ? (
-            <p className="rounded-xl bg-[#F8FAFC] px-4 py-4 text-sm font-semibold text-[#64748B]">No response fields were saved for this form.</p>
+            <p className="rounded-xl bg-[#F8FAFC] px-4 py-4 text-sm font-semibold text-[#64748B]">{tr("No response fields were saved for this form.")}</p>
           ) : (
             <div className="grid gap-3">
               {entries.map(([key, value]) => (
@@ -1357,8 +1358,8 @@ function NoFormsFound() {
     <div className="grid min-h-[420px] place-items-center px-6 text-center">
       <div>
         <Search className="mx-auto text-[#CBD5E1]" size={56} />
-        <h2 className="mt-3 text-base font-black text-[#475569]">No active forms match your search</h2>
-        <p className="mt-1 text-sm text-[#94A3B8]">Try adjusting your search</p>
+        <h2 className="mt-3 text-base font-black text-[#475569]">{tr("No active forms match your search")}</h2>
+        <p className="mt-1 text-sm text-[#94A3B8]">{tr("Try adjusting your search")}</p>
       </div>
     </div>
   );
@@ -1802,11 +1803,11 @@ function yearMonthFor(value: Date) {
 }
 
 function formatShortDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(value);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric" }).format(value);
 }
 
 function formatTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(value);
+  return new Intl.DateTimeFormat(dateLocale(), { hour: "numeric", minute: "2-digit" }).format(value);
 }
 
 function formatDateRange(start: Date | null, end: Date | null) {

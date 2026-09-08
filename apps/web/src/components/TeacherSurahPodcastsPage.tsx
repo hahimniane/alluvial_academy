@@ -25,6 +25,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -154,8 +155,8 @@ export function TeacherSurahPodcastsPage() {
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#E7F3FF] text-[#0E72ED]">
                   <Podcast size={24} />
                 </span>
-                <h1 className="min-w-0 flex-1 truncate text-[22px] font-bold text-[#1E293B]">Surah Content</h1>
-                <button type="button" onClick={() => void refresh(teacherId, setLoading, setMessage, setItems, setAssignments, setSearch)} aria-label="Refresh surah podcasts" className="grid h-11 w-11 place-items-center rounded-xl text-[#94A3B8] hover:bg-white">
+                <h1 className="min-w-0 flex-1 truncate text-[22px] font-bold text-[#1E293B]">{tr("Surah Content")}</h1>
+                <button type="button" onClick={() => void refresh(teacherId, setLoading, setMessage, setItems, setAssignments, setSearch)} aria-label={tr("Refresh surah podcasts")} className="grid h-11 w-11 place-items-center rounded-xl text-[#94A3B8] hover:bg-white">
                   <RefreshCw size={22} />
                 </button>
               </div>
@@ -164,10 +165,10 @@ export function TeacherSurahPodcastsPage() {
             <section className="px-4 sm:px-5">
               <div className="grid min-h-[50px] grid-cols-2 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
                 <TabButton active={activeTab === "library"} onClick={() => setActiveTab("library")}>
-                  Library ({buckets.length})
+                  {tr("Library (")}{buckets.length})
                 </TabButton>
                 <TabButton active={activeTab === "shared"} onClick={() => setActiveTab("shared")}>
-                  Shared ({assignments.length})
+                  {tr("Shared (")}{assignments.length})
                 </TabButton>
               </div>
             </section>
@@ -204,12 +205,12 @@ export function TeacherSurahPodcastsPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-14 grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -246,7 +247,7 @@ function LibraryTab({
       <EmptyState
         className="min-h-[calc(100vh-260px)]"
         icon={<Library size={34} />}
-        title="No content available"
+        title={tr("No content available")}
         subtitle="The admin has not uploaded any surah content yet."
       />
     );
@@ -258,7 +259,7 @@ function LibraryTab({
         <SearchBox value={search} onChange={onSearch} />
       </section>
       {buckets.length === 0 ? (
-        <EmptyState className="min-h-[360px]" icon={<Search size={32} />} title="No results found" subtitle="Try a different search term." />
+        <EmptyState className="min-h-[360px]" icon={<Search size={32} />} title={tr("No results found")} subtitle="Try a different search term." />
       ) : (
         <section className="grid gap-3 px-4 py-1 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] sm:px-5 lg:grid-cols-[repeat(auto-fill,minmax(235px,1fr))]">
           {buckets.map((bucket) => (
@@ -276,7 +277,7 @@ function SharedTab({ assignments, onRemove }: { assignments: PodcastAssignment[]
       <EmptyState
         className="min-h-[calc(100vh-260px)]"
         icon={<Share2 size={34} />}
-        title="Nothing shared yet"
+        title={tr("Nothing shared yet")}
         subtitle="Open a surah and share content with your students."
       />
     );
@@ -321,12 +322,12 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Search by surah name or number..."
-        aria-label="Search by surah name or number"
+        placeholder={tr("Search by surah name or number...")}
+        aria-label={tr("Search by surah name or number")}
         className="h-full w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:border-[#0E72ED] focus:ring-2 focus:ring-[#BFDBFE]"
       />
       {value ? (
-        <button type="button" aria-label="Clear search" onClick={() => onChange("")} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]">
+        <button type="button" aria-label={tr("Clear search")} onClick={() => onChange("")} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]">
           <X size={16} />
         </button>
       ) : null}
@@ -387,7 +388,7 @@ function SurahDetail({
   return (
     <section className="min-h-[calc(100vh-56px)]">
       <header className="flex min-h-[61px] items-center gap-1 border-b border-[#E2E8F0] bg-white px-2">
-        <button type="button" onClick={onBack} aria-label="Back to surah library" className="grid h-12 w-12 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
+        <button type="button" onClick={onBack} aria-label={tr("Back to surah library")} className="grid h-12 w-12 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0 flex-1">
@@ -399,13 +400,13 @@ function SurahDetail({
       </header>
       <div className="px-4 py-3 sm:px-5">
         {bucket.items.length === 0 ? (
-          <EmptyState className="min-h-[420px]" icon={<Library size={34} />} title="No content yet" subtitle="Content for this surah has not been added yet." />
+          <EmptyState className="min-h-[420px]" icon={<Library size={34} />} title={tr("No content yet")} subtitle="Content for this surah has not been added yet." />
         ) : (
           <div className="mx-auto grid max-w-3xl gap-5">
-            {audio.length ? <DetailSection title="Audio" icon={<Headphones size={18} />} items={audio} onShare={onShare} /> : null}
-            {video.length ? <DetailSection title="Video" icon={<Video size={18} />} items={video} onShare={onShare} /> : null}
-            {pdf.length ? <DetailSection title="PDF" icon={<FileText size={18} />} items={pdf} onShare={onShare} /> : null}
-            {text.length ? <DetailSection title="Text" icon={<BookOpen size={18} />} items={text} onShare={onShare} /> : null}
+            {audio.length ? <DetailSection title={tr("Audio")} icon={<Headphones size={18} />} items={audio} onShare={onShare} /> : null}
+            {video.length ? <DetailSection title={tr("Video")} icon={<Video size={18} />} items={video} onShare={onShare} /> : null}
+            {pdf.length ? <DetailSection title={tr("PDF")} icon={<FileText size={18} />} items={pdf} onShare={onShare} /> : null}
+            {text.length ? <DetailSection title={tr("Text")} icon={<BookOpen size={18} />} items={text} onShare={onShare} /> : null}
           </div>
         )}
       </div>
@@ -466,12 +467,12 @@ function PodcastDetailCard({ item, onShare }: { item: PodcastItem; onShare: () =
       ) : item.mediaType === "pdf" && item.downloadUrl ? (
         <a href={item.downloadUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#EF4444] px-4 text-sm font-semibold text-white">
           <FileText size={17} />
-          Open PDF
+          {tr("Open PDF")}
         </a>
       ) : null}
       <button type="button" onClick={onShare} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#E7F3FF] px-4 text-sm font-semibold text-[#0E72ED]">
         <Share2 size={16} />
-        Share with Students
+        {tr("Share with Students")}
       </button>
     </article>
   );
@@ -563,17 +564,17 @@ function SharePodcastDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-end bg-black/35 sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Share with Students">
+    <div className="fixed inset-0 z-40 grid place-items-end bg-black/35 sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-label={tr("Share with Students")}>
       <section className="flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-t-[20px] bg-white p-5 shadow-2xl sm:max-h-[85vh] sm:rounded-[20px]">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#E7F3FF] text-[#0E72ED]">
             <Share2 size={22} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-[#1E293B]">Share with Students</h2>
+            <h2 className="text-lg font-bold text-[#1E293B]">{tr("Share with Students")}</h2>
             <p className="truncate text-[13px] text-[#64748B]">{item.title || "Surah content"}</p>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="Close share dialog" className="grid h-9 w-9 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#F8FAFC]">
+          <button type="button" onClick={onClose} disabled={saving} aria-label={tr("Close share dialog")} className="grid h-9 w-9 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#F8FAFC]">
             <X size={19} />
           </button>
         </div>
@@ -584,8 +585,8 @@ function SharePodcastDialog({
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search students..."
-              aria-label="Search students"
+              placeholder={tr("Search students...")}
+              aria-label={tr("Search students")}
               className="h-full w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-sm outline-none focus:border-[#0E72ED] focus:ring-2 focus:ring-[#BFDBFE]"
             />
           </label>
@@ -597,7 +598,7 @@ function SharePodcastDialog({
               {selectedIds.size} of {students.length} selected
             </p>
             <button type="button" onClick={toggleAll} className="min-h-9 rounded-lg px-2 text-[13px] font-semibold text-[#0E72ED]">
-              {allSelected ? "Deselect All" : "Select All"}
+              {allSelected ? tr("Deselect All") : tr("Select All")}
             </button>
           </div>
         ) : null}
@@ -608,9 +609,9 @@ function SharePodcastDialog({
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#DBEAFE] border-t-[#0E72ED]" />
             </div>
           ) : students.length === 0 ? (
-            <EmptyState className="min-h-[240px]" icon={<Users size={30} />} title="No students found" subtitle="No students in your assigned classes." compact />
+            <EmptyState className="min-h-[240px]" icon={<Users size={30} />} title={tr("No students found")} subtitle="No students in your assigned classes." compact />
           ) : filtered.length === 0 ? (
-            <EmptyState className="min-h-[240px]" icon={<Search size={30} />} title="No students found" subtitle="Try a different search term." compact />
+            <EmptyState className="min-h-[240px]" icon={<Search size={30} />} title={tr("No students found")} subtitle="Try a different search term." compact />
           ) : (
             <div className="grid gap-1">
               {filtered.map((student) => {
@@ -637,7 +638,7 @@ function SharePodcastDialog({
 
         <div className="mt-4 flex justify-end gap-3">
           <button type="button" onClick={onClose} disabled={saving} className="min-h-11 rounded-xl px-5 text-sm font-semibold text-[#6B7280] disabled:opacity-60">
-            Cancel
+            {tr("Cancel")}
           </button>
           <button
             type="button"
@@ -646,7 +647,7 @@ function SharePodcastDialog({
             className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0E72ED] px-6 text-sm font-semibold text-white disabled:bg-[#93C5FD] disabled:text-white/80"
           >
             {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" /> : <Check size={18} />}
-            {saving ? "Saving..." : `Share (${selectedIds.size})`}
+            {saving ? tr("Saving...") : tr("Share ({n})", { n: selectedIds.size })}
           </button>
         </div>
       </section>
@@ -695,7 +696,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
       <p className="mt-4 text-sm font-semibold text-[#374151]">{message}</p>
       <button type="button" onClick={onRetry} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-semibold text-white">
         <RefreshCw size={16} />
-        Try Again
+        {tr("Try Again")}
       </button>
     </section>
   );
@@ -769,7 +770,7 @@ async function loadAssignedStudentIds(podcastId: string, teacherId: string) {
 }
 
 async function assignPodcast(item: PodcastItem, teacherId: string, teacherName: string, studentIds: string[]) {
-  if (!navigator.onLine) throw new Error("You appear to be offline. Reconnect and try again.");
+  if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
   const existing = await getDocs(query(collection(db, "podcast_assignments"), where("podcastId", "==", item.id), where("teacherId", "==", teacherId), limit(1)));
   if (!existing.empty) {
     const ref = existing.docs[0].ref;
@@ -960,7 +961,7 @@ function initialsFor(name: string) {
 }
 
 function shortDate(value: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(value);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric", year: "numeric" }).format(value);
 }
 
 function formatDuration(seconds: number) {

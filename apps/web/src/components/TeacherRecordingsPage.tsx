@@ -8,6 +8,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Clock3, Graduatio
 import { auth, db, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { tr, dateLocale} from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -136,7 +137,7 @@ export function TeacherRecordingsPage() {
             {level === "students" ? (
               <span className="grid h-12 w-12 shrink-0 place-items-center text-[#1E293B]" />
             ) : (
-              <button type="button" onClick={() => goBack(level, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setSearch, setExpandedRecordingId)} aria-label="Back" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
+              <button type="button" onClick={() => goBack(level, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setSearch, setExpandedRecordingId)} aria-label={tr("Back")} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[#1E293B] hover:bg-[#F8FAFC]">
                 <ChevronLeft size={24} />
               </button>
             )}
@@ -144,7 +145,7 @@ export function TeacherRecordingsPage() {
               <h1 className="truncate text-lg font-bold text-[#0F172A]">{title}</h1>
               {subtitle ? <p className="mt-0.5 text-xs text-[#64748B]">{subtitle}</p> : null}
             </div>
-            <button type="button" onClick={() => void refresh(setLoading, setMessage, setRecordings, setNameCache, setSearch, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setExpandedRecordingId, setPlaybackUrls)} aria-label="Refresh recordings" className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
+            <button type="button" onClick={() => void refresh(setLoading, setMessage, setRecordings, setNameCache, setSearch, setSelectedStudentId, setSelectedDateKey, setSelectedShiftKey, setExpandedRecordingId, setPlaybackUrls)} aria-label={tr("Refresh recordings")} className="grid h-11 w-11 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
               <RefreshCw size={22} />
             </button>
           </div>
@@ -158,7 +159,7 @@ export function TeacherRecordingsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={searchHint(level)}
-                aria-label="Search recordings"
+                aria-label={tr("Search recordings")}
                 className="h-full w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:border-[#0E72ED] focus:ring-2 focus:ring-[#BFDBFE]"
               />
             </label>
@@ -195,12 +196,12 @@ export function TeacherRecordingsPage() {
 function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
   return (
     <header className="grid min-h-14 grid-cols-[56px_1fr_96px] items-center bg-white px-4 lg:hidden">
-      <button type="button" aria-label="Open teacher menu" onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
+      <button type="button" aria-label={tr("Open teacher menu")} onClick={openTeacherMobileMenu} className="grid h-11 w-11 place-items-center rounded-xl text-[#111827]">
         <Menu size={24} />
       </button>
-      <div className="min-w-0 text-center text-base font-bold text-[#111827]">Alluwal Education Hub</div>
+      <div className="min-w-0 text-center text-base font-bold text-[#111827]">{tr("Alluwal Education Hub")}</div>
       <div className="flex items-center justify-end gap-3">
-        <button type="button" aria-label="Open teacher account options" onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
+        <button type="button" aria-label={tr("Open teacher account options")} onClick={openTeacherMobileMenu} className="grid h-10 w-10 place-items-center rounded-xl text-[#111827]"><Shuffle size={20} /></button>
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[#009688] text-xs font-black text-white">{summary.initials}</span>
       </div>
     </header>
@@ -208,7 +209,7 @@ function MobileTeacherTopBar({ summary }: { summary: TeacherSummary }) {
 }
 
 function StudentList({ students, onSelect }: { students: StudentBucket[]; onSelect: (id: string) => void }) {
-  if (students.length === 0) return <SearchEmptyCard title="No students found" />;
+  if (students.length === 0) return <SearchEmptyCard title={tr("No students found")} />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
@@ -221,12 +222,12 @@ function StudentList({ students, onSelect }: { students: StudentBucket[]; onSele
 }
 
 function DateList({ dates, onSelect }: { dates: DateBucket[]; onSelect: (key: string) => void }) {
-  if (dates.length === 0) return <SearchEmptyCard title="No recording dates found" />;
+  if (dates.length === 0) return <SearchEmptyCard title={tr("No recording dates found")} />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
         {dates.map((date) => (
-          <LevelCard key={date.key} title={date.date ? longDate(date.date) : "Unknown date"} subtitle={`${date.recordings.length} recording${date.recordings.length === 1 ? "" : "s"}`} icon={<CalendarDays size={20} />} iconColor="#0E7490" onClick={() => onSelect(date.key)} />
+          <LevelCard key={date.key} title={date.date ? longDate(date.date) : tr("Unknown date")} subtitle={`${date.recordings.length} recording${date.recordings.length === 1 ? "" : "s"}`} icon={<CalendarDays size={20} />} iconColor="#0E7490" onClick={() => onSelect(date.key)} />
         ))}
       </div>
     </section>
@@ -234,7 +235,7 @@ function DateList({ dates, onSelect }: { dates: DateBucket[]; onSelect: (key: st
 }
 
 function ShiftList({ shifts, onSelect }: { shifts: ShiftBucket[]; onSelect: (key: string) => void }) {
-  if (shifts.length === 0) return <SearchEmptyCard title="No shifts found" />;
+  if (shifts.length === 0) return <SearchEmptyCard title={tr("No shifts found")} />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-2">
@@ -261,7 +262,7 @@ function FragmentList({
   onToggle: (recording: RecordingItem) => void;
   onPlaybackError: () => void;
 }) {
-  if (!shift) return <SearchEmptyCard title="Shift not found" subtitle="Refresh and try again." />;
+  if (!shift) return <SearchEmptyCard title={tr("Shift not found")} subtitle="Refresh and try again." />;
   return (
     <section className="px-4 py-2">
       <div className="mx-auto grid max-w-5xl gap-3">
@@ -321,7 +322,7 @@ function RecordingCard({ recording, index, total, isExpanded, isLoading, playbac
           <PlaySquare size={19} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold text-[#0F172A]">Recording {index + 1} of {total}</h2>
+          <h2 className="text-sm font-bold text-[#0F172A]">{tr("Recording")} {index + 1} of {total}</h2>
           <p className="mt-1 text-xs text-[#64748B]">{dateTime(displayDate(recording))}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
             <span className={`rounded-[10px] px-2 py-1 ${status === "Ready" ? "bg-[#DCFCE7] text-[#10B981]" : status === "Failed" ? "bg-[#FEE2E2] text-[#EF4444]" : "bg-[#FEF3C7] text-[#B45309]"}`}>{status}</span>
@@ -330,7 +331,7 @@ function RecordingCard({ recording, index, total, isExpanded, isLoading, playbac
         </div>
         <button type="button" disabled={!recording.canPlay || isLoading} onClick={onToggle} className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold ${recording.canPlay ? "bg-[#0E72ED] text-white hover:bg-[#0369F6]" : "cursor-not-allowed bg-[#E2E8F0] text-[#64748B]"}`}>
           {isLoading ? <RefreshCw className="animate-spin" size={14} /> : <Play size={14} />}
-          {isExpanded ? "Hide" : recording.canPlay ? "Play" : "Unavailable"}
+          {isExpanded ? tr("Hide") : recording.canPlay ? tr("Play") : tr("Unavailable")}
         </button>
       </div>
       {recording.error ? <p className="mt-3 rounded-xl bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]">{recording.error}</p> : null}
@@ -348,8 +349,8 @@ function NoRecordingsCard() {
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#E7F3FF] text-[#60A5FA]">
           <PlaySquare size={34} />
         </div>
-        <h2 className="mt-5 text-base font-bold text-[#374151]">No recordings yet</h2>
-        <p className="mt-3 text-sm leading-6 text-[#6B7280]">Class recordings will appear here after sessions are recorded.</p>
+        <h2 className="mt-5 text-base font-bold text-[#374151]">{tr("No recordings yet")}</h2>
+        <p className="mt-3 text-sm leading-6 text-[#6B7280]">{tr("Class recordings will appear here after sessions are recorded.")}</p>
       </div>
     </section>
   );
@@ -386,7 +387,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
       <p className="mt-4 text-sm font-semibold text-[#374151]">{message}</p>
       <button type="button" onClick={onRetry} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-semibold text-white">
         <RefreshCw size={16} />
-        Try Again
+        {tr("Try Again")}
       </button>
     </section>
   );
@@ -423,7 +424,7 @@ async function loadRecordings() {
   const callable = httpsCallable(functions, "listClassRecordings");
   const result = await callable({ limit: 200, activeRole: "teacher" });
   const raw = result.data;
-  if (!raw || typeof raw !== "object") throw new Error("Unexpected response from server");
+  if (!raw || typeof raw !== "object") throw new Error(tr("Unexpected response from server"));
   const data = raw as Record<string, unknown>;
   if (data.success !== true) throw new Error(stringValue(data.error) || "Failed to load recordings");
   const items = Array.isArray(data.recordings) ? data.recordings : [];
@@ -550,11 +551,11 @@ async function toggleRecording(
     const callable = httpsCallable(functions, "getClassRecordingPlaybackUrl");
     const result = await callable({ recordingId: recording.recordingId, activeRole: "teacher" });
     const raw = result.data;
-    if (!raw || typeof raw !== "object") throw new Error("Unexpected playback response from server");
+    if (!raw || typeof raw !== "object") throw new Error(tr("Unexpected playback response from server"));
     const data = raw as Record<string, unknown>;
     if (data.success !== true) throw new Error(stringValue(data.error) || "Unable to open recording");
     const url = stringValue(data.url);
-    if (!url) throw new Error("Playback URL not available");
+    if (!url) throw new Error(tr("Playback URL not available"));
     setPlaybackUrls({ ...playbackUrls, [recording.recordingId]: url });
     setExpandedRecordingId(recording.recordingId);
   } catch (error) {
@@ -641,9 +642,9 @@ function retentionText(deleteAfter: Date | null) {
     const weeks = Math.floor(days / 7);
     return `Auto-deletes in ${weeks} week${weeks === 1 ? "" : "s"}`;
   }
-  if (days >= 2) return `Auto-deletes in ${days} days`;
+  if (days >= 2) return tr("Auto-deletes in {n} days", { n: days });
   const hours = Math.floor(diff / 3_600_000);
-  if (hours >= 2) return `Auto-deletes in ${hours} hours`;
+  if (hours >= 2) return tr("Auto-deletes in {n} hours", { n: hours });
   return "Auto-deletes soon";
 }
 
@@ -699,14 +700,14 @@ function shortIdentifier(value: string) {
 }
 
 function shortDate(date: Date) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function longDate(date: Date) {
-  return new Intl.DateTimeFormat("en", { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function dateTime(date: Date | null) {
   if (!date) return "Unknown date";
-  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }
