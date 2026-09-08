@@ -133,6 +133,8 @@ exports.handleShiftNotificationTask = shiftHandlers.handleShiftNotificationTask;
 // Dev-only template-based shift generation (rolling window)
 exports.generateDailyShifts = shiftTemplateHandlers.generateDailyShifts;
 exports.archiveOldShifts = shiftArchiveHandlers.archiveOldShifts;
+const payIntegrityHandlers = require('./handlers/pay_integrity');
+exports.checkPayIntegrity = payIntegrityHandlers.checkPayIntegrity;
 exports.createShiftTemplate = shiftTemplateHandlers.createShiftTemplate;
 exports.generateShiftsForTemplate =
   shiftTemplateHandlers.generateShiftsForTemplateCallable;

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'shift_archive_reader.dart';
 import '../audit/readiness_form_kpi.dart';
 import '../audit/teaching_form_acceptance_for_month.dart';
 import '../utils/app_logger.dart';
@@ -211,15 +212,12 @@ class TeacherMetricsService {
 
       var shiftDocs = <QueryDocumentSnapshot>[];
       try {
-        final snap = await _firestore
-            .collection('teaching_shifts')
-            .where('teacher_id', isEqualTo: teacherId)
-            .where('shift_start',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-            .where('shift_start',
-                isLessThanOrEqualTo: Timestamp.fromDate(shiftWindowEnd))
-            .get();
-        shiftDocs = snap.docs;
+        shiftDocs = await ShiftArchiveReader.inRange(
+          start: Timestamp.fromDate(start),
+          end: Timestamp.fromDate(shiftWindowEnd),
+          teacherId: teacherId,
+          firestore: _firestore,
+        );
       } catch (e, st) {
         AppLogger.error(
           'TeacherMetricsService: teaching_shifts failed for $teacherId: $e',

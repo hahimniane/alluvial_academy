@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { shiftsInRange } = require('../utils/shifts_in_range');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
@@ -802,14 +803,12 @@ const buildAdminStudentAttendanceOverview = ({
 
 const loadShiftsForPeriod = async ({ periodStart, periodEnd }) => {
   const db = admin.firestore();
-  const shiftsSnapshot = await db
-    .collection('teaching_shifts')
-    .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(periodStart))
-    .where('shift_start', '<', admin.firestore.Timestamp.fromDate(periodEnd))
-    .get();
+  // Live + archived: a report for a period older than 60 days must still see
+  // every class that happened in it.
+  const shiftDocs = await shiftsInRange(db, { start: periodStart, end: periodEnd });
 
   const shifts = [];
-  for (const doc of shiftsSnapshot.docs) {
+  for (const doc of shiftDocs) {
     const normalized = normalizeShiftRecord(doc);
     if (normalized) shifts.push(normalized);
   }

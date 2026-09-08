@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/shift_archive_reader.dart';
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_metrics.dart';
 import '../../../core/utils/app_logger.dart';
 
@@ -160,20 +161,20 @@ class AuditMetricsService {
       final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
 
       // 1. Get schedule metrics from teaching_shifts
-      final shiftsSnapshot = await _firestore
-          .collection('teaching_shifts')
-          .where('teacher_id', isEqualTo: oderId)
-          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-          .where('shift_start', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-          .get();
+      final shiftDocs = await ShiftArchiveReader.inRange(
+        start: Timestamp.fromDate(startDate),
+        end: Timestamp.fromDate(endDate),
+        teacherId: oderId,
+        firestore: _firestore,
+      );
 
-      int scheduledClasses = shiftsSnapshot.docs.length;
+      int scheduledClasses = shiftDocs.length;
       int completedClasses = 0;
       int missedClasses = 0;
       int cancelledClasses = 0;
       final flags = <AuditFlagDetail>[];
 
-      for (final doc in shiftsSnapshot.docs) {
+      for (final doc in shiftDocs) {
         final status = doc.data()['status'] as String?;
         switch (status) {
           case 'completed':
