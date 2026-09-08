@@ -203,8 +203,20 @@ const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
       throw new Error(`Unexpected collection: ${name}`);
     }),
     runTransaction: async (handler) => {
+      // Firestore refuses a read after the first write in a transaction, and a
+      // mock that allows it lets that mistake reach production — which is
+      // exactly how recurring invoice generation shipped broken.
+      let hasWritten = false;
+      const guardRead = (what) => {
+        if (hasWritten) {
+          throw new Error(
+            `Firestore transactions require all reads to be executed before all writes. (read ${what} after a write)`
+          );
+        }
+      };
       const tx = {
         get: async (ref) => {
+          guardRead(`${ref.collectionName}/${ref.id}`);
           if (ref.collectionName === 'recurring_billing_plans') {
             return {
               exists: Object.prototype.hasOwnProperty.call(plans, ref.id),
@@ -227,8 +239,14 @@ const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
         },
         // Real Firestore transactions expose getAll; the discount reader uses
         // it to look up each billed student and the household.
-        getAll: async (...refs) => refs.map((ref) => ({exists: false, data: () => undefined, id: ref.id})),
-        set: (ref, data, options) => applySet(ref, data, options),
+        getAll: async (...refs) => {
+          guardRead('getAll');
+          return refs.map((ref) => ({exists: false, data: () => undefined, id: ref.id}));
+        },
+        set: (ref, data, options) => {
+          hasWritten = true;
+          return applySet(ref, data, options);
+        },
       };
       return handler(tx);
     },

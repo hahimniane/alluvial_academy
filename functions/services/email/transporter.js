@@ -112,6 +112,56 @@ const _filterUndeliverable = (transport) => {
   });
 };
 
+/**
+ * Retry a send that was refused purely for going too fast.
+ *
+ * Resend allows 10 messages a second. Anything that creates a batch of
+ * documents at once — a month of recurring invoices, for instance — fires one
+ * email per document in parallel and trips that limit, and the sender records
+ * a failed notification for a message that was never really undeliverable.
+ * Eleven of twenty-seven invoices were lost this way on the September backfill.
+ *
+ * Only rate-limit refusals are retried. A rejected address or a bad credential
+ * fails immediately, as it should.
+ */
+const RATE_LIMIT_ATTEMPTS = 5;
+
+const _isRateLimited = (error) => {
+  const text = `${error?.message ?? ''} ${error?.response ?? ''}`.toLowerCase();
+  return (
+    error?.responseCode === 550 &&
+    (text.includes('too many requests') || text.includes('rate limit'))
+  );
+};
+
+const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const _retryOnRateLimit = (transport) => {
+  const sendMail = transport.sendMail.bind(transport);
+
+  return Object.assign(Object.create(transport), {
+    sendMail: async (mailOptions = {}) => {
+      let lastError;
+      for (let attempt = 1; attempt <= RATE_LIMIT_ATTEMPTS; attempt += 1) {
+        try {
+          return await sendMail(mailOptions);
+        } catch (error) {
+          if (!_isRateLimited(error) || attempt === RATE_LIMIT_ATTEMPTS) throw error;
+          lastError = error;
+          // Back off with jitter so a batch spreads out instead of retrying in
+          // lockstep and tripping the same limit again.
+          const delay = 250 * 2 ** (attempt - 1) + Math.floor(Math.random() * 250);
+          console.log(
+            `Mail: rate limited, retrying in ${delay}ms (attempt ${attempt}/${RATE_LIMIT_ATTEMPTS})`
+          );
+          await _sleep(delay);
+        }
+      }
+      throw lastError;
+    },
+  });
+};
+
 const createTransporter = (mailbox = 'support') => {
   const config = MAILBOXES[mailbox];
   if (!config) {
@@ -121,10 +171,10 @@ const createTransporter = (mailbox = 'support') => {
   }
 
   if (isResendConfigured()) {
-    return _filterUndeliverable(_resendTransport());
+    return _retryOnRateLimit(_filterUndeliverable(_resendTransport()));
   }
 
-  return _filterUndeliverable(_hostingerTransport(config));
+  return _retryOnRateLimit(_filterUndeliverable(_hostingerTransport(config)));
 };
 
 module.exports = {

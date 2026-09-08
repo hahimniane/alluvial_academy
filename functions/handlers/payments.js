@@ -2282,7 +2282,6 @@ const _createRecurringInvoiceForPeriod = async ({
         };
       }
 
-      const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
       const dueDateValue = _dateForPeriodDay(periodStart, plan.due_day || 1);
       const cutoffDays = Math.max(
         0,
@@ -2310,6 +2309,12 @@ const _createRecurringInvoiceForPeriod = async ({
         tx,
         plan.parent_id || plan.parentId || ''
       );
+      // Last, because it bumps the invoice counter and a Firestore transaction
+      // allows no reads after its first write — applyStudentDiscounts above
+      // reads the family's records, so numbering has to come after it. Taking
+      // the number first is what made every generated invoice fail with
+      // "transactions require all reads to be executed before all writes".
+      const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
       const totalAmount = Number(
         items.reduce((sum, item) => sum + _toNumber(item.total), 0).toFixed(2)
       );
@@ -2446,15 +2451,38 @@ const generateInvoicesForPeriod = onSchedule(
   // Cloud Scheduler accepts cron syntax; this runs at 00:00 UTC on day 1 of every month.
   { schedule: '0 0 1 * *', timeZone: 'Etc/UTC' },
   async () => {
-    if (process.env.ENABLE_INVOICE_GENERATION !== 'true') {
-      console.log(
-        'Invoice generation is disabled. Set ENABLE_INVOICE_GENERATION=true to enable.'
+    // Runs unless someone deliberately turns it off. It used to be the other
+    // way round — opt in via ENABLE_INVOICE_GENERATION — and because that
+    // variable was never set on the deployed function, this job returned
+    // immediately every month from the day recurring plans shipped and billed
+    // nobody. A billing job that silently does nothing is worse than one that
+    // fails loudly, so the default is now "run".
+    if (process.env.ENABLE_INVOICE_GENERATION === 'false') {
+      console.warn(
+        'Recurring invoice generation is switched OFF by ENABLE_INVOICE_GENERATION=false. No invoices will be created.'
       );
       return;
     }
 
     const result = await _runRecurringInvoiceGeneration();
-    console.log('Recurring invoice generation complete:', result);
+    const failures = (result.results || []).filter((entry) => entry.success === false);
+    console.log('Recurring invoice generation complete:', {
+      targetPeriod: result.targetPeriod,
+      processedPlans: result.processedPlans,
+      invoicesCreated: result.invoicesCreated,
+      failures: failures.length
+    });
+    // An active plan that bills nobody is the failure mode that hid for months,
+    // so say so at a level that shows up in an error view rather than in a
+    // wall of info logs.
+    if (result.processedPlans > 0 && result.invoicesCreated === 0) {
+      console.error(
+        `Recurring invoice generation created NOTHING for ${result.targetPeriod} across ${result.processedPlans} active plans.`
+      );
+    }
+    for (const failure of failures) {
+      console.error('Recurring invoice failed:', failure);
+    }
   }
 );
 
