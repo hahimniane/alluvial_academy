@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronLeft, Clock3, Copy, Info, Link as LinkIcon, Menu, Mic, Play, Shuffle, UserRound, Users, VideoIcon, VideoOff, X } from "lucide-react";
 import { auth, db, functions } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
@@ -462,14 +463,9 @@ function ParticipantRow({ participant, compact = false }: { participant: ClassPr
 }
 
 async function loadTeacherClasses(uid: string) {
-  const snapshots = await Promise.all([
-    getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(250))).catch(() => null),
-    getDocs(query(collection(db, "teaching_shifts"), where("teacherId", "==", uid), limit(250))).catch(() => null),
-  ]);
+  const docs = await fetchTeacherShiftDocs(uid, { daysBack: 60, daysForward: 90, cap: 600 });
   const byId = new Map<string, TeacherClass>();
-  snapshots.forEach((snap) => {
-    snap?.docs.forEach((entry) => byId.set(entry.id, normalizeClass(entry.id, entry.data() as Record<string, unknown>)));
-  });
+  docs.forEach((entry) => byId.set(entry.id, normalizeClass(entry.id, entry.data() as Record<string, unknown>)));
   return Array.from(byId.values());
 }
 

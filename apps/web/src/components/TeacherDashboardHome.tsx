@@ -41,6 +41,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { resetTeacherCutoverCache } from "@/lib/teacherCutover";
 import { auth, db } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
 import { applyLocale, useT, tr, dateLocale, markLocaleHydrated } from "@/lib/i18n";
 
@@ -883,9 +884,9 @@ function homeLoadError(failed: string[]) {
 }
 
 async function loadTeacherShifts(uid: string) {
-  const snapshots = await Promise.all(["teacher_id", "teacherId"].map((field) => getDocs(query(collection(db, "teaching_shifts"), where(field, "==", uid), limit(500))).catch(() => null)));
+  const docs = await fetchTeacherShiftDocs(uid, { daysBack: 60, daysForward: 60, cap: 600 });
   const byId = new Map<string, TeacherShift>();
-  snapshots.flatMap((snapshot) => snapshot?.docs ?? []).forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
+  docs.forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
   return Array.from(byId.values());
 }
 

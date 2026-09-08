@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, GraduationCap, Lock, Menu, MessageSquare, Mic, Paperclip, School, Search, Send, ShieldCheck, Shuffle, Square, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
@@ -767,12 +768,9 @@ async function loadAdminContacts(uid: string) {
 
 async function loadRelationshipContacts(uid: string) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [snake, camel] = await Promise.all([
-    getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(120))).catch(() => null),
-    getDocs(query(collection(db, "teaching_shifts"), where("teacherId", "==", uid), limit(120))).catch(() => null),
-  ]);
+  const docs = await fetchTeacherShiftDocs(uid, { daysBack: 45, daysForward: 60, cap: 500 });
   const studentIds = new Set<string>();
-  [snake, camel].forEach((snap) => {
+  [{ docs }].forEach((snap) => {
     snap?.docs.forEach((entry) => {
       const data = entry.data() as Record<string, unknown>;
       if (stringValue(data.status).toLowerCase() === "cancelled") return;

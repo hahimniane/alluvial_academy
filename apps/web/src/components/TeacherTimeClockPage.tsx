@@ -5,6 +5,7 @@ import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, Clock3, Download, Eye, LogIn, LogOut, MapPin, Menu, Pencil, Send, Shuffle, TimerReset, X } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
@@ -922,17 +923,10 @@ async function loadTeacherTimesheets(uid: string) {
 }
 
 async function loadTeacherShifts(uid: string) {
-  const queries = [
-    query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(100)),
-    query(collection(db, "teaching_shifts"), where("teacherId", "==", uid), limit(100)),
-  ];
-  const results = await Promise.allSettled(queries.map((nextQuery) => getDocs(nextQuery)));
+  const docs = await fetchTeacherShiftDocs(uid, { daysBack: 90, daysForward: 30, cap: 600 });
   const byId = new Map<string, TeacherShift>();
-  results.forEach((result) => {
-    if (result.status !== "fulfilled") return;
-    result.value.docs.forEach((docSnap) => {
-      byId.set(docSnap.id, normalizeShift(docSnap.id, docSnap.data() as Record<string, unknown>));
-    });
+  docs.forEach((docSnap) => {
+    byId.set(docSnap.id, normalizeShift(docSnap.id, docSnap.data() as Record<string, unknown>));
   });
   return Array.from(byId.values()).sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0));
 }

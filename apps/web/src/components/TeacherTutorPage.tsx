@@ -38,6 +38,7 @@ import {
   openTeacherMobileMenu,
 } from "@/components/TeacherDashboardHome";
 import { auth, db, functions } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import {
   TeacherTutorWhiteboard,
@@ -961,9 +962,11 @@ async function executeTutorClockIn(args: Record<string, unknown>) {
   if (!user) return { success: false, message: "Unable to clock in because the user is not authenticated." };
   let shiftId = firstText(args, ["shiftId", "shift_id"]);
   if (!shiftId) {
-    const snapshot = await getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", user.uid), limit(200)));
+    // Only the class happening right now matters here, so ask for the days
+    // around it rather than an arbitrary slice of the teacher's history.
+    const docs = await fetchTeacherShiftDocs(user.uid, { daysBack: 2, daysForward: 2, cap: 100 });
     const now = Date.now();
-    const candidate = snapshot.docs.map((item) => ({ id: item.id, data: item.data() as Record<string, unknown>, start: dateValue(item.data().shift_start ?? item.data().start_time), end: dateValue(item.data().shift_end ?? item.data().end_time) })).filter((item) => item.start && item.end && now >= item.start.getTime() - 60_000 && now <= item.end.getTime()).sort((a, b) => (a.start?.getTime() || 0) - (b.start?.getTime() || 0))[0];
+    const candidate = docs.map((item) => ({ id: item.id, data: item.data() as Record<string, unknown>, start: dateValue(item.data().shift_start ?? item.data().start_time), end: dateValue(item.data().shift_end ?? item.data().end_time) })).filter((item) => item.start && item.end && now >= item.start.getTime() - 60_000 && now <= item.end.getTime()).sort((a, b) => (a.start?.getTime() || 0) - (b.start?.getTime() || 0))[0];
     shiftId = candidate?.id || "";
   }
   if (!shiftId) return { success: false, message: "No valid shift is available to clock in right now." };

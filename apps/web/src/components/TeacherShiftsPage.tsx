@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
@@ -872,14 +873,9 @@ function TimezoneDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
 }
 
 async function loadTeacherShifts(uid: string) {
-  const snapshots = await Promise.all([
-    getDocs(query(collection(db, "teaching_shifts"), where("teacher_id", "==", uid), limit(200))).catch(() => null),
-    getDocs(query(collection(db, "teaching_shifts"), where("teacherId", "==", uid), limit(200))).catch(() => null),
-  ]);
+  const docs = await fetchTeacherShiftDocs(uid, { daysBack: 120, daysForward: 180, cap: 800 });
   const byId = new Map<string, TeacherShift>();
-  snapshots.forEach((snap) => {
-    snap?.docs.forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
-  });
+  docs.forEach((entry) => byId.set(entry.id, normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
   return Array.from(byId.values()).sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0));
 }
 
