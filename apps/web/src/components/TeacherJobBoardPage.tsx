@@ -35,6 +35,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
+import { convertTimeSlot, zoneAbbreviation } from "@/lib/timeZoneConvert";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 
@@ -99,19 +100,18 @@ export function TeacherJobBoardPage() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [embedded, setEmbedded] = useState<boolean | null>(null);
 
-  // This screen renders inside the Flutter web app's content area (same-origin
-  // iframe), so teachers keep their Flutter sidebar and top bar. A direct
-  // visit to /teacher/job-board/ goes to the Flutter app instead.
+  // This screen serves two hosts. Inside the Flutter web app's content area
+  // (same-origin iframe) it renders bare, because Flutter supplies the sidebar
+  // and top bar. Opened directly in the Next.js teacher console it supplies its
+  // own chrome like every other teacher page.
   useEffect(() => {
-    const inFlutterFrame =
-      window.self !== window.top || new URLSearchParams(window.location.search).has("embed");
-    if (inFlutterFrame) {
-      setEmbedded(true);
-    } else {
-      window.location.replace("/app/");
-    }
+    setEmbedded(
+      window.self !== window.top || new URLSearchParams(window.location.search).has("embed"),
+    );
   }, []);
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
+  // The teacher's own zone, so a family's hours are shown in the teacher's day.
+  const [teacherTimezone, setTeacherTimezone] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [responses, setResponses] = useState<Record<string, TeacherResponse>>({});
@@ -158,6 +158,11 @@ export function TeacherJobBoardPage() {
         const userRecord = await getCurrentUserRecord(nextUser);
         if (!mounted) return;
         setSummary(summaryForUser(nextUser, userRecord));
+        setTeacherTimezone(
+          stringValue((userRecord as Record<string, unknown> | null)?.timezone) ||
+            Intl.DateTimeFormat().resolvedOptions().timeZone ||
+            "",
+        );
         setAccess("allowed");
 
         unsubscribeJobs = onSnapshot(
@@ -221,7 +226,6 @@ export function TeacherJobBoardPage() {
   );
 
   if (embedded === null) return null;
-  if (!embedded) return null;
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
   function openResponseDialog(job: JobOpportunity) {
@@ -275,7 +279,7 @@ export function TeacherJobBoardPage() {
     }
   }
 
-  return (
+  const body = (
     <div className="min-h-screen bg-[#F9FAFB]">
       <main className="min-h-screen overflow-y-auto bg-[#F9FAFB] text-[#111827]">
         <section className="bg-white px-6 py-7 lg:w-fit lg:min-w-[375px] lg:px-6 lg:py-8">
@@ -307,6 +311,7 @@ export function TeacherJobBoardPage() {
                     isFilled={false}
                     response={responses[job.id]}
                     currentTeacherId={user?.uid ?? ""}
+                    teacherTimezone={teacherTimezone}
                     onRespond={() => openResponseDialog(job)}
                     onWithdraw={() => openWithdrawDialog(job)}
                     withdrawing={withdrawing && withdrawJob?.id === job.id}
@@ -324,6 +329,7 @@ export function TeacherJobBoardPage() {
                         isFilled
                         response={responses[job.id]}
                         currentTeacherId={user?.uid ?? ""}
+                        teacherTimezone={teacherTimezone}
                         onRespond={() => openResponseDialog(job)}
                         onWithdraw={() => openWithdrawDialog(job)}
                         withdrawing={withdrawing && withdrawJob?.id === job.id}
@@ -340,6 +346,7 @@ export function TeacherJobBoardPage() {
       {activeJob ? (
         <ResponseDialog
           job={activeJob}
+          teacherTimezone={teacherTimezone}
           draft={draft}
           error={submitError}
           submitting={submitting}
@@ -359,6 +366,15 @@ export function TeacherJobBoardPage() {
         />
       ) : null}
     </div>
+  );
+
+  // Embedded in Flutter: bare, so it sits inside the Flutter chrome.
+  // Standalone: the teacher console's own shell, like every other page here.
+  if (embedded) return body;
+  return (
+    <TeacherShell activeLabel="Job Board" breadcrumb="Work / Job Board" summary={summary}>
+      {body}
+    </TeacherShell>
   );
 }
 
@@ -393,6 +409,7 @@ function JobCard({
   isFilled,
   response,
   currentTeacherId,
+  teacherTimezone,
   onRespond,
   onWithdraw,
   withdrawing,
@@ -401,11 +418,15 @@ function JobCard({
   isFilled: boolean;
   response?: TeacherResponse;
   currentTeacherId: string;
+  teacherTimezone: string;
   onRespond: () => void;
   onWithdraw: () => void;
   withdrawing: boolean;
 }) {
   const isMyAcceptedJob = Boolean(currentTeacherId && job.acceptedByTeacherId === currentTeacherId);
+  // The family's hours are given in their own zone; show them in the teacher's.
+  const familyTz = job.scheduleTimezoneRef || job.timeZone || "";
+  const showConverted = Boolean(familyTz && teacherTimezone && familyTz !== teacherTimezone);
   return (
     <article className={`rounded-2xl border bg-white p-5 shadow-sm ${isFilled ? "border-[#EF4444] bg-[#FEF2F2]" : "border-transparent"}`}>
       <div className="flex items-start justify-between gap-3">
@@ -437,12 +458,19 @@ function JobCard({
           icon={Clock3}
           text={
             // Families give a window now, not exact hours. Older jobs still
-            // carry the slots they picked, so fall back to those.
+            // carry the slots they picked, so fall back to those. Either way the
+            // hours are the family's, so they are rewritten into the teacher's
+            // own zone — a Bronx morning is a Conakry afternoon.
             blockById(job.block)
-              ? `Requested window: ${blockById(job.block)!.label} (${blockRangeLabel(blockById(job.block)!)})`
-              : `Times: ${job.timeSlots.join(", ") || "N/A"}`
+              ? `Requested window: ${blockById(job.block)!.label} (${convertTimeSlot(blockRangeLabel(blockById(job.block)!), familyTz, teacherTimezone)})`
+              : `Times: ${job.timeSlots.map((slot) => convertTimeSlot(slot, familyTz, teacherTimezone)).join(", ") || "N/A"}`
           }
         />
+        {showConverted ? (
+          <p className="pl-6 text-xs font-semibold text-[#2563EB]">
+            Shown in your time ({zoneAbbreviation(teacherTimezone)}). The family gave these hours in {timezoneAbbr(job.timeZone)}.
+          </p>
+        ) : null}
         {isFilled && job.acceptedAt ? <InfoRow icon={CheckCircle2} text={`Accepted on ${formatFullDate(job.acceptedAt)}`} /> : null}
         {isFilled && Object.keys(job.teacherSelectedTimes).length > 0 ? <SelectedTimes times={job.teacherSelectedTimes} /> : null}
       </div>
@@ -563,6 +591,7 @@ function SelectedTimes({ times }: { times: Record<string, string> }) {
 
 function ResponseDialog({
   job,
+  teacherTimezone,
   draft,
   error,
   submitting,
@@ -571,6 +600,7 @@ function ResponseDialog({
   onSubmit,
 }: {
   job: JobOpportunity;
+  teacherTimezone: string;
   draft: ResponseDraft;
   error: string;
   submitting: boolean;
@@ -616,7 +646,7 @@ function ResponseDialog({
           />
         </label>
 
-        <SlotPicker job={job} draft={draft} onChange={onChange} />
+        <SlotPicker job={job} teacherTimezone={teacherTimezone} draft={draft} onChange={onChange} />
         <p className="mt-2 text-[11px] leading-5 text-[#64748B]">Admin will review responses and confirm the final match.</p>
         {error ? <p className="mt-3 rounded-lg bg-[#FEE2E2] px-3 py-2 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
 
@@ -674,13 +704,17 @@ function ClassRoster({ roster }: { roster: { name: string; age: string; level: s
 
 function SlotPicker({
   job,
+  teacherTimezone,
   draft,
   onChange,
 }: {
   job: JobOpportunity;
+  teacherTimezone: string;
   draft: ResponseDraft;
   onChange: (draft: ResponseDraft) => void;
 }) {
+  const familyTz = job.scheduleTimezoneRef || job.timeZone || "";
+  const convert = (slot: string) => convertTimeSlot(slot, familyTz, teacherTimezone);
   const block = blockById(job.block);
   const slots = useMemo(
     () => slotsFor(block, job.sessionMinutes, 30),
@@ -723,6 +757,11 @@ function SlotPicker({
         {block.label}, {blockRangeLabel(block)} · {sessionLabel(job.sessionMinutes)} per session
         {needed > 0 ? ` · ${needed} a week` : ""}
       </p>
+      {familyTz && teacherTimezone && familyTz !== teacherTimezone ? (
+        <p className="mt-1 text-[11px] font-semibold text-[#2563EB]">
+          Slots are the family&apos;s hours ({timezoneAbbr(familyTz)}); your own time is under each one.
+        </p>
+      ) : null}
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {slots.map((slot) => {
@@ -745,7 +784,14 @@ function SlotPicker({
                   {rank + 1}
                 </span>
               ) : null}
-              {slot}
+              <span className="text-left">
+                {slot}
+                {convert(slot) !== slot ? (
+                  <span className="block text-[10px] font-semibold text-[#2563EB]">
+                    {convert(slot)} your time
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
