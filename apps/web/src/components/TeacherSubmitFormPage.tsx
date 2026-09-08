@@ -340,6 +340,7 @@ export function TeacherSubmitFormPage() {
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([]);
   const [submitted, setSubmitted] = useState<SubmittedStatus>({ daily: false, weekly: false, monthly: false });
   const [loading, setLoading] = useState(true);
+  const [openingClassReport, setOpeningClassReport] = useState(false);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -444,6 +445,9 @@ export function TeacherSubmitFormPage() {
     const perSessionTemplate = visibleTemplates.find((template) => template.frequency === "perSession" && template.isActive);
     if (!perSessionTemplate) return;
     openedShiftDeepLink.current = requestedShiftId;
+    // This runs after the form list has painted, so without a state of its own
+    // the page looks finished while the class is still being fetched.
+    setOpeningClassReport(true);
     void loadRecentTeacherShifts(currentUser.uid).then(async (shifts) => {
       const shift = shifts.find((item) => item.id === requestedShiftId);
       if (!shift) { setMessage("This class is not currently available for a readiness form."); return; }
@@ -453,7 +457,9 @@ export function TeacherSubmitFormPage() {
       }
       setSelectedShift(shift);
       setActiveTemplate(perSessionTemplate);
-    }).catch(() => setMessage("Could not open the selected class. Please choose it from the form list."));
+    })
+      .catch(() => setMessage("Could not open the selected class. Please choose it from the form list."))
+      .finally(() => setOpeningClassReport(false));
   }, [currentUser, loading, visibleTemplates]);
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
@@ -546,6 +552,14 @@ export function TeacherSubmitFormPage() {
             </div>
           )}
         </section>
+        {openingClassReport ? (
+          <div className="fixed inset-0 z-[95] grid place-items-center bg-black/35 px-6" role="status" aria-live="polite">
+            <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 shadow-xl">
+              <Loader2 className="animate-spin text-[#6366F1]" size={22} />
+              <p className="text-sm font-bold text-[#1E293B]">{tr("Opening class report…")}</p>
+            </div>
+          </div>
+        ) : null}
         {activeTemplate && currentUser ? (
           <TeacherFormSheet
             template={activeTemplate}
@@ -1594,10 +1608,15 @@ async function loadRecentTeacherShifts(uid: string): Promise<ShiftOption[]> {
   );
 
   const byId = new Map<string, ShiftOption>();
+  // The shift document already names its own report, so keep it while we are
+  // here rather than re-reading every shift one at a time later.
+  const linkedResponseIds = new Map<string, string>();
   snapshots
     .flatMap((snap) => snap?.docs ?? [])
     .map((docSnap) => {
       const data = docSnap.data() as Record<string, unknown>;
+      const linked = stringValue(data.form_response_id ?? data.formResponseId);
+      if (linked) linkedResponseIds.set(docSnap.id, linked);
       const start = dateValue(data.shift_start ?? data.shiftStart ?? data.start_time ?? data.startTime);
       const end = dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime);
       const status = stringValue(data.status) || "scheduled";
@@ -1623,14 +1642,99 @@ async function loadRecentTeacherShifts(uid: string): Promise<ShiftOption[]> {
 
   const shifts = Array.from(byId.values()).sort((a, b) => b.start.getTime() - a.start.getTime());
 
-  const enriched = await Promise.all(
-    shifts.map(async (shift) => ({
-      ...shift,
-      formResponseId: await findFormResponseForShift(uid, shift.id),
-      timesheetId: await findTimesheetForShift(uid, shift.id),
-    })),
+  // Look up this teacher's form responses and timesheets once and match them
+  // to shifts in memory. Asking per shift meant up to 23 round trips each — the
+  // field-name variants below were being tried one at a time — so opening a
+  // class report took seconds for a teacher with a normal month of classes.
+  const wanted = new Set(shifts.map((shift) => shift.id));
+  const [responseByShift, timesheetByShift] = await Promise.all([
+    formResponsesByShift(uid, wanted),
+    timesheetsByShift(uid, wanted),
+  ]);
+
+  // A shift can name a report that has since been deleted, and treating that as
+  // "already submitted" would lock the teacher out of filing one. The bulk pass
+  // already proves a report exists; only the links it did not cover are read,
+  // which is normally none.
+  const unverified = [...linkedResponseIds]
+    .filter(([shiftId, responseId]) => responseByShift.get(shiftId) !== responseId)
+    .map(([, responseId]) => responseId);
+  const present = new Set(
+    (await Promise.all(unverified.map((id) => getDoc(doc(db, "form_responses", id)).catch(() => null))))
+      .filter((snap) => snap?.exists())
+      .map((snap) => snap!.id),
   );
-  return enriched;
+
+  return shifts.map((shift) => {
+    const linked = linkedResponseIds.get(shift.id) ?? "";
+    const verifiedLink = linked && (present.has(linked) || responseByShift.get(shift.id) === linked) ? linked : "";
+    return {
+      ...shift,
+      formResponseId: verifiedLink || responseByShift.get(shift.id) || "",
+      timesheetId: timesheetByShift.get(shift.id) || "",
+    };
+  });
+}
+
+/** The `shiftId` a document points at, whichever spelling it uses. */
+function shiftIdOf(data: Record<string, unknown>, fields: readonly string[]) {
+  for (const field of fields) {
+    const value = stringValue(data[field]);
+    if (value) return value;
+  }
+  return "";
+}
+
+const RESPONSE_SHIFT_FIELDS = ["shiftId", "shift_id", "linked_shift_id"] as const;
+const RESPONSE_USER_FIELDS = ["userId", "submittedBy", "submitted_by", "teacher_id", "teacherId"] as const;
+const TIMESHEET_SHIFT_FIELDS = ["shift_id", "shiftId"] as const;
+const TIMESHEET_USER_FIELDS = ["teacher_id", "teacherId", "userId"] as const;
+
+/**
+ * Every form response this teacher owns, keyed by the shift it reports on.
+ *
+ * One query per spelling of the "who submitted it" field — a handful in total,
+ * whatever the number of shifts — rather than one per shift per spelling. Each
+ * is a single equality filter, so no composite index is involved. The newest
+ * submission wins when a shift somehow has more than one.
+ */
+async function formResponsesByShift(uid: string, wanted: Set<string>) {
+  const snapshots = await Promise.all(
+    RESPONSE_USER_FIELDS.map((userField) =>
+      getDocs(query(collection(db, "form_responses"), where(userField, "==", uid), limit(500))).catch(() => null),
+    ),
+  );
+  const best = new Map<string, { id: string; submittedAt: number }>();
+  for (const snap of snapshots) {
+    for (const entry of snap?.docs ?? []) {
+      const data = entry.data() as Record<string, unknown>;
+      const shiftId = shiftIdOf(data, RESPONSE_SHIFT_FIELDS);
+      if (!shiftId || !wanted.has(shiftId)) continue;
+      const submittedAt = dateValue(data.submittedAt ?? data.submitted_at)?.getTime() ?? 0;
+      const current = best.get(shiftId);
+      if (!current || submittedAt > current.submittedAt) best.set(shiftId, { id: entry.id, submittedAt });
+    }
+  }
+  return new Map([...best].map(([shiftId, match]) => [shiftId, match.id]));
+}
+
+/** Every timesheet entry this teacher owns, keyed by the shift it belongs to. */
+async function timesheetsByShift(uid: string, wanted: Set<string>) {
+  const snapshots = await Promise.all(
+    TIMESHEET_USER_FIELDS.map((userField) =>
+      getDocs(query(collection(db, "timesheet_entries"), where(userField, "==", uid), limit(500))).catch(() => null),
+    ),
+  );
+  const found = new Map<string, string>();
+  for (const snap of snapshots) {
+    for (const entry of snap?.docs ?? []) {
+      const data = entry.data() as Record<string, unknown>;
+      const shiftId = shiftIdOf(data, TIMESHEET_SHIFT_FIELDS);
+      if (!shiftId || !wanted.has(shiftId) || found.has(shiftId)) continue;
+      found.set(shiftId, entry.id);
+    }
+  }
+  return found;
 }
 
 function normalizeShiftStatus(status: string) {

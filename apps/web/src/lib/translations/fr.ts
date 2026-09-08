@@ -1203,4 +1203,5 @@ export const FR: Record<string, string> = {
   "You are already clocked in to this shift": "Vous avez déjà pointé l’entrée pour ce créneau",
   "You are already clocked in to this shift.": "Vous avez déjà pointé l’entrée pour ce créneau.",
   "You can only withdraw from jobs you accepted.": "Vous ne pouvez vous retirer que des cours que vous avez acceptés.",
+  "Opening class report…": "Ouverture du rapport de cours…",
 };
