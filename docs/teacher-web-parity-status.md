@@ -137,3 +137,37 @@ Not translated, deliberately: brand and product names, currency codes, and the
 outside sites in Islamic Resources. Still English: aria-labels built from
 template literals (`Close ${label}` and similar), which screen readers will
 read in English.
+
+## Signing out never returns a teacher to Flutter (8 Sep 2026)
+
+Both sign-out buttons used to send teachers to `/login/`, which forwards
+straight into the Flutter app — the dashboard they had just been moved off.
+Worse, `dashboardPathForUser` still routed every teacher to `/app/`, so signing
+back in landed them there too.
+
+Now:
+
+- `/teacher/login/` is the teacher's login, inside this app. Sign-out from the
+  account menu and from Settings both go there, as does the "Go to login" link
+  on the signed-out gate.
+- `dashboardPathForUser` sends a teacher to `/teacher/` whenever the cutover
+  document says they belong there, so signing in from any Next login form lands
+  on the console.
+- `lib/teacherCutover.ts` reads the same `settings/teacher_web_cutover`
+  document as the Flutter service, so one edit still moves everyone either way.
+  It fails **open** — the opposite of the Flutter side, on purpose: Flutter
+  keeps a teacher where they already are, while an unreadable document here
+  should leave them on the console rather than throw them back.
+- Flutter's own sign-out already left to the public site root, so that path was
+  already safe.
+
+Verified by hand: signed in at `/teacher/login/` and landed on `/teacher/`;
+signed out from the account menu and landed on `/teacher/login/`. A grep of the
+built teacher pages finds exactly one link into Flutter left.
+
+**The one remaining doorway** is "Sign in with Phone" on the login page, which
+is mobile-only (`md:hidden`) and points at the Flutter login because phone auth
+exists only there. It is a doorway rather than a destination: after signing in,
+the Flutter shell resolves the role, reads the cutover and redirects to
+`/teacher/`. Removing it would leave any teacher who signs in by phone without
+a way in, so it stays until phone auth exists here.

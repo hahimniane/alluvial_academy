@@ -1,6 +1,7 @@
 import type { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { teacherUsesWebConsole } from "@/lib/teacherCutover";
 
 type UserRecord = Record<string, unknown>;
 
@@ -35,16 +36,22 @@ export async function dashboardPathForUser(user: User) {
   const data = await getUserRecord(user);
   if (!data) return "/app/";
   const roles = availableRoles(data);
-  // Only students use the ported Next.js dashboard. Admins, teachers, parents
+  // Students and teachers use the ported Next.js dashboards. Admins, parents
   // and everyone else stay on the Flutter app at /app/ — they are already
   // authenticated by the time this runs, so /app/ (not its login) is correct.
-  // A student who is also an admin/teacher is routed to Flutter with that role.
+  // A student who is also an admin is routed to Flutter with that role.
   const studentOnly =
     roles.has("student") &&
     !roles.has("admin") &&
     !roles.has("super_admin") &&
     !roles.has("teacher");
-  return studentOnly ? "/student/" : "/app/";
+  if (studentOnly) return "/student/";
+  // A teacher who is not also an admin belongs on the teacher console whenever
+  // the cutover says so, so signing back in never returns them to the Flutter
+  // dashboard they were moved off.
+  const teacherOnly = roles.has("teacher") && !roles.has("admin") && !roles.has("super_admin");
+  if (teacherOnly && (await teacherUsesWebConsole(user.uid))) return "/teacher/";
+  return "/app/";
 }
 
 export async function getCurrentUserRecord(user: User): Promise<UserRecord | null> {

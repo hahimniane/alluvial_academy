@@ -31,6 +31,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import { resetTeacherCutoverCache } from "@/lib/teacherCutover";
 import { auth, db } from "@/lib/firebase";
 import { getLocale, setLocale, useT, tr } from "@/lib/i18n";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
@@ -122,7 +123,7 @@ export function TeacherSettingsPage() {
             <div className="border-t border-[#E2E8F0]"><SettingsLink href="/privacy-policy/" icon={Shield} title={tr("Privacy Policy")} subtitle="Read our privacy policy" /></div>
             <div className="border-t border-[#E2E8F0]"><SettingsRow icon={Info} title={tr("About")} subtitle="Alluwal Education Hub" /></div>
           </SettingsCard>
-          <button type="button" onClick={async () => { await signOut(auth); window.location.assign("/login/"); }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 font-bold text-white"><LogOut size={19} />{tr("Sign Out")}</button>
+          <button type="button" onClick={async () => { await signOut(auth); resetTeacherCutoverCache(); window.location.assign("/teacher/login/"); }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 font-bold text-white"><LogOut size={19} />{tr("Sign Out")}</button>
         </div>
         {passwordOpen && user ? <PasswordDialog user={user} onClose={() => setPasswordOpen(false)} /> : null}
         {notificationsOpen ? <NotificationDialog preferences={preferences} onSaved={setPreferences} onClose={() => setNotificationsOpen(false)} /> : null}

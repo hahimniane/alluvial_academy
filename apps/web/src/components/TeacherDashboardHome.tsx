@@ -39,6 +39,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { resetTeacherCutoverCache } from "@/lib/teacherCutover";
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
 import { applyLocale, useT, tr, dateLocale, markLocaleHydrated } from "@/lib/i18n";
@@ -478,7 +479,11 @@ export function TeacherShell({
 
   const logout = async () => {
     await signOut(auth);
-    window.location.assign("/login/");
+    // Never /login/ — that route forwards to the Flutter app, and teachers have
+    // been moved off it. resetTeacherCutoverCache so the next person to sign in
+    // on this tab is placed by their own answer, not the one just cached.
+    resetTeacherCutoverCache();
+    window.location.assign("/teacher/login/");
   };
 
   return (
@@ -838,7 +843,7 @@ export function TeacherAccessPrompt({ access }: { access: AccessState }) {
           {checking ? tr("Please wait while we verify your account.") : tr("Sign in with a teacher account to open the teacher dashboard.")}
         </p>
         {!checking ? (
-          <Link href="/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">
+          <Link href="/teacher/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0386FF] px-5 text-sm font-bold text-white">
             {tr("Go to login")}
           </Link>
         ) : null}

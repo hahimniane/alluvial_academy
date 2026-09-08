@@ -563,7 +563,7 @@ function TeacherApplicantsAccessPrompt({ access }: { access: AccessState }) {
               : tr("Your signed-in account does not have administrator permissions for this module.")}
         </p>
         {!checking ? (
-          <Link href="/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#001E4E] px-5 text-sm font-semibold text-white">
+          <Link href="/teacher/login/" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#001E4E] px-5 text-sm font-semibold text-white">
             {tr("Go to login")}
           </Link>
         ) : null}
