@@ -66,12 +66,29 @@ since deleted:
   saw "Missing or insufficient permissions"; they now see the empty state, as
   in the app.
 
-## Not yet done
+## The switch is on (8 Sep 2026)
 
-The Flutter redirect has **not** been flipped: teachers still land on `/app/`
-after sign-in, and reach this console only by URL. Per the rule, the flip is
-the last step and is the owner's call once they have looked at it.
+`settings/teacher_web_cutover` is set to **`mode: "all"`**: every teacher who
+signs in on the web now lands on `/teacher/`. The native store apps are
+unaffected — the redirect is web-only.
 
-Not yet exercised by hand: Surah Podcasts, Curriculum Books, Assignments,
-Profile, Classroom, the AI tutor and Circles. They load, and their code is the
-same shape as the screens above, but "loads" is not "works".
+Proved end to end before the flip, with a throwaway teacher account since
+deleted: signed in at the Flutter login on `/app/`, watched the app resolve the
+role, read the cutover document and replace the location with `/teacher/`, and
+saw the Next.js console render signed in with the full teacher sidebar. No
+second login.
+
+Rolling it back needs no deploy. Run the **Teacher web cutover** workflow with
+mode `off`, or set `mode: "off"` on that document by hand, and every teacher is
+back on the Flutter dashboard on their next load. `hold: true` only pauses the
+automatic promotion; it does not move anyone back.
+
+The weekday workflow still reports who is on the console and compares clocked
+hours against each audit, so a pay gap opened by this move shows up the next
+morning rather than at the end of the month.
+
+## Not exercised by hand
+
+Surah Podcasts, Curriculum Books, Assignments, Profile, Classroom, the AI tutor
+and Circles. They load, and their code is the same shape as the screens above,
+but "loads" is not "works".
