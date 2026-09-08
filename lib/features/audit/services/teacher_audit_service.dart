@@ -14,6 +14,7 @@ import '../../../core/utils/teaching_form_classification.dart';
 import '../../../core/utils/teacher_leave_periods.dart';
 import '../../../core/audit/readiness_form_kpi.dart';
 import '../../../core/audit/teaching_form_acceptance_for_month.dart';
+import '../../../core/services/shift_archive_reader.dart';
 import '../../../core/services/teacher_metrics_service.dart';
 import '../../../l10n/app_localizations_en.dart';
 
@@ -1536,29 +1537,13 @@ class TeacherAuditService {
     Timestamp queryEndShifts, {
     GetOptions snapOpts = const GetOptions(),
   }) async {
-    final live = await _firestore
-        .collection('teaching_shifts')
-        .where('shift_start', isGreaterThanOrEqualTo: queryStart)
-        .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
-        .get(snapOpts);
-    final docs = <QueryDocumentSnapshot>[...live.docs];
-    final seen = live.docs.map((d) => d.id).toSet();
-    try {
-      final archived = await _firestore
-          .collection('teaching_shifts_archive')
-          .where('shift_start', isGreaterThanOrEqualTo: queryStart)
-          .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
-          .get(snapOpts);
-      for (final d in archived.docs) {
-        if (seen.add(d.id)) docs.add(d);
-      }
-      if (archived.docs.isNotEmpty) {
-        AppLogger.debug(
-            'Audit window: ${live.docs.length} live + ${archived.docs.length} archived shifts');
-      }
-    } catch (e) {
-      AppLogger.debug('teaching_shifts_archive not readable for this user: $e');
-    }
+    final docs = await ShiftArchiveReader.inRange(
+      start: queryStart,
+      end: queryEndShifts,
+      endInclusive: true,
+      options: snapOpts,
+      firestore: _firestore,
+    );
     return ShiftDocs(docs);
   }
 

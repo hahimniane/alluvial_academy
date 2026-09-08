@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { shiftsByIds } = require('../utils/shifts_in_range');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
@@ -859,14 +860,10 @@ const createInvoice = async (request) => {
   if (shiftIds.length > 0) {
     const shifts = [];
     const db = admin.firestore();
-    for (const batch of _chunk(shiftIds, 10)) {
-      const snap = await db
-        .collection('teaching_shifts')
-        .where(admin.firestore.FieldPath.documentId(), 'in', batch)
-        .get();
-      for (const doc of snap.docs) {
-        shifts.push({ id: doc.id, ...doc.data() });
-      }
+    // Live + archived: an invoice for classes older than 60 days must still
+    // find every one of them.
+    for (const doc of await shiftsByIds(db, shiftIds)) {
+      shifts.push({ id: doc.id, ...doc.data() });
     }
 
     invoicePayload = generateInvoiceFromShifts({
