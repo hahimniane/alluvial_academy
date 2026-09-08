@@ -15,6 +15,7 @@ import 'package:alluwalacademyadmin/core/services/web_app_stability_service.dart
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
+import 'package:alluwalacademyadmin/core/services/teacher_web_cutover.dart';
 import 'package:alluwalacademyadmin/core/utils/web_redirect_stub.dart'
     if (dart.library.html) 'package:alluwalacademyadmin/core/utils/web_redirect_web.dart';
 
@@ -337,13 +338,13 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
           onRoleChanged: (_) => _onRoleChanged(),
         ); // Full admin dashboard
       case 'teacher':
-        AppLogger.debug(
-            '=== Returning DashboardPage for teacher (with navigation) ===');
-        // Use DashboardPage so teachers get navigation/tabs, not just TeacherHomeScreen
-        return DashboardPage(
+        // Teachers are moving to the Next.js console at /teacher/, in stages:
+        // settings/teacher_web_cutover names who goes now. Anyone not in scope
+        // — and every native store app — stays on the Flutter dashboard below.
+        AppLogger.debug('=== Teacher: checking web cutover ===');
+        return _TeacherDashboardOrWebRedirect(
           key: const ValueKey('dashboard_teacher'),
-          activeRole: 'teacher',
-          onRoleChanged: (_) => _onRoleChanged(),
+          onRoleChanged: _onRoleChanged,
         );
       case 'student':
         // Students use the Next.js dashboard on the web. This switch is only
@@ -640,6 +641,52 @@ class ParentDashboard extends StatelessWidget {
 
 /// Bounces a signed-in web student to the Next.js dashboard at /student/.
 /// Shown for a moment while the browser navigates away.
+/// Decides, once, whether this teacher takes the Next.js console or the Flutter
+/// dashboard. While it is deciding it shows the same spinner the app shows
+/// anywhere else, so nobody sees a flash of the wrong dashboard.
+class _TeacherDashboardOrWebRedirect extends StatefulWidget {
+  const _TeacherDashboardOrWebRedirect({super.key, required this.onRoleChanged});
+
+  final VoidCallback onRoleChanged;
+
+  @override
+  State<_TeacherDashboardOrWebRedirect> createState() =>
+      _TeacherDashboardOrWebRedirectState();
+}
+
+class _TeacherDashboardOrWebRedirectState
+    extends State<_TeacherDashboardOrWebRedirect> {
+  bool? _useWeb;
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  Future<void> _decide() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final useWeb = await TeacherWebCutover.shouldUseWebConsole(uid);
+    if (!mounted) return;
+    if (useWeb) {
+      AppLogger.debug('=== Teacher on web - redirecting to /teacher/ ===');
+      redirectToTeacherWebApp();
+    }
+    setState(() => _useWeb = useWeb);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_useWeb == null || _useWeb == true) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return DashboardPage(
+      activeRole: 'teacher',
+      onRoleChanged: (_) => widget.onRoleChanged(),
+    );
+  }
+}
+
 class _StudentWebRedirect extends StatefulWidget {
   const _StudentWebRedirect();
 

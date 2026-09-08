@@ -491,7 +491,10 @@ function normalizeClass(id: string, data: Record<string, unknown>): TeacherClass
     start: dateValue(data.shift_start ?? data.shiftStart ?? data.start_time ?? data.startTime),
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
-    category: stringValue(data.category) || "teaching",
+    // Real shifts carry `shift_category`; `category` does not exist on them. The
+    // app reads shift_category, and Leader Duty / meetings must stay out of the
+    // class list, so read the same field it does.
+    category: stringValue(data.shift_category ?? data.shiftCategory ?? data.category) || "teaching",
     videoProvider: stringValue(data.video_provider ?? data.videoProvider),
     livekitRoomName: stringValue(data.livekit_room_name ?? data.livekitRoomName),
     realtimekitMeetingId: stringValue(data.realtimekit_meeting_id ?? data.realtimekitMeetingId),

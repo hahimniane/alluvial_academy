@@ -2,14 +2,18 @@
 
 import 'dart:html' as html;
 
-/// Sends the browser to the Next.js student dashboard at `/student/`.
+/// Sends the browser to a path on the Next.js app (same origin as `/app/`).
 ///
-/// The Flutter web app (`/app/`) and the Next.js dashboard (`/student/`) are the
-/// same origin and share the same Firebase project, so the signed-in session
-/// carries over — the student lands on the Next.js dashboard without logging in
-/// again. `replace` (not `assign`) so the browser Back button does not bounce
-/// them back to the Flutter app.
-void redirectToStudentWebApp() {
-  html.window.location.replace('/student/');
+/// The Flutter web app and the Next.js dashboards share an origin and a
+/// Firebase project, so the signed-in session carries over and the person lands
+/// already authenticated. `replace` (not `assign`) so the Back button does not
+/// bounce them straight back into Flutter.
+void redirectToWebApp(String path) {
+  html.window.location.replace(path);
 }
 
+/// The Next.js student dashboard.
+void redirectToStudentWebApp() => redirectToWebApp('/student/');
+
+/// The Next.js teacher console.
+void redirectToTeacherWebApp() => redirectToWebApp('/teacher/');

@@ -1,0 +1,56 @@
+name: Teacher web cutover
+
+# Moves teachers from the Flutter dashboard to the Next.js console in stages by
+# editing one Firestore document, settings/teacher_web_cutover.
+#
+#  - Every weekday morning it reports who is on the new console and whether the
+#    week has been quiet, so the state is never a mystery.
+#  - On Friday it promotes the rollout from the named group to everyone —
+#    unless someone has put it on hold, or a teacher's pay looks wrong.
+#
+# Anyone can stop it without touching code: set `hold: true` on the document, or
+# run this workflow with mode `hold`. Setting `off` puts every teacher back on
+# the Flutter dashboard immediately, no deploy required.
+
+on:
+  schedule:
+    # 07:30 New York, Monday to Friday (11:30 UTC; an hour out over winter,
+    # which does not matter for a daily report).
+    - cron: "30 11 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to do"
+        required: true
+        default: report
+        type: choice
+        options: [report, allowlist-this-week, all, hold, resume, "off"]
+
+concurrency:
+  group: teacher-web-cutover
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install the Admin SDK
+        run: npm install firebase-admin@^12 --no-save --prefix /tmp/cutover
+
+      - name: Run
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLUWAL }}
+          NODE_PATH: /tmp/cutover/node_modules
+          # `report` on a schedule; on Friday the script promotes by itself.
+          CUTOVER_MODE: ${{ github.event.inputs.mode || 'scheduled' }}
+        run: node scripts/teacher_web_cutover.mjs
+
+      - name: Summary
+        if: always()
+        run: cat "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
