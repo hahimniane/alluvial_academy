@@ -265,12 +265,8 @@ class TeacherAuditService {
         ? const GetOptions(source: Source.server)
         : const GetOptions();
 
-    final dataFutures = await Future.wait([
-      _firestore
-          .collection('teaching_shifts')
-          .where('shift_start', isGreaterThanOrEqualTo: queryStart)
-          .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
-          .get(snapOpts),
+    final dataFutures = await Future.wait<Object>([
+      _loadShiftsForWindow(queryStart, queryEndShifts, snapOpts: snapOpts),
       _firestore
           .collection('timesheet_entries')
           .where('created_at', isGreaterThanOrEqualTo: queryStart)
@@ -287,7 +283,7 @@ class TeacherAuditService {
           .get(snapOpts),
     ]);
 
-    final shiftsSnapshot = dataFutures[0] as QuerySnapshot;
+    final shiftsSnapshot = dataFutures[0] as ShiftDocs;
     final timesheetsSnapshot = dataFutures[1] as QuerySnapshot;
     final formsSnapshot = dataFutures[2] as QuerySnapshot;
     final tasksSnapshot = dataFutures[3] as QuerySnapshot;
@@ -598,7 +594,7 @@ class TeacherAuditService {
 
   /// **ULTRA-OPTIMIZATION: Single-pass data processing (eliminates O(n×m) operations)**
   static Map<String, _TeacherCache> _processMonthDataSinglePass({
-    required QuerySnapshot shifts,
+    required ShiftDocs shifts,
     required QuerySnapshot timesheets,
     required QuerySnapshot forms,
     required DateTime startDate,
@@ -1516,7 +1512,7 @@ class TeacherAuditService {
   }
 
   /// Same shift window as [_loadMonthDataParallel] (excludes future shifts past [now]).
-  static Future<QuerySnapshot> _fetchTeachingShiftsForAuditWindow(
+  static Future<ShiftDocs> _fetchTeachingShiftsForAuditWindow(
     DateTime startDate,
     DateTime endDate,
   ) async {
@@ -1524,11 +1520,46 @@ class TeacherAuditService {
     final now = DateTime.now();
     final effectiveEndDate = endDate.isBefore(now) ? endDate : now;
     final queryEndShifts = Timestamp.fromDate(effectiveEndDate);
-    return _firestore
+    return _loadShiftsForWindow(queryStart, queryEndShifts);
+  }
+
+  /// The window's teaching shifts from the live collection and the archive.
+  ///
+  /// Classes whose window ended more than 60 days ago are moved nightly to
+  /// `teaching_shifts_archive`. An audit that read only the live collection
+  /// lost every class from the start of the month once it aged out, and a
+  /// teacher's worked hours shrank with it (July 2026: 40.40 h shown for a
+  /// teacher who had clocked 55.25 h). Only admins may read the archive; when
+  /// the read is refused the live classes are used on their own.
+  static Future<ShiftDocs> _loadShiftsForWindow(
+    Timestamp queryStart,
+    Timestamp queryEndShifts, {
+    GetOptions snapOpts = const GetOptions(),
+  }) async {
+    final live = await _firestore
         .collection('teaching_shifts')
         .where('shift_start', isGreaterThanOrEqualTo: queryStart)
         .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
-        .get();
+        .get(snapOpts);
+    final docs = <QueryDocumentSnapshot>[...live.docs];
+    final seen = live.docs.map((d) => d.id).toSet();
+    try {
+      final archived = await _firestore
+          .collection('teaching_shifts_archive')
+          .where('shift_start', isGreaterThanOrEqualTo: queryStart)
+          .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
+          .get(snapOpts);
+      for (final d in archived.docs) {
+        if (seen.add(d.id)) docs.add(d);
+      }
+      if (archived.docs.isNotEmpty) {
+        AppLogger.debug(
+            'Audit window: ${live.docs.length} live + ${archived.docs.length} archived shifts');
+      }
+    } catch (e) {
+      AppLogger.debug('teaching_shifts_archive not readable for this user: $e');
+    }
+    return ShiftDocs(docs);
   }
 
   static bool _timesheetDocIsRejected(Map<String, dynamic> d) {
@@ -1596,7 +1627,7 @@ class TeacherAuditService {
   /// [missed] + timesheet punch for same shift is inconsistent; repair Firestore and
   /// let the next metrics pass treat the class as completed.
   static Future<int> _repairMissedShiftsWithTimesheetContradiction(
-    QuerySnapshot shiftsSnapshot,
+    ShiftDocs shiftsSnapshot,
     QuerySnapshot timesheetsSnapshot,
     DateTime startDate,
     DateTime endDate,
@@ -4678,8 +4709,15 @@ class _TeacherCache {
 }
 
 /// Helper classes for organized data
+/// The month's teaching shifts, live and archived together (see
+/// [TeacherAuditService._loadShiftsForWindow]).
+class ShiftDocs {
+  final List<QueryDocumentSnapshot> docs;
+  const ShiftDocs(this.docs);
+}
+
 class MonthData {
-  final QuerySnapshot shifts;
+  final ShiftDocs shifts;
   final QuerySnapshot timesheets;
   final QuerySnapshot forms;
   final QuerySnapshot tasks;
