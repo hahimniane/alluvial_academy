@@ -5,33 +5,34 @@ import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  BarChart3,
   Bell,
-  Bot,
-  CircleUserRound,
+  BookMarked,
   BookOpen,
+  Bot,
   Briefcase,
   CalendarCheck,
   CalendarClock,
   CheckCircle2,
+  CircleUserRound,
   ClipboardCheck,
   ClipboardList,
   Clock3,
   DollarSign,
-  FileText,
   ExternalLink,
-  Grid3X3,
+  FileText,
   GraduationCap,
+  Grid3X3,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Menu,
   MessageSquare,
-  Landmark,
   Podcast,
   RotateCcw,
   Search,
   Settings,
   ShieldCheck,
-  BarChart3,
   Star,
   TimerReset,
   Video,
@@ -40,6 +41,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
+import { applyLocale, useT } from "@/lib/i18n";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -121,7 +123,9 @@ const teacherSections: SidebarSection[] = [
       { label: "Classes", icon: Video, href: "/teacher/classes/", color: "#2D8CFF" },
       { label: "Recordings", icon: Video, href: "/teacher/recordings/", color: "#0E72ED" },
       { label: "Surah Podcasts", icon: Podcast, href: "/teacher/surah-podcasts/", color: "#0E72ED" },
+      { label: "Quran", icon: BookMarked, href: "/teacher/quran/", color: "#0F766E" },
       { label: "Curriculum Books", icon: BookOpen, href: "/teacher/curriculum-books/", color: "#0F766E" },
+      { label: "Quiz Review", icon: ClipboardCheck, href: "/teacher/quiz-review/", color: "#7C3AED" },
     ],
   },
   {
@@ -382,6 +386,7 @@ export function TeacherShell({
   summary: TeacherSummary;
   children: ReactNode;
 }) {
+  const t = useT();
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [favoritedItems, setFavoritedItems] = useState<Set<string>>(new Set());
@@ -449,6 +454,9 @@ export function TeacherShell({
       void getCurrentUserRecord(user).then((record) => {
         if (!record) return;
         const roles = rolesForUserRecord(record);
+        // One language per person: the same `language_preference` the Flutter
+        // app and the student dashboard read and write.
+        applyLocale(String((record as Record<string, unknown>).language_preference ?? "") === "fr" ? "fr" : "en");
         setCanSwitchToAdmin(roles.has("admin") || roles.has("super_admin"));
         setAiTutorEnabled(record.ai_tutor_enabled === true);
         setTontineEnabled(record.tontine_enabled === true);
@@ -478,12 +486,12 @@ export function TeacherShell({
             <img src="/assets/Alluwal_Education_Hub_Logo.png" alt="Alluwal Education Hub" className="h-12 w-auto object-contain" />
           </div>
           <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
-            <p className="text-[21px] font-black text-[#0F172A]">Menu</p>
+            <p className="text-[21px] font-black text-[#0F172A]">{t("Menu")}</p>
             <span className="text-[#64748B]">‹</span>
           </div>
           <div className="px-3 py-3">
             <label className="sr-only" htmlFor="teacher-shell-search">
-              Search dashboard
+              {t("Search dashboard")}
             </label>
             <div className="relative">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={16} />
@@ -527,7 +535,7 @@ export function TeacherShell({
                     aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.title}`}
                   >
                     <Grid3X3 size={14} />
-                    <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                    <span className="min-w-0 flex-1 truncate">{t(section.title)}</span>
                     <span>{isCollapsed ? "⌄" : "⌃"}</span>
                   </button>
                   {!isCollapsed ? (
@@ -549,7 +557,7 @@ export function TeacherShell({
               className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold text-[#94A3B8] hover:bg-white hover:text-[#334155]"
             >
               <RotateCcw size={15} />
-              Reset Layout
+              {t("Reset Layout")}
             </button>
           </div>
         </aside>
@@ -609,6 +617,7 @@ function TeacherMobileMenu({
   onLogout: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   return (
     <section className="fixed inset-0 z-[80] lg:hidden" aria-label="Teacher mobile menu">
       <button type="button" aria-label="Close teacher menu backdrop" onClick={onClose} className="absolute inset-0 bg-black/40" />
@@ -631,7 +640,7 @@ function TeacherMobileMenu({
             <div key={section.title} className="mb-5">
               <p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]">
                 <Grid3X3 size={14} />
-                {section.title}
+                {t(section.title)}
               </p>
               <div className="grid gap-1">
                 {section.items.map((item) => {
@@ -649,7 +658,7 @@ function TeacherMobileMenu({
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F8FAFC]">
                         <Icon size={19} style={{ color: item.color }} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
                     </Link>
                   );
                 })}
@@ -730,6 +739,7 @@ function NextClassCard({ shift }: { shift: TeacherShift }) {
 }
 
 function QuickAccessCard({ item }: { item: { label: string; icon: LucideIcon; href: string; color: string } }) {
+  const t = useT();
   const Icon = item.icon;
   return (
     <Link
@@ -739,7 +749,7 @@ function QuickAccessCard({ item }: { item: { label: string; icon: LucideIcon; hr
       <span className="grid h-11 w-11 place-items-center rounded-full bg-[#F1F5F9]" style={{ color: item.color }}>
         <Icon size={22} />
       </span>
-      <span className="mt-2 max-w-full truncate text-[11px] font-semibold text-[#475569] lg:text-xs">{item.label}</span>
+      <span className="mt-2 max-w-full truncate text-[11px] font-semibold text-[#475569] lg:text-xs">{t(item.label)}</span>
     </Link>
   );
 }
@@ -755,6 +765,7 @@ function SidebarFavorites({
   activeLabel: string;
   onToggleFavorite: (label: string) => void;
 }) {
+  const t = useT();
   return (
     <div aria-label="Pinned dashboard items" className="mb-3 rounded-2xl border border-black/10 bg-[#F8FAFC] p-3">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">
@@ -777,6 +788,7 @@ function SidebarItems({
   activeLabel: string;
   onToggleFavorite: (label: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="grid gap-1">
       {items.map((item) => {
@@ -793,7 +805,7 @@ function SidebarItems({
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#F8FAFC]">
                 <Icon size={18} style={{ color: item.color }} />
               </span>
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
             </Link>
             <button
               type="button"

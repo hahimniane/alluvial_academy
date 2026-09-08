@@ -171,14 +171,18 @@ function EmptyReport({ month }: { month: string }) { return <div className="grid
 async function loadAudits(uid: string, setAudits: (items: AuditData[]) => void, setMonth: (month: string) => void, setError: (value: string) => void, setLoading: (value: boolean) => void, preferred?: string) {
   setLoading(true); setError("");
   try {
+    // The direct read is a convenience for the current month. Rules deny a read
+    // of a document that does not exist, so a teacher with no report yet would
+    // otherwise be told their report "could not be loaded" — the app just shows
+    // the empty state. Treat a miss as no report, not as an error.
     const [legacy, current, direct] = await Promise.all([
       getDocs(query(collection(db, "teacher_audits"), where("oderId", "==", uid))),
       getDocs(query(collection(db, "teacher_audits"), where("userId", "==", uid))),
-      getDoc(doc(db, "teacher_audits", `${uid}_${currentMonth()}`)),
+      getDoc(doc(db, "teacher_audits", `${uid}_${currentMonth()}`)).catch(() => null),
     ]);
     const map = new Map<string, AuditData>();
     [...legacy.docs, ...current.docs].forEach((item) => map.set(item.id, { id: item.id, ...item.data() }));
-    if (direct.exists()) map.set(direct.id, { id: direct.id, ...direct.data() });
+    if (direct?.exists()) map.set(direct.id, { id: direct.id, ...direct.data() });
     const items = Array.from(map.values()).sort((a, b) => stringValue(b.yearMonth).localeCompare(stringValue(a.yearMonth)));
     setAudits(items);
     const months = items.map((item) => stringValue(item.yearMonth));

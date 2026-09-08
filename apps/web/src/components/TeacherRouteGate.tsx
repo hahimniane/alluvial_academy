@@ -1,20 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import { FlutterRedirect } from "@/components/FlutterRedirect";
 
 /**
- * The teacher console lives in the Flutter app. A route listed here is the
- * exception: it renders natively so the Flutter screen can embed it, the same
- * way the admin console embeds Shifts and Student Applicants. Everything else
- * under /teacher/ still forwards to /app/.
+ * The teacher console is the Next.js app.
+ *
+ * Teachers on the web are sent here from the Flutter shell after sign-in, the
+ * same way students go to /student/. Nothing under /teacher/ forwards back to
+ * /app/ any more: a teacher who lands on a teacher URL is already where they
+ * belong, and each page checks for itself that the signed-in account really is
+ * a teacher before rendering anything.
  */
-const NATIVE_TEACHER_PREFIXES = ["/teacher/job-board"];
-
 export function TeacherRouteGate({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "";
-  const isNative = NATIVE_TEACHER_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  if (!isNative) return <FlutterRedirect />;
   return <>{children}</>;
 }

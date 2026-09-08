@@ -32,6 +32,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { auth, db } from "@/lib/firebase";
+import { getLocale, setLocale, useT } from "@/lib/i18n";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -57,16 +58,15 @@ export function TeacherSettingsPage() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState<"en" | "fr">(() => getLocale());
   const [dark, setDark] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [preferences, setPreferences] = useState(defaultPrefs);
 
   useEffect(() => {
-    const savedLanguage = window.localStorage.getItem("alluwal-language") || "en";
     const savedTheme = window.localStorage.getItem("alluwal-theme") === "dark";
-    setLanguage(savedLanguage);
+    setLanguage(getLocale());
     setDark(savedTheme);
     document.documentElement.classList.toggle("dark", savedTheme);
     return onAuthStateChanged(auth, async (nextUser) => {
@@ -114,7 +114,7 @@ export function TeacherSettingsPage() {
           <SettingsCard title="ACCOUNT SECURITY"><SettingsButton icon={KeyRound} title="Change Password" subtitle="Update your account password" onClick={() => setPasswordOpen(true)} /></SettingsCard>
           <SettingsCard title="APP SETTINGS">
             <SettingsButton icon={Bell} title="Notifications" subtitle="Shift, task, chat, and prayer reminders" onClick={() => setNotificationsOpen(true)} />
-            <label className="flex min-h-16 items-center gap-3 border-t border-[#E2E8F0] px-4"><IconBox icon={Globe2} /><span className="min-w-0 flex-1"><strong className="block text-sm text-[#334155]">Language</strong><span className="text-xs text-[#64748B]">Choose the display language</span></span><select aria-label="Language" value={language} onChange={(event) => { setLanguage(event.target.value); window.localStorage.setItem("alluwal-language", event.target.value); }} className="h-10 rounded-xl border border-[#CBD5E1] bg-white px-3 text-sm font-bold"><option value="en">English</option><option value="fr">Français</option></select></label>
+            <label className="flex min-h-16 items-center gap-3 border-t border-[#E2E8F0] px-4"><IconBox icon={Globe2} /><span className="min-w-0 flex-1"><strong className="block text-sm text-[#334155]">Language</strong><span className="text-xs text-[#64748B]">Choose the display language</span></span><select aria-label="Language" value={language} onChange={(event) => { const next = event.target.value === "fr" ? "fr" : "en"; setLanguage(next); void setLocale(auth.currentUser?.uid ?? null, next); }} className="h-10 rounded-xl border border-[#CBD5E1] bg-white px-3 text-sm font-bold"><option value="en">English</option><option value="fr">Français</option></select></label>
             <div className="border-t border-[#E2E8F0]"><SettingsButton icon={dark ? Moon : Sun} title="Dark Mode" subtitle={dark ? "Enabled" : "Disabled"} onClick={() => setTheme(!dark)} trailing={<Switch checked={dark} />} /></div>
           </SettingsCard>
           <SettingsCard title="SUPPORT">
