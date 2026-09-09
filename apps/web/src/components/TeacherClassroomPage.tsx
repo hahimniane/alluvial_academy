@@ -11,9 +11,10 @@ import { auth, db, functions } from "@/lib/firebase";
 import { isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt } from "@/components/TeacherDashboardHome";
 import { tr, markLocaleHydrated } from "@/lib/i18n";
+import { buildDesktopZoomUrl, prefersDesktopZoomApp } from "@/lib/zoomJoinRouting";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
-type RoomStatus = "idle" | "token" | "connecting" | "ready" | "error";
+type RoomStatus = "idle" | "token" | "connecting" | "ready" | "error" | "handedToDesktop";
 
 type JoinResult = {
   success?: boolean;
@@ -37,6 +38,13 @@ type ZoomJoinResult = {
   breakoutRoomKey?: string;
   autoJoinBreakoutRoom?: boolean;
   classEndsAtIso?: string;
+  // Routing details the callable already returns. They decide whether this
+  // person joins in the browser or in the Zoom app on their computer.
+  routingMode?: string;
+  userRole?: string;
+  routingDisplayName?: string;
+  nativeDisplayName?: string;
+  joinUrl?: string;
   error?: string;
 };
 
@@ -68,6 +76,8 @@ export function TeacherClassroomPage() {
   const [controlBusy, setControlBusy] = useState("");
   const [controlError, setControlError] = useState("");
   const [connectAttempt, setConnectAttempt] = useState(0);
+  const [desktopZoomUrl, setDesktopZoomUrl] = useState("");
+  const [zoomFallbackUrl, setZoomFallbackUrl] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -121,6 +131,17 @@ export function TeacherClassroomPage() {
               throw new Error(data.error || "Zoom class is unavailable.");
             }
             setShiftName(data.shiftName || shift.title);
+            if (prefersDesktopZoomApp(data, navigator.userAgent)) {
+              const desktopUrl = buildDesktopZoomUrl(data);
+              if (desktopUrl) {
+                setZoomFallbackUrl(buildZoomMeetingUrl(data));
+                setDesktopZoomUrl(desktopUrl);
+                setStatus("handedToDesktop");
+                setMessage("Your class is opening in the Zoom app on your computer.");
+                window.location.assign(desktopUrl);
+                return;
+              }
+            }
             window.location.assign(buildZoomMeetingUrl(data));
             return;
           }
@@ -284,10 +305,32 @@ export function TeacherClassroomPage() {
         <div className="fixed inset-0 z-10 grid place-items-center bg-[#020617] px-6 text-center">
           <div className="max-w-sm">
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#0E72ED]/20 text-[#60A5FA]">
-              {status === "error" ? <Video size={32} /> : <Loader2 size={32} className="animate-spin" />}
+              {status === "error" || status === "handedToDesktop" ? <Video size={32} /> : <Loader2 size={32} className="animate-spin" />}
             </div>
-            <h2 className="mt-5 text-xl font-bold">{status === "error" ? tr("Could not join class") : tr("Connecting to Class")}</h2>
+            <h2 className="mt-5 text-xl font-bold">
+              {status === "error"
+                ? tr("Could not join class")
+                : status === "handedToDesktop"
+                  ? tr("Opening Zoom on your computer")
+                  : tr("Connecting to Class")}
+            </h2>
             <p className="mt-2 text-sm leading-6 text-white/70">{message}</p>
+            {status === "handedToDesktop" ? (
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <a href={desktopZoomUrl} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-bold text-white">
+                  <Video size={18} />
+                  {tr("Open Zoom again")}
+                </a>
+                {zoomFallbackUrl ? (
+                  <a href={zoomFallbackUrl} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-bold text-white">
+                    {tr("Join in the browser instead")}
+                  </a>
+                ) : null}
+                <Link href="/teacher/classes/" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-bold text-white">
+                  {tr("Back to Classes")}
+                </Link>
+              </div>
+            ) : null}
             {status === "error" ? (
               <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button type="button" onClick={reconnect} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0E72ED] px-5 text-sm font-bold text-white">

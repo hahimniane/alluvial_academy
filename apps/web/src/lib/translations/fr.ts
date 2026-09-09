@@ -1204,4 +1204,8 @@ export const FR: Record<string, string> = {
   "You are already clocked in to this shift.": "Vous avez déjà pointé l’entrée pour ce créneau.",
   "You can only withdraw from jobs you accepted.": "Vous ne pouvez vous retirer que des cours que vous avez acceptés.",
   "Opening class report…": "Ouverture du rapport de cours…",
+  "Opening Zoom on your computer": "Ouverture de Zoom sur votre ordinateur",
+  "Your class is opening in the Zoom app on your computer.": "Votre cours s\u2019ouvre dans l\u2019application Zoom sur votre ordinateur.",
+  "Open Zoom again": "Ouvrir Zoom \u00e0 nouveau",
+  "Join in the browser instead": "Rejoindre plut\u00f4t dans le navigateur",
 };
