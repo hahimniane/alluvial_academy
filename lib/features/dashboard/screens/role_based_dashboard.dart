@@ -666,6 +666,22 @@ class _TeacherDashboardOrWebRedirectState
 
   Future<void> _decide() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    // A teacher who is also an admin stays here. The admin dashboard has not
+    // been ported, so sending them to /teacher/ would strand them: the console
+    // there offers "Switch to Admin", that link goes to /admin/, /admin/
+    // forwards to /app/, and /app/ would bounce them straight back — a teacher
+    // with admin rights could never reach admin at all. Keeping them on the
+    // Flutter dashboard also keeps the role switcher, which is how they move
+    // between the two.
+    final roles = await UserRoleService.getAvailableRoles();
+    if (roles.contains('admin') || roles.contains('super_admin')) {
+      AppLogger.debug('=== Teacher also has admin - staying on Flutter ===');
+      if (!mounted) return;
+      setState(() => _useWeb = false);
+      return;
+    }
+
     final useWeb = await TeacherWebCutover.shouldUseWebConsole(uid);
     if (!mounted) return;
     if (useWeb) {
