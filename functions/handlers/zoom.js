@@ -5422,22 +5422,50 @@ const watchZoomHubBots = onSchedule({
       }
 
       // Rejoining did not bring it back. End the meeting so the bot lands on a
-      // fresh instance — never while somebody is inside a room.
+      // fresh instance — but only once Zoom itself confirms nobody can be inside.
+      // `inRoom` is the last number the bot sent before it died, so a zero here
+      // can be minutes or hours old: on 2026-09-11 a lane-2 bot died at 18:24
+      // reporting 0 and this ended its meeting seven times while classes were due
+      // at 19:00. A meeting Zoom still reports as started may hold people the dead
+      // bot never counted, so it is left alone and the alert below escalates it.
       if (declaredDead && !recentlyForced && inRoom === 0 && meetingNumber &&
         typeof zoomClient.endMeeting === 'function') {
-        try {
-          await zoomClient.endMeeting(meetingNumber);
+        // Unknown counts as started: a lookup that fails proves nothing is empty.
+        let meetingStarted = true;
+        if (typeof zoomClient.getMeeting === 'function') {
+          try {
+            const meeting = await zoomClient.getMeeting(meetingNumber);
+            meetingStarted = String(meeting?.status || '').trim() === 'started';
+          } catch (err) {
+            // A 404/3001 means the meeting no longer exists, so nobody is in it.
+            const text = String(err?.message || err || '');
+            meetingStarted = !/3001|not exist|not found|404/i.test(text);
+          }
+        }
+        if (meetingStarted) {
           await doc.ref.set({
-            bot_dead_reset_at: admin.firestore.FieldValue.serverTimestamp(),
-            last_bot_dead_reset_meeting: meetingNumber,
+            bot_dead_reset_skipped_at: admin.firestore.FieldValue.serverTimestamp(),
+            bot_dead_reset_skip_reason: 'meeting_still_started',
           }, { merge: true });
           console.warn(
-            `[ZoomHub] Ended meeting ${meetingNumber} for unresponsive hub ${doc.id}; bot will rejoin fresh.`,
+            `[ZoomHub] Left meeting ${meetingNumber} running for unresponsive hub ${doc.id}: ` +
+            'Zoom reports it started and a dead bot cannot say who is inside.',
           );
-        } catch (err) {
-          console.warn(
-            `[ZoomHub] Failed to reset unresponsive hub ${doc.id}:`, err.message || err,
-          );
+        } else {
+          try {
+            await zoomClient.endMeeting(meetingNumber);
+            await doc.ref.set({
+              bot_dead_reset_at: admin.firestore.FieldValue.serverTimestamp(),
+              last_bot_dead_reset_meeting: meetingNumber,
+            }, { merge: true });
+            console.warn(
+              `[ZoomHub] Ended meeting ${meetingNumber} for unresponsive hub ${doc.id}; bot will rejoin fresh.`,
+            );
+          } catch (err) {
+            console.warn(
+              `[ZoomHub] Failed to reset unresponsive hub ${doc.id}:`, err.message || err,
+            );
+          }
         }
       }
     }

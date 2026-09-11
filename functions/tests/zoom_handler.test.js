@@ -3663,6 +3663,74 @@ describe('Zoom handler', () => {
     expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
   });
 
+  test('bot watcher never ends a started meeting on a dead bot\'s last reported occupancy', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockResolvedValueOnce({ id: 'stale_zero_meeting', status: 'started' });
+    stores.hub_meetings.set('stale_zero_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'stale_zero_meeting',
+      window_start: makeTimestamp(new Date(now - 6 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 6 * 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 38 * 60 * 1000)),
+      bot_stale_since: makeTimestamp(new Date(now - 35 * 60 * 1000)),
+      // The last number the bot sent before it died, not a count of who is inside now.
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    const hub = stores.hub_meetings.get('stale_zero_hub');
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+    expect(hub.bot_unavailable).toBe(true);
+    expect(hub.bot_dead_reset_skip_reason).toBe('meeting_still_started');
+  });
+
+  test('bot watcher leaves a dead bot\'s meeting alone when Zoom cannot be asked', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockRejectedValueOnce(new Error('connect ETIMEDOUT api.zoom.us'));
+    stores.hub_meetings.set('unreachable_zoom_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'unreachable_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 60 * 60 * 1000)),
+      bot_stale_since: makeTimestamp(new Date(now - 20 * 60 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).not.toHaveBeenCalled();
+    expect(stores.hub_meetings.get('unreachable_zoom_hub').bot_unavailable).toBe(true);
+  });
+
+  test('bot watcher still resets a dead bot\'s meeting once Zoom says it no longer exists', async () => {
+    const now = Date.now();
+    mockZoomClient.endMeeting.mockClear();
+    mockZoomClient.getMeeting.mockRejectedValueOnce(new Error('Zoom API 404: Meeting does not exist (3001)'));
+    stores.hub_meetings.set('gone_meeting_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'gone_meeting',
+      window_start: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 55 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 60 * 60 * 1000)),
+      bot_stale_since: makeTimestamp(new Date(now - 20 * 60 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockZoomClient.endMeeting).toHaveBeenCalledWith('gone_meeting');
+  });
+
   test('bot watcher clears the unavailable flag once the bot reports again', async () => {
     const now = Date.now();
     mockZoomClient.endMeeting.mockClear();
