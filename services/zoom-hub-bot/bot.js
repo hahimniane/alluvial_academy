@@ -2,12 +2,15 @@ const path = require('path');
 const fs = require('fs/promises');
 const http = require('http');
 const { chromium } = require('playwright');
+const liveness = require('./liveness');
 
 const lane = Number(process.env.ZOOM_HUB_LANE || process.argv[2] || 0);
 const functionBaseUrl = String(process.env.ZOOM_HUB_FUNCTION_BASE_URL || '').replace(/\/+$/, '');
 const botKey = String(process.env.ZOOM_HUB_BOT_KEY || '');
 const pollMs = Number(process.env.ZOOM_HUB_BOT_POLL_MS || 30000);
 const headless = String(process.env.ZOOM_HUB_BOT_HEADLESS || 'true') !== 'false';
+const pageSilenceMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_PAGE_SILENCE_MS, liveness.DEFAULT_PAGE_SILENCE_MS);
+const ghostHostClearMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_CLEAR_MS, liveness.DEFAULT_GHOST_HOST_CLEAR_MS);
 
 if (!Number.isInteger(lane) || lane < 1) {
   throw new Error('Set ZOOM_HUB_LANE or pass lane number 1/2 as the first argument.');
@@ -23,6 +26,8 @@ let browser;
 let controllerServer;
 let controllerBaseUrl;
 const sessions = new Map();
+// Hubs whose page was just recycled, held back until the old host session clears.
+const rejoinBlockedUntil = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -149,6 +154,14 @@ async function startHub(directive) {
   page.on('console', (message) => {
     const text = message.text();
     console.log(`[lane ${lane}] [${directive.hubDocId}] ${message.type()}: ${text}`);
+    const session = sessions.get(directive.hubDocId);
+    if (session) session.lastPageActivityAt = Date.now();
+  });
+  // A dead renderer does not close the page, so without this the session looks
+  // alive forever. Treat it like any other page that stopped working.
+  page.on('crash', async () => {
+    console.error(`[lane ${lane}] [${directive.hubDocId}] page crashed; recycling it.`);
+    await recycleSession(directive.hubDocId, 'renderer crashed');
   });
   page.on('pageerror', async (error) => {
     console.error(`[lane ${lane}] [${directive.hubDocId}] page error: ${serializeError(error)}`);
@@ -172,6 +185,7 @@ async function startHub(directive) {
     page,
     controlWakeTimer,
     windowEnd: directive.windowEnd ? new Date(directive.windowEnd).getTime() : null,
+    lastPageActivityAt: Date.now(),
   });
 
   await page.goto(await controllerUrl(directive), { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -197,6 +211,45 @@ async function leaveSession(session) {
       }
     }));
   } catch (_) {}
+}
+
+/**
+ * Tear down one hub's page without leaving the meeting politely — used when the
+ * page has stopped working, so there is nothing left to ask. The hub is then
+ * held back from rejoining until its old host session has cleared.
+ */
+async function recycleSession(hubDocId, reason) {
+  const session = sessions.get(hubDocId);
+  if (!session) return;
+  sessions.delete(hubDocId);
+  if (session.controlWakeTimer) clearInterval(session.controlWakeTimer);
+  liveness.blockRejoin(rejoinBlockedUntil, hubDocId, Date.now(), ghostHostClearMs);
+  try {
+    await Promise.race([session.context.close(), sleep(15000)]);
+  } catch (_) {}
+  console.warn(
+    `[lane ${lane}] recycled hub ${hubDocId} (${reason}); rejoining in ${Math.round(ghostHostClearMs / 1000)}s.`,
+  );
+}
+
+/**
+ * Find pages that have gone quiet and confirm with a direct probe before
+ * recycling them. A page that is only quiet answers the probe and is kept.
+ */
+async function recycleHungSessions() {
+  const now = Date.now();
+  for (const [hubDocId, session] of [...sessions.entries()]) {
+    if (!liveness.isPageSilent(session.lastPageActivityAt, now, pageSilenceMs)) continue;
+    const silentForS = Math.round((now - session.lastPageActivityAt) / 1000);
+    const responds = await liveness.pageResponds(() => session.page.evaluate(() => Date.now()));
+    if (responds) {
+      console.log(`[lane ${lane}] hub ${hubDocId} quiet for ${silentForS}s but still responds; keeping it.`);
+      session.lastPageActivityAt = Date.now();
+      continue;
+    }
+    console.error(`[lane ${lane}] hub ${hubDocId} silent for ${silentForS}s and not responding; its page is hung.`);
+    await recycleSession(hubDocId, `silent ${silentForS}s, probe unanswered`);
+  }
 }
 
 async function closeExpiredSessions(activeIds) {
@@ -241,10 +294,13 @@ async function runOnce() {
   const directives = Array.isArray(body.directives) ? body.directives : [];
   const activeIds = new Set(directives.map((directive) => directive.hubDocId).filter(Boolean));
 
+  await recycleHungSessions();
+
   for (const directive of directives) {
     if (!directive.hubDocId || !directive.meetingNumber || !directive.sdkKey || !directive.signatureRole1) {
       continue;
     }
+    if (liveness.isRejoinBlocked(rejoinBlockedUntil, directive.hubDocId, Date.now())) continue;
     await startHub(directive);
   }
 
