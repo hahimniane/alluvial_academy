@@ -8090,12 +8090,48 @@
   "linkParentActionLabel": "Link parent & notify",
   "linkParentExistingDone": "{parentName} already had an account, so no invite was sent. {studentName} was linked and they were emailed that the account is ready.",
   "linkParentRoleConflict": "{email} belongs to a {role} account and cannot be made a parent. Enter the parent's own email.",
-  "@linkParentExistingDone": {"placeholders": {"parentName": {"type": "String"}, "studentName": {"type": "String"}}},
-  "@linkParentRoleConflict": {"placeholders": {"email": {"type": "String"}, "role": {"type": "String"}}},
+  "@linkParentExistingDone": {
+    "placeholders": {
+      "parentName": {
+        "type": "String"
+      },
+      "studentName": {
+        "type": "String"
+      }
+    }
+  },
+  "@linkParentRoleConflict": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "familyClassMembers": "Family class · {names}",
   "familyAccountsReady": "{created} created, {reused} already existed for {names}. Now confirm the schedule.",
-  "@familyClassMembers": {"placeholders": {"names": {"type": "String"}}},
-  "@familyAccountsReady": {"placeholders": {"created": {"type": "int"}, "reused": {"type": "int"}, "names": {"type": "String"}}},
+  "@familyClassMembers": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "@familyAccountsReady": {
+    "placeholders": {
+      "created": {
+        "type": "int"
+      },
+      "reused": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
   "publicSiteCmsTabTestimonials": "Testimonials",
   "publicSiteCmsTestimonialsIntro": "Quotes from parents, students and teachers shown on the home page. Only published quotes with a name appear; until you publish any, the three built-in quotes show.",
   "publicSiteCmsTestimonialsEmpty": "No testimonials yet. The home page is showing the three built-in quotes.",
@@ -8120,9 +8156,34 @@
   "publicSiteCmsTestimonialDraftBadge": "Draft",
   "publicSiteCmsTestimonialDeleteTitle": "Delete this testimonial?",
   "publicSiteCmsTestimonialNeedsQuoteAndName": "Write the quote and the person's name before saving.",
-  "@publicSiteCmsTestimonialImportDone": {"placeholders": {"imported": {"type": "int"}, "skipped": {"type": "int"}}},
+  "@publicSiteCmsTestimonialImportDone": {
+    "placeholders": {
+      "imported": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
   "publicSiteCmsTestimonialReplacePhoto": "Replace photo",
   "publicSiteCmsTestimonialRemovePhoto": "Remove photo",
   "publicSiteCmsTestimonialPhotoHint": "Shown as a round avatar next to the name. Initials show without one.",
-  "publicSiteCmsTestimonialDeleted": "Testimonial deleted."
+  "publicSiteCmsTestimonialDeleted": "Testimonial deleted.",
+  "classroomReconnectingTitle": "Reconnecting your class",
+  "@classroomReconnectingTitle": {
+    "description": "Title of the waiting screen shown while a class hub is coming back"
+  },
+  "classroomReconnectingSoon": "Your class is coming back. It will open by itself.",
+  "@classroomReconnectingSoon": {
+    "description": "Shown beside a countdown to the moment the class should reopen"
+  },
+  "classroomReconnectingWaiting": "Your class is reconnecting. It will open by itself as soon as it is ready.",
+  "@classroomReconnectingWaiting": {
+    "description": "Shown while the class is reconnecting and no return time is known yet"
+  },
+  "classroomReconnectingOverdue": "This is taking longer than expected. We are still trying, and an administrator has been told.",
+  "@classroomReconnectingOverdue": {
+    "description": "Shown when the expected return time has passed and the class is still not back"
+  }
 }

@@ -412,14 +412,51 @@ const zoomHubBotState = onRequest({
       res.status(400).json({ success: false, error: 'Missing hubDocId or status' });
       return;
     }
-    const allowedStatuses = new Set(['joined', 'roomsOpen', 'error', 'left', 'resetMeeting']);
+    const allowedStatuses = new Set([
+      'joined', 'roomsOpen', 'error', 'left', 'resetMeeting',
+      // Not a hub state — a note that this hub's page was torn down and when
+      // the bot may rejoin. See the 'recycling' branch below.
+      'recycling',
+    ]);
     if (!allowedStatuses.has(status)) {
       res.status(400).json({ success: false, error: 'Invalid bot status' });
       return;
     }
     const ref = admin.firestore().collection('hub_meetings').doc(hubDocId);
     const hubDoc = await ref.get();
-    const hubData = hubDoc.exists ? hubDoc.data() || {} : {};
+    // A merge write creates the document when it is missing, so a hub deleted
+    // while its bot was still in session came straight back as a half-formed
+    // doc — no lane, no window, no meeting number, yet status 'roomsOpen'.
+    // The bot drops the session on its next poll anyway (the hub is no longer
+    // in its directives), so there is nothing to save here.
+    if (!hubDoc.exists) {
+      res.status(404).json({ success: false, error: 'Hub not found' });
+      return;
+    }
+    const hubData = hubDoc.data() || {};
+
+    // A recycled page is the one outage whose end is actually known: the bot
+    // holds the rejoin for a fixed spell so the old host session can clear, so
+    // it can say when it will be back rather than leaving a class guessing.
+    // This deliberately leaves `status` and the heartbeat alone — the hub is
+    // not in a new state, it is between pages, and the watchdog's staleness
+    // checks must keep seeing the real last heartbeat.
+    if (status === 'recycling') {
+      const rejoinExpectedAt = _toDate(
+        req.body?.rejoinExpectedAt || req.body?.rejoin_expected_at,
+      );
+      await ref.set({
+        bot_recycled_at: admin.firestore.FieldValue.serverTimestamp(),
+        bot_recycle_reason: _safeText(req.body?.reason, 200) || null,
+        bot_rejoin_expected_at: rejoinExpectedAt
+          ? admin.firestore.Timestamp.fromDate(rejoinExpectedAt)
+          : null,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      res.status(200).json({ success: true, recycling: true });
+      return;
+    }
+
     const boIdByRoomName = req.body?.boIdByRoomName || {};
     const hasRoomIds = boIdByRoomName &&
       typeof boIdByRoomName === 'object' &&
@@ -472,6 +509,12 @@ const zoomHubBotState = onRequest({
       heartbeat_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     };
+    if (status === 'joined' || status === 'roomsOpen') {
+      // The bot is back, so any promise about when it would return is spent.
+      // Leaving it would have a class counting down to a moment already past.
+      nextData.bot_rejoin_expected_at = null;
+      nextData.bot_recycle_reason = null;
+    }
     if (hasRoomIds) {
       nextData.boIdByRoomName = boIdByRoomName;
       nextData.bo_id_by_room_name = boIdByRoomName;

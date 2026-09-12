@@ -3,9 +3,10 @@ const crypto = require('crypto');
 jest.mock('firebase-functions/v2/https', () => {
   const unwrap = (...args) => (typeof args[0] === 'function' ? args[0] : args[1]);
   class HttpsError extends Error {
-    constructor(code, message) {
+    constructor(code, message, details) {
       super(message);
       this.code = code;
+      this.details = details;
     }
   }
   return {
@@ -1212,6 +1213,106 @@ describe('Zoom handler', () => {
     );
     expect(stores.system_alerts.get(`${oldMeta.hubDocId}_billing_shift_stale_handoff`))
       .toEqual(expect.objectContaining({ reason: 'stale_hub_handoff', severity: 'warning' }));
+  });
+
+  // When a class cannot be moved anywhere, the refusal is all the person gets,
+  // so it carries whatever is actually known about when they can come back.
+  const setUpUnrescuableStaleHub = async (extraHubFields = {}) => {
+    // One host account means one lane, so there is nowhere to hand the class off to.
+    process.env.ZOOM_CLASSROOM_HOST_ACCOUNTS = 'host-one@example.com';
+    const now = Date.now();
+    const start = new Date(now - 5 * 60 * 1000);
+    const end = new Date(now + 55 * 60 * 1000);
+    stores.users.set('teacher_stuck', { user_type: 'teacher' });
+    stores.users.set('student_stuck', { user_type: 'student' });
+    const shiftData = {
+      teacher_id: 'teacher_stuck',
+      teacher_name: 'Stuck Teacher',
+      student_ids: ['student_stuck'],
+      student_names: ['Stuck Student'],
+      shift_start: makeTimestamp(start),
+      shift_end: makeTimestamp(end),
+      video_provider: 'zoom',
+      category: 'teaching',
+      custom_name: 'Stuck Class',
+      zoom_hub_lane_index: 0,
+    };
+    stores.teaching_shifts.set('stuck_shift', shiftData);
+    const meta = await zoomHandlers.__test__._hubMetaForShift({
+      shiftId: 'stuck_shift',
+      shiftData,
+    });
+    stores.hub_meetings.set(meta.hubDocId, {
+      dayKey: meta.dayKey,
+      blockIndex: meta.blockIndex,
+      laneIndex: meta.laneIndex,
+      lane: meta.lane,
+      hostAccount: meta.hostAccount,
+      status: 'roomsOpen',
+      meetingNumber: 'stuck_meeting',
+      zoom_meeting_id: 'stuck_meeting',
+      zoom_password: 'stuck_pass',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(end.getTime() + 15 * 60 * 1000)),
+      // Well past the 4-minute join staleness threshold.
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 60 * 1000)),
+      rooms: [{ shiftId: 'stuck_shift', name: 'Room 1' }],
+      ...extraHubFields,
+    });
+    return { now };
+  };
+
+  test('a refusal carries when the classroom will be back, once the bot knows', async () => {
+    const backAt = new Date(Date.now() + 172 * 1000);
+    await setUpUnrescuableStaleHub({
+      bot_rejoin_expected_at: makeTimestamp(backAt),
+      bot_recycle_reason: 'silent 209s, probe unanswered',
+    });
+
+    const error = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'student_stuck' },
+      data: { shiftId: 'stuck_shift' },
+    }).then(() => null, (err) => err);
+
+    expect(error).toBeTruthy();
+    expect(error.code).toBe('unavailable');
+    expect(error.details).toEqual(expect.objectContaining({
+      reason: 'classroom_reconnecting',
+      expectedBackAtIso: backAt.toISOString(),
+    }));
+    expect(error.details.retryAfterSeconds).toBeGreaterThan(160);
+    expect(error.details.retryAfterSeconds).toBeLessThanOrEqual(172);
+  });
+
+  test('a refusal invents no time when the bot has not worked out it is stuck', async () => {
+    await setUpUnrescuableStaleHub();
+
+    const error = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'student_stuck' },
+      data: { shiftId: 'stuck_shift' },
+    }).then(() => null, (err) => err);
+
+    expect(error.code).toBe('unavailable');
+    expect(error.details).toEqual(expect.objectContaining({
+      reason: 'classroom_reconnecting',
+      expectedBackAtIso: null,
+      retryAfterSeconds: null,
+    }));
+  });
+
+  test('an estimate that has already passed is not offered as a countdown', async () => {
+    await setUpUnrescuableStaleHub({
+      bot_rejoin_expected_at: makeTimestamp(new Date(Date.now() - 30 * 1000)),
+    });
+
+    const error = await zoomHandlers.getZoomJoinInfo({
+      auth: { uid: 'student_stuck' },
+      data: { shiftId: 'stuck_shift' },
+    }).then(() => null, (err) => err);
+
+    expect(error.code).toBe('unavailable');
+    expect(error.details.expectedBackAtIso).toBeNull();
+    expect(error.details.retryAfterSeconds).toBeNull();
   });
 
   test('adopts a live same-lane hub when a split hub never got a bot (2026-08-21 lane 2)', async () => {

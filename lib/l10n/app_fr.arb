@@ -7304,5 +7304,9 @@
   "publicSiteCmsTestimonialReplacePhoto": "Remplacer la photo",
   "publicSiteCmsTestimonialRemovePhoto": "Retirer la photo",
   "publicSiteCmsTestimonialPhotoHint": "Affichée en avatar rond à côté du nom. Sans photo, les initiales s'affichent.",
-  "publicSiteCmsTestimonialDeleted": "Témoignage supprimé."
+  "publicSiteCmsTestimonialDeleted": "Témoignage supprimé.",
+  "classroomReconnectingTitle": "Reconnexion de votre cours",
+  "classroomReconnectingSoon": "Votre cours revient. Il s'ouvrira tout seul.",
+  "classroomReconnectingWaiting": "Votre cours se reconnecte. Il s'ouvrira tout seul dès qu'il sera prêt.",
+  "classroomReconnectingOverdue": "Cela prend plus de temps que prévu. Nous continuons d'essayer et un administrateur a été prévenu."
 }

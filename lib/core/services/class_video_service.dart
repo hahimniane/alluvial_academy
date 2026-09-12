@@ -13,6 +13,7 @@ import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/environment_utils.dart';
+import 'package:alluwalacademyadmin/core/widgets/classroom_reconnecting_dialog.dart';
 import 'package:alluwalacademyadmin/core/widgets/realtimekit_meeting_screen.dart';
 import 'package:alluwalacademyadmin/core/widgets/zoom_meeting_screen.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
@@ -61,6 +62,12 @@ class ClassVideoJoinResult {
   }
 }
 
+/// "The classroom is coming back", and when — if that is known yet.
+class _ReconnectHint {
+  final DateTime? expectedBackAt;
+  const _ReconnectHint(this.expectedBackAt);
+}
+
 class ZoomClassJoinInfo {
   final bool success;
   final String? meetingNumber;
@@ -82,6 +89,17 @@ class ZoomClassJoinInfo {
   final DateTime? classEndsAt;
   final String? error;
 
+  /// When the classroom should be usable again, for the one refusal that knows:
+  /// a hub whose frozen page the bot has torn down and will rejoin on a fixed
+  /// hold. Null for every other failure — including a hub that is away for a
+  /// reason nobody has worked out yet — because a guessed time is a promise
+  /// nobody made.
+  final DateTime? reconnectExpectedAt;
+
+  /// True when waiting is the right thing to do and the join will succeed by
+  /// itself. Distinguishes "come back in a moment" from "this will never work".
+  final bool isReconnecting;
+
   ZoomClassJoinInfo({
     required this.success,
     this.meetingNumber,
@@ -102,6 +120,8 @@ class ZoomClassJoinInfo {
     this.autoJoinBreakoutRoom = false,
     this.classEndsAt,
     this.error,
+    this.reconnectExpectedAt,
+    this.isReconnecting = false,
   });
 
   factory ZoomClassJoinInfo.fromMap(Map<String, dynamic> data) {
@@ -131,6 +151,18 @@ class ZoomClassJoinInfo {
 
   factory ZoomClassJoinInfo.error(String message) {
     return ZoomClassJoinInfo(success: false, error: message);
+  }
+
+  /// The classroom is coming back. [expectedBackAt] is null when the bot has
+  /// not yet worked out it is stuck, in which case the caller waits and retries
+  /// without showing a countdown.
+  factory ZoomClassJoinInfo.reconnecting(String message, DateTime? expectedBackAt) {
+    return ZoomClassJoinInfo(
+      success: false,
+      error: message,
+      isReconnecting: true,
+      reconnectExpectedAt: expectedBackAt,
+    );
   }
 }
 
@@ -297,6 +329,22 @@ class ClassVideoService {
     }
   }
 
+  /// Reads the "the classroom is coming back" payload off a refusal. Null when
+  /// the refusal is something else entirely, which waiting will not fix.
+  static _ReconnectHint? _readReconnectDetails(FirebaseFunctionsException e) {
+    if (!e.code.endsWith('unavailable')) return null;
+    final details = e.details;
+    if (details is! Map) return null;
+    if (details['reason'] != 'classroom_reconnecting') return null;
+    final iso = details['expectedBackAtIso'];
+    if (iso is! String || iso.isEmpty) return const _ReconnectHint(null);
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null || !parsed.isAfter(DateTime.now())) {
+      return const _ReconnectHint(null);
+    }
+    return _ReconnectHint(parsed);
+  }
+
   static Future<ZoomClassJoinInfo> getZoomJoinInfo(
     String shiftId, {
     String? clientPlatform,
@@ -321,6 +369,13 @@ class ClassVideoService {
       AppLogger.error(
         'ClassVideoService: Zoom join info error: ${e.code} - ${e.message}',
       );
+      final reconnect = _readReconnectDetails(e);
+      if (reconnect != null) {
+        return ZoomClassJoinInfo.reconnecting(
+          e.message ?? fallbackError,
+          reconnect.expectedBackAt,
+        );
+      }
       return ZoomClassJoinInfo.error(e.message ?? fallbackError);
     } catch (e) {
       AppLogger.error('ClassVideoService: Zoom join info error: $e');
@@ -569,13 +624,31 @@ class ClassVideoService {
 
     try {
       if (shift.usesZoom) {
-        final joinInfo = await getZoomJoinInfo(
+        var joinInfo = await getZoomJoinInfo(
           shift.id,
           clientPlatform: isNativeMobile ? 'native_mobile' : null,
           fallbackError: l10n.classVideoConnectFailed,
           unauthenticatedError: l10n.pleaseSignInAgainToJoin,
         );
         if (context.mounted) Navigator.of(context).pop();
+
+        // A hub that is coming back is a wait, not a dead end. Hold the class
+        // in a waiting room that counts down and retries by itself, instead of
+        // a four-second red bar telling them to try again with no idea when.
+        if (joinInfo.isReconnecting && context.mounted) {
+          final resolved = await showClassroomReconnectingDialog(
+            context: context,
+            expectedBackAt: joinInfo.reconnectExpectedAt,
+            retry: () => getZoomJoinInfo(
+              shift.id,
+              clientPlatform: isNativeMobile ? 'native_mobile' : null,
+              fallbackError: l10n.classVideoConnectFailed,
+              unauthenticatedError: l10n.pleaseSignInAgainToJoin,
+            ),
+          );
+          if (resolved == null) return;
+          joinInfo = resolved;
+        }
 
         final hasRequiredZoomInfo = joinInfo.meetingNumber != null &&
             joinInfo.signature != null &&
