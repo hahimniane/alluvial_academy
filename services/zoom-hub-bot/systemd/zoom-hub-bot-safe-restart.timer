@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly safe restart of the Zoom hub bots
+
+[Timer]
+# Inside the quiet window: the last classes end by 01:15 UTC and the first hub
+# of the day forms around 07:45. Deliberately later than apt-daily-upgrade so a
+# night's library upgrades are picked up the same night.
+OnCalendar=*-*-* 02:30:00 UTC
+# A fixed time, not a randomised one: the window is chosen, not convenient.
+RandomizedDelaySec=0
+Persistent=false
+
+[Install]
+WantedBy=timers.target
