@@ -13,6 +13,12 @@ const headless = String(process.env.ZOOM_HUB_BOT_HEADLESS || 'true') !== 'false'
 // a live hub: 10s to "Joined as host", 2s more to "Rooms open". Rounded up, and
 // only ever used to tell somebody when to expect their classroom back.
 const ROOMS_READY_ALLOWANCE_MS = 25 * 1000;
+// What the controller prints each time it actually routes: the page doing its
+// job, as opposed to merely producing output.
+const ROUTING_HEARTBEAT_MARKER = 'Routing snapshot';
+// A short tail of page output, kept per session so a recycle can say what the
+// page was doing when it stopped instead of leaving the next person guessing.
+const RECENT_OUTPUT_LINES = 12;
 const pageSilenceMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_PAGE_SILENCE_MS, liveness.DEFAULT_PAGE_SILENCE_MS);
 const ghostHostClearMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_CLEAR_MS, liveness.DEFAULT_GHOST_HOST_CLEAR_MS);
 
@@ -159,7 +165,16 @@ async function startHub(directive) {
     const text = message.text();
     console.log(`[lane ${lane}] [${directive.hubDocId}] ${message.type()}: ${text}`);
     const session = sessions.get(directive.hubDocId);
-    if (session) session.lastPageActivityAt = Date.now();
+    if (!session) return;
+    session.lastPageActivityAt = Date.now();
+    // The routing snapshot is the page doing its actual job. Console output on
+    // its own is not: on 2026-09-11 lane 1 went on logging SDK errors for half
+    // an hour after its routing loop had died, which reads as a healthy page to
+    // anything watching mere output.
+    if (text.includes(ROUTING_HEARTBEAT_MARKER)) session.lastRoutingAt = Date.now();
+    // Kept so a freeze leaves evidence behind instead of guesswork.
+    session.recentOutput.push(`${new Date().toISOString()} ${message.type()}: ${text.slice(0, 240)}`);
+    if (session.recentOutput.length > RECENT_OUTPUT_LINES) session.recentOutput.shift();
   });
   // A dead renderer does not close the page, so without this the session looks
   // alive forever. Treat it like any other page that stopped working.
@@ -190,6 +205,12 @@ async function startHub(directive) {
     controlWakeTimer,
     windowEnd: directive.windowEnd ? new Date(directive.windowEnd).getTime() : null,
     lastPageActivityAt: Date.now(),
+    // Null until the page has routed at least once: a hub still joining and
+    // building its rooms has nothing to report yet, and must not be judged on
+    // a heartbeat it has not started sending.
+    lastRoutingAt: null,
+    startedAt: Date.now(),
+    recentOutput: [],
   });
 
   await page.goto(await controllerUrl(directive), { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -263,16 +284,30 @@ async function recycleSession(hubDocId, reason) {
 async function recycleHungSessions() {
   const now = Date.now();
   for (const [hubDocId, session] of [...sessions.entries()]) {
-    if (!liveness.isPageSilent(session.lastPageActivityAt, now, pageSilenceMs)) continue;
-    const silentForS = Math.round((now - session.lastPageActivityAt) / 1000);
+    // Once a page has routed, routing is what it is judged on. Before that it
+    // is still joining and building rooms, and has only its output to offer.
+    const routing = liveness.routingHealth(session, now, pageSilenceMs);
+    if (!routing.silent) continue;
+    const silentForS = Math.round(routing.silentForMs / 1000);
     const responds = await liveness.pageResponds(() => session.page.evaluate(() => Date.now()));
-    if (responds) {
+    if (responds && !routing.established) {
       console.log(`[lane ${lane}] hub ${hubDocId} quiet for ${silentForS}s but still responds; keeping it.`);
       session.lastPageActivityAt = Date.now();
       continue;
     }
-    console.error(`[lane ${lane}] hub ${hubDocId} silent for ${silentForS}s and not responding; its page is hung.`);
-    await recycleSession(hubDocId, `silent ${silentForS}s, probe unanswered`);
+    // An established page that answers a probe but has stopped routing is the
+    // 2026-09-11 lane 1 case: alive, logging, and serving nobody. Answering is
+    // not the same as working, so it is recycled all the same.
+    const why = responds
+      ? `no routing for ${silentForS}s though the page still answers`
+      : `silent ${silentForS}s, probe unanswered`;
+    console.error(`[lane ${lane}] hub ${hubDocId} ${why}; its page is not routing.`);
+    if (session.recentOutput && session.recentOutput.length) {
+      console.error(
+        `[lane ${lane}] hub ${hubDocId} last output before it stopped:\n  ${session.recentOutput.join('\n  ')}`,
+      );
+    }
+    await recycleSession(hubDocId, why);
   }
 }
 
