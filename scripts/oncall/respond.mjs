@@ -85,12 +85,18 @@ async function gatherEvidence(db, now) {
     .collection('system_alerts')
     .where('acknowledged', '==', false)
     .get();
+  // An alert keeps one document per hub (or shift) and reason, and created_at
+  // is pinned to the first occurrence while the condition re-stamps updated_at
+  // every couple of minutes. Ageing on created_at therefore hid exactly the
+  // incidents that had been going on longest: a hub still failing to place
+  // classes seven hours after it started dropped out of the evidence entirely.
+  // The question is when the condition was last seen, not when it began.
+  const lastSeenMs = (alert) => toMs(alert.updated_at) ?? toMs(alert.created_at) ?? 0;
   const alerts = alertSnap.docs
     .map((doc) => ({ id: doc.id, ...(doc.data() || {}) }))
     .filter((alert) => {
-      if (alert.resolved === true) return false;
-      const created = toMs(alert.created_at) ?? 0;
-      return now - created <= ALERT_LOOKBACK_MS;
+      if (alert.resolved === true || alert.status === 'resolved') return false;
+      return now - lastSeenMs(alert) <= ALERT_LOOKBACK_MS;
     })
     .map((alert) => ({
       id: alert.id,
@@ -99,6 +105,7 @@ async function gatherEvidence(db, now) {
       body: alert.body || null,
       severity: alert.severity || null,
       createdMinutesAgo: Math.round((now - (toMs(alert.created_at) ?? now)) / 60000),
+      lastSeenMinutesAgo: Math.round((now - (lastSeenMs(alert) || now)) / 60000),
       notificationError: alert.notification_error || null,
     }));
 
