@@ -3072,6 +3072,149 @@ describe('Zoom handler', () => {
     expect(mockSendEachForMulticast).not.toHaveBeenCalled();
   });
 
+  test('a lane that came back closes its "bot did not come back" alert', async () => {
+    const now = Date.now();
+    // The bot is reporting again and the hub is serving its rooms.
+    stores.hub_meetings.set('returned_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'hub_meeting',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 30 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 10 * 1000)),
+      stats: { liveRoomCount: 2, targetMemberCount: 1, inRoomOccupants: 1 },
+    });
+    stores.system_alerts.set('returned_hub_bot_unavailable_after_recovery', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'bot_unavailable_after_recovery',
+      title: 'Zoom hub bot did not come back',
+      created_at: makeTimestamp(new Date(now - 40 * 60 * 1000)),
+      data: { hubDocId: 'returned_hub', lane: 1 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(stores.system_alerts.get('returned_hub_bot_unavailable_after_recovery')).toEqual(
+      expect.objectContaining({
+        resolved: true,
+        status: 'resolved',
+        auto_resolved: true,
+      }),
+    );
+  });
+
+  test('a lane still dead keeps its "bot did not come back" alert open', async () => {
+    const now = Date.now();
+    stores.hub_meetings.set('still_dead_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      bot_unavailable: true,
+      meetingNumber: 'hub_meeting',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 30 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 40 * 60 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+    stores.system_alerts.set('still_dead_hub_bot_unavailable_after_recovery', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'bot_unavailable_after_recovery',
+      title: 'Zoom hub bot did not come back',
+      created_at: makeTimestamp(new Date(now - 40 * 60 * 1000)),
+      data: { hubDocId: 'still_dead_hub', lane: 1 },
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(stores.system_alerts.get('still_dead_hub_bot_unavailable_after_recovery'))
+      .toEqual(expect.objectContaining({ resolved: false, status: 'open' }));
+  });
+
+  test('a condition that comes back reopens the alert the resolver closed', async () => {
+    const now = Date.now();
+    // Closed a minute ago, and the bot has gone quiet again since.
+    stores.hub_meetings.set('flapping_hub', {
+      lane: 2,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      meetingNumber: 'hub_meeting',
+      window_start: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 30 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 4 * 60 * 1000)),
+    });
+    stores.system_alerts.set('flapping_hub_heartbeat_stale', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'heartbeat_stale',
+      title: 'Critical Zoom hub bot heartbeat is stale',
+      created_at: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+      resolved: true,
+      status: 'resolved',
+      auto_resolved: true,
+      auto_resolved_reason: 'hub_recovered_or_window_closed',
+      resolved_at: makeTimestamp(new Date(now - 60 * 1000)),
+      notification_sent_at: makeTimestamp(new Date(now - 3 * 60 * 60 * 1000)),
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    const alert = stores.system_alerts.get('flapping_hub_heartbeat_stale');
+    // Open again, so the responder and the dashboard can both see it.
+    expect(alert).toEqual(expect.objectContaining({
+      resolved: false,
+      status: 'open',
+      resolved_at: null,
+      auto_resolved: false,
+    }));
+    expect(alert.reopened_at).toBeTruthy();
+    // Closed for only a minute: that is flapping, and nobody is woken for it.
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+  });
+
+  test('a fault that returns long after being fixed pages a person again', async () => {
+    const now = Date.now();
+    stores.users.set('repage_admin', {
+      user_type: 'admin',
+      'e-mail': 'admin@example.com',
+      zoom_oncall: true,
+      fcmTokens: [{ token: 'admin_device_token', platform: 'ios' }],
+    });
+    stores.hub_meetings.set('returning_fault_hub', {
+      lane: 1,
+      status: 'roomsOpen',
+      bot_status: 'roomsOpen',
+      bot_unavailable: true,
+      bot_stale_since: makeTimestamp(new Date(now - 30 * 60 * 1000)),
+      meetingNumber: 'hub_meeting',
+      window_start: makeTimestamp(new Date(now - 6 * 60 * 60 * 1000)),
+      window_end: makeTimestamp(new Date(now + 60 * 60 * 1000)),
+      heartbeat_at: makeTimestamp(new Date(now - 40 * 60 * 1000)),
+      force_rejoin_at: makeTimestamp(new Date(now - 30 * 1000)),
+      stats: { inRoomOccupants: 0 },
+    });
+    // Paged this morning, fixed, and quiet for hours — this is a new incident.
+    stores.system_alerts.set('returning_fault_hub_bot_unavailable_after_recovery', {
+      type: 'zoom_hub',
+      severity: 'critical',
+      reason: 'bot_unavailable_after_recovery',
+      title: 'Zoom hub bot did not come back',
+      created_at: makeTimestamp(new Date(now - 6 * 60 * 60 * 1000)),
+      resolved: true,
+      status: 'resolved',
+      resolved_at: makeTimestamp(new Date(now - 5 * 60 * 60 * 1000)),
+      notification_sent_at: makeTimestamp(new Date(now - 6 * 60 * 60 * 1000)),
+    });
+
+    await zoomHandlers.watchZoomHubBots();
+
+    expect(mockSendEachForMulticast).toHaveBeenCalled();
+    expect(stores.system_alerts.get('returning_fault_hub_bot_unavailable_after_recovery'))
+      .toEqual(expect.objectContaining({ resolved: false, status: 'open' }));
+  });
+
   test('bot watcher auto-resets a poisoned hub whose live breakout list is empty', async () => {
     const now = Date.now();
     mockZoomClient.endMeeting.mockClear();

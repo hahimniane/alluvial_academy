@@ -87,7 +87,15 @@ const ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS = new Set([
   'duplicate_lane_hub_released',
   'stale_hub_handoff',
   'stale_hub_on_join',
+  // A lane that came back, or whose window closed, is no longer a dead lane.
+  // This one paged a person and then stayed open for good, so the responder
+  // kept waking on an incident that had been over for hours.
+  'bot_unavailable_after_recovery',
 ]);
+// A resolved alert that fires again is a new incident. Re-pageing on the very
+// next watchdog cycle would be flapping, not news, so a fresh page needs the
+// alert to have been genuinely closed for a while first.
+const ZOOM_HUB_ALERT_REOPEN_RENOTIFY_MS = 15 * 60 * 1000;
 const ZOOM_HUB_STATUS_INCIDENT_REASONS = new Set([
   ...ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS,
 ]);
@@ -2398,6 +2406,19 @@ const _sendZoomHubAdminAlert = async ({
   const existingDoc = await alertRef.get().catch(() => null);
   const existing = existingDoc?.exists ? existingDoc.data() || {} : {};
 
+  // Writing this alert means the condition is happening now, so the document
+  // is open now. Alert ids are deterministic per hub (or per shift) and
+  // reason, so a condition that comes back merges into the very document the
+  // resolver closed; leaving the resolution in place kept it marked resolved,
+  // and the on-call responder and the admin dashboard both read openness off
+  // these fields, so neither ever saw the second incident. Stating openness on
+  // every write also means no alert is left without a `resolved` field —
+  // Firestore equality filters skip documents that lack the field, so those
+  // could never be found as open, resolved, or anything else.
+  const reopening = existingDoc?.exists === true && !_zoomHubAlertIsOpen(existing);
+  const resolvedAt = reopening ? _toDate(existing.resolved_at) : null;
+  const closedForMs = resolvedAt ? Date.now() - resolvedAt.getTime() : 0;
+
   await alertRef.set({
     type: 'zoom_hub',
     severity,
@@ -2406,11 +2427,21 @@ const _sendZoomHubAdminAlert = async ({
     body,
     data,
     acknowledged: false,
+    resolved: false,
+    status: 'open',
+    resolved_at: null,
+    auto_resolved: false,
+    auto_resolved_reason: null,
     created_at: existing.created_at || admin.firestore.FieldValue.serverTimestamp(),
     updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    ...(reopening ? { reopened_at: admin.firestore.FieldValue.serverTimestamp() } : {}),
   }, { merge: true });
 
-  if (existing.notification_sent_at) return;
+  // Paging is one shot per alert, so a recurrence is silent — right for a
+  // condition that never stopped, wrong for one that was fixed hours ago and
+  // has broken again. A spell of being genuinely resolved earns a fresh page.
+  const worthPagingAgain = reopening && closedForMs >= ZOOM_HUB_ALERT_REOPEN_RENOTIFY_MS;
+  if (existing.notification_sent_at && !worthPagingAgain) return;
 
   // Routine, self-healing events are recorded and nothing else. The on-call
   // responder reads system_alerts on every run, so these still get acted on —
@@ -4181,6 +4212,9 @@ const _zoomHubAlertStillActive = ({ reason, hubData, now }) => {
     return status === 'roomsOpen' && !_hubHeartbeatFresh(hubData, now);
   }
   if (reason === 'stale_hub_on_join') return _hubHeartbeatStaleForJoin(hubData, now);
+  if (reason === 'bot_unavailable_after_recovery') {
+    return hubData.bot_unavailable === true && !_hubHeartbeatFresh(hubData, now);
+  }
   if (reason === 'breakout_unreadable_poisoned') {
     return _hubBreakoutUnreadablePoisoned(hubData, now);
   }
