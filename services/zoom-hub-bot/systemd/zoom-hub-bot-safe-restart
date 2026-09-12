@@ -1,0 +1,48 @@
+#!/bin/bash
+# Restart the hub bots, but only when no class could be inside one.
+#
+# The bots are excluded from needrestart's automatic restarts
+# (/etc/needrestart/conf.d/zoom-hub-bot.conf) because an unattended upgrade
+# restarting them closes every breakout room in progress and drops the classes
+# inside. That exclusion means they would otherwise keep running against old
+# libraries indefinitely, so this picks the upgrades up in the quiet window.
+#
+# A hub being hosted means a Chromium renderer is alive under a bot. If one is,
+# this does nothing and waits for tomorrow — a missed restart costs nothing, an
+# interrupted class costs a lesson.
+set -u
+
+LANES=(1 2)
+# Long enough for the old host session to clear before the lane rejoins
+# (runbook docs/zoom-hub-bot-plan.md §20).
+GHOST_HOST_CLEAR_SECONDS=150
+
+log() { echo "zoom-hub-bot-safe-restart: $*"; }
+
+if pgrep -f -- '--type=renderer' >/dev/null 2>&1; then
+  log "a hub page is open, so a class may be in progress; leaving the bots alone."
+  exit 0
+fi
+
+for lane in "${LANES[@]}"; do
+  if ! systemctl is-active --quiet "zoom-hub-bot@${lane}"; then
+    log "lane ${lane} is not running; nothing to restart."
+    continue
+  fi
+  log "stopping lane ${lane}"
+  systemctl stop "zoom-hub-bot@${lane}"
+done
+
+log "waiting ${GHOST_HOST_CLEAR_SECONDS}s for any host session to clear"
+sleep "${GHOST_HOST_CLEAR_SECONDS}"
+
+for lane in "${LANES[@]}"; do
+  log "starting lane ${lane}"
+  systemctl start "zoom-hub-bot@${lane}"
+  sleep 8
+done
+
+for lane in "${LANES[@]}"; do
+  state=$(systemctl is-active "zoom-hub-bot@${lane}")
+  log "lane ${lane} is ${state}"
+done

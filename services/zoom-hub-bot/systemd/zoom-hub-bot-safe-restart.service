@@ -1,0 +1,9 @@
+[Unit]
+Description=Restart the Zoom hub bots when no class is inside one
+Documentation=file:///opt/alluwal/zoom-hub-bot/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zoom-hub-bot-safe-restart
+# The script sleeps out the ghost-host clear before starting the lanes again.
+TimeoutStartSec=600
