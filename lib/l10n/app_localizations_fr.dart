@@ -18624,4 +18624,19 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get publicSiteCmsTestimonialDeleted => 'Témoignage supprimé.';
+
+  @override
+  String get classroomReconnectingTitle => 'Reconnexion de votre cours';
+
+  @override
+  String get classroomReconnectingSoon =>
+      'Votre cours revient. Il s\'ouvrira tout seul.';
+
+  @override
+  String get classroomReconnectingWaiting =>
+      'Votre cours se reconnecte. Il s\'ouvrira tout seul dès qu\'il sera prêt.';
+
+  @override
+  String get classroomReconnectingOverdue =>
+      'Cela prend plus de temps que prévu. Nous continuons d\'essayer et un administrateur a été prévenu.';
 }

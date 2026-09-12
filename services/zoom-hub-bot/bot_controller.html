@@ -179,7 +179,9 @@
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok || body.success === false) {
-          throw new Error(body.error || `HTTP ${response.status}`);
+          const error = new Error(body.error || `HTTP ${response.status}`);
+          error.status = response.status;
+          throw error;
         }
         return body;
       }
@@ -203,10 +205,23 @@
         if (Object.prototype.hasOwnProperty.call(extra || {}, 'liveParticipantsByShift')) {
           body.liveParticipantsByShift = extra.liveParticipantsByShift || {};
         }
-        await botFetch('/zoomHubBotState', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        });
+        try {
+          await botFetch('/zoomHubBotState', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          });
+        } catch (error) {
+          // A hub that no longer exists is a normal ending, not a fault: node
+          // drops this session on its next poll because the hub is gone from
+          // its directives. Throwing here would break the routing tick and
+          // leave the page looking frozen for the couple of seconds it has
+          // left to live.
+          if (error && error.status === 404) {
+            console.log('Hub no longer exists; this session is ending.');
+            return;
+          }
+          throw error;
+        }
       }
 
       async function getAssignments() {

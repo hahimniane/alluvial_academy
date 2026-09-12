@@ -18274,4 +18274,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get publicSiteCmsTestimonialDeleted => 'Testimonial deleted.';
+
+  @override
+  String get classroomReconnectingTitle => 'Reconnecting your class';
+
+  @override
+  String get classroomReconnectingSoon =>
+      'Your class is coming back. It will open by itself.';
+
+  @override
+  String get classroomReconnectingWaiting =>
+      'Your class is reconnecting. It will open by itself as soon as it is ready.';
+
+  @override
+  String get classroomReconnectingOverdue =>
+      'This is taking longer than expected. We are still trying, and an administrator has been told.';
 }

@@ -9,6 +9,10 @@ const functionBaseUrl = String(process.env.ZOOM_HUB_FUNCTION_BASE_URL || '').rep
 const botKey = String(process.env.ZOOM_HUB_BOT_KEY || '');
 const pollMs = Number(process.env.ZOOM_HUB_BOT_POLL_MS || 30000);
 const headless = String(process.env.ZOOM_HUB_BOT_HEADLESS || 'true') !== 'false';
+// Rejoining and reopening the breakout rooms after a recycle, measured against
+// a live hub: 10s to "Joined as host", 2s more to "Rooms open". Rounded up, and
+// only ever used to tell somebody when to expect their classroom back.
+const ROOMS_READY_ALLOWANCE_MS = 25 * 1000;
 const pageSilenceMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_PAGE_SILENCE_MS, liveness.DEFAULT_PAGE_SILENCE_MS);
 const ghostHostClearMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_CLEAR_MS, liveness.DEFAULT_GHOST_HOST_CLEAR_MS);
 
@@ -230,6 +234,26 @@ async function recycleSession(hubDocId, reason) {
   console.warn(
     `[lane ${lane}] recycled hub ${hubDocId} (${reason}); rejoining in ${Math.round(ghostHostClearMs / 1000)}s.`,
   );
+  // Say when the classroom will be usable again. This is the one outage with a
+  // knowable end — the hold is fixed, and rejoining plus reopening the rooms
+  // measured ~15s — so a class waiting on it can be told a real time instead of
+  // being left to guess. Reported from here because the page that normally
+  // reports state is the one that just died.
+  const rejoinAllowedAt = rejoinBlockedUntil.get(hubDocId) || (Date.now() + ghostHostClearMs);
+  try {
+    await fetchJson('/zoomHubBotState', {
+      method: 'POST',
+      body: JSON.stringify({
+        hubDocId,
+        status: 'recycling',
+        reason,
+        rejoinExpectedAt: new Date(rejoinAllowedAt + ROOMS_READY_ALLOWANCE_MS).toISOString(),
+      }),
+    });
+  } catch (error) {
+    // Losing the estimate costs a countdown, not a recovery.
+    console.warn(`[lane ${lane}] could not report recycle for ${hubDocId}: ${serializeError(error)}`);
+  }
 }
 
 /**

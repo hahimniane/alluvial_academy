@@ -1970,6 +1970,30 @@ const _hubHeartbeatFresh = (hubData = {}, now = new Date()) => {
 };
 
 /**
+ * What a class can be told while its hub is away.
+ *
+ * Only one kind of outage has a knowable end: once the bot has torn down a
+ * frozen page it holds the rejoin for a fixed spell, and it publishes the
+ * moment the classroom should be usable again. Any other reason for a missing
+ * bot — one that has not been noticed yet, a lane being restarted by hand —
+ * has no honest estimate, and inventing one buys a countdown that expires with
+ * nothing behind it. Those return a null time, which the clients render as
+ * "reconnecting" with no number.
+ */
+const _zoomHubReconnectDetails = (hubData = {}, hubDocId = '', now = new Date()) => {
+  const expected = _toDate(hubData.bot_rejoin_expected_at || hubData.botRejoinExpectedAt);
+  const stillAhead = Boolean(expected && expected.getTime() > now.getTime());
+  return {
+    reason: 'classroom_reconnecting',
+    hubDocId: String(hubDocId || ''),
+    expectedBackAtIso: stillAhead ? expected.toISOString() : null,
+    retryAfterSeconds: stillAhead
+      ? Math.ceil((expected.getTime() - now.getTime()) / 1000)
+      : null,
+  };
+};
+
+/**
  * True once the watcher has given up on a hub's bot. Deliberately keyed on the
  * flag the watcher sets after ZOOM_HUB_BOT_DEAD_MS rather than on raw
  * staleness, so a bot restart (or one missed beat) never stampedes every class
@@ -4615,6 +4639,12 @@ const getZoomJoinInfo = onCall({
         throw new HttpsError(
           'unavailable',
           'Your class is reconnecting. Please tap Join again in a moment.',
+          // When the bot has recycled the hub's page it knows exactly when it
+          // may rejoin, so the class can be told a real time instead of being
+          // asked to keep tapping. Before that moment there is no honest
+          // number to give, and a made-up one is worse than none: the field is
+          // null and the client waits without a countdown.
+          _zoomHubReconnectDetails(hubInfo, routing.hubMeetingId),
         );
       }
     }

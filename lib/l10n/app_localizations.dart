@@ -33175,6 +33175,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Testimonial deleted.'**
   String get publicSiteCmsTestimonialDeleted;
+
+  /// Title of the waiting screen shown while a class hub is coming back
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting your class'**
+  String get classroomReconnectingTitle;
+
+  /// Shown beside a countdown to the moment the class should reopen
+  ///
+  /// In en, this message translates to:
+  /// **'Your class is coming back. It will open by itself.'**
+  String get classroomReconnectingSoon;
+
+  /// Shown while the class is reconnecting and no return time is known yet
+  ///
+  /// In en, this message translates to:
+  /// **'Your class is reconnecting. It will open by itself as soon as it is ready.'**
+  String get classroomReconnectingWaiting;
+
+  /// Shown when the expected return time has passed and the class is still not back
+  ///
+  /// In en, this message translates to:
+  /// **'This is taking longer than expected. We are still trying, and an administrator has been told.'**
+  String get classroomReconnectingOverdue;
 }
 
 class _AppLocalizationsDelegate

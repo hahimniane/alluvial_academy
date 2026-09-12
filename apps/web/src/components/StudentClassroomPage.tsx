@@ -10,6 +10,8 @@ import { ArrowLeft, Loader2, Lock, LockOpen, RefreshCw, UserMinus, Users, Video,
 import { auth, db, functions, firebaseProjectId } from "@/lib/firebase";
 import { resolveStudentSession } from "@/lib/studentSession";
 import { useT } from "@/lib/i18n";
+import { readClassroomReconnect, type ClassroomReconnect } from "@/lib/classroomReconnect";
+import ClassroomReconnecting from "@/components/ClassroomReconnecting";
 import { StudentAccessPrompt } from "@/components/StudentDashboardHome";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
@@ -69,6 +71,7 @@ export function StudentClassroomPage() {
   const [controlBusy, setControlBusy] = useState("");
   const [controlError, setControlError] = useState("");
   const [connectAttempt, setConnectAttempt] = useState(0);
+  const [reconnectInfo, setReconnectInfo] = useState<ClassroomReconnect | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -141,8 +144,13 @@ export function StudentClassroomPage() {
         setMeetingUrl(`/realtimekit_meeting.html#token=${encodeURIComponent(data.authToken)}`);
       } catch (error) {
         if (!cancelled) {
+          // A hub that is coming back is a wait, not a dead end: it gets the
+          // waiting room with its own countdown and retries, rather than an
+          // error asking the student to keep tapping Reconnect.
+          const reconnecting = readClassroomReconnect(error);
+          setReconnectInfo(reconnecting);
           setStatus("error");
-          setMessage(classroomErrorMessage(error, t));
+          setMessage(reconnecting ? "" : classroomErrorMessage(error, t));
         }
       }
     }
@@ -241,6 +249,10 @@ export function StudentClassroomPage() {
     setConnectAttempt((attempt) => attempt + 1);
   };
 
+  // Retrying while the waiting room is up must not tear the waiting room down
+  // between attempts, or it flickers once a second.
+  const retryQuietly = () => setConnectAttempt((attempt) => attempt + 1);
+
   if (access !== "allowed") return <StudentAccessPrompt access={access} />;
 
   return (
@@ -283,6 +295,15 @@ export function StudentClassroomPage() {
 
       {status !== "ready" ? (
         <div className="fixed inset-0 z-10 grid place-items-center bg-[#020617] px-6 text-center">
+          {status === "error" && reconnectInfo ? (
+            <ClassroomReconnecting
+              expectedBackAt={reconnectInfo.expectedBackAt}
+              onRetry={retryQuietly}
+              t={t}
+              backHref="/student/classes/"
+              backLabel={t("Back to Classes")}
+            />
+          ) : (
           <div className="max-w-sm">
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#0E72ED]/20 text-[#60A5FA]">
               {status === "error" ? <Video size={32} /> : <Loader2 size={32} className="animate-spin" />}
@@ -301,6 +322,7 @@ export function StudentClassroomPage() {
               </div>
             ) : null}
           </div>
+          )}
         </div>
       ) : null}
 
