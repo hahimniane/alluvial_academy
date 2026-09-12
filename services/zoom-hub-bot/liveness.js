@@ -37,6 +37,33 @@ function isPageSilent(lastActivityAt, now, silenceMs = DEFAULT_PAGE_SILENCE_MS) 
 }
 
 /**
+ * How a session looks against the only output that proves it is working.
+ *
+ * A hub page prints a routing snapshot every ~17s while it is doing its job.
+ * Judging it on console output alone is too generous: on 2026-09-11 lane 1 kept
+ * logging SDK errors for half an hour after its routing loop had died, so
+ * anything watching mere output saw a healthy page hosting nobody.
+ *
+ * Before the first snapshot the page is still joining and creating its rooms
+ * and has no routing to show, so until then its plain output is all there is.
+ *
+ * Returns whether the page has ever routed (`established`), whether it has now
+ * been quiet too long, and for how long.
+ */
+function routingHealth(session = {}, now = Date.now(), silenceMs = DEFAULT_PAGE_SILENCE_MS) {
+  const established = Number.isFinite(session.lastRoutingAt);
+  const since = established ? session.lastRoutingAt : session.lastPageActivityAt;
+  if (!Number.isFinite(since)) {
+    return { established, silent: false, silentForMs: 0 };
+  }
+  return {
+    established,
+    silent: now - since > silenceMs,
+    silentForMs: Math.max(0, now - since),
+  };
+}
+
+/**
  * Whether the page's main thread still answers. A frozen renderer never settles
  * the evaluation, so it is raced against a timer; a throw counts as no answer.
  */
@@ -76,6 +103,7 @@ module.exports = {
   DEFAULT_PROBE_TIMEOUT_MS,
   positiveNumber,
   isPageSilent,
+  routingHealth,
   pageResponds,
   blockRejoin,
   isRejoinBlocked,
