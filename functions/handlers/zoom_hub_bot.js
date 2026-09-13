@@ -141,6 +141,18 @@ const _hubHeartbeatFresh = (hubData, now) => {
   return Boolean(hb) && hb.getTime() + ZOOM_HUB_STALE_MS >= _msOf(now);
 };
 
+// The shifts that currently have people inside this hub's rooms, as last
+// reported by the bot. A class joins whichever hub its lane is hosting, so
+// these are not always the shifts assigned to this hub — which is the whole
+// point of consulting them.
+const _hubLiveShiftIds = (hubData = {}) => {
+  const live = hubData.live_participants_by_shift || hubData.liveParticipantsByShift;
+  if (!live || typeof live !== 'object' || Array.isArray(live)) return [];
+  return Object.entries(live)
+    .filter(([, people]) => Array.isArray(people) && people.length > 0)
+    .map(([shiftId]) => String(shiftId));
+};
+
 const _msOfOrNull = (value) => {
   const date = _toDate(value);
   return date ? date.getTime() : null;
@@ -159,22 +171,39 @@ const _hubRealClassEnd = (data) => {
 
 // Each licensed account can host only ONE meeting at a time, so a lane must
 // host exactly one hub even when block windows overlap at a boundary.
-// A hub is "protected" (finish it before switching) only while its REAL
-// scheduled classes are still running AND someone is inside a room. Past the
-// last scheduled class end, a lingering participant does NOT protect it — a
-// newer block wins — so a teacher/student who forgets to leave can never starve
-// the next block of the shared account. With no protected hub, host the newest
-// block. This stops the block-boundary "Already has other meetings" (3000) storm
-// and the forgot-to-leave account-starvation case.
-const _selectPrimaryActiveHub = (activeDocs, now) => {
+//
+// Moving the lane ends the meeting it leaves, so whoever is inside is removed.
+// Two things must hold at once, and they pull against each other:
+//
+//  - Someone who forgot to leave must not starve the next block of the shared
+//    account (2026-08-21, lane 2, the 20:00 class).
+//  - A class still within its time must never be dropped, whichever hub its
+//    people happen to be sitting in (2026-09-12: habibu barry's 13:30-14:29
+//    lesson was in the 04:00 hub's spare rooms and ended at 14:16 with 13
+//    minutes to run, taking two other classes with it).
+//
+// The hub's own assigned classes cannot tell these apart, because a class joins
+// whichever hub its lane is hosting at the time. So the question asked is "is
+// anyone in here still owed a lesson": `liveShiftIds` holds the shifts with
+// people inside that are still within their time plus the grace, and a hub
+// holding one of those is kept. Otherwise the older rule stands — occupants
+// protect a hub only until its own classes end — so a straggler still yields,
+// and a stale head count from a dead bot never pins a lane.
+const _selectPrimaryActiveHub = (activeDocs, now, liveShiftIds = null) => {
   if (activeDocs.length <= 1) return activeDocs;
   const nowMs = _msOf(now);
+  const stillTeaching = (data) => {
+    if (!liveShiftIds || liveShiftIds.size === 0) return false;
+    return _hubLiveShiftIds(data).some((shiftId) => liveShiftIds.has(shiftId));
+  };
   const protectedHubs = activeDocs.filter((doc) => {
     const data = doc.data() || {};
+    if (!_hubHeartbeatFresh(data, now)) return false;
+    // A class that is still within its own time protects whichever hub its
+    // people are actually sitting in, even one whose assigned classes ended.
+    if (stillTeaching(data)) return true;
     const realEnd = _hubRealClassEnd(data);
-    return _hubInRoomOccupants(data) > 0 &&
-      _hubHeartbeatFresh(data, now) &&
-      realEnd !== null && nowMs <= realEnd;
+    return _hubInRoomOccupants(data) > 0 && realEnd !== null && nowMs <= realEnd;
   });
   const dueHubs = activeDocs.filter((doc) => {
     const data = doc.data() || {};
@@ -195,6 +224,41 @@ const _selectPrimaryActiveHub = (activeDocs, now) => {
     return (_hubRealClassEnd(bData) || 0) - (_hubRealClassEnd(aData) || 0);
   });
   return [sorted[0]];
+};
+
+// Of the shifts with people inside these hubs, which are still within their
+// class time plus the 15-minute grace. Only occupied shifts are read, so this
+// costs nothing on a quiet lane and a handful of reads on a busy one.
+//
+// Failing to read is treated as "still owed time". Getting this wrong in that
+// direction delays a hub handover; getting it wrong the other way drops a live
+// lesson, which is the fault this exists to prevent.
+const _shiftsStillOwedTime = async (activeDocs, now) => {
+  const shiftIds = new Set();
+  for (const doc of activeDocs) {
+    for (const shiftId of _hubLiveShiftIds(doc.data() || {})) shiftIds.add(shiftId);
+  }
+  if (shiftIds.size === 0) return new Set();
+
+  const db = admin.firestore();
+  const nowMs = _msOf(now);
+  const stillOwed = new Set();
+  await Promise.all([...shiftIds].map(async (shiftId) => {
+    try {
+      const snap = await db.collection('teaching_shifts').doc(shiftId).get();
+      if (!snap.exists) {
+        stillOwed.add(shiftId);
+        return;
+      }
+      const data = snap.data() || {};
+      const end = _toDate(data.shift_end || data.shiftEnd);
+      if (!end || end.getTime() + ZOOM_HUB_WINDOW_PAD_MS >= nowMs) stillOwed.add(shiftId);
+    } catch (err) {
+      console.warn(`[ZoomHubBot] could not read shift ${shiftId}: ${err.message || err}`);
+      stillOwed.add(shiftId);
+    }
+  }));
+  return stillOwed;
 };
 
 const zoomHubBotDirectives = onRequest({
@@ -231,7 +295,8 @@ const zoomHubBotDirectives = onRequest({
       .get();
 
     const activeDocs = snapshot.docs.filter((doc) => _hubIsActive(doc.data() || {}, now));
-    const primaryDocs = _selectPrimaryActiveHub(activeDocs, now);
+    const liveShiftIds = await _shiftsStillOwedTime(activeDocs, now);
+    const primaryDocs = _selectPrimaryActiveHub(activeDocs, now, liveShiftIds);
 
     const directives = [];
     for (const doc of primaryDocs) {
@@ -579,6 +644,8 @@ module.exports = {
     _sanitizeLiveParticipantsByShift,
     _selectPrimaryActiveHub,
     _hubInRoomOccupants,
+    _hubLiveShiftIds,
+    _shiftsStillOwedTime,
     _botMemberFromDoc,
     _stableStringify,
   },
