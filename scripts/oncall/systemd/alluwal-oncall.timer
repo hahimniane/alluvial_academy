@@ -1,0 +1,14 @@
+[Unit]
+Description=Run the Zoom hub on-call responder every 10 minutes
+
+[Timer]
+# This used to live on GitHub Actions, where a */10 cron was delivered every
+# three to four hours in practice. Both class-dropping incidents on 2026-09-12
+# fell into those gaps. systemd on the bots' own host actually honours it.
+OnBootSec=3min
+OnUnitActiveSec=10min
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

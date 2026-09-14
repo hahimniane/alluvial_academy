@@ -212,21 +212,33 @@ async function runForceRejoin(db, hubDocId) {
   return `Asked the bot for ${hubDocId} to rejoin.`;
 }
 
+// True when this responder is running on the machine that hosts the bots, in
+// which case it drives systemd directly instead of reaching in over SSH.
+const RUNS_ON_THE_BOT_HOST = !VPS_HOST ||
+  ['local', 'localhost', '127.0.0.1'].includes(VPS_HOST.trim().toLowerCase());
+
 async function runLaneRestart(lane) {
+  // The documented clean cycle: a plain restart leaves a ghost host session in
+  // Zoom for 1-2 minutes and the two hosts then fight over the breakout rooms.
+  const cycle = `systemctl stop zoom-hub-bot@${lane} && sleep 150 && ` +
+    `systemctl start zoom-hub-bot@${lane} && sleep 30 && ` +
+    `systemctl is-active zoom-hub-bot@${lane}`;
+
+  if (RUNS_ON_THE_BOT_HOST) {
+    if (!SSH_KEY_PATH) {
+      const { stdout } = await execFileAsync('sh', ['-c', cycle], { timeout: 5 * 60 * 1000 });
+      return `Restarted zoom-hub-bot@${lane} (now ${stdout.trim() || 'unknown'}).`;
+    }
+  }
   if (!VPS_HOST || !SSH_KEY_PATH) {
     throw new Error('ZOOM_BOT_VPS_HOST / ZOOM_BOT_SSH_KEY_PATH are not configured.');
   }
-  // The documented clean cycle: a plain restart leaves a ghost host session in
-  // Zoom for 1-2 minutes and the two hosts then fight over the breakout rooms.
-  const remote = `systemctl stop zoom-hub-bot@${lane} && sleep 150 && ` +
-    `systemctl start zoom-hub-bot@${lane} && sleep 30 && ` +
-    `systemctl is-active zoom-hub-bot@${lane}`;
   const { stdout } = await execFileAsync('ssh', [
     '-i', SSH_KEY_PATH,
     '-o', 'StrictHostKeyChecking=accept-new',
     '-o', 'ConnectTimeout=20',
     `${VPS_USER}@${VPS_HOST}`,
-    remote,
+    cycle,
   ], { timeout: 5 * 60 * 1000 });
   return `Restarted zoom-hub-bot@${lane} (now ${stdout.trim() || 'unknown'}).`;
 }
