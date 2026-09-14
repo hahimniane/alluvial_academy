@@ -1,3 +1,13 @@
+# Superseded: the responder runs on the bots' own host, as
+# alluwal-oncall.timer (see scripts/oncall/systemd/).
+#
+# GitHub delivered this schedule every three to four hours despite the
+# */10 cron, and both class-dropping incidents on 2026-09-12 fell into
+# those gaps. systemd on the VPS actually honours ten minutes, and a
+# responder sitting next to the thing it repairs needs no SSH key.
+#
+# Kept dispatchable for a one-off run from a laptop; the schedule is gone
+# so the two cannot both act on the same hubs.
 name: Zoom Hub On-Call Responder
 
 # Watches the live Zoom classroom hubs and, when something is wrong, diagnoses
@@ -9,11 +19,9 @@ name: Zoom Hub On-Call Responder
 # is when the outage it was built for happened.
 
 on:
-  schedule:
-    # Every 10 minutes. The in-product watchdog handles the fast paths within
-    # 2 minutes; this is the layer that thinks about what the watchdog could
-    # not fix on its own.
-    - cron: '*/10 * * * *'
+  # No schedule here on purpose: alluwal-oncall.timer on the VPS owns the
+  # cadence now. Two responders acting on the same hubs could each restart a
+  # lane the other had just brought back.
   workflow_dispatch:
     inputs:
       dry_run:

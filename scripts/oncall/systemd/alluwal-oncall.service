@@ -1,0 +1,17 @@
+[Unit]
+Description=Alluwal Zoom hub on-call responder
+Documentation=file:///opt/alluwal/oncall/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/alluwal/oncall
+# Least-privilege service account: Firestore, FCM, and one secret. Not the
+# firebase-adminsdk account, which could deploy functions and manage auth.
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/etc/alluwal/oncall-sa.json
+Environment=GOOGLE_CLOUD_PROJECT=alluwal-academy
+ExecStart=/usr/bin/node /opt/alluwal/oncall/respond.mjs
+# A lane restart deliberately waits out the 150s ghost-host clear.
+TimeoutStartSec=600
+Nice=5
