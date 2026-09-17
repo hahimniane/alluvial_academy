@@ -21,6 +21,7 @@ const livekitHandlers = require('./handlers/livekit');
 const realtimekitHandlers = require('./handlers/realtimekit');
 const zoomHandlers = require('./handlers/zoom');
 const zoomHubBotHandlers = require('./handlers/zoom_hub_bot');
+const presenceReportHandlers = require('./handlers/presence_reports');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
@@ -593,6 +594,11 @@ exports.zoomHubBotDirectives = zoomHubBotHandlers.zoomHubBotDirectives;
 exports.zoomHubBotAssignments = zoomHubBotHandlers.zoomHubBotAssignments;
 exports.zoomHubBotState = zoomHubBotHandlers.zoomHubBotState;
 exports.onZoomHubMemberWritten = zoomHubBotHandlers.onZoomHubMemberWritten;
+exports.summariseClassPresence = presenceReportHandlers.summariseClassPresence;
+exports.generateWeeklyPresenceReports = presenceReportHandlers.generateWeeklyPresenceReports;
+exports.generateMonthlyPresenceReports = presenceReportHandlers.generateMonthlyPresenceReports;
+exports.getPresenceReport = presenceReportHandlers.getPresenceReport;
+exports.getPresenceOverview = presenceReportHandlers.getPresenceOverview;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;
