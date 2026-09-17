@@ -33199,6 +33199,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This is taking longer than expected. We are still trying, and an administrator has been told.'**
   String get classroomReconnectingOverdue;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Your class connection'**
+  String get connectionReportTitle;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'How often you dropped out of class, and for how long.'**
+  String get connectionReportSubtitle;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Times dropped'**
+  String get connectionReportTimesDropped;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Lesson time lost'**
+  String get connectionReportTimeLost;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Longest single drop'**
+  String get connectionReportLongest;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing recorded yet. This fills in as you teach.'**
+  String get connectionReportNothingYet;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Your connection held for every class this period.'**
+  String get connectionReportHeld;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'{count} class(es) ended without you getting back in.'**
+  String connectionReportNeverReturned(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'A further {count} interruption(s) came from the classroom system itself. Those are ours, and are not counted above.'**
+  String connectionReportOurFault(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get connectionReportThisWeek;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get connectionReportThisMonth;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher connections'**
+  String get connectionOverviewTitle;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Who is dropping out of class, and how much lesson time it costs.'**
+  String get connectionOverviewSubtitle;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'No connection problems recorded for this period.'**
+  String get connectionOverviewEmpty;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'{count} classes'**
+  String connectionOverviewClasses(int count);
 }
 
 class _AppLocalizationsDelegate

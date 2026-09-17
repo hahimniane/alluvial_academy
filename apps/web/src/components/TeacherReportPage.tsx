@@ -6,6 +6,7 @@ import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Download,
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
+import TeacherConnectionCard from "@/components/TeacherConnectionCard";
 import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { tr, dateLocale} from "@/lib/i18n";
@@ -67,6 +68,8 @@ export function TeacherReportPage() {
           </div>
 
           {error ? <div role="alert" className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"><AlertTriangle className="mt-0.5 shrink-0" size={20} /><div><p className="font-bold">{tr("Could not load your report")}</p><p className="text-sm">{error}</p></div></div> : null}
+          {user ? <div className="mb-5"><TeacherConnectionCard uid={user.uid} /></div> : null}
+
           {loading ? <div className="grid min-h-72 place-items-center"><RefreshCw className="animate-spin text-[#0386FF]" /></div> : !audit ? <EmptyReport month={month} /> : (
             <>
               <div role="tablist" aria-label={tr("Report sections")} className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-[#E2E8F0] bg-white p-2 sm:grid-cols-4">

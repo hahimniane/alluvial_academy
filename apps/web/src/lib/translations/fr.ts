@@ -1208,4 +1208,23 @@ export const FR: Record<string, string> = {
   "Your class is opening in the Zoom app on your computer.": "Votre cours s\u2019ouvre dans l\u2019application Zoom sur votre ordinateur.",
   "Open Zoom again": "Ouvrir Zoom \u00e0 nouveau",
   "Join in the browser instead": "Rejoindre plut\u00f4t dans le navigateur",
+
+  // --- Connection report (how often a teacher drops out of class) ---
+  "Your class connection": "Votre connexion en cours",
+  "How often you dropped out of class, and for how long.": "\u00c0 quelle fr\u00e9quence vous avez \u00e9t\u00e9 d\u00e9connect\u00e9 du cours, et pendant combien de temps.",
+  "This week": "Cette semaine",
+  "This month": "Ce mois-ci",
+  "Checking your classes...": "V\u00e9rification de vos cours\u2026",
+  "Your connection report is not available right now.": "Votre rapport de connexion n\u2019est pas disponible pour le moment.",
+  "Nothing recorded yet. This fills in as you teach.": "Rien d\u2019enregistr\u00e9 pour l\u2019instant. Cela se remplit au fil de vos cours.",
+  "Times dropped": "D\u00e9connexions",
+  "Lesson time lost": "Temps de cours perdu",
+  "Longest single drop": "D\u00e9connexion la plus longue",
+  Steady: "Stable",
+  Unsettled: "Instable",
+  Struggling: "En difficult\u00e9",
+  "Your connection held for every class this period.": "Votre connexion a tenu pour tous les cours de cette p\u00e9riode.",
+  "You dropped out {drops} times across {affected} of {classes} classes, losing {lost} of lesson time.": "Vous avez \u00e9t\u00e9 d\u00e9connect\u00e9 {drops} fois sur {affected} de vos {classes} cours, perdant {lost} de temps de cours.",
+  "{n} class(es) ended without you getting back in.": "{n} cours se sont termin\u00e9s sans que vous puissiez y revenir.",
+  "A further {n} interruption(s) came from the classroom system itself. Those are ours, and are not counted above.": "{n} interruption(s) suppl\u00e9mentaire(s) proviennent du syst\u00e8me de classe lui-m\u00eame. Elles sont de notre fait et ne sont pas comptabilis\u00e9es ci-dessus.",
 };

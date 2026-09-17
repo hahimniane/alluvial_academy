@@ -8185,5 +8185,80 @@
   "classroomReconnectingOverdue": "This is taking longer than expected. We are still trying, and an administrator has been told.",
   "@classroomReconnectingOverdue": {
     "description": "Shown when the expected return time has passed and the class is still not back"
+  },
+  "connectionReportTitle": "Your class connection",
+  "@connectionReportTitle": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportSubtitle": "How often you dropped out of class, and for how long.",
+  "@connectionReportSubtitle": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportTimesDropped": "Times dropped",
+  "@connectionReportTimesDropped": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportTimeLost": "Lesson time lost",
+  "@connectionReportTimeLost": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportLongest": "Longest single drop",
+  "@connectionReportLongest": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportNothingYet": "Nothing recorded yet. This fills in as you teach.",
+  "@connectionReportNothingYet": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportHeld": "Your connection held for every class this period.",
+  "@connectionReportHeld": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportNeverReturned": "{count} class(es) ended without you getting back in.",
+  "@connectionReportNeverReturned": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionReportOurFault": "A further {count} interruption(s) came from the classroom system itself. Those are ours, and are not counted above.",
+  "@connectionReportOurFault": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionReportThisWeek": "This week",
+  "@connectionReportThisWeek": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionReportThisMonth": "This month",
+  "@connectionReportThisMonth": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewTitle": "Teacher connections",
+  "@connectionOverviewTitle": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewSubtitle": "Who is dropping out of class, and how much lesson time it costs.",
+  "@connectionOverviewSubtitle": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewEmpty": "No connection problems recorded for this period.",
+  "@connectionOverviewEmpty": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewClasses": "{count} classes",
+  "@connectionOverviewClasses": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
