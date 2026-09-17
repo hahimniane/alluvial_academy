@@ -205,6 +205,12 @@
         if (Object.prototype.hasOwnProperty.call(extra || {}, 'liveParticipantsByShift')) {
           body.liveParticipantsByShift = extra.liveParticipantsByShift || {};
         }
+        // Who we were moving at this moment. The server compares one report of
+        // each room with the last to see who dropped out, and somebody we moved
+        // ourselves must not be recorded as their own connection failing.
+        if (Object.prototype.hasOwnProperty.call(extra || {}, 'routedUids')) {
+          body.routedUids = extra.routedUids || [];
+        }
         try {
           await botFetch('/zoomHubBotState', {
             method: 'POST',
@@ -989,6 +995,7 @@
         }
         await postState('roomsOpen', {
           liveParticipantsByShift: buildLiveParticipantsByShift(assignments, zoomState),
+          routedUids: actions.map((action) => action.uid).filter(Boolean),
           stats: {
             routedCount: actions.length,
             routeAttemptCount: actions.length,

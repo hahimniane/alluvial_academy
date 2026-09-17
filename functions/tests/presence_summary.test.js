@@ -1,0 +1,136 @@
+/**
+ * The numbers a teacher and an admin actually read.
+ *
+ * The cases worth pinning are the ones where a wrong answer is unfair: our own
+ * faults leaking into somebody's score, and the worst kind of absence — the one
+ * they never came back from — being quietly filtered out for being unmeasured.
+ */
+const {
+  CAUSE_INDIVIDUAL,
+  CAUSE_PLATFORM,
+  CAUSE_SIMULTANEOUS,
+} = require('../services/presence/transitions');
+const { summariseAbsences, rollUp } = require('../services/presence/summary');
+
+const absence = (overrides = {}) => ({
+  shiftId: 'shift_a',
+  uid: 'teacher_1',
+  name: 'habibu barry',
+  role: 'teacher',
+  cause: CAUSE_INDIVIDUAL,
+  seconds: 60,
+  returned: true,
+  startedAtMs: 0,
+  endedAtMs: 60000,
+  ...overrides,
+});
+
+describe('summariseAbsences', () => {
+  test('counts drops, time lost, and the longest single absence', () => {
+    const [person] = summariseAbsences([
+      absence({ seconds: 45 }),
+      absence({ seconds: 600 }),
+      absence({ seconds: 90 }),
+    ]);
+    expect(person.counted).toMatchObject({ drops: 3, secondsLost: 735, longestSeconds: 600 });
+  });
+
+  test('our own faults never reach a teacher\'s number', () => {
+    // The hub handover that ended habibu barry's lesson on 2026-09-12 was ours.
+    // It is kept and labelled, but it is not his drop-out.
+    const [person] = summariseAbsences([
+      absence({ cause: CAUSE_PLATFORM, seconds: 300, detail: 'hub_handover' }),
+      absence({ cause: CAUSE_SIMULTANEOUS, seconds: 200 }),
+      absence({ cause: CAUSE_INDIVIDUAL, seconds: 120 }),
+    ]);
+    expect(person.counted).toMatchObject({ drops: 1, secondsLost: 120 });
+    expect(person.byCause[CAUSE_PLATFORM].drops).toBe(1);
+    expect(person.byCause[CAUSE_SIMULTANEOUS].drops).toBe(1);
+  });
+
+  test('a blink below the floor is not a drop-out', () => {
+    const summary = summariseAbsences([absence({ seconds: 8 })], { minSeconds: 30 });
+    expect(summary).toEqual([]);
+  });
+
+  test('the floor can be moved without recollecting anything', () => {
+    const absences = [absence({ seconds: 45 }), absence({ seconds: 20 })];
+    expect(summariseAbsences(absences, { minSeconds: 30 })[0].counted.drops).toBe(1);
+    expect(summariseAbsences(absences, { minSeconds: 15 })[0].counted.drops).toBe(2);
+  });
+
+  test('somebody who never came back always counts, even unmeasured', () => {
+    // This is the most serious absence there is. Measuring it against a minimum
+    // would silently discard exactly the cases that matter most.
+    const [person] = summariseAbsences(
+      [absence({ seconds: null, returned: false })],
+      { minSeconds: 600 },
+    );
+    expect(person.counted.drops).toBe(1);
+    expect(person.counted.neverReturned).toBe(1);
+    expect(person.counted.secondsLost).toBe(0);
+  });
+
+  test('people are kept apart, worst first', () => {
+    const summary = summariseAbsences([
+      absence({ uid: 'student_1', role: 'student', name: 'Amadou', seconds: 40 }),
+      absence({ uid: 'teacher_1', seconds: 40 }),
+      absence({ uid: 'teacher_1', seconds: 40 }),
+    ]);
+    expect(summary.map((p) => [p.uid, p.counted.drops])).toEqual([
+      ['teacher_1', 2],
+      ['student_1', 1],
+    ]);
+  });
+
+  test('a clean class produces nothing', () => {
+    expect(summariseAbsences([])).toEqual([]);
+  });
+});
+
+describe('rollUp', () => {
+  const classSummary = (people) => ({ people });
+  const personSummary = (overrides = {}) => ({
+    uid: 'teacher_1',
+    role: 'teacher',
+    name: 'habibu barry',
+    counted: { drops: 2, secondsLost: 300, longestSeconds: 200, neverReturned: 0 },
+    byCause: {
+      [CAUSE_INDIVIDUAL]: { drops: 2, secondsLost: 300, longestSeconds: 200, neverReturned: 0 },
+      [CAUSE_SIMULTANEOUS]: { drops: 0, secondsLost: 0, longestSeconds: 0, neverReturned: 0 },
+      [CAUSE_PLATFORM]: { drops: 0, secondsLost: 0, longestSeconds: 0, neverReturned: 0 },
+    },
+    ...overrides,
+  });
+
+  test('adds up a week and keeps the worst single absence', () => {
+    const [person] = rollUp([
+      classSummary([personSummary()]),
+      classSummary([personSummary({
+        counted: { drops: 1, secondsLost: 900, longestSeconds: 900, neverReturned: 1 },
+      })]),
+    ]);
+    expect(person.counted).toMatchObject({
+      drops: 3, secondsLost: 1200, longestSeconds: 900, neverReturned: 1,
+    });
+  });
+
+  test('counts how many classes were affected, not just drops', () => {
+    // Ten drops in one class is a bad lesson; ten across ten classes is a bad
+    // connection. The distinction is the whole point of a support tool.
+    const clean = personSummary({
+      counted: { drops: 0, secondsLost: 0, longestSeconds: 0, neverReturned: 0 },
+    });
+    const [person] = rollUp([
+      classSummary([personSummary()]),
+      classSummary([clean]),
+      classSummary([clean]),
+    ]);
+    expect(person.classes).toBe(3);
+    expect(person.classesWithADrop).toBe(1);
+  });
+
+  test('a period with no classes rolls up to nothing', () => {
+    expect(rollUp([])).toEqual([]);
+  });
+});

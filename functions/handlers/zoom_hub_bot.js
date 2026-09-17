@@ -5,6 +5,10 @@ const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { getZoomConfig } = require('../services/zoom/config');
 const zoomClient = require('../services/zoom/client');
 const { generateMeetingSdkSignature } = require('../services/zoom/signature');
+const {
+  diffLiveParticipants,
+  classifyDepartures,
+} = require('../services/presence/transitions');
 
 const ZOOM_HUB_BOT_SECRETS = [
   'ZOOM_HUB_BOT_KEY',
@@ -455,6 +459,72 @@ const zoomHubBotAssignments = onRequest({
   }
 });
 
+
+/**
+ * Record who arrived and who left since the bot's last report.
+ *
+ * This is the only view that sees teachers: they join through the Zoom desktop
+ * app and abandon the browser page, so the 45-second browser heartbeat never
+ * runs for them. The bot, watching the rooms from the inside, sees everybody.
+ *
+ * Each departure is written with why we think it happened, decided now while we
+ * still know what we were doing at that moment — whether we were moving that
+ * person, and whether the room emptied all at once. Working it out later from
+ * timestamps alone would mean guessing, and guessing here means telling a
+ * teacher their connection failed when it was our hub handover.
+ *
+ * Best effort by design: a class's presence history is worth less than the
+ * class, so a failure here must never break the bot's state report.
+ */
+const _recordPresenceTransitions = async ({
+  db, hubDocId, hubData, incomingParticipants, routedUids, platformEvent,
+}) => {
+  try {
+    const { arrivals, departures } = diffLiveParticipants(
+      hubData.live_participants_by_shift || hubData.liveParticipantsByShift,
+      incomingParticipants,
+      { everyoneIsLeaving: platformEvent === 'hub_window_closed' },
+    );
+    if (arrivals.length === 0 && departures.length === 0) return 0;
+
+    const classified = classifyDepartures(departures, { routedUids, platformEvent });
+    const at = admin.firestore.FieldValue.serverTimestamp();
+    const lane = hubData.lane ?? hubData.laneIndex ?? null;
+    let batch = db.batch();
+    let pending = 0;
+
+    const add = (event) => {
+      const ref = db.collection('class_presence_events')
+        .doc(event.shiftId)
+        .collection('events')
+        .doc();
+      batch.set(ref, {
+        shift_id: event.shiftId,
+        hub_doc_id: hubDocId,
+        lane,
+        uid: event.uid,
+        name: event.name || null,
+        role: event.role || null,
+        type: event.type,
+        cause: event.cause || null,
+        cause_detail: event.detail || null,
+        peers_gone_together: event.peersGoneTogether ?? null,
+        at,
+        source: 'zoom_hub_bot',
+      });
+      pending += 1;
+    };
+
+    for (const arrival of arrivals) add({ ...arrival, type: 'arrived' });
+    for (const departure of classified) add({ ...departure, type: 'departed' });
+    if (pending > 0) await batch.commit();
+    return pending;
+  } catch (err) {
+    console.warn(`[ZoomHubBot] could not record presence transitions for ${hubDocId}: ${err.message || err}`);
+    return 0;
+  }
+};
+
 const zoomHubBotState = onRequest({
   cors: true,
   secrets: ZOOM_HUB_BOT_SECRETS,
@@ -563,6 +633,23 @@ const zoomHubBotState = onRequest({
         res.status(200).json({ success: true, deduped: true });
         return;
       }
+    }
+
+    // Before the new report overwrites the last one, work out who moved. The
+    // previous report is the only thing to compare against, and it is about to
+    // be gone.
+    if (liveParticipantsProvided || status === 'left') {
+      await _recordPresenceTransitions({
+        db: admin.firestore(),
+        hubDocId,
+        hubData,
+        // 'left' means the bot is done with this hub and clears the room list.
+        // Everyone in it goes at once, and that is us closing the class, not
+        // several connections failing in the same second.
+        incomingParticipants: status === 'left' ? {} : liveParticipantsByShift,
+        routedUids: Array.isArray(req.body?.routedUids) ? req.body.routedUids : [],
+        platformEvent: status === 'left' ? 'hub_window_closed' : null,
+      });
     }
 
     const nextData = {
