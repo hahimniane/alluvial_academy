@@ -9,6 +9,7 @@ const {
   CAUSE_SIMULTANEOUS,
   CAUSE_INDIVIDUAL,
   diffLiveParticipants,
+  reportIsBlind,
   classifyDepartures,
   buildAbsences,
 } = require('../services/presence/transitions');
@@ -26,27 +27,35 @@ describe('diffLiveParticipants', () => {
     expect(departures[0]).toMatchObject({ shiftId: 'shift_a', role: 'student' });
   });
 
-  test('a class the bot stopped reporting is not everybody leaving', () => {
-    // The hub going quiet is an outage, not thirty people quitting at once.
-    // Recording it as departures would invent drop-outs for every class at once.
+  test('a room that empties IS a departure, even though its class vanishes from the report', () => {
+    // The bot lists a class only while somebody is inside its room, so an
+    // emptied room disappears from the report entirely. Read from the new
+    // report alone this looks like nothing happening — which is how a real
+    // teacher dropping out of a real class recorded nothing at all.
     const before = { shift_a: [person('teacher_1', 'teacher')], shift_b: [person('teacher_2', 'teacher')] };
     const after = { shift_a: [person('teacher_1', 'teacher')] };
 
     const { departures } = diffLiveParticipants(before, after);
-    expect(departures).toEqual([]);
+    expect(departures.map((d) => [d.shiftId, d.uid])).toEqual([['shift_b', 'teacher_2']]);
   });
 
-  test('the first sight of a class produces no departures', () => {
+  test('the last person leaving a room is recorded', () => {
+    const { departures } = diffLiveParticipants(
+      { shift_a: [person('teacher_1', 'teacher')] },
+      {},
+    );
+    expect(departures.map((d) => d.uid)).toEqual(['teacher_1']);
+  });
+
+  test('the first sight of a class is an arrival, not a departure', () => {
     const { arrivals, departures } = diffLiveParticipants({}, { shift_a: [person('teacher_1', 'teacher')] });
-    expect(arrivals).toEqual([]);
+    expect(arrivals.map((a) => a.uid)).toEqual(['teacher_1']);
     expect(departures).toEqual([]);
   });
 
-  test('closing a hub deliberately IS everyone leaving', () => {
-    // The opposite of the case above, and the distinction has to be explicit:
-    // silence means we do not know, a close-out means we ended it.
+  test('closing a hub takes everyone in it with them', () => {
     const before = { shift_a: [person('teacher_1', 'teacher')], shift_b: [person('teacher_2', 'teacher')] };
-    const { departures } = diffLiveParticipants(before, {}, { everyoneIsLeaving: true });
+    const { departures } = diffLiveParticipants(before, {});
     expect(departures.map((d) => d.uid).sort()).toEqual(['teacher_1', 'teacher_2']);
   });
 
@@ -54,6 +63,28 @@ describe('diffLiveParticipants', () => {
     expect(diffLiveParticipants(null, undefined)).toEqual({ arrivals: [], departures: [] });
     expect(diffLiveParticipants({ shift_a: 'nope' }, { shift_a: [null, {}] }))
       .toEqual({ arrivals: [], departures: [] });
+  });
+});
+
+describe('reportIsBlind', () => {
+  test('a bot that cannot see its rooms is not reporting an empty hub', () => {
+    // The dangerous one: believed literally, this is every person in every
+    // class leaving in the same second.
+    expect(reportIsBlind({ stats: { liveRoomCount: 0 }, expectedRooms: 30 })).toBe(true);
+  });
+
+  test('a hub that genuinely has no rooms is not blind', () => {
+    expect(reportIsBlind({ stats: { liveRoomCount: 0 }, expectedRooms: 0 })).toBe(false);
+  });
+
+  test('a bot reading its rooms is believed', () => {
+    expect(reportIsBlind({ stats: { liveRoomCount: 30 }, expectedRooms: 30 })).toBe(false);
+  });
+
+  test('a report with no room count at all is believed rather than refused', () => {
+    // Refusing on missing data would quietly stop recording anything.
+    expect(reportIsBlind({ stats: {}, expectedRooms: 30 })).toBe(false);
+    expect(reportIsBlind({})).toBe(false);
   });
 });
 

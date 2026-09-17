@@ -314,15 +314,42 @@ describe('drop-out recording', () => {
     expect(presenceEvents()).toEqual([]);
   });
 
-  test('a hub that stops reporting a class does not invent departures', async () => {
-    // The bot going quiet is an outage. Recording it as everybody leaving would
-    // manufacture a drop-out for every person in every class at once.
+  test('an emptied room records the drop-out that used to vanish', async () => {
+    // The live failure: the bot lists a class only while somebody is in its
+    // room, so a teacher leaving removed the class from the report and nothing
+    // at all was recorded. Reproduced end to end against the real endpoint.
     stores.hub_meetings.set('hub_1', hubWith({
-      shift_a: [inRoom('teacher_1', 'teacher')],
+      shift_a: [inRoom('teacher_1', 'teacher', 'habibu barry')],
       shift_b: [inRoom('teacher_2', 'teacher')],
     }));
 
-    await zoomHubBotState(report({ shift_a: [inRoom('teacher_1', 'teacher')] }), makeResponse());
+    await zoomHubBotState(report({ shift_b: [inRoom('teacher_2', 'teacher')] }), makeResponse());
+
+    const events = presenceEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      shift_id: 'shift_a', uid: 'teacher_1', type: 'departed', cause: 'individual',
+    });
+  });
+
+  test('a bot that cannot see its rooms is not read as everyone leaving', async () => {
+    // The danger the old guard was really for: believed literally, a blind
+    // report is every person in every class dropping out in the same second.
+    stores.hub_meetings.set('hub_1', {
+      ...hubWith({
+        shift_a: [inRoom('teacher_1', 'teacher')],
+        shift_b: [inRoom('teacher_2', 'teacher')],
+      }),
+      rooms: [{ name: 'Room 1' }, { name: 'Room 2' }],
+    });
+
+    await zoomHubBotState(makeRequest({
+      hubDocId: 'hub_1',
+      status: 'roomsOpen',
+      stats: { inRoomOccupants: 0, liveRoomCount: 0 },
+      boIdByRoomName: { 'Room 1': '{X}' },
+      liveParticipantsByShift: {},
+    }), makeResponse());
 
     expect(presenceEvents()).toEqual([]);
   });
