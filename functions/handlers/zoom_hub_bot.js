@@ -374,6 +374,13 @@ const _rebuildBotAssignmentsCache = async (hubRef) => {
   const members = membersSnapshot.docs
     .map(_botMemberFromDoc)
     .filter((member) => member.uid && member.shiftId);
+  // A merge write creates the document when it is missing, so rebuilding the
+  // cache for a hub that has been deleted brings the hub back — as a shell with
+  // a member list and nothing else, no lane, no window, no meeting. The state
+  // endpoint already refuses to do that; this is the other way in, and it fires
+  // on every member write including the deletions that follow a hub going away.
+  const hubDoc = await hubRef.get();
+  if (!hubDoc.exists) return members;
   await hubRef.set({
     bot_assignments_cache: {
       members,
@@ -738,6 +745,7 @@ module.exports = {
   zoomHubBotState,
   onZoomHubMemberWritten,
   __test__: {
+    _rebuildBotAssignmentsCache,
     _botAuthorized,
     _hubIsActive,
     _roomList,
