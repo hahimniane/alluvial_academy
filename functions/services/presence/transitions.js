@@ -37,6 +37,32 @@ const CAUSE_PLATFORM = 'platform';
 const CAUSE_SIMULTANEOUS = 'simultaneous';
 const CAUSE_INDIVIDUAL = 'individual';
 
+/**
+ * Who this participant is, for the purpose of noticing they went.
+ *
+ * Somebody who joined through the app carries a routing id and that is the
+ * best answer. Somebody who opened the Zoom link directly carries none — every
+ * id field arrives empty — and an earlier version dropped them on the floor,
+ * which quietly excluded exactly the people most likely to be having trouble
+ * getting in. Zoom's own participant id identifies them within the meeting,
+ * and their display name is the last resort.
+ *
+ * The id only has to be stable between two consecutive reports of the same
+ * meeting, which all three are.
+ */
+const _identify = (person = {}) => {
+  const routing = String(
+    person.routingUid || person.routing_uid || person.uid || person.identity || '',
+  ).trim();
+  if (routing) return routing;
+  const zoomUserId = person.zoomUserId ?? person.zoom_user_id;
+  if (zoomUserId !== undefined && zoomUserId !== null && `${zoomUserId}`.trim()) {
+    return `zoom:${`${zoomUserId}`.trim()}`;
+  }
+  const name = String(person.name || '').trim();
+  return name ? `name:${name}` : '';
+};
+
 /** The bot reports a hub's live participants as shiftId -> [{...people}]. */
 const _peopleByShift = (raw) => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return new Map();
@@ -46,7 +72,7 @@ const _peopleByShift = (raw) => {
     const byUid = new Map();
     for (const person of people) {
       if (!person || typeof person !== 'object') continue;
-      const uid = String(person.routingUid || person.routing_uid || person.uid || person.identity || '').trim();
+      const uid = _identify(person);
       if (!uid) continue;
       byUid.set(uid, {
         uid,
