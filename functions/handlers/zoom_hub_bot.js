@@ -7,6 +7,7 @@ const zoomClient = require('../services/zoom/client');
 const { generateMeetingSdkSignature } = require('../services/zoom/signature');
 const {
   diffLiveParticipants,
+  reportIsBlind,
   classifyDepartures,
 } = require('../services/presence/transitions');
 
@@ -477,13 +478,24 @@ const zoomHubBotAssignments = onRequest({
  * class, so a failure here must never break the bot's state report.
  */
 const _recordPresenceTransitions = async ({
-  db, hubDocId, hubData, incomingParticipants, routedUids, platformEvent,
+  db, hubDocId, hubData, incomingParticipants, incomingStats, routedUids, platformEvent,
 }) => {
   try {
+    // A bot that has lost sight of the breakout rooms reports them empty. Read
+    // literally that is every person in every class leaving in the same second,
+    // so such a report is refused rather than believed. A deliberate close-out
+    // is exempt: there we know the rooms really are ending.
+    if (!platformEvent && reportIsBlind({
+      stats: incomingStats,
+      expectedRooms: Array.isArray(hubData.rooms) ? hubData.rooms.length : 0,
+    })) {
+      console.warn(`[ZoomHubBot] ${hubDocId} reported no live rooms; not reading that as departures.`);
+      return 0;
+    }
+
     const { arrivals, departures } = diffLiveParticipants(
       hubData.live_participants_by_shift || hubData.liveParticipantsByShift,
       incomingParticipants,
-      { everyoneIsLeaving: platformEvent === 'hub_window_closed' },
     );
     if (arrivals.length === 0 && departures.length === 0) return 0;
 
@@ -647,6 +659,7 @@ const zoomHubBotState = onRequest({
         // Everyone in it goes at once, and that is us closing the class, not
         // several connections failing in the same second.
         incomingParticipants: status === 'left' ? {} : liveParticipantsByShift,
+        incomingStats: req.body?.stats || {},
         routedUids: Array.isArray(req.body?.routedUids) ? req.body.routedUids : [],
         platformEvent: status === 'left' ? 'hub_window_closed' : null,
       });

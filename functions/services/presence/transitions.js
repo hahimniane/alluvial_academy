@@ -62,42 +62,53 @@ const _peopleByShift = (raw) => {
 /**
  * Who arrived and who left between two reports.
  *
- * A shift missing from `next` entirely means the bot stopped reporting it, not
- * that everyone left — the difference matters, because treating "no data" as
- * "empty" is how an outage gets recorded as thirty people quitting at once. Only
- * shifts present in both reports are compared.
+ * Departures are found by walking the PREVIOUS report, not the new one. The bot
+ * only lists a class while somebody is inside its room, so the moment a room
+ * empties its entry disappears from the report altogether — and a version of
+ * this that walked the new report recorded nothing at all when a teacher
+ * dropped out, which is the one case the whole thing exists for.
  *
- * `everyoneIsLeaving` is the one case where that guard is wrong: when we
- * deliberately close a hub, its people really are all leaving, and it is us
- * doing it. Pass it only for a close-out, never for a report that merely
- * arrived empty.
+ * That leaves the opposite danger: a report we should not believe. A bot that
+ * has lost sight of the breakout rooms reports them as empty, and trusting it
+ * would manufacture a drop-out for every person in every class at once. Such a
+ * report is refused outright by the caller rather than read as an exodus — see
+ * `reportIsBlind`.
  */
-function diffLiveParticipants(previousRaw, nextRaw, { everyoneIsLeaving = false } = {}) {
+function diffLiveParticipants(previousRaw, nextRaw) {
   const previous = _peopleByShift(previousRaw);
   const next = _peopleByShift(nextRaw);
   const arrivals = [];
   const departures = [];
 
-  if (everyoneIsLeaving) {
-    // A deliberate close-out, not a silence. Here a missing class really does
-    // mean its people are gone, because we are the ones ending it.
-    for (const [shiftId, before] of previous.entries()) {
-      for (const person of before.values()) departures.push({ shiftId, ...person });
-    }
-    return { arrivals, departures };
-  }
-
   for (const [shiftId, nowPeople] of next.entries()) {
-    const before = previous.get(shiftId);
-    if (!before) continue; // first sight of this class: nothing to compare against
+    const before = previous.get(shiftId) || new Map();
     for (const [uid, person] of nowPeople.entries()) {
       if (!before.has(uid)) arrivals.push({ shiftId, ...person });
     }
+  }
+
+  for (const [shiftId, before] of previous.entries()) {
+    const nowPeople = next.get(shiftId) || new Map();
     for (const [uid, person] of before.entries()) {
       if (!nowPeople.has(uid)) departures.push({ shiftId, ...person });
     }
   }
+
   return { arrivals, departures };
+}
+
+/**
+ * Whether this report is one we can believe about who is in a room.
+ *
+ * The bot reads the breakout rooms from inside the meeting. When that reading
+ * comes back empty while rooms are supposed to be open, the bot has gone blind
+ * rather than the rooms having emptied — the same corruption the watchdog
+ * already resets hubs for. Believing it would record every person in every
+ * class dropping out in the same second.
+ */
+function reportIsBlind({ stats = {}, expectedRooms = 0 } = {}) {
+  const liveRoomCount = Number(stats.liveRoomCount);
+  return Number.isFinite(liveRoomCount) && liveRoomCount === 0 && expectedRooms > 0;
 }
 
 /**
@@ -198,6 +209,7 @@ module.exports = {
   CAUSE_SIMULTANEOUS,
   CAUSE_INDIVIDUAL,
   diffLiveParticipants,
+  reportIsBlind,
   classifyDepartures,
   buildAbsences,
 };
