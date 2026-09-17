@@ -44,6 +44,18 @@ const _eventFromDoc = (data = {}) => {
   };
 };
 
+/** The students a class was with, by name, in the order the shift lists them. */
+const _studentNames = (shiftData = {}) => {
+  const raw = shiftData.student_names || shiftData.studentNames;
+  if (!Array.isArray(raw)) return [];
+  const names = [];
+  for (const value of raw) {
+    const name = String(value || '').trim();
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names;
+};
+
 /**
  * Everyone's drop-outs for one class.
  *
@@ -78,6 +90,13 @@ function buildClassSummary({
     class_name: shiftData.custom_name || shiftData.class_name || null,
     shift_start: shiftData.shift_start || shiftData.shiftStart || null,
     shift_end: shiftData.shift_end || shiftData.shiftEnd || null,
+    // Who the class was with, copied rather than referenced: a teacher may
+    // question a figure long after the shift has been archived out from under
+    // it, and "which student was this?" has to still have an answer then.
+    students: _studentNames(shiftData),
+    // The same instant as shift_start, as a number, so a period can order and
+    // trim its classes without reopening every Firestore timestamp.
+    shift_start_ms: toMs(shiftData.shift_start || shiftData.shiftStart),
     min_absence_seconds: minSeconds,
     events_considered: events.length,
     people,

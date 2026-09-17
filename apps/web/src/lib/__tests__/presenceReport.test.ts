@@ -91,3 +91,58 @@ test("a report with no cause breakdown reports no platform drops", () => {
   assert.equal(platformDrops(report()), 0);
   assert.equal(platformDrops(null), 0);
 });
+
+// --- the evidence a teacher is shown when they say a number is wrong --------
+
+const { occasionsOf, describeStudents, formatOccasionDate, formatSpellTime } =
+  await import("../presenceReport.ts");
+
+test("a report with no breakdown yields no classes rather than throwing", () => {
+  assert.deepEqual(occasionsOf(null), []);
+  assert.deepEqual(occasionsOf({ occasions: undefined } as unknown as PresenceReport), []);
+  assert.deepEqual(occasionsOf({ occasions: "nope" } as unknown as PresenceReport), []);
+});
+
+test("a class keeps its day, its name and the student it was with", () => {
+  const [occasion] = occasionsOf({
+    occasions: [{
+      shiftId: "shift_mon",
+      className: "Quran — Monday",
+      students: ["Amadou Diallo", ""],
+      startedAt: 1789659779000,
+      drops: 2,
+      secondsLost: 205,
+      longestSeconds: 148,
+      neverReturned: 1,
+      spells: [{ from: 1789660351324, to: null, seconds: null, returned: false, cause: "individual" }],
+    }],
+  } as unknown as PresenceReport);
+
+  assert.equal(occasion.className, "Quran — Monday");
+  assert.deepEqual(occasion.students, ["Amadou Diallo"]);
+  assert.equal(occasion.drops, 2);
+  assert.equal(occasion.spells.length, 1);
+});
+
+test("a malformed class does not take the rest of the list down with it", () => {
+  const occasions = occasionsOf({
+    occasions: [null, { shiftId: "ok", drops: 1 }],
+  } as unknown as PresenceReport);
+  assert.equal(occasions.length, 1);
+  assert.equal(occasions[0].shiftId, "ok");
+  assert.deepEqual(occasions[0].students, []);
+  assert.deepEqual(occasions[0].spells, []);
+});
+
+test("students read the way a person would say them", () => {
+  assert.equal(describeStudents([]), "");
+  assert.equal(describeStudents(["Amadou"]), "Amadou");
+  assert.equal(describeStudents(["Amadou", "Fatou"]), "Amadou and Fatou");
+  assert.equal(describeStudents(["Amadou", "Fatou", "Ibrahim", "Mariam"]), "Amadou, Fatou and 2 more");
+});
+
+test("a missing time prints nothing rather than 1 Jan 1970", () => {
+  assert.equal(formatOccasionDate(null), "");
+  assert.equal(formatSpellTime(null), "");
+  assert.notEqual(formatOccasionDate(1789659779000, "en-GB"), "");
+});

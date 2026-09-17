@@ -18675,6 +18675,35 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String connectionOccasionsShow(int count) {
+    return 'Afficher les $count cours concernés';
+  }
+
+  @override
+  String get connectionOccasionsHide => 'Masquer les cours';
+
+  @override
+  String connectionOccasionDrops(int count) {
+    return '$count coupure(s)';
+  }
+
+  @override
+  String connectionOccasionWith(String students) {
+    return 'Avec $students';
+  }
+
+  @override
+  String connectionSpellBack(String lost) {
+    return 'de retour après $lost';
+  }
+
+  @override
+  String get connectionSpellNeverBack => 'n\'a pas pu revenir';
+
+  @override
+  String get connectionSpellOurSide => 'de notre côté';
+
+  @override
   String get connectionReportThisWeek => 'Cette semaine';
 
   @override

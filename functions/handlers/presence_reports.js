@@ -134,6 +134,8 @@ const buildPeriodReports = async ({ periodType, periodStart, periodEnd }) => {
       classes_with_a_drop: person.classesWithADrop,
       counted: person.counted,
       by_cause: person.byCause,
+      // The classes the totals are made of, so a figure can be questioned.
+      occasions: person.occasions || [],
       classes_summarised: summaries.length,
       computed_at: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });

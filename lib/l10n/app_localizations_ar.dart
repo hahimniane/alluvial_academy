@@ -18273,6 +18273,35 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String connectionOccasionsShow(int count) {
+    return 'Show the $count class(es) behind this';
+  }
+
+  @override
+  String get connectionOccasionsHide => 'Hide the classes';
+
+  @override
+  String connectionOccasionDrops(int count) {
+    return '$count drop(s)';
+  }
+
+  @override
+  String connectionOccasionWith(String students) {
+    return 'With $students';
+  }
+
+  @override
+  String connectionSpellBack(String lost) {
+    return 'back after $lost';
+  }
+
+  @override
+  String get connectionSpellNeverBack => 'did not get back in';
+
+  @override
+  String get connectionSpellOurSide => 'our side';
+
+  @override
   String get connectionReportThisWeek => 'This week';
 
   @override

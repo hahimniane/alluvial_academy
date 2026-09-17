@@ -8232,6 +8232,54 @@
       }
     }
   },
+  "connectionOccasionsShow": "Show the {count} class(es) behind this",
+  "@connectionOccasionsShow": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionOccasionsHide": "Hide the classes",
+  "@connectionOccasionsHide": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOccasionDrops": "{count} drop(s)",
+  "@connectionOccasionDrops": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionOccasionWith": "With {students}",
+  "@connectionOccasionWith": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "students": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionSpellBack": "back after {lost}",
+  "@connectionSpellBack": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "lost": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionSpellNeverBack": "did not get back in",
+  "@connectionSpellNeverBack": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionSpellOurSide": "our side",
+  "@connectionSpellOurSide": {
+    "description": "Connection/drop-out reporting"
+  },
   "connectionReportThisWeek": "This week",
   "@connectionReportThisWeek": {
     "description": "Connection/drop-out reporting"
