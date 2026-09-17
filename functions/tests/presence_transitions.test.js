@@ -64,16 +64,20 @@ describe('diffLiveParticipants', () => {
     // directly carries none, and every id field arrives empty. An earlier
     // version skipped those people entirely — excluding exactly the ones most
     // likely to be having trouble getting in.
+    //
+    // They are known by their name rather than their Zoom participant id: Zoom
+    // mints a new id per connection, so keying on it would turn one person's
+    // reconnection into two strangers and record no absence between them.
     const guest = {
       identity: '', routingUid: '', routing_uid: '',
       zoomUserId: 16786432, name: 'Smoke Test Teacher', role: 'participant',
     };
     const { arrivals } = diffLiveParticipants({}, { shift_a: [guest] });
-    expect(arrivals.map((a) => a.uid)).toEqual(['zoom:16786432']);
+    expect(arrivals.map((a) => a.uid)).toEqual(['name:Smoke Test Teacher']);
 
     const { departures } = diffLiveParticipants({ shift_a: [guest] }, {});
     expect(departures.map((d) => [d.uid, d.name]))
-      .toEqual([['zoom:16786432', 'Smoke Test Teacher']]);
+      .toEqual([['name:Smoke Test Teacher', 'Smoke Test Teacher']]);
   });
 
   test('a participant with only a name is tracked by it rather than dropped', () => {
@@ -241,5 +245,46 @@ describe('buildAbsences', () => {
       event('departed', 'teacher_1', 0),
     ]);
     expect(absences[0].seconds).toBe(45);
+  });
+});
+
+describe('a person whose Zoom id changes when they reconnect', () => {
+  const { diffLiveParticipants } = require('../services/presence/transitions');
+
+  // A teacher handed to the desktop Zoom app sends no customerKey, so the bot
+  // reports empty ids and only a name. Zoom issues a new participant id on
+  // every connection, so the id alone cannot join their return to their leaving.
+  const report = (zoomUserId) => ({
+    shift_a: [{
+      identity: '', routingUid: '', routing_uid: '',
+      zoomUserId, name: 'Aicha Diallo', role: 'teacher', source: 'zoom_hub_bot',
+    }],
+  });
+  const empty = { shift_a: [] };
+
+  test('their return is the same person, not a stranger arriving', () => {
+    const { arrivals } = diffLiveParticipants(report(16784384), report(16786432));
+    expect(arrivals).toHaveLength(0);
+  });
+
+  test('the departure and the return carry one identity', () => {
+    const gone = diffLiveParticipants(report(16784384), empty);
+    const back = diffLiveParticipants(empty, report(16786432));
+    expect(gone.departures).toHaveLength(1);
+    expect(back.arrivals).toHaveLength(1);
+    expect(gone.departures[0].uid).toBe(back.arrivals[0].uid);
+  });
+
+  test('a routing id, when there is one, still wins over the name', () => {
+    const withRouting = (uid) => ({ shift_a: [{ routingUid: uid, name: 'Aicha Diallo' }] });
+    const { arrivals, departures } = diffLiveParticipants(withRouting('zh_a'), withRouting('zh_b'));
+    expect(arrivals.map((a) => a.uid)).toEqual(['zh_b']);
+    expect(departures.map((d) => d.uid)).toEqual(['zh_a']);
+  });
+
+  test('somebody with no name at all is still seen by their Zoom id', () => {
+    const nameless = { shift_a: [{ zoomUserId: 555, name: '' }] };
+    const { departures } = diffLiveParticipants(nameless, empty);
+    expect(departures.map((d) => d.uid)).toEqual(['zoom:555']);
   });
 });

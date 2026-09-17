@@ -354,21 +354,6 @@
         triggerRejoin('assigned_not_joined');
       }
 
-      function memberAliases(member) {
-        const values = [
-          member && member.displayName,
-          member && member.display_name,
-          member && member.routingDisplayName,
-          member && member.routing_display_name,
-          member && member.name,
-          ...((member && Array.isArray(member.displayNameAliases)) ? member.displayNameAliases : []),
-          ...((member && Array.isArray(member.display_name_aliases)) ? member.display_name_aliases : []),
-        ];
-        return values
-          .map((value) => routing.normalizeRoomName(value))
-          .filter(Boolean);
-      }
-
       function buildLiveParticipantsByShift(assignments, zoomState) {
         const rooms = Array.isArray(assignments?.rooms) ? assignments.rooms : [];
         const members = Array.isArray(assignments?.members) ? assignments.members : [];
@@ -380,18 +365,11 @@
         }
 
         const memberByRoutingUid = new Map();
-        const memberByAlias = new Map();
         for (const member of members) {
           const uid = String(member?.uid || '').trim();
           if (uid) memberByRoutingUid.set(uid, member);
-          for (const alias of memberAliases(member)) {
-            if (!memberByAlias.has(alias)) {
-              memberByAlias.set(alias, member);
-            } else {
-              memberByAlias.set(alias, null);
-            }
-          }
         }
+        const memberByAlias = routing.indexMembersByAlias(members);
 
         const liveByShift = {};
         const seen = new Set();
