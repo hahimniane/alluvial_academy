@@ -34,23 +34,41 @@ const applyData = (existing, data, merge = false) => {
   return next;
 };
 
+let autoId = 0;
+
 const makeDocRef = (collectionName, id) => ({
   id,
+  path: `${collectionName}/${id}`,
   get: async () => {
     const data = stores[collectionName]?.get(id);
     return { id, exists: data !== undefined, data: () => clone(data) };
   },
   set: async (data, options) => {
+    if (!stores[collectionName]) stores[collectionName] = new Map();
     stores[collectionName].set(
       id,
       applyData(stores[collectionName].get(id), data, options?.merge === true),
     );
   },
-  collection: () => ({ get: async () => ({ docs: [] }) }),
+  collection: (sub) => makeCollectionRef(`${collectionName}/${id}/${sub}`),
+});
+
+const makeCollectionRef = (name) => ({
+  doc: (id) => makeDocRef(name, id ?? `auto_${(autoId += 1)}`),
+  get: async () => ({ docs: [] }),
 });
 
 const mockFirestore = jest.fn(() => ({
-  collection: (name) => ({ doc: (id) => makeDocRef(name, id) }),
+  collection: (name) => makeCollectionRef(name),
+  batch: () => {
+    const writes = [];
+    return {
+      set: (ref, data, options) => writes.push({ ref, data, options }),
+      commit: async () => {
+        for (const write of writes) await write.ref.set(write.data, write.options);
+      },
+    };
+  },
 }));
 mockFirestore.FieldValue = { serverTimestamp };
 mockFirestore.Timestamp = { fromDate: makeTimestamp };
@@ -84,8 +102,15 @@ const makeResponse = () => {
   return res;
 };
 
+/** Every presence event written across all shift subcollections. */
+const presenceEvents = () => Object.entries(stores)
+  .filter(([name]) => name.startsWith('class_presence_events/'))
+  .flatMap(([, docs]) => [...docs.values()]);
+
 beforeEach(() => {
+  for (const name of Object.keys(stores)) delete stores[name];
   stores.hub_meetings = new Map();
+  autoId = 0;
 });
 
 describe('a hub that no longer exists', () => {
@@ -180,5 +205,139 @@ describe('recycle estimate', () => {
 
     expect(res.statusCode).toBe(200);
     expect(stores.hub_meetings.get('hub_1').bot_rejoin_expected_at).toBeNull();
+  });
+});
+
+describe('drop-out recording', () => {
+  const inRoom = (uid, role, name) => ({ routingUid: uid, role, name });
+
+  const hubWith = (participants) => ({
+    lane: 2,
+    status: 'roomsOpen',
+    bot_status: 'roomsOpen',
+    meetingNumber: '123',
+    heartbeat_at: makeTimestamp(new Date(Date.now() - 4 * 60 * 1000)),
+    live_participants_by_shift: participants,
+  });
+
+  const report = (participants, extra = {}) => makeRequest({
+    hubDocId: 'hub_1',
+    status: 'roomsOpen',
+    stats: { inRoomOccupants: 1 },
+    boIdByRoomName: { 'Room 1': `{BO-${Math.random()}}` },
+    liveParticipantsByShift: participants,
+    ...extra,
+  });
+
+  test('a teacher vanishing from their room is recorded as their own drop', () => {
+    // This is the case the whole feature exists for, and the only signal that
+    // sees it: teachers join through the Zoom desktop app, so no browser
+    // heartbeat ever runs for them.
+    stores.hub_meetings.set('hub_1', hubWith({
+      shift_a: [inRoom('teacher_1', 'teacher', 'habibu barry'), inRoom('student_1', 'student', 'Amadou')],
+    }));
+
+    return zoomHubBotState(
+      report({ shift_a: [inRoom('student_1', 'student', 'Amadou')] }),
+      makeResponse(),
+    ).then(() => {
+      const events = presenceEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        shift_id: 'shift_a',
+        uid: 'teacher_1',
+        name: 'habibu barry',
+        role: 'teacher',
+        type: 'departed',
+        cause: 'individual',
+      });
+    });
+  });
+
+  test('a whole room going at once is not blamed on anybody', async () => {
+    stores.hub_meetings.set('hub_1', hubWith({
+      shift_a: [inRoom('teacher_1', 'teacher'), inRoom('student_1', 'student')],
+    }));
+
+    await zoomHubBotState(report({ shift_a: [] }), makeResponse());
+
+    const events = presenceEvents();
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.cause === 'simultaneous')).toBe(true);
+  });
+
+  test('somebody the bot was moving is our doing, not a drop-out', async () => {
+    stores.hub_meetings.set('hub_1', hubWith({
+      shift_a: [inRoom('teacher_1', 'teacher'), inRoom('student_1', 'student')],
+    }));
+
+    await zoomHubBotState(
+      report({ shift_a: [inRoom('student_1', 'student')] }, { routedUids: ['teacher_1'] }),
+      makeResponse(),
+    );
+
+    expect(presenceEvents()[0]).toMatchObject({
+      uid: 'teacher_1', cause: 'platform', cause_detail: 'bot_moved_them',
+    });
+  });
+
+  test('the hub closing is recorded as ours, not as everyone quitting', async () => {
+    stores.hub_meetings.set('hub_1', hubWith({
+      shift_a: [inRoom('teacher_1', 'teacher'), inRoom('student_1', 'student')],
+    }));
+
+    await zoomHubBotState(makeRequest({ hubDocId: 'hub_1', status: 'left' }), makeResponse());
+
+    const events = presenceEvents();
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.cause === 'platform')).toBe(true);
+    expect(events[0].cause_detail).toBe('hub_window_closed');
+  });
+
+  test('somebody coming back is recorded too, so the absence can be measured', async () => {
+    stores.hub_meetings.set('hub_1', hubWith({ shift_a: [inRoom('student_1', 'student')] }));
+
+    await zoomHubBotState(
+      report({ shift_a: [inRoom('student_1', 'student'), inRoom('teacher_1', 'teacher')] }),
+      makeResponse(),
+    );
+
+    expect(presenceEvents()[0]).toMatchObject({ uid: 'teacher_1', type: 'arrived' });
+  });
+
+  test('a report that changes nothing writes no events', async () => {
+    const people = { shift_a: [inRoom('teacher_1', 'teacher')] };
+    stores.hub_meetings.set('hub_1', hubWith(people));
+
+    await zoomHubBotState(report(people), makeResponse());
+
+    expect(presenceEvents()).toEqual([]);
+  });
+
+  test('a hub that stops reporting a class does not invent departures', async () => {
+    // The bot going quiet is an outage. Recording it as everybody leaving would
+    // manufacture a drop-out for every person in every class at once.
+    stores.hub_meetings.set('hub_1', hubWith({
+      shift_a: [inRoom('teacher_1', 'teacher')],
+      shift_b: [inRoom('teacher_2', 'teacher')],
+    }));
+
+    await zoomHubBotState(report({ shift_a: [inRoom('teacher_1', 'teacher')] }), makeResponse());
+
+    expect(presenceEvents()).toEqual([]);
+  });
+
+  test('a failure to record never breaks the bot\'s state report', async () => {
+    stores.hub_meetings.set('hub_1', hubWith({ shift_a: [inRoom('teacher_1', 'teacher')] }));
+    const firestore = require('firebase-admin').firestore;
+    const realBatch = firestore().batch;
+    firestore().batch = () => { throw new Error('firestore is unhappy'); };
+
+    const res = makeResponse();
+    await zoomHubBotState(report({ shift_a: [] }), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(stores.hub_meetings.get('hub_1').status).toBe('roomsOpen');
+    firestore().batch = realBatch;
   });
 });
