@@ -11,6 +11,7 @@ import '../../chat/screens/chat_page.dart';
 import '../../forms/services/form_labels_cache_service.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/widgets/connection_report_card.dart';
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 const _blue = Color(0xff0078D4);
@@ -236,6 +237,14 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            // Their own connection during class. Above the
+                            // audit because it is the part they can still act
+                            // on before the next lesson, and it comes from live
+                            // class data rather than the finished month.
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 12),
+                              child: ConnectionReportCard(),
+                            ),
                             _SummaryTab(audit: _audit!, shrinkWrap: true),
                             _teacherActionsCard(_audit!),
                             const SizedBox(height: 8),
