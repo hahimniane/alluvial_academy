@@ -55,7 +55,10 @@ const makeDocRef = (collectionName, id) => ({
 
 const makeCollectionRef = (name) => ({
   doc: (id) => makeDocRef(name, id ?? `auto_${(autoId += 1)}`),
-  get: async () => ({ docs: [] }),
+  get: async () => ({
+    docs: [...(stores[name] || new Map()).entries()]
+      .map(([id, data]) => ({ id, data: () => clone(data) })),
+  }),
 });
 
 const mockFirestore = jest.fn(() => ({
@@ -139,6 +142,41 @@ describe('a hub that no longer exists', () => {
 
     expect(res.statusCode).toBe(404);
     expect(stores.hub_meetings.has('deleted_hub')).toBe(false);
+  });
+});
+
+describe('rebuilding the member cache', () => {
+  const { __test__ } = require('../handlers/zoom_hub_bot');
+
+  test('does not bring a deleted hub back to life', async () => {
+    // Observed live: deleting a hub, then deleting its members, fired this
+    // rebuild and recreated the hub as a shell — no lane, no window, no
+    // meeting — after which the bot's next state report filled it in and the
+    // hub was properly back. Two ways in; the state endpoint was only one.
+    stores['hub_meetings/gone_hub/members'] = new Map([
+      ['m1', { uid: 'u1', shiftId: 's1', role: 'teacher' }],
+    ]);
+
+    const members = await __test__._rebuildBotAssignmentsCache(
+      mockFirestore().collection('hub_meetings').doc('gone_hub'),
+    );
+
+    expect(members).toHaveLength(1);
+    expect(stores.hub_meetings.has('gone_hub')).toBe(false);
+  });
+
+  test('still caches for a hub that exists', async () => {
+    stores.hub_meetings.set('live_hub', { lane: 2, status: 'roomsOpen' });
+    stores['hub_meetings/live_hub/members'] = new Map([
+      ['m1', { uid: 'u1', shiftId: 's1', role: 'teacher' }],
+    ]);
+
+    await __test__._rebuildBotAssignmentsCache(
+      mockFirestore().collection('hub_meetings').doc('live_hub'),
+    );
+
+    expect(stores.hub_meetings.get('live_hub').bot_assignments_cache.members)
+      .toHaveLength(1);
   });
 });
 
