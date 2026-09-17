@@ -394,7 +394,14 @@
               identity,
               routingUid,
               zoomUserId: routing.zoomUserId(participant),
-              name: name || String(member?.displayName || member?.display_name || '').trim() || 'Participant',
+              // The member's own name wins over the one Zoom reports. A teacher
+              // handed to the desktop app joins under the routing name, which
+              // carries a routing token — plumbing, and not something to show
+              // an administrator reading a list of people.
+              name: String(
+                member?.realDisplayName || member?.real_display_name ||
+                member?.displayName || member?.display_name || '',
+              ).trim() || name || 'Participant',
               role,
               source: 'zoom_hub_bot',
             });
