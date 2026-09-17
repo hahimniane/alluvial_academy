@@ -59,8 +59,38 @@ describe('diffLiveParticipants', () => {
     expect(departures.map((d) => d.uid).sort()).toEqual(['teacher_1', 'teacher_2']);
   });
 
+  test('somebody who joined by raw Zoom link is still tracked', () => {
+    // Joining through the app carries a routing id; opening the Zoom link
+    // directly carries none, and every id field arrives empty. An earlier
+    // version skipped those people entirely — excluding exactly the ones most
+    // likely to be having trouble getting in.
+    const guest = {
+      identity: '', routingUid: '', routing_uid: '',
+      zoomUserId: 16786432, name: 'Smoke Test Teacher', role: 'participant',
+    };
+    const { arrivals } = diffLiveParticipants({}, { shift_a: [guest] });
+    expect(arrivals.map((a) => a.uid)).toEqual(['zoom:16786432']);
+
+    const { departures } = diffLiveParticipants({ shift_a: [guest] }, {});
+    expect(departures.map((d) => [d.uid, d.name]))
+      .toEqual([['zoom:16786432', 'Smoke Test Teacher']]);
+  });
+
+  test('a participant with only a name is tracked by it rather than dropped', () => {
+    const nameOnly = { name: 'Amadou Diallo', role: 'student' };
+    const { departures } = diffLiveParticipants({ shift_a: [nameOnly] }, {});
+    expect(departures.map((d) => d.uid)).toEqual(['name:Amadou Diallo']);
+  });
+
+  test('a routing id is preferred over Zoom\'s own, so one person is not two', () => {
+    const withBoth = { routingUid: 'teacher_1', zoomUserId: 999, name: 'habibu barry' };
+    const { departures } = diffLiveParticipants({ shift_a: [withBoth] }, {});
+    expect(departures.map((d) => d.uid)).toEqual(['teacher_1']);
+  });
+
   test('rubbish in does not throw', () => {
     expect(diffLiveParticipants(null, undefined)).toEqual({ arrivals: [], departures: [] });
+    // An entry with nothing identifying at all is still skipped.
     expect(diffLiveParticipants({ shift_a: 'nope' }, { shift_a: [null, {}] }))
       .toEqual({ arrivals: [], departures: [] });
   });
