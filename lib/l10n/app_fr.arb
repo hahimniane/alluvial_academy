@@ -7308,5 +7308,20 @@
   "classroomReconnectingTitle": "Reconnexion de votre cours",
   "classroomReconnectingSoon": "Votre cours revient. Il s'ouvrira tout seul.",
   "classroomReconnectingWaiting": "Votre cours se reconnecte. Il s'ouvrira tout seul dès qu'il sera prêt.",
-  "classroomReconnectingOverdue": "Cela prend plus de temps que prévu. Nous continuons d'essayer et un administrateur a été prévenu."
+  "classroomReconnectingOverdue": "Cela prend plus de temps que prévu. Nous continuons d'essayer et un administrateur a été prévenu.",
+  "connectionReportTitle": "Votre connexion en cours",
+  "connectionReportSubtitle": "À quelle fréquence vous avez été déconnecté du cours, et pendant combien de temps.",
+  "connectionReportTimesDropped": "Déconnexions",
+  "connectionReportTimeLost": "Temps de cours perdu",
+  "connectionReportLongest": "Déconnexion la plus longue",
+  "connectionReportNothingYet": "Rien d’enregistré pour l’instant. Cela se remplit au fil de vos cours.",
+  "connectionReportHeld": "Votre connexion a tenu pour tous les cours de cette période.",
+  "connectionReportNeverReturned": "{count} cours se sont terminés sans que vous puissiez y revenir.",
+  "connectionReportOurFault": "{count} interruption(s) supplémentaire(s) proviennent du système de classe lui-même. Elles sont de notre fait et ne sont pas comptabilisées ci-dessus.",
+  "connectionReportThisWeek": "Cette semaine",
+  "connectionReportThisMonth": "Ce mois-ci",
+  "connectionOverviewTitle": "Connexions des enseignants",
+  "connectionOverviewSubtitle": "Qui se déconnecte des cours, et combien de temps de cours cela coûte.",
+  "connectionOverviewEmpty": "Aucun problème de connexion enregistré pour cette période.",
+  "connectionOverviewClasses": "{count} cours"
 }

@@ -18289,4 +18289,60 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get classroomReconnectingOverdue =>
       'This is taking longer than expected. We are still trying, and an administrator has been told.';
+
+  @override
+  String get connectionReportTitle => 'Your class connection';
+
+  @override
+  String get connectionReportSubtitle =>
+      'How often you dropped out of class, and for how long.';
+
+  @override
+  String get connectionReportTimesDropped => 'Times dropped';
+
+  @override
+  String get connectionReportTimeLost => 'Lesson time lost';
+
+  @override
+  String get connectionReportLongest => 'Longest single drop';
+
+  @override
+  String get connectionReportNothingYet =>
+      'Nothing recorded yet. This fills in as you teach.';
+
+  @override
+  String get connectionReportHeld =>
+      'Your connection held for every class this period.';
+
+  @override
+  String connectionReportNeverReturned(int count) {
+    return '$count class(es) ended without you getting back in.';
+  }
+
+  @override
+  String connectionReportOurFault(int count) {
+    return 'A further $count interruption(s) came from the classroom system itself. Those are ours, and are not counted above.';
+  }
+
+  @override
+  String get connectionReportThisWeek => 'This week';
+
+  @override
+  String get connectionReportThisMonth => 'This month';
+
+  @override
+  String get connectionOverviewTitle => 'Teacher connections';
+
+  @override
+  String get connectionOverviewSubtitle =>
+      'Who is dropping out of class, and how much lesson time it costs.';
+
+  @override
+  String get connectionOverviewEmpty =>
+      'No connection problems recorded for this period.';
+
+  @override
+  String connectionOverviewClasses(int count) {
+    return '$count classes';
+  }
 }

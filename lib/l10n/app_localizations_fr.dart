@@ -18639,4 +18639,60 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get classroomReconnectingOverdue =>
       'Cela prend plus de temps que prévu. Nous continuons d\'essayer et un administrateur a été prévenu.';
+
+  @override
+  String get connectionReportTitle => 'Votre connexion en cours';
+
+  @override
+  String get connectionReportSubtitle =>
+      'À quelle fréquence vous avez été déconnecté du cours, et pendant combien de temps.';
+
+  @override
+  String get connectionReportTimesDropped => 'Déconnexions';
+
+  @override
+  String get connectionReportTimeLost => 'Temps de cours perdu';
+
+  @override
+  String get connectionReportLongest => 'Déconnexion la plus longue';
+
+  @override
+  String get connectionReportNothingYet =>
+      'Rien d’enregistré pour l’instant. Cela se remplit au fil de vos cours.';
+
+  @override
+  String get connectionReportHeld =>
+      'Votre connexion a tenu pour tous les cours de cette période.';
+
+  @override
+  String connectionReportNeverReturned(int count) {
+    return '$count cours se sont terminés sans que vous puissiez y revenir.';
+  }
+
+  @override
+  String connectionReportOurFault(int count) {
+    return '$count interruption(s) supplémentaire(s) proviennent du système de classe lui-même. Elles sont de notre fait et ne sont pas comptabilisées ci-dessus.';
+  }
+
+  @override
+  String get connectionReportThisWeek => 'Cette semaine';
+
+  @override
+  String get connectionReportThisMonth => 'Ce mois-ci';
+
+  @override
+  String get connectionOverviewTitle => 'Connexions des enseignants';
+
+  @override
+  String get connectionOverviewSubtitle =>
+      'Qui se déconnecte des cours, et combien de temps de cours cela coûte.';
+
+  @override
+  String get connectionOverviewEmpty =>
+      'Aucun problème de connexion enregistré pour cette période.';
+
+  @override
+  String connectionOverviewClasses(int count) {
+    return '$count cours';
+  }
 }

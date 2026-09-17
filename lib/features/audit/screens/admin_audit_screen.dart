@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
+import 'package:alluwalacademyadmin/core/widgets/connection_report_card.dart';
 import '../services/teacher_audit_service.dart';
 import '../../shift_management/models/teaching_shift.dart';
 import '../../forms/services/form_labels_cache_service.dart';
@@ -1263,6 +1264,15 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: _buildSearchAndFilterBar(),
+                  ),
+
+                // Who is dropping out of class. Above the audit table because
+                // it is the part somebody can act on today, and it comes from
+                // live class data rather than the finished monthly report.
+                if (!_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: ConnectionOverviewCard(),
                   ),
 
                 // Table View with Progressive Loading

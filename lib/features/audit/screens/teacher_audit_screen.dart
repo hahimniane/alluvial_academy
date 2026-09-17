@@ -9,6 +9,7 @@ import '../services/teacher_audit_service.dart';
 import '../../settings/services/pilot_flag_service.dart';
 import '../../../core/utils/export_helpers.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/core/widgets/connection_report_card.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/shift_session_aggregator.dart';
 
@@ -314,6 +315,12 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Their own connection during class. Sits above the audit because it
+          // is the thing they can still do something about before the next
+          // lesson, and it is drawn from live data rather than the month's
+          // finished report.
+          const ConnectionReportCard(),
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
