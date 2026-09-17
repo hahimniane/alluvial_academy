@@ -44,8 +44,14 @@ const CAUSE_INDIVIDUAL = 'individual';
  * best answer. Somebody who opened the Zoom link directly carries none — every
  * id field arrives empty — and an earlier version dropped them on the floor,
  * which quietly excluded exactly the people most likely to be having trouble
- * getting in. Zoom's own participant id identifies them within the meeting,
- * and their display name is the last resort.
+ * getting in.
+ *
+ * For those, the display name comes before Zoom's participant id. Zoom mints a
+ * fresh participant id for every connection, so the id cannot survive the one
+ * thing this module exists to measure: it would read a person's return as a
+ * stranger's arrival and record no absence at all. The name persists across a
+ * reconnect. Two people sharing a name inside one class room would merge, which
+ * undercounts; the id would miss every drop there is.
  *
  * The id only has to be stable between two consecutive reports of the same
  * meeting, which all three are.
@@ -55,12 +61,13 @@ const _identify = (person = {}) => {
     person.routingUid || person.routing_uid || person.uid || person.identity || '',
   ).trim();
   if (routing) return routing;
+  const name = String(person.name || '').trim();
+  if (name) return `name:${name}`;
   const zoomUserId = person.zoomUserId ?? person.zoom_user_id;
   if (zoomUserId !== undefined && zoomUserId !== null && `${zoomUserId}`.trim()) {
     return `zoom:${`${zoomUserId}`.trim()}`;
   }
-  const name = String(person.name || '').trim();
-  return name ? `name:${name}` : '';
+  return '';
 };
 
 /** The bot reports a hub's live participants as shiftId -> [{...people}]. */

@@ -73,6 +73,7 @@ function summariseAbsences(absences, { minSeconds = DEFAULT_MIN_ABSENCE_SECONDS 
           [CAUSE_SIMULTANEOUS]: _emptyTally(),
           [CAUSE_PLATFORM]: _emptyTally(),
         },
+        spells: [],
       });
     }
     const entry = byUid.get(uid);
@@ -82,10 +83,49 @@ function summariseAbsences(absences, { minSeconds = DEFAULT_MIN_ABSENCE_SECONDS 
     const cause = absence.cause || CAUSE_INDIVIDUAL;
     if (entry.byCause[cause]) _add(entry.byCause[cause], absence);
     if (cause === CAUSE_INDIVIDUAL) _add(entry.counted, absence);
+
+    // The clock times behind the count. A total a teacher cannot check is a
+    // total they cannot disagree with, and the raw events are deleted with the
+    // class after sixty days — so each spell is kept here, where the summary
+    // lives for good. Ours are kept alongside theirs and stay labelled.
+    entry.spells.push({
+      from: absence.startedAtMs ?? null,
+      to: absence.endedAtMs ?? null,
+      seconds: Number.isFinite(absence.seconds) ? absence.seconds : null,
+      returned: absence.returned !== false,
+      cause,
+    });
   }
 
   return [...byUid.values()].sort((a, b) => b.counted.drops - a.counted.drops);
 }
+
+/**
+ * How many classes a period keeps the detail of, per person.
+ *
+ * Enough to answer any argument worth having, bounded because a Firestore
+ * document is not allowed to grow forever. The totals are never trimmed — only
+ * the oldest supporting detail is, and the raw events outlive that anyway.
+ */
+const MAX_OCCASIONS_KEPT = 60;
+
+/**
+ * The record of one class in which somebody dropped out.
+ *
+ * This is what a teacher is shown when they say the number is wrong: the day,
+ * the class, the student it was with, and the clock times they were gone.
+ */
+const _occasionFrom = (summary, person) => ({
+  shiftId: summary.shift_id || null,
+  className: summary.class_name || null,
+  students: Array.isArray(summary.students) ? summary.students : [],
+  startedAt: summary.shift_start_ms ?? null,
+  drops: person.counted.drops,
+  secondsLost: person.counted.secondsLost,
+  longestSeconds: person.counted.longestSeconds,
+  neverReturned: person.counted.neverReturned,
+  spells: Array.isArray(person.spells) ? person.spells : [],
+});
 
 /** Roll per-class summaries into a week or a month, per person. */
 function rollUp(classSummaries) {
@@ -108,13 +148,17 @@ function rollUp(classSummaries) {
             [CAUSE_SIMULTANEOUS]: _emptyTally(),
             [CAUSE_PLATFORM]: _emptyTally(),
           },
+          occasions: [],
         });
       }
       const entry = byUid.get(uid);
       entry.role = entry.role || person.role || null;
       entry.name = entry.name || person.name || null;
       entry.classes += 1;
-      if (person.counted.drops > 0) entry.classesWithADrop += 1;
+      if (person.counted.drops > 0) {
+        entry.classesWithADrop += 1;
+        entry.occasions.push(_occasionFrom(summary, person));
+      }
 
       const merge = (into, from) => {
         into.drops += from.drops;
@@ -127,6 +171,12 @@ function rollUp(classSummaries) {
         if (person.byCause && person.byCause[cause]) merge(entry.byCause[cause], person.byCause[cause]);
       }
     }
+  }
+
+  // Most recent class first: an argument is nearly always about a recent one.
+  for (const entry of byUid.values()) {
+    entry.occasions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    entry.occasions = entry.occasions.slice(0, MAX_OCCASIONS_KEPT);
   }
 
   return [...byUid.values()].sort((a, b) => b.counted.drops - a.counted.drops);

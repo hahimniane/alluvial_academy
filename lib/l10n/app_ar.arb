@@ -238,52 +238,80 @@
   "enrollmentProgramWizardProgress": "الطالب {current} من {total}",
   "@enrollmentProgramWizardProgress": {
     "placeholders": {
-      "current": {"type": "int"},
-      "total": {"type": "int"}
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "enrollmentProgramWizardCtaHint": "أكمل الحقول لهذا الطالب ثم اضغط متابعة. عند الانتهاء من جميع الطلاب، ستنتقل متابعة إلى الخطوة التالية.",
   "enrollmentSummaryLineDetail": "{program} · {hours} ساعة/أسبوع · {price}",
   "@enrollmentSummaryLineDetail": {
     "placeholders": {
-      "program": {"type": "String"},
-      "hours": {"type": "int"},
-      "price": {"type": "String"}
+      "program": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "price": {
+        "type": "String"
+      }
     }
   },
   "enrollmentSummaryAllChildrenTitle": "جميع الأطفال ({count})",
   "@enrollmentSummaryAllChildrenTitle": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "enrollmentProgramFieldLabel": "البرنامج",
   "enrollmentFooterWeeklyHoursSum": "{count} طلاب · {hours} ساعات/أسبوع إجمالاً",
   "@enrollmentFooterWeeklyHoursSum": {
     "placeholders": {
-      "count": {"type": "int"},
-      "hours": {"type": "int"}
+      "count": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
     }
   },
   "enrollmentFooterHouseholdTotalMo": "تقدير {total}/شهر إجمالي الأسرة",
   "@enrollmentFooterHouseholdTotalMo": {
     "placeholders": {
-      "total": {"type": "String"}
+      "total": {
+        "type": "String"
+      }
     }
   },
   "enrollmentFooterPerChildSameMo": "{each}/شهر لكل طفل",
   "@enrollmentFooterPerChildSameMo": {
     "placeholders": {
-      "each": {"type": "String"}
+      "each": {
+        "type": "String"
+      }
     }
   },
   "enrollmentSummarySameProgramHouseholdDetail": "{program} · {hours} س/أسبوع لكل طفل · {each} لكل طفل · {total} إجمالي الأسرة/شهر",
   "@enrollmentSummarySameProgramHouseholdDetail": {
     "placeholders": {
-      "program": {"type": "String"},
-      "hours": {"type": "int"},
-      "each": {"type": "String"},
-      "total": {"type": "String"}
+      "program": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "each": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "enrollmentCustomTimePickEndTitle": "وقت الانتهاء",
@@ -1515,19 +1543,25 @@
   "deleteThisAndFuture": "Delete This & Future ({count})",
   "@deleteThisAndFuture": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "deleteShiftConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
   "@deleteShiftConfirm": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "deleteShiftSeriesOptionsHint": "This shift is part of a recurring series. You can delete just this shift, or delete this shift and all future scheduled shifts ({count}).\n\nCompleted/active shifts are not deleted.",
   "@deleteShiftSeriesOptionsHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "deletingShift": "Deleting shift...",
@@ -2029,7 +2063,9 @@
   "auditDiscussionUnreadBadgeTooltip": "{count, plural, one{رسالة واحدة غير مقروءة من المعلّم} other{{count} رسائل غير مقروءة من المعلّم}}",
   "@auditDiscussionUnreadBadgeTooltip": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "auditShareWithTeacherTooltip": "مشاركة مع المعلم (نسخ)",
@@ -3110,13 +3146,17 @@
   "timesheetReviewPendingCount": "{count} pending",
   "@timesheetReviewPendingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewShowingCount": "{count} shown",
   "@timesheetReviewShowingCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewQueue": "Queue",
@@ -3126,13 +3166,17 @@
   "timesheetReviewExportFiltered": "Current filter ({count} rows)",
   "@timesheetReviewExportFiltered": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportSelected": "Selected only ({count} rows)",
   "@timesheetReviewExportSelected": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportExcel": "Excel workbook (.xlsx)",
@@ -3154,7 +3198,9 @@
   "timesheetReviewExportOnScreenSummary": "يصدّر {count} صفًا كما يظهر في الجدول الآن (بعد التصفية والبحث). سبعة أعمدة فقط كالشبكة: المعلم، التاريخ، الطالب/المادة، الساعات، الدفع، المصدر، الحالة.",
   "@timesheetReviewExportOnScreenSummary": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetReviewExportExcelOneSheet": "ورقة عمل واحدة في الملف (بدون أوراق ملخص إضافية).",
@@ -3222,7 +3268,9 @@
   "timesheetReviewBulkSelection": "{count} selected",
   "@timesheetReviewBulkSelection": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "timesheetSubmittedForReview": "Timesheet Submitted For Review",
@@ -5146,7 +5194,9 @@
   "adminAuditTeacherPayslipAcknowledgedOn": "تم التأكيد في {date}",
   "@adminAuditTeacherPayslipAcknowledgedOn": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "adminAuditTeacherPayslipNotAcknowledged": "لم يُؤكَّد بعد",
@@ -5193,7 +5243,9 @@
   "publicSiteCmsPricingSavedThisTrack": "تم حفظ الأسعار بما في ذلك {name}. تبقى جميع المسارات متزامنة.",
   "@publicSiteCmsPricingSavedThisTrack": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "publicSiteCmsHeroColorPickerTitle": "لون خلفية البطل",
@@ -5218,8 +5270,12 @@
   "publicSiteCmsTeamImportDone": "تم استيراد {imported} ملفًا. تم تخطي {skipped} موجود مسبقًا.",
   "@publicSiteCmsTeamImportDone": {
     "placeholders": {
-      "imported": {"type": "int"},
-      "skipped": {"type": "int"}
+      "imported": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "publicSiteCmsLinkedUserUid": "حساب مرتبط (معرّف Firebase)",
@@ -5315,7 +5371,9 @@
   "unifiedCatSubjectCount": "{count} مواد",
   "@unifiedCatSubjectCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unifiedProgIslamQuranTitle": "Quran",
@@ -5528,7 +5586,6 @@
   "unifiedProgAsHighFeat1": "AP/IB readiness",
   "unifiedProgAsHighFeat2": "Time management",
   "unifiedProgAsHighFeat3": "Subject depth",
-
   "unifiedProgramsBrowse": "تصفح البرامج",
   "unifiedProgramsTrust35": "أكثر من 35 برنامجاً",
   "unifiedProgramsTrustFlexible": "جداول مرنة",
@@ -5536,7 +5593,6 @@
   "unifiedProgramsPerHour": "في الساعة",
   "heroExplorePrograms": "استكشف برامجنا",
   "landingHeroSubtitle": "تصفّح جميع البرامج، حدّد ساعاتك، وتعلّم عبر الإنترنت مع مدرسين مؤهلين.",
-
   "inviteParentDialogTitle": "دعوة ولي الأمر",
   "inviteParentDialogSubtitle": "أنشئ حساب ولي أمر مرتبط بهذا الطالب. إذا كان البريد مستخدمًا بالفعل فسيتم ربطه فقط.",
   "inviteParentEmailLabel": "بريد ولي الأمر الإلكتروني",
@@ -5553,7 +5609,6 @@
   "inviteParentSuccessLinked": "تم ربط ولي الأمر الحالي بهذا الطالب.",
   "inviteParentSuccessInvited": "تم إرسال بريد الدعوة إلى ولي الأمر.",
   "inviteParentSuccessInvitedNoEmail": "تم إنشاء حساب ولي الأمر، لكن تعذّر إرسال بريد الدعوة.",
-
   "manageGuardiansButton": "إدارة أولياء الأمور",
   "manageGuardiansTitle": "أولياء الأمور المرتبطون",
   "manageGuardiansSubtitle": "أولياء الأمور المرتبطون حاليًا بـ {studentName}. يؤدي إلغاء الربط إلى إزالة وصولهم إلى حصص هذا الطالب ومحادثاته وفواتيره.",
@@ -5576,7 +5631,6 @@
   "unlinkGuardianAdultOverrideBody": "لا يوجد لدى {studentName} ولي أمر صالح آخر مرتبط. تابع فقط إذا أكد المسؤول أن هذا الطالب يجب أن يدير حسابه كطالب بالغ بعد إزالة {guardianName}.",
   "unlinkGuardianAdultOverrideAction": "تحديده كبالغ وإلغاء الربط",
   "invalidParentSelected": "تم اختيار ولي أمر غير صالح.",
-
   "enrollmentStateChooseProgram": "١. اختيار البرنامج",
   "enrollmentStateClassPreferences": "٢. تفضيلات الفصل",
   "enrollmentStatePricingAndHours": "٣. الأسعار والساعات",
@@ -5601,7 +5655,6 @@
   "enrollmentStateFemale": "أنثى",
   "enrollmentStatePreferredTimeOfDay": "وقت اليوم المفضل",
   "enrollmentStatePreferredDays": "الأيام المفضلة",
-
   "prepareBroadcastTitle": "إعداد وبث",
   "prepareBroadcastSubtitle": "راجع وعدّل الجدول قبل أن يراه المعلمون",
   "prepareBroadcastParentStudentNotes": "ملاحظات الوالدين/الطالب",
@@ -5638,7 +5691,6 @@
   "prepareBroadcastNoTeachersFound": "لم يتم العثور على معلمين",
   "prepareBroadcastSelectTeacherFirst": "اختر معلماً واحداً على الأقل قبل البث.",
   "prepareBroadcastTeachersSelected": "تم اختيار {count} معلم/معلمين",
-
   "adminActionCardsViewAll": "عرض الكل",
   "adminActionCardsPendingTimesheets": "جداول الحضور المعلقة",
   "adminActionCardsTimesheetReview": "مراجعة جداول الحضور",
@@ -5664,10 +5716,8 @@
   "adminActionCardsNoTeacherApplicants": "لا يوجد معلمون متقدمون",
   "adminActionCardsTeachers": "المعلمون",
   "adminActionCardsViewTeachers": "عرض المعلمين",
-
   "landingHeroHeadline": "تعلم من خلال التدريس الإلكتروني\nمن أي مكان في العالم",
   "landingHeroSearchHint": "ماذا تريد أن تتعلم؟",
-
   "aboutValuesAuthenticity": "الأصالة",
   "aboutValuesAuthenticityDesc": "متجذر في القرآن والسنة",
   "aboutValuesCompassion": "الرحمة",
@@ -5680,7 +5730,6 @@
   "aboutValuesKnowledgeDesc": "تعلم تحويلي",
   "aboutValuesAccessibility": "إمكانية الوصول",
   "aboutValuesAccessibilityDesc": "متاح في جميع أنحاء العالم",
-
   "adminAllSubmissionsTitle": "جميع التقديمات (المسؤول)",
   "adminSubmissionsTotal": "الإجمالي",
   "adminSubmissionsTeachers": "المعلمون",
@@ -5943,7 +5992,9 @@
   "zoomScopeBody": "نقل جميع حصص {name} إلى Zoom، أم فقط حصص الطلاب المحددين؟",
   "@zoomScopeBody": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "zoomScopeAll": "جميع الحصص",
@@ -5956,7 +6007,13 @@
   "financeCutoffsTab": "إيقاف الوصول",
   "financeOverviewTitle": "مركز قيادة المالية",
   "financeMonthLive": "عرض مباشر لشهر {month}. تظهر هنا الإيرادات والفواتير والمصروفات المسجلة والرواتب المعتمدة.",
-  "@financeMonthLive": {"placeholders": {"month": {"type": "Object"}}},
+  "@financeMonthLive": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
   "financePreviousMonth": "الشهر السابق",
   "financeNextMonth": "الشهر التالي",
   "financeOpenCreateInvoice": "إنشاء فاتورة",
@@ -5969,9 +6026,21 @@
   "financeIncomeGoal": "هدف الدخل",
   "financeNoIncomeGoal": "لم يتم تحديد هدف",
   "financeGoalProgress": "{percent} من الهدف",
-  "@financeGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeGoalProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeProjectedGoalProgress": "متوقع {percent} من الهدف",
-  "@financeProjectedGoalProgress": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeProjectedGoalProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeInvoiced": "المفوتر",
   "financeOutstanding": "المتبقي",
   "financeKnownExpenses": "المصروفات المعروفة",
@@ -5981,9 +6050,21 @@
   "financeNoPriorRevenue": "لا توجد إيرادات سابقة",
   "financeNewRevenueThisMonth": "جديد هذا الشهر",
   "financeUpFromLastMonth": "ارتفاع {percent} عن الشهر الماضي",
-  "@financeUpFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeUpFromLastMonth": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeDownFromLastMonth": "انخفاض {percent} عن الشهر الماضي",
-  "@financeDownFromLastMonth": {"placeholders": {"percent": {"type": "Object"}}},
+  "@financeDownFromLastMonth": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
   "financeOverdueInvoices": "فواتير متأخرة",
   "financeStaffPayrollOnly": "رواتب الموظفين فقط",
   "financePartialLedger": "سجل مصروفات جزئي",
@@ -6103,13 +6184,31 @@
   "adminInvoiceBillingOptionsTitle": "خيارات الفوترة",
   "adminInvoiceBillingCoverage": "الأشهر المضمنة",
   "adminInvoiceBillingCoveragePreview": "تغطي الفاتورة {period}",
-  "@adminInvoiceBillingCoveragePreview": {"placeholders": {"period": {"type": "Object"}}},
+  "@adminInvoiceBillingCoveragePreview": {
+    "placeholders": {
+      "period": {
+        "type": "Object"
+      }
+    }
+  },
   "adminInvoiceCoverageOneMonth": "شهر واحد",
   "adminInvoiceCoverageMonths": "{count} أشهر",
-  "@adminInvoiceCoverageMonths": {"placeholders": {"count": {"type": "Object"}}},
+  "@adminInvoiceCoverageMonths": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
   "adminInvoiceRecurringPlan": "جعلها متكررة",
   "adminInvoiceRecurringPlanSubtitle": "ينشئ تلقائياً فاتورة {coverage} التالية عند بداية فترة الفوترة ويتتبع فشل الإرسال.",
-  "@adminInvoiceRecurringPlanSubtitle": {"placeholders": {"coverage": {"type": "Object"}}},
+  "@adminInvoiceRecurringPlanSubtitle": {
+    "placeholders": {
+      "coverage": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffTitle": "إدارة إيقاف الوصول",
   "cutoffSubtitle": "الطلاب الموقوفون والفواتير المسببة وخيارات التمديد السريع.",
   "cutoffSuspendedStudents": "موقوفون",
@@ -6128,9 +6227,21 @@
   "cutoffExtendTitle": "تمديد موعد الوصول",
   "cutoffExtendParentTitle": "تمديد مجموعة ولي الأمر",
   "cutoffExtendBody": "اختر موعداً جديداً لـ {name}. سيتم نقل الفواتير المانعة إلى هذا الموعد.",
-  "@cutoffExtendBody": {"placeholders": {"name": {"type": "Object"}}},
+  "@cutoffExtendBody": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffExtendParentBody": "اختر موعداً جديداً لكل الطلاب الموقوفين تحت {name}.",
-  "@cutoffExtendParentBody": {"placeholders": {"name": {"type": "Object"}}},
+  "@cutoffExtendParentBody": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "cutoffExtendBy7": "+7 أيام",
   "cutoffExtendBy14": "+14 يوماً",
   "cutoffExtendBy30": "+30 يوماً",
@@ -6159,13 +6270,17 @@
   "leaderAttendanceUntil": "مجدول حتى {time}",
   "@leaderAttendanceUntil": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "leaderAttendanceShiftAt": "الوردية الحالية/التالية: {time}",
   "@leaderAttendanceShiftAt": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "leaderAttendanceNoUpcomingShift": "لا توجد وردية متبقية هذا الشهر",
@@ -6174,13 +6289,17 @@
   "timeClockEarlyClockOutBody": "أنت تسجل الخروج قبل نهاية ورديتك المجدولة بـ {minutes} دقيقة. يرجى توضيح السبب.",
   "@timeClockEarlyClockOutBody": {
     "placeholders": {
-      "minutes": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "timeClockLateClockOutBody": "أنت تسجل الخروج بعد نهاية ورديتك المجدولة بـ {minutes} دقيقة. يرجى توضيح السبب.",
   "@timeClockLateClockOutBody": {
     "placeholders": {
-      "minutes": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "timeClockClockOutNoteLabel": "التوضيح",
@@ -6192,13 +6311,17 @@
   "timeClockTeachingSessionTitle": "تدريس: {name}",
   "@timeClockTeachingSessionTitle": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "timeClockLeadershipSessionTitle": "قيادة: {name}",
   "@timeClockLeadershipSessionTitle": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "studentAttendanceOverviewNav": "حضور الطلاب",
@@ -6213,7 +6336,9 @@
   "studentAttendanceStudentsTracked": "تتم متابعة {count} طالبًا",
   "@studentAttendanceStudentsTracked": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "studentAttendanceClassTime": "وقت الدراسة",
@@ -6224,14 +6349,20 @@
   "studentAttendanceHoursValue": "{hours} ساعة",
   "@studentAttendanceHoursValue": {
     "placeholders": {
-      "hours": { "type": "String" }
+      "hours": {
+        "type": "String"
+      }
     }
   },
   "studentAttendancePeriodLabel": "{start} – {end}",
   "@studentAttendancePeriodLabel": {
     "placeholders": {
-      "start": { "type": "String" },
-      "end": { "type": "String" }
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
     }
   },
   "studentAttendanceNoDataTitle": "لا توجد بيانات حضور بعد",
@@ -6251,14 +6382,20 @@
   "formDecisionNotificationTitle": "قرار النموذج: {status}",
   "@formDecisionNotificationTitle": {
     "placeholders": {
-      "status": { "type": "String" }
+      "status": {
+        "type": "String"
+      }
     }
   },
   "formDecisionNotificationBody": "تم تحديث طلب {formTitle} إلى {status}. افتح صفحة نماذجي المرسلة للاطلاع على التفاصيل.",
   "@formDecisionNotificationBody": {
     "placeholders": {
-      "formTitle": { "type": "String" },
-      "status": { "type": "String" }
+      "formTitle": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
     }
   },
   "formDecisionNotificationSent": "تم حفظ القرار وإشعار المعلم.",
@@ -6275,7 +6412,13 @@
   "quizReviewGenerate": "توليد أسئلة",
   "quizReviewGenerateStarted": "جارٍ توليد أسئلة جديدة… ستظهر هنا خلال دقيقة.",
   "quizReviewActionFailed": "فشلت العملية: {error}",
-  "@quizReviewActionFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@quizReviewActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "quizReviewApprovedSnack": "تم قبول السؤال",
   "quizReviewRejectedSnack": "تم رفض السؤال",
   "quizReviewRejectionReasonTitle": "لماذا ترفض هذا السؤال؟",
@@ -6284,7 +6427,13 @@
   "quizReviewRejectionReasonRequired": "يرجى تقديم سبب قبل الرفض.",
   "quizReviewConfirmRejection": "رفض السؤال",
   "quizReviewPendingCount": "{count} قيد الانتظار",
-  "@quizReviewPendingCount": {"placeholders": {"count": {"type": "int"}}},
+  "@quizReviewPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizReviewSendStudentBatch": "إرسال دفعة الطلاب",
   "quizReviewStudentBatchSent": "تم إرسال دفعة الأسئلة المعتمدة إلى الطلاب.",
   "quizReviewManageReviewers": "معلمو المراجعة",
@@ -6292,26 +6441,77 @@
   "quizReviewReviewersSaved": "تم حفظ معلمي المراجعة وإشعارهم بالدفعة المعلقة.",
   "quizReviewRecentDecisions": "القرارات الأخيرة",
   "quizReviewDecisionBy": "{status} بواسطة {name} ({role})",
-  "@quizReviewDecisionBy": {"placeholders": {"status": {"type": "String"}, "name": {"type": "String"}, "role": {"type": "String"}}},
+  "@quizReviewDecisionBy": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionStudentTitle": "تحدي البيان الشهري",
   "quizCompetitionAdminTitle": "مسابقة البيان",
   "quizCompetitionMonth": "شهر المسابقة: {month}",
-  "@quizCompetitionMonth": {"placeholders": {"month": {"type": "String"}}},
+  "@quizCompetitionMonth": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionRules": "أجب عن أسئلة فريدة طوال الشهر. للتأهل، أجب عن {questions} سؤالًا على الأقل خلال {days} أيام مختلفة. يفوز صاحب أكبر عدد من الإجابات الفريدة، ثم تُحسم التعادلات بالإجابات الصحيحة والدقة والأيام النشطة ثم أسبق وقت للوصول إلى النتيجة النهائية.",
-  "@quizCompetitionRules": {"placeholders": {"questions": {"type": "int"}, "days": {"type": "int"}}},
+  "@quizCompetitionRules": {
+    "placeholders": {
+      "questions": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionQuestions": "الأسئلة",
   "quizCompetitionActiveDays": "الأيام النشطة",
   "quizCompetitionRank": "الترتيب",
   "quizCompetitionRetry": "إعادة تحميل حالة المسابقة",
   "quizCompetitionNoWinner": "لم يحقق أي طالب الحد الأدنى للمشاركة هذا الشهر.",
   "quizCompetitionWinner": "الفائز: {name}",
-  "@quizCompetitionWinner": {"placeholders": {"name": {"type": "String"}}},
+  "@quizCompetitionWinner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionAnswered": "تمت الإجابة عن {count} سؤالًا فريدًا",
-  "@quizCompetitionAnswered": {"placeholders": {"count": {"type": "int"}}},
+  "@quizCompetitionAnswered": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionLeaderboard": "لوحة الترتيب",
   "quizCompetitionNoParticipants": "لم يجب أي طالب عن سؤال في المسابقة بعد.",
   "quizCompetitionEntryStats": "{answered} إجابة · {correct} صحيحة · {days} أيام نشطة",
-  "@quizCompetitionEntryStats": {"placeholders": {"answered": {"type": "int"}, "correct": {"type": "int"}, "days": {"type": "int"}}},
+  "@quizCompetitionEntryStats": {
+    "placeholders": {
+      "answered": {
+        "type": "int"
+      },
+      "correct": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionChooseMonth": "اختيار الشهر",
   "quizCompetitionFinalizeTitle": "إنهاء هذه المسابقة؟",
   "quizCompetitionFinalizeBody": "ستحصل كل فئة عمرية تضم عددًا كافيًا من الطلاب المؤهلين على فائز، أو فائزين مشتركين عند التعادل التام. يتطلب الإنهاء المبكر أو التصحيح سببًا مكتوبًا.",
@@ -6322,30 +6522,102 @@
   "quizCompetitionCancel": "إلغاء",
   "quizCompetitionAnswerNotCounted": "تعذر إضافة هذه الإجابة إلى المسابقة الشهرية. تحقق من اتصالك وحاول سؤالًا آخر.",
   "quizCompetitionFairRules": "تتنافس داخل فئتك العمرية فقط. للتأهل، أجب عن {questions} سؤالًا فريدًا خلال {days} أيام وحقق دقة لا تقل عن {accuracy}٪. تحتاج الفئة إلى {participants} من الطلاب المؤهلين. عند التعادل التام يشترك الطلاب في الفوز.",
-  "@quizCompetitionFairRules": {"placeholders": {"questions": {"type": "int"}, "days": {"type": "int"}, "accuracy": {"type": "int"}, "participants": {"type": "int"}}},
+  "@quizCompetitionFairRules": {
+    "placeholders": {
+      "questions": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      },
+      "accuracy": {
+        "type": "int"
+      },
+      "participants": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryProgress": "للتأهل، استكشف كل الفئات: {attempted}/{required} مكتملة.",
-  "@quizCompetitionCategoryProgress": {"placeholders": {"attempted": {"type": "int"}, "required": {"type": "int"}}},
+  "@quizCompetitionCategoryProgress": {
+    "placeholders": {
+      "attempted": {
+        "type": "int"
+      },
+      "required": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionNearbyRanks": "أقرب المراتب في فئتك",
   "quizCompetitionNearbyAhead": "أمامك · #{rank} {name}",
-  "@quizCompetitionNearbyAhead": {"placeholders": {"rank": {"type": "int"}, "name": {"type": "String"}}},
+  "@quizCompetitionNearbyAhead": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionNearbyBehind": "خلفك · #{rank} {name}",
-  "@quizCompetitionNearbyBehind": {"placeholders": {"rank": {"type": "int"}, "name": {"type": "String"}}},
+  "@quizCompetitionNearbyBehind": {
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionCountingWindow": "تُحتسب الإجابات من {start} حتى {end}.",
-  "@quizCompetitionCountingWindow": {"placeholders": {"start": {"type": "String"}, "end": {"type": "String"}}},
+  "@quizCompetitionCountingWindow": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionSetWindow": "تحديد فترة العد",
   "quizCompetitionCountingStart": "أول يوم للاحتساب",
   "quizCompetitionCountingEnd": "آخر يوم للاحتساب",
   "quizCompetitionWindowSaved": "تم حفظ فترة احتساب المسابقة.",
   "quizCompetitionLifetimeWins": "إجمالي مرات الفوز: {count}",
-  "@quizCompetitionLifetimeWins": {"placeholders": {"count": {"type": "int"}}},
+  "@quizCompetitionLifetimeWins": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryGuidance": "إرشادك حسب الفئة",
   "quizCompetitionCategoryInsight": "{correct}/{answered} صحيحة",
-  "@quizCompetitionCategoryInsight": {"placeholders": {"correct": {"type": "int"}, "answered": {"type": "int"}}},
+  "@quizCompetitionCategoryInsight": {
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "answered": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionCategoryStart": "ابدأ هنا",
   "quizCompetitionCategoryPractice": "تدرّب أكثر",
   "quizCompetitionCategoryStrong": "تقدّم جيد",
   "quizCompetitionDivision": "الفئة: {division}",
-  "@quizCompetitionDivision": {"placeholders": {"division": {"type": "String"}}},
+  "@quizCompetitionDivision": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionDivisionEarlyLearners": "المتعلمون الصغار (أقل من 8 سنوات)",
   "quizCompetitionDivisionJuniors": "الناشئون (8–11 سنة)",
   "quizCompetitionDivisionYouth": "الشباب (12–17 سنة)",
@@ -6353,9 +6625,24 @@
   "quizCompetitionDivisionUnassigned": "تحتاج إلى تحديد الفئة العمرية",
   "quizCompetitionDivisionNeeded": "يتم حفظ إجاباتك، لكن لن يظهر ترتيبك حتى يتم تحديد فئتك العمرية.",
   "quizCompetitionCoWinners": "الفائزون بالتعادل: {names}",
-  "@quizCompetitionCoWinners": {"placeholders": {"names": {"type": "String"}}},
+  "@quizCompetitionCoWinners": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
   "quizCompetitionDivisionSummary": "{participants} مشارك · {eligible} مؤهل",
-  "@quizCompetitionDivisionSummary": {"placeholders": {"participants": {"type": "int"}, "eligible": {"type": "int"}}},
+  "@quizCompetitionDivisionSummary": {
+    "placeholders": {
+      "participants": {
+        "type": "int"
+      },
+      "eligible": {
+        "type": "int"
+      }
+    }
+  },
   "quizCompetitionAssignDivision": "تحديد الفئة",
   "quizCompetitionAssignDivisionTitle": "تحديد الفئة العمرية",
   "quizCompetitionAssignDivisionReason": "السبب أو العمر المؤكد (مطلوب)",
@@ -6375,7 +6662,16 @@
   "quizCompetitionStatusParticipating": "مشارك",
   "quizCompetitionStatusQualified": "مؤهل",
   "quizCategoryCount": "{categories} فئات • أكثر من {questions} سؤالًا",
-  "@quizCategoryCount": {"placeholders": {"categories": {"type": "int"}, "questions": {"type": "int"}}},
+  "@quizCategoryCount": {
+    "placeholders": {
+      "categories": {
+        "type": "int"
+      },
+      "questions": {
+        "type": "int"
+      }
+    }
+  },
   "parentFormsTitle": "نماذج الأسرة",
   "parentFormsSubtitle": "أرسل طلب عذر أو شارك ملاحظاتك مع قادة المدرسة.",
   "parentExcuseFormTitle": "طلب عذر غياب الطالب",
@@ -6398,13 +6694,37 @@
   "adminInvoiceDeleteBlockedPaymentInProgress": "لا يمكن حذف هذه الفاتورة أثناء وجود دفعة معلّقة أو قيد المعالجة.",
   "adminInvoiceDeleteBlockedPaymentHistory": "لهذه الفاتورة سجل مدفوعات ولا يمكن حذفها. ألغِها بدلًا من ذلك.",
   "classRosterAssignedStudents": "الطلاب المسجلون ({count})",
-  "@classRosterAssignedStudents": {"placeholders": {"count": {"type": "int"}}},
+  "@classRosterAssignedStudents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "classRosterStudentId": "معرّف الطالب: {id}",
-  "@classRosterStudentId": {"placeholders": {"id": {"type": "String"}}},
+  "@classRosterStudentId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterParentName": "ولي الأمر: {name}",
-  "@classRosterParentName": {"placeholders": {"name": {"type": "String"}}},
+  "@classRosterParentName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterPhone": "الهاتف: {phone}",
-  "@classRosterPhone": {"placeholders": {"phone": {"type": "String"}}},
+  "@classRosterPhone": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "classRosterNoParentLinked": "لا يوجد ولي أمر مرتبط",
   "classRosterNoPhoneNumber": "لا يوجد رقم هاتف",
   "classRosterContactsUnavailable": "تفاصيل الاتصال غير متاحة",

@@ -9,6 +9,45 @@
     return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
   }
 
+  /** Every name a member may appear under in the room, lowercased. */
+  function memberAliases(member) {
+    const values = [
+      member && member.displayName,
+      member && member.display_name,
+      member && member.routingDisplayName,
+      member && member.routing_display_name,
+      member && member.name,
+      ...((member && Array.isArray(member.displayNameAliases)) ? member.displayNameAliases : []),
+      ...((member && Array.isArray(member.display_name_aliases)) ? member.display_name_aliases : []),
+    ];
+    return Array.from(new Set(values.map(normalizeRoomName).filter(Boolean)));
+  }
+
+  /**
+   * Name -> member, for the participants who arrive carrying no id of their own.
+   *
+   * A teacher handed to the desktop Zoom app sends only a display name: the
+   * `zoommtg://` URL has no customerKey, and Zoom issues a fresh user id on
+   * every reconnect. The name is the only thing that survives a drop, so this
+   * index is what ties somebody's second arrival to their first.
+   *
+   * A name claimed by two different members is genuinely ambiguous and is
+   * dropped. A name listed twice by the SAME member is not ambiguous — every
+   * member doc repeats its names across displayName, routingDisplayName and
+   * displayNameAliases — so aliases are deduplicated per member before the
+   * clash is judged.
+   */
+  function indexMembersByAlias(members) {
+    const byAlias = new Map();
+    for (const member of Array.isArray(members) ? members : []) {
+      for (const alias of memberAliases(member)) {
+        if (!byAlias.has(alias)) byAlias.set(alias, member);
+        else if (byAlias.get(alias) !== member) byAlias.set(alias, null);
+      }
+    }
+    return byAlias;
+  }
+
   function zoomUserId(user) {
     const raw = user && (
       user.userId ??
@@ -353,6 +392,8 @@
     normalizeRooms,
     normalizeUnassigned,
     normalizeBreakoutUnassigned,
+    memberAliases,
+    indexMembersByAlias,
     roomId,
     roomName,
     roomParticipants,

@@ -18,6 +18,28 @@ export type PresenceTally = {
   neverReturned: number;
 };
 
+/** One absence, with the clock times it is claiming. */
+export type PresenceSpell = {
+  from: number | null;
+  to: number | null;
+  seconds: number | null;
+  returned: boolean;
+  cause: string;
+};
+
+/** One class somebody dropped out of: the day, the class, and who it was with. */
+export type PresenceOccasion = {
+  shiftId: string | null;
+  className: string | null;
+  students: string[];
+  startedAt: number | null;
+  drops: number;
+  secondsLost: number;
+  longestSeconds: number;
+  neverReturned: number;
+  spells: PresenceSpell[];
+};
+
 export type PresenceReport = {
   uid: string;
   role: string | null;
@@ -26,6 +48,7 @@ export type PresenceReport = {
   classes_with_a_drop: number;
   counted: PresenceTally;
   by_cause?: Record<string, PresenceTally>;
+  occasions?: PresenceOccasion[];
 };
 
 const EMPTY: PresenceTally = { drops: 0, secondsLost: 0, longestSeconds: 0, neverReturned: 0 };
@@ -109,4 +132,51 @@ export function platformDrops(report: PresenceReport | null | undefined): number
   const ours = Number(byCause.platform?.drops) || 0;
   const together = Number(byCause.simultaneous?.drops) || 0;
   return ours + together;
+}
+
+/** The classes behind the totals, newest first, with nothing malformed in them. */
+export function occasionsOf(report: PresenceReport | null | undefined): PresenceOccasion[] {
+  const raw = report?.occasions;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((occasion): occasion is PresenceOccasion => !!occasion && typeof occasion === "object")
+    .map((occasion) => ({
+      shiftId: occasion.shiftId ?? null,
+      className: occasion.className ?? null,
+      students: Array.isArray(occasion.students) ? occasion.students.filter(Boolean) : [],
+      startedAt: Number(occasion.startedAt) || null,
+      drops: Number(occasion.drops) || 0,
+      secondsLost: Number(occasion.secondsLost) || 0,
+      longestSeconds: Number(occasion.longestSeconds) || 0,
+      neverReturned: Number(occasion.neverReturned) || 0,
+      spells: Array.isArray(occasion.spells) ? occasion.spells : [],
+    }));
+}
+
+/** "Mon 14 Sep, 9:00 am", in the reader's own locale and time zone. */
+export function formatOccasionDate(startedAt: number | null, locale?: string): string {
+  if (!startedAt) return "";
+  return new Date(startedAt).toLocaleString(locale, {
+    weekday: "short", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit",
+  });
+}
+
+/** "9:14 am", the moment a drop began. */
+export function formatSpellTime(at: number | null, locale?: string): string {
+  if (!at) return "";
+  return new Date(at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * Who a class was with, as a reader would say it.
+ *
+ * Returns an empty string when the class has no students recorded, so a caller
+ * can leave the line out rather than print an empty label.
+ */
+export function describeStudents(students: string[]): string {
+  const names = students.filter(Boolean);
+  if (names.length === 0) return "";
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
 }

@@ -134,3 +134,87 @@ describe('rollUp', () => {
     expect(rollUp([])).toEqual([]);
   });
 });
+
+describe('the evidence behind a teacher\'s number', () => {
+  const { summariseAbsences, rollUp } = require('../services/presence/summary');
+
+  const absence = (over) => ({
+    shiftId: 'shift_mon', uid: 'teacher_1', name: 'Aicha Diallo', role: 'teacher',
+    cause: 'individual', startedAtMs: Date.UTC(2026, 8, 14, 9, 5),
+    endedAtMs: Date.UTC(2026, 8, 14, 9, 7), seconds: 120, returned: true, ...over,
+  });
+
+  test('each absence keeps the clock times it is claiming', () => {
+    const [person] = summariseAbsences([absence()]);
+    expect(person.spells).toEqual([{
+      from: Date.UTC(2026, 8, 14, 9, 5),
+      to: Date.UTC(2026, 8, 14, 9, 7),
+      seconds: 120,
+      returned: true,
+      cause: 'individual',
+    }]);
+  });
+
+  test('an absence nobody returned from says so, with no end time invented', () => {
+    const [person] = summariseAbsences([absence({ endedAtMs: null, seconds: null, returned: false })]);
+    expect(person.spells[0].returned).toBe(false);
+    expect(person.spells[0].to).toBeNull();
+    expect(person.spells[0].seconds).toBeNull();
+  });
+
+  test('our own interruptions stay in the record, labelled as ours', () => {
+    const [person] = summariseAbsences([absence({ cause: 'platform' })]);
+    expect(person.counted.drops).toBe(0);
+    expect(person.spells.map((s) => s.cause)).toEqual(['platform']);
+  });
+
+  const classSummary = (over) => ({
+    shift_id: 'shift_mon',
+    class_name: 'Quran — Monday',
+    students: ['Amadou Diallo'],
+    shift_start_ms: Date.UTC(2026, 8, 14, 9, 0),
+    people: summariseAbsences([absence()]),
+    ...over,
+  });
+
+  test('a period says which class, which day and which student', () => {
+    const [person] = rollUp([classSummary()]);
+    expect(person.occasions).toHaveLength(1);
+    expect(person.occasions[0]).toMatchObject({
+      shiftId: 'shift_mon',
+      className: 'Quran — Monday',
+      students: ['Amadou Diallo'],
+      startedAt: Date.UTC(2026, 8, 14, 9, 0),
+      drops: 1,
+    });
+    expect(person.occasions[0].spells).toHaveLength(1);
+  });
+
+  test('a class nobody dropped out of is not listed as an occasion', () => {
+    const clean = classSummary({
+      shift_id: 'shift_tue',
+      people: summariseAbsences([absence({ cause: 'platform' })]),
+    });
+    const [person] = rollUp([classSummary(), clean]);
+    expect(person.classes).toBe(2);
+    expect(person.occasions.map((o) => o.shiftId)).toEqual(['shift_mon']);
+  });
+
+  test('the most recent class comes first', () => {
+    const older = classSummary({ shift_id: 'older', shift_start_ms: Date.UTC(2026, 8, 12, 9, 0) });
+    const newer = classSummary({ shift_id: 'newer', shift_start_ms: Date.UTC(2026, 8, 16, 9, 0) });
+    const [person] = rollUp([older, newer]);
+    expect(person.occasions.map((o) => o.shiftId)).toEqual(['newer', 'older']);
+  });
+
+  test('a busy month keeps the totals whole and only trims the oldest detail', () => {
+    const many = Array.from({ length: 80 }, (_, i) => classSummary({
+      shift_id: `shift_${i}`,
+      shift_start_ms: Date.UTC(2026, 8, 1, 9, 0) + i * 86400000,
+    }));
+    const [person] = rollUp(many);
+    expect(person.counted.drops).toBe(80);
+    expect(person.occasions).toHaveLength(60);
+    expect(person.occasions[0].shiftId).toBe('shift_79');
+  });
+});

@@ -413,3 +413,44 @@ describe('zoom hub bot routing diff', () => {
     })).toEqual([{ bo_id: 'spare_1', room_name: 'Spare 1' }]);
   });
 });
+
+describe('naming a participant who carries no id of their own', () => {
+  const { indexMembersByAlias, memberAliases } = require('../routing');
+
+  // Exactly what _writeZoomHubMember stores: every name repeated across the
+  // camelCase field, the snake_case field, and the aliases array.
+  const teacher = {
+    uid: 'zh_abc123',
+    userId: 'teacher_real_uid',
+    shiftId: 'shift_a',
+    role: 'teacher',
+    displayName: 'Aicha Diallo',
+    display_name: 'Aicha Diallo',
+    routingDisplayName: 'Aicha Diallo #7f3a',
+    routing_display_name: 'Aicha Diallo #7f3a',
+    displayNameAliases: ['Aicha Diallo', 'Aicha Diallo #7f3a'],
+    display_name_aliases: ['Aicha Diallo', 'Aicha Diallo #7f3a'],
+  };
+
+  test('a member repeating its own name across fields still matches', () => {
+    const byAlias = indexMembersByAlias([teacher]);
+    expect(byAlias.get('aicha diallo')).toBe(teacher);
+    expect(byAlias.get('aicha diallo #7f3a')).toBe(teacher);
+  });
+
+  test('aliases are deduplicated so the clash check judges members, not fields', () => {
+    const aliases = memberAliases(teacher);
+    expect(new Set(aliases).size).toBe(aliases.length);
+  });
+
+  test('a name two different people answer to is dropped as ambiguous', () => {
+    const twin = { ...teacher, uid: 'zh_def456', userId: 'other_real_uid' };
+    const byAlias = indexMembersByAlias([teacher, twin]);
+    expect(byAlias.get('aicha diallo')).toBeNull();
+  });
+
+  test('members with no names at all index nothing', () => {
+    expect(indexMembersByAlias([{ uid: 'zh_x' }]).size).toBe(0);
+    expect(indexMembersByAlias(null).size).toBe(0);
+  });
+});

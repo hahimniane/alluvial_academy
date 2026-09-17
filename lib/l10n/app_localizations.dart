@@ -33257,6 +33257,48 @@ abstract class AppLocalizations {
   /// Connection/drop-out reporting
   ///
   /// In en, this message translates to:
+  /// **'Show the {count} class(es) behind this'**
+  String connectionOccasionsShow(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Hide the classes'**
+  String get connectionOccasionsHide;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'{count} drop(s)'**
+  String connectionOccasionDrops(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'With {students}'**
+  String connectionOccasionWith(String students);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'back after {lost}'**
+  String connectionSpellBack(String lost);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'did not get back in'**
+  String get connectionSpellNeverBack;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'our side'**
+  String get connectionSpellOurSide;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
   /// **'This week'**
   String get connectionReportThisWeek;
 

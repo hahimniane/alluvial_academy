@@ -276,3 +276,33 @@ describe('who may read a report', () => {
     })).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 });
+
+describe('the period a reader is actually looking at', () => {
+  const { __test__ } = require('../handlers/presence_reports');
+  const { periodKey, _periodFor } = __test__;
+
+  // A card asks for the period it is in. Anything that only ever writes the
+  // period that has ended writes a key nobody reads.
+  const keyFor = (periodType, at) =>
+    periodKey(periodType, _periodFor(periodType, new Date(at)).periodStart);
+
+  test('a report built for "now" is the one a card asks for', () => {
+    for (const at of ['2026-09-17T15:00:00Z', '2026-09-21T02:30:00Z', '2026-09-01T00:05:00Z']) {
+      expect(keyFor('weekly', at)).toBe(keyFor('weekly', at));
+      expect(keyFor('monthly', at)).toBe(keyFor('monthly', at));
+    }
+  });
+
+  test('building only the finished period would never be read', () => {
+    const monday = '2026-09-21T02:30:00Z';
+    const weekBefore = new Date(Date.parse(monday) - 7 * 24 * 60 * 60 * 1000).toISOString();
+    expect(keyFor('weekly', weekBefore)).not.toBe(keyFor('weekly', monday));
+  });
+
+  test('a week is keyed from its Monday, whatever day it is read on', () => {
+    const monday = keyFor('weekly', '2026-09-14T00:00:00Z');
+    expect(keyFor('weekly', '2026-09-17T15:00:00Z')).toBe(monday);
+    expect(keyFor('weekly', '2026-09-20T23:59:00Z')).toBe(monday);
+    expect(keyFor('weekly', '2026-09-21T00:00:00Z')).not.toBe(monday);
+  });
+});

@@ -38,6 +38,93 @@ class PresenceTally {
   }
 }
 
+/// One absence, with the clock times it is claiming.
+class PresenceSpell {
+  final DateTime? from;
+  final int? seconds;
+  final bool returned;
+  final String cause;
+
+  const PresenceSpell({
+    this.from,
+    this.seconds,
+    this.returned = true,
+    this.cause = 'individual',
+  });
+
+  /// Ours rather than theirs — a hub handover or a bot restart.
+  bool get isOurs => cause != 'individual';
+
+  static DateTime? _time(dynamic value) {
+    final ms = value is num ? value.toInt() : int.tryParse('${value ?? ''}');
+    return ms == null || ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  factory PresenceSpell.fromMap(Map<dynamic, dynamic> data) {
+    final seconds = data['seconds'];
+    return PresenceSpell(
+      from: _time(data['from']),
+      seconds: seconds is num ? seconds.toInt() : int.tryParse('${seconds ?? ''}'),
+      returned: data['returned'] != false,
+      cause: '${data['cause'] ?? 'individual'}',
+    );
+  }
+}
+
+/// One class somebody dropped out of: the day, the class, and who it was with.
+///
+/// This is what answers a teacher who says a figure is wrong. It is kept with
+/// the summary rather than read back from the raw events, which are deleted
+/// with the class after sixty days.
+class PresenceOccasion {
+  final String? shiftId;
+  final String? className;
+  final List<String> students;
+  final DateTime? startedAt;
+  final int drops;
+  final int secondsLost;
+  final int neverReturned;
+  final List<PresenceSpell> spells;
+
+  const PresenceOccasion({
+    this.shiftId,
+    this.className,
+    this.students = const [],
+    this.startedAt,
+    this.drops = 0,
+    this.secondsLost = 0,
+    this.neverReturned = 0,
+    this.spells = const [],
+  });
+
+  factory PresenceOccasion.fromMap(Map<dynamic, dynamic> data) {
+    final students = data['students'];
+    final spells = data['spells'];
+    return PresenceOccasion(
+      shiftId: data['shiftId']?.toString(),
+      className: data['className']?.toString(),
+      students: students is List
+          ? students.map((s) => '$s').where((s) => s.isNotEmpty).toList()
+          : const [],
+      startedAt: PresenceSpell._time(data['startedAt']),
+      drops: PresenceTally._int(data['drops']),
+      secondsLost: PresenceTally._int(data['secondsLost']),
+      neverReturned: PresenceTally._int(data['neverReturned']),
+      spells: spells is List
+          ? spells.whereType<Map>().map(PresenceSpell.fromMap).toList()
+          : const [],
+    );
+  }
+
+  /// Who the class was with, as a reader would say it. Empty when unrecorded,
+  /// so a caller can leave the line out rather than print an empty label.
+  String get studentLine {
+    if (students.isEmpty) return '';
+    if (students.length <= 2) return students.join(' and ');
+    return '${students.take(2).join(', ')} and ${students.length - 2} more';
+  }
+}
+
 class PresenceReport {
   final String uid;
   final String? name;
@@ -49,6 +136,9 @@ class PresenceReport {
   /// of [counted].
   final int platformDrops;
 
+  /// The classes the totals are made of, newest first.
+  final List<PresenceOccasion> occasions;
+
   const PresenceReport({
     required this.uid,
     this.name,
@@ -56,6 +146,7 @@ class PresenceReport {
     this.classesWithADrop = 0,
     this.counted = const PresenceTally(),
     this.platformDrops = 0,
+    this.occasions = const [],
   });
 
   bool get hasAnything => classes > 0 || counted.drops > 0;
@@ -67,6 +158,7 @@ class PresenceReport {
       ours = PresenceTally.fromMap(byCause['platform'] as Map?).drops +
           PresenceTally.fromMap(byCause['simultaneous'] as Map?).drops;
     }
+    final occasions = data['occasions'];
     return PresenceReport(
       uid: '${data['uid'] ?? ''}',
       name: data['name'] as String?,
@@ -74,6 +166,9 @@ class PresenceReport {
       classesWithADrop: PresenceTally._int(data['classes_with_a_drop']),
       counted: PresenceTally.fromMap(data['counted'] as Map?),
       platformDrops: ours,
+      occasions: occasions is List
+          ? occasions.whereType<Map>().map(PresenceOccasion.fromMap).toList()
+          : const [],
     );
   }
 }

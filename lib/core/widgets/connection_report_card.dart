@@ -134,6 +134,8 @@ class _ConnectionReportCardState extends State<ConnectionReportCard> {
                   textColor: Colors.amber.shade900,
                 ),
               ],
+              if (report.occasions.isNotEmpty)
+                _OccasionList(occasions: report.occasions),
               if (report.platformDrops > 0) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -145,6 +147,133 @@ class _ConnectionReportCardState extends State<ConnectionReportCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The classes a set of totals is made of.
+///
+/// Collapsed by default: somebody checking a normal week wants the three
+/// numbers, and only wants the detail when a figure looks wrong to them. Open,
+/// it answers the two questions anybody actually asks — which day, and which
+/// student was waiting.
+class _OccasionList extends StatefulWidget {
+  const _OccasionList({required this.occasions});
+
+  final List<PresenceOccasion> occasions;
+
+  @override
+  State<_OccasionList> createState() => _OccasionListState();
+}
+
+class _OccasionListState extends State<_OccasionList> {
+  bool _open = false;
+
+  String _when(DateTime? at) {
+    if (at == null) return '';
+    final local = at.toLocal();
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${days[local.weekday - 1]} ${local.day} ${months[local.month - 1]}, '
+        '${_clock(local)}';
+  }
+
+  String _clock(DateTime at) {
+    final local = at.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${local.hour < 12 ? 'am' : 'pm'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        TextButton(
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
+          onPressed: () => setState(() => _open = !_open),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  _open
+                      ? l10n.connectionOccasionsHide
+                      : l10n.connectionOccasionsShow(widget.occasions.length),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Icon(_open ? Icons.expand_less : Icons.expand_more, size: 20),
+            ],
+          ),
+        ),
+        if (_open)
+          ...widget.occasions.map((occasion) {
+            final students = occasion.studentLine;
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _when(occasion.startedAt),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Text(
+                        '${l10n.connectionOccasionDrops(occasion.drops)} · '
+                        '${PresenceReportService.formatDuration(occasion.secondsLost)}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                      ),
+                    ],
+                  ),
+                  if (occasion.className != null && occasion.className!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(occasion.className!, style: theme.textTheme.bodyMedium),
+                  ],
+                  if (students.isNotEmpty)
+                    Text(
+                      l10n.connectionOccasionWith(students),
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                    ),
+                  const SizedBox(height: 8),
+                  ...occasion.spells.map((spell) => Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          [
+                            spell.from == null ? '' : _clock(spell.from!),
+                            spell.returned
+                                ? l10n.connectionSpellBack(
+                                    PresenceReportService.formatDuration(spell.seconds ?? 0))
+                                : l10n.connectionSpellNeverBack,
+                            if (spell.isOurs) l10n.connectionSpellOurSide,
+                          ].where((part) => part.isNotEmpty).join(' — '),
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.hintColor),
+                        ),
+                      )),
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 }
@@ -325,34 +454,44 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
             else
               ...withDrops.map((teacher) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                teacher.name ?? teacher.uid,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    teacher.name ?? teacher.uid,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    l10n.connectionOverviewClasses(teacher.classes),
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(color: theme.hintColor),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                l10n.connectionOverviewClasses(teacher.classes),
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: theme.hintColor),
-                              ),
-                            ],
-                          ),
+                            ),
+                            _Pill(
+                              label: '${teacher.counted.drops}',
+                              sub: l10n.connectionReportTimesDropped,
+                            ),
+                            const SizedBox(width: 8),
+                            _Pill(
+                              label: PresenceReportService
+                                  .formatDuration(teacher.counted.secondsLost),
+                              sub: l10n.connectionReportTimeLost,
+                            ),
+                          ],
                         ),
-                        _Pill(
-                          label: '${teacher.counted.drops}',
-                          sub: l10n.connectionReportTimesDropped,
-                        ),
-                        const SizedBox(width: 8),
-                        _Pill(
-                          label: PresenceReportService
-                              .formatDuration(teacher.counted.secondsLost),
-                          sub: l10n.connectionReportTimeLost,
-                        ),
+                        // The classes behind this teacher's figure, so a
+                        // conversation about it can start from the record
+                        // rather than from the total.
+                        if (teacher.occasions.isNotEmpty)
+                          _OccasionList(occasions: teacher.occasions),
                       ],
                     ),
                   )),

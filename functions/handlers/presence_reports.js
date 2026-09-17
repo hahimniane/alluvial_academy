@@ -134,6 +134,8 @@ const buildPeriodReports = async ({ periodType, periodStart, periodEnd }) => {
       classes_with_a_drop: person.classesWithADrop,
       counted: person.counted,
       by_cause: person.byCause,
+      // The classes the totals are made of, so a figure can be questioned.
+      occasions: person.occasions || [],
       classes_summarised: summaries.length,
       computed_at: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -160,9 +162,30 @@ const _periodFor = (periodType, reference) => {
 
 // ---------------------------------------------------------------- scheduled
 
+/**
+ * Bring the week and the month a reader is currently living in up to date.
+ *
+ * The reports a person opens are for the period they are in, so a period that
+ * is only built once it has ended is a period nobody ever sees: the Monday job
+ * writes the week that just finished, while every card on screen that week asks
+ * for the week in progress, and the two keys never meet.
+ *
+ * Rebuilt only when a class was actually summarised, so quiet sweeps — most of
+ * them — read nothing at all.
+ */
+const refreshCurrentPeriods = async ({ now = new Date() } = {}) => {
+  for (const periodType of ['weekly', 'monthly']) {
+    await buildPeriodReports({ periodType, ..._periodFor(periodType, now) });
+  }
+};
+
 const summariseClassPresence = onSchedule(
   { schedule: 'every 30 minutes', timeoutSeconds: 540 },
-  async () => { await summariseFinishedClasses({ now: new Date() }); },
+  async () => {
+    const now = new Date();
+    const { written } = await summariseFinishedClasses({ now });
+    if (written > 0) await refreshCurrentPeriods({ now });
+  },
 );
 
 const generateWeeklyPresenceReports = onSchedule(
