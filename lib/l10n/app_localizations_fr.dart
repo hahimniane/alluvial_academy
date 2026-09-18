@@ -18704,6 +18704,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connectionSpellOurSide => 'de notre côté';
 
   @override
+  String get connectionOverviewSearchHint =>
+      'Rechercher par enseignant, cours ou élève';
+
+  @override
+  String connectionOverviewNoMatch(String query) {
+    return 'Aucun résultat pour « $query ».';
+  }
+
+  @override
   String get connectionReportThisWeek => 'Cette semaine';
 
   @override

@@ -40,26 +40,27 @@ const CAUSE_INDIVIDUAL = 'individual';
 /**
  * Who this participant is, for the purpose of noticing they went.
  *
- * Somebody who joined through the app carries a routing id and that is the
- * best answer. Somebody who opened the Zoom link directly carries none — every
- * id field arrives empty — and an earlier version dropped them on the floor,
- * which quietly excluded exactly the people most likely to be having trouble
- * getting in.
+ * The account id comes first, because it is the only id that means the same
+ * person in every class. The routing id looks like an identity and is not one:
+ * it is `zh_<hash(uid:shiftId)>`, minted per class, so keying on it turned one
+ * teacher into a fresh stranger in every lesson and split their week across
+ * several rows that each said "1 class".
  *
- * For those, the display name comes before Zoom's participant id. Zoom mints a
- * fresh participant id for every connection, so the id cannot survive the one
- * thing this module exists to measure: it would read a person's return as a
- * stranger's arrival and record no absence at all. The name persists across a
- * reconnect. Two people sharing a name inside one class room would merge, which
- * undercounts; the id would miss every drop there is.
- *
- * The id only has to be stable between two consecutive reports of the same
- * meeting, which all three are.
+ * Somebody who opened the Zoom link directly carries neither — every id field
+ * arrives empty — and an earlier version dropped them on the floor, which
+ * quietly excluded exactly the people most likely to be having trouble getting
+ * in. For those the display name comes next, and Zoom's participant id last:
+ * Zoom mints a fresh one on every connection, so it cannot survive the one
+ * thing this module exists to measure. Two people sharing a name inside one
+ * class room would merge, which undercounts; the participant id would miss
+ * every drop there is.
  */
 const _identify = (person = {}) => {
-  const routing = String(
-    person.routingUid || person.routing_uid || person.uid || person.identity || '',
+  const account = String(
+    person.identity || person.userId || person.user_id || person.uid || '',
   ).trim();
+  if (account) return account;
+  const routing = String(person.routingUid || person.routing_uid || '').trim();
   if (routing) return routing;
   const name = String(person.name || '').trim();
   if (name) return `name:${name}`;

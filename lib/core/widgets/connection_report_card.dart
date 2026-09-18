@@ -366,17 +366,25 @@ class ConnectionOverviewCard extends StatefulWidget {
 }
 
 class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
-  /// Enough to start a conversation, few enough to read at a glance.
-  static const int _maxNames = 6;
+  /// How tall the list may grow before it scrolls inside the card.
+  static const double _listMaxHeight = 460;
 
   String _period = 'weekly';
   bool _loading = true;
   List<PresenceReport> _teachers = const [];
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -389,15 +397,31 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
     });
   }
 
+  /// Everyone who dropped out, worst first, narrowed by the search box.
+  ///
+  /// Nobody is hidden by a cap: the whole point of looking here is to find one
+  /// teacher, and a list that quietly stopped at six would answer "they are
+  /// fine" for the seventh.
+  List<PresenceReport> get _visible {
+    final query = _query.trim().toLowerCase();
+    return _teachers.where((teacher) {
+      if (teacher.counted.drops == 0) return false;
+      if (query.isEmpty) return true;
+      final name = (teacher.name ?? teacher.uid).toLowerCase();
+      if (name.contains(query)) return true;
+      // A name half-remembered is often a class or a student instead.
+      return teacher.occasions.any((occasion) =>
+          (occasion.className ?? '').toLowerCase().contains(query) ||
+          occasion.students.any((s) => s.toLowerCase().contains(query)));
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    // Only those with something to show, worst first, and only a handful: a
-    // long list of zeroes buries the few names that need a conversation, and an
-    // unbounded list would overflow the column this sits in.
-    final withDrops =
-        _teachers.where((t) => t.counted.drops > 0).take(_maxNames).toList();
+    final withDrops = _visible;
+    final anyoneDropped = _teachers.any((t) => t.counted.drops > 0);
 
     return Card(
       elevation: 0,
@@ -436,6 +460,30 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
               style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             ),
             const SizedBox(height: 16),
+            if (!_loading && anyoneDropped) ...[
+              TextField(
+                controller: _search,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintText: l10n.connectionOverviewSearchHint,
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            _search.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 18),
@@ -448,11 +496,17 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
               )
             else if (withDrops.isEmpty)
               Text(
-                l10n.connectionOverviewEmpty,
+                anyoneDropped
+                    ? l10n.connectionOverviewNoMatch(_query)
+                    : l10n.connectionOverviewEmpty,
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
               )
             else
-              ...withDrops.map((teacher) => Padding(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: _listMaxHeight),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: withDrops.map((teacher) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,7 +548,9 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
                           _OccasionList(occasions: teacher.occasions),
                       ],
                     ),
-                  )),
+                  )).toList(),
+                ),
+              ),
           ],
         ),
       ),

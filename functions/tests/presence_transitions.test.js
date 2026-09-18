@@ -288,3 +288,36 @@ describe('a person whose Zoom id changes when they reconnect', () => {
     expect(departures.map((d) => d.uid)).toEqual(['zoom:555']);
   });
 });
+
+describe('one teacher across several classes is one person', () => {
+  const { diffLiveParticipants } = require('../services/presence/transitions');
+
+  // The routing id is zh_<hash(uid:shiftId)> — minted per class. Keying on it
+  // split a teacher's week into a row per lesson, each reading "1 class".
+  const inClass = (shiftId, routingUid) => ({
+    [shiftId]: [{
+      identity: 'kjVbNRUjJoZRw3NTd3jIbREdYUu2',
+      routingUid,
+      zoomUserId: 16784384,
+      name: 'habibu barry',
+      role: 'teacher',
+    }],
+  });
+
+  test('the account id is used, not the per-class routing id', () => {
+    const { departures } = diffLiveParticipants(inClass('shift_a', 'zh_MwIKYvQ7PU0GQOTwWvaMmvCH'), {});
+    expect(departures.map((d) => d.uid)).toEqual(['kjVbNRUjJoZRw3NTd3jIbREdYUu2']);
+  });
+
+  test('the same teacher in a different class keeps the same identity', () => {
+    const monday = diffLiveParticipants(inClass('shift_a', 'zh_MwIKYvQ7PU0GQOTwWvaMmvCH'), {});
+    const tuesday = diffLiveParticipants(inClass('shift_b', 'zh_oe-EK2gyxkS5HnQLVYuqz0uk'), {});
+    expect(monday.departures[0].uid).toBe(tuesday.departures[0].uid);
+  });
+
+  test('the routing id still names somebody the members could not', () => {
+    const guest = { identity: '', routingUid: 'zh_someclasskey', name: 'Visitor' };
+    const { departures } = diffLiveParticipants({ shift_a: [guest] }, {});
+    expect(departures.map((d) => d.uid)).toEqual(['zh_someclasskey']);
+  });
+});

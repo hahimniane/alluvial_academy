@@ -33299,6 +33299,18 @@ abstract class AppLocalizations {
   /// Connection/drop-out reporting
   ///
   /// In en, this message translates to:
+  /// **'Search by teacher, class or student'**
+  String get connectionOverviewSearchHint;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody matches “{query}”.'**
+  String connectionOverviewNoMatch(String query);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
   /// **'This week'**
   String get connectionReportThisWeek;
 

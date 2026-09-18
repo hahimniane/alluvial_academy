@@ -18302,6 +18302,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get connectionSpellOurSide => 'our side';
 
   @override
+  String get connectionOverviewSearchHint =>
+      'Search by teacher, class or student';
+
+  @override
+  String connectionOverviewNoMatch(String query) {
+    return 'Nobody matches “$query”.';
+  }
+
+  @override
   String get connectionReportThisWeek => 'This week';
 
   @override

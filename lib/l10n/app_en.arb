@@ -8280,6 +8280,19 @@
   "@connectionSpellOurSide": {
     "description": "Connection/drop-out reporting"
   },
+  "connectionOverviewSearchHint": "Search by teacher, class or student",
+  "@connectionOverviewSearchHint": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNoMatch": "Nobody matches “{query}”.",
+  "@connectionOverviewNoMatch": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "connectionReportThisWeek": "This week",
   "@connectionReportThisWeek": {
     "description": "Connection/drop-out reporting"
