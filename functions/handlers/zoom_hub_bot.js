@@ -697,6 +697,30 @@ const zoomHubBotState = onRequest({
       nextData.liveParticipantsUpdatedAt = admin.firestore.FieldValue.serverTimestamp();
       nextData.live_participants_updated_at = admin.firestore.FieldValue.serverTimestamp();
     }
+    // A merge write deep-merges nested maps, so a class that disappears from
+    // the report is never removed from the stored one — the map only ever
+    // grows. Left alone it means every later report finds those classes in the
+    // previous list and missing from the new one, and records everybody in
+    // them departing again, every few seconds, for as long as the hub lives.
+    // One hub had eleven finished classes still listed and had written 2,177
+    // departures for a single teacher.
+    //
+    // Clearing the field first makes the next write a replacement. It costs an
+    // extra write only when the set of classes actually changes — once as a
+    // class ends, not on every heartbeat.
+    if (liveParticipantsProvided || status === 'left') {
+      const previousShiftIds = Object.keys(
+        hubData.live_participants_by_shift || hubData.liveParticipantsByShift || {},
+      );
+      const nextShiftIds = new Set(Object.keys(nextData.live_participants_by_shift || {}));
+      if (previousShiftIds.some((shiftId) => !nextShiftIds.has(shiftId))) {
+        await ref.set({
+          live_participants_by_shift: admin.firestore.FieldValue.delete(),
+          liveParticipantsByShift: admin.firestore.FieldValue.delete(),
+        }, { merge: true });
+      }
+    }
+
     await ref.set({
       ...nextData,
     }, { merge: true });

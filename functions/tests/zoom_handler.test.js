@@ -156,9 +156,13 @@ const mockDb = {
 };
 
 const mockFirestore = jest.fn(() => mockDb);
+const fieldValueDelete = () => ({ __delete__: true });
 mockFirestore.FieldValue = {
   increment: fieldValueIncrement,
   serverTimestamp,
+  // Clearing a field before rewriting it is how the participant list is
+  // replaced rather than merged into; without this the state endpoint 500s.
+  delete: fieldValueDelete,
 };
 mockFirestore.Timestamp = {
   fromDate: makeTimestamp,
