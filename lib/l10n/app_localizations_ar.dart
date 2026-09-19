@@ -15550,6 +15550,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get bulkClassRecordingUpdateFailed => 'تعذر تحديث إمكانية التسجيل.';
 
   @override
+  String get classPresenceTitle => 'الحضور في الحصص';
+
+  @override
+  String get presenceViewDidNotShow => 'لم يحضر';
+
+  @override
+  String get presenceViewDroppedOut => 'انقطع أثناء الحصة';
+
+  @override
   String get noShowAlertsTitle => 'تنبيهات الغياب';
 
   @override

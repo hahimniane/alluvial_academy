@@ -15901,6 +15901,15 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de modifier l’accès aux enregistrements.';
 
   @override
+  String get classPresenceTitle => 'Présence en cours';
+
+  @override
+  String get presenceViewDidNotShow => 'Absent au départ';
+
+  @override
+  String get presenceViewDroppedOut => 'Coupures en cours';
+
+  @override
   String get noShowAlertsTitle => 'Alertes d\'absence';
 
   @override

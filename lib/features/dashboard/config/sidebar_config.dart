@@ -127,9 +127,11 @@ class SidebarConfig {
             colorValue: 0xff4F46E5,
           ),
           const SidebarItem(
+            // Covers both ways a teacher can be missing from a class: never
+            // arrived, or arrived and kept dropping out.
             id: 'no_show_alerts',
-            label: 'No-Show Alerts',
-            icon: Icons.event_busy,
+            label: 'Class Presence',
+            icon: Icons.co_present_outlined,
             screenIndex: 32,
             colorValue: 0xffF59E0B,
           ),

@@ -5857,6 +5857,9 @@
     }
   },
   "bulkClassRecordingUpdateFailed": "Impossible de modifier l’accès aux enregistrements.",
+  "classPresenceTitle": "Présence en cours",
+  "presenceViewDidNotShow": "Absent au départ",
+  "presenceViewDroppedOut": "Coupures en cours",
   "noShowAlertsTitle": "Alertes d'absence",
   "noShowAlertsSubtitle": "Cours où un enseignant ou un élève ne s'est pas présenté.",
   "noShowTeacher": "Absence enseignant",

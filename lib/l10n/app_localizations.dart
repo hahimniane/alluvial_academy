@@ -28475,6 +28475,24 @@ abstract class AppLocalizations {
   /// **'Unable to update recording access.'**
   String get bulkClassRecordingUpdateFailed;
 
+  /// No description provided for @classPresenceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Class Presence'**
+  String get classPresenceTitle;
+
+  /// No description provided for @presenceViewDidNotShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Did not show up'**
+  String get presenceViewDidNotShow;
+
+  /// No description provided for @presenceViewDroppedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped out'**
+  String get presenceViewDroppedOut;
+
   /// No description provided for @noShowAlertsTitle.
   ///
   /// In en, this message translates to:

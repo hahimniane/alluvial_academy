@@ -15596,6 +15596,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to update recording access.';
 
   @override
+  String get classPresenceTitle => 'Class Presence';
+
+  @override
+  String get presenceViewDidNotShow => 'Did not show up';
+
+  @override
+  String get presenceViewDroppedOut => 'Dropped out';
+
+  @override
   String get noShowAlertsTitle => 'No-Show Alerts';
 
   @override

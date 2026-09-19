@@ -383,12 +383,17 @@ class _Note extends StatelessWidget {
 /// needs help with their line, not a mark against their name. Interruptions the
 /// classroom system caused are excluded from these figures entirely.
 ///
-/// The card keeps a fixed footprint however many teachers there are. A term's
-/// worth of names growing down the page would push everything else off the
-/// screen, so the list scrolls inside its own box and a teacher's classes open
-/// in a dialog rather than unfolding in place.
+/// The list never grows the page. Sitting among other cards it scrolls inside
+/// a fixed box; given a page of its own ([filling] a tab) it takes the height
+/// available and scrolls within that. Either way a teacher's classes open in a
+/// dialog rather than unfolding in place, so the layout does not move under
+/// the reader.
 class ConnectionOverviewCard extends StatefulWidget {
-  const ConnectionOverviewCard({super.key});
+  const ConnectionOverviewCard({super.key, this.filling = false});
+
+  /// Fill the space given instead of sitting in a card of its own. Used where
+  /// this is the whole view rather than one panel among several.
+  final bool filling;
 
   @override
   State<ConnectionOverviewCard> createState() => _ConnectionOverviewCardState();
@@ -475,18 +480,10 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
     final withDrops = _withDrops;
     final visible = _visible;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.dividerColor),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: widget.filling ? MainAxisSize.max : MainAxisSize.min,
+      children: [
             Row(
               children: [
                 const Icon(Icons.wifi_tethering, size: 22),
@@ -557,24 +554,41 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
                   ),
                 )
               else
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: _listMaxHeight),
-                  child: Scrollbar(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: visible.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) => _TeacherRow(
-                        teacher: visible[index],
-                        onTap: () => _openTeacher(visible[index]),
-                      ),
-                    ),
-                  ),
-                ),
+                _list(visible),
             ],
-          ],
+      ],
+    );
+
+    if (widget.filling) {
+      return Padding(padding: const EdgeInsets.all(20), child: body);
+    }
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.dividerColor),
+      ),
+      child: Padding(padding: const EdgeInsets.all(20), child: body),
+    );
+  }
+
+  /// Given a page, take the height available; given a card, keep a fixed box.
+  Widget _list(List<PresenceReport> visible) {
+    final list = Scrollbar(
+      child: ListView.separated(
+        shrinkWrap: !widget.filling,
+        itemCount: visible.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) => _TeacherRow(
+          teacher: visible[index],
+          onTap: () => _openTeacher(visible[index]),
         ),
       ),
+    );
+    if (widget.filling) return Expanded(child: list);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: _listMaxHeight),
+      child: list,
     );
   }
 }

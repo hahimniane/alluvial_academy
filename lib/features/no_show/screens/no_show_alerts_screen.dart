@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
+import 'package:alluwalacademyadmin/core/widgets/connection_report_card.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../models/no_show_report.dart';
 import '../services/no_show_service.dart';
@@ -35,8 +36,19 @@ class _NoShowReviewDraft {
   });
 }
 
-/// Admin screen listing no-show alerts with search, type/status filters, a
-/// repeat-absence patterns band, and a review workflow.
+/// Which kind of absence the page is showing.
+enum _PresenceView { didNotShow, droppedOut }
+
+/// Whether a teacher was actually in the class they were down to take.
+///
+/// Two ways of not being there, on one page, because an administrator asking
+/// the question does not know which kind it was until they look. They are kept
+/// as separate views because the evidence differs: somebody who never arrived
+/// is an alert to be reviewed and closed, while somebody who kept dropping out
+/// is a pattern across a week that no single alert would show.
+///
+/// The no-show view lists alerts with search, type and status filters, a
+/// repeat-absence band, and the review workflow.
 class NoShowAlertsScreen extends StatefulWidget {
   const NoShowAlertsScreen({super.key});
 
@@ -45,6 +57,7 @@ class NoShowAlertsScreen extends StatefulWidget {
 }
 
 class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
+  _PresenceView _view = _PresenceView.didNotShow;
   static const _amber = Color(0xffF59E0B);
   static const _red = Color(0xffEF4444);
   static const _green = Color(0xff10B981);
@@ -540,7 +553,7 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         title: Text(
-          l10n.noShowAlertsTitle,
+          l10n.classPresenceTitle,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -556,17 +569,75 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorState(l10n)
-              : Column(
-                  children: [
-                    _patternsBand(l10n),
-                    _filterBar(l10n),
-                    Expanded(child: _list(l10n)),
-                  ],
+      body: Column(
+        children: [
+          _viewSwitcher(l10n),
+          Expanded(
+            child: _view == _PresenceView.droppedOut
+                ? const ConnectionOverviewCard(filling: true)
+                : _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? _errorState(l10n)
+                        : Column(
+                            children: [
+                              _patternsBand(l10n),
+                              _filterBar(l10n),
+                              Expanded(child: _list(l10n)),
+                            ],
+                          ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The two ways a teacher can be missing from a class they were due to take.
+  ///
+  /// One page, because an administrator asking "was somebody actually in that
+  /// lesson?" does not care which of the two it was until they have looked.
+  /// Two views, because the evidence is different: a no-show is an alert to be
+  /// reviewed and closed, a drop-out is a pattern across a week.
+  Widget _viewSwitcher(AppLocalizations l10n) {
+    final tabs = <_PresenceView, String>{
+      _PresenceView.didNotShow: l10n.presenceViewDidNotShow,
+      _PresenceView.droppedOut: l10n.presenceViewDroppedOut,
+    };
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: tabs.entries.map((entry) {
+          final selected = _view == entry.key;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              onTap: () => setState(() => _view = entry.key),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: selected ? const Color(0xff2563EB) : Colors.transparent,
+                      width: 2.5,
+                    ),
+                  ),
                 ),
+                child: Text(
+                  entry.value,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? const Color(0xff2563EB) : _slate,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 

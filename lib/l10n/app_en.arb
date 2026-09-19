@@ -6624,6 +6624,18 @@
     }
   },
   "bulkClassRecordingUpdateFailed": "Unable to update recording access.",
+  "classPresenceTitle": "Class Presence",
+  "@classPresenceTitl": {
+    "description": "Class presence page"
+  },
+  "presenceViewDidNotShow": "Did not show up",
+  "@presenceViewDidNotSho": {
+    "description": "Class presence page"
+  },
+  "presenceViewDroppedOut": "Dropped out",
+  "@presenceViewDroppedOu": {
+    "description": "Class presence page"
+  },
   "noShowAlertsTitle": "No-Show Alerts",
   "noShowAlertsSubtitle": "Classes where a teacher or student didn't show up.",
   "noShowTeacher": "Teacher no-show",

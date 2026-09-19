@@ -6,6 +6,8 @@ class SidebarLocalization {
     switch (text) {
       case 'Audits':
         return AppLocalizations.of(context)!.sidebarAudits;
+      case 'Class Presence':
+        return AppLocalizations.of(context)!.classPresenceTitle;
       case 'Chat':
         return AppLocalizations.of(context)!.navChat;
       case 'Classes':
