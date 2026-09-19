@@ -5918,6 +5918,9 @@
     }
   },
   "bulkClassRecordingUpdateFailed": "تعذر تحديث إمكانية التسجيل.",
+  "classPresenceTitle": "الحضور في الحصص",
+  "presenceViewDidNotShow": "لم يحضر",
+  "presenceViewDroppedOut": "انقطع أثناء الحصة",
   "noShowAlertsTitle": "تنبيهات الغياب",
   "noShowAlertsSubtitle": "الحصص التي لم يحضرها معلم أو طالب.",
   "noShowTeacher": "غياب المعلم",

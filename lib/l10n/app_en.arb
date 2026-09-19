@@ -6624,6 +6624,18 @@
     }
   },
   "bulkClassRecordingUpdateFailed": "Unable to update recording access.",
+  "classPresenceTitle": "Class Presence",
+  "@classPresenceTitl": {
+    "description": "Class presence page"
+  },
+  "presenceViewDidNotShow": "Did not show up",
+  "@presenceViewDidNotSho": {
+    "description": "Class presence page"
+  },
+  "presenceViewDroppedOut": "Dropped out",
+  "@presenceViewDroppedOu": {
+    "description": "Class presence page"
+  },
   "noShowAlertsTitle": "No-Show Alerts",
   "noShowAlertsSubtitle": "Classes where a teacher or student didn't show up.",
   "noShowTeacher": "Teacher no-show",
@@ -8278,6 +8290,77 @@
   },
   "connectionSpellOurSide": "our side",
   "@connectionSpellOurSide": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewSearchHint": "Search by teacher, class or student",
+  "@connectionOverviewSearchHint": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNoMatch": "Nobody matches “{query}”.",
+  "@connectionOverviewNoMatch": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionOccasionScheduled": "Class ran {from} – {to}",
+  "@connectionOccasionScheduled": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionOverviewAffected": "Teachers affected",
+  "@connectionOverviewAffected": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNeverBack": "Never got back",
+  "@connectionOverviewNeverBack": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNeverBackCount": "did not get back into {count}",
+  "@connectionOverviewNeverBackCount": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionOverviewFilterAll": "Everyone",
+  "@connectionOverviewFilterAll": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterNeverBack": "Never got back",
+  "@connectionOverviewFilterNeverBack": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterRepeated": "More than once",
+  "@connectionOverviewFilterRepeated": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionSpellStudentWaiting": "{students} was left waiting",
+  "@connectionSpellStudentWaitin": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "students": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionSpellRoomEmpty": "nobody was left in the room",
+  "@connectionSpellRoomEmpt": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterLeftWaiting": "Left a student waiting",
+  "@connectionOverviewFilterLeftWaitin": {
     "description": "Connection/drop-out reporting"
   },
   "connectionReportThisWeek": "This week",

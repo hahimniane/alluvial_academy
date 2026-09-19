@@ -599,6 +599,7 @@ exports.generateWeeklyPresenceReports = presenceReportHandlers.generateWeeklyPre
 exports.generateMonthlyPresenceReports = presenceReportHandlers.generateMonthlyPresenceReports;
 exports.getPresenceReport = presenceReportHandlers.getPresenceReport;
 exports.getPresenceOverview = presenceReportHandlers.getPresenceOverview;
+exports.reviewPresenceDrop = presenceReportHandlers.reviewPresenceDrop;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

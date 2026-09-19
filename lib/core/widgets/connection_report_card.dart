@@ -1,6 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:alluwalacademyadmin/core/models/employee_model.dart';
 import 'package:alluwalacademyadmin/core/services/presence_report_service.dart';
+import 'package:alluwalacademyadmin/core/widgets/review_dialog.dart';
+import 'package:alluwalacademyadmin/features/no_show/services/no_show_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/widgets/create_shift_dialog.dart'
+    show EmployeeSelectionDialog;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// A teacher's own connection during class.
@@ -158,16 +164,80 @@ class _ConnectionReportCardState extends State<ConnectionReportCard> {
 /// it answers the two questions anybody actually asks — which day, and which
 /// student was waiting.
 class _OccasionList extends StatefulWidget {
-  const _OccasionList({required this.occasions});
+  const _OccasionList({
+    required this.occasions,
+    this.startOpen = false,
+    this.canReview = false,
+  });
 
   final List<PresenceOccasion> occasions;
+
+  /// Open from the start where the classes are the whole point of the view,
+  /// rather than a detail hanging off a summary.
+  final bool startOpen;
+
+  /// Administrators can record what they did about a class. A teacher reading
+  /// their own figures cannot: the point of showing them is that they can act
+  /// before the next lesson, not that they close their own cases.
+  final bool canReview;
 
   @override
   State<_OccasionList> createState() => _OccasionListState();
 }
 
 class _OccasionListState extends State<_OccasionList> {
-  bool _open = false;
+  late bool _open = widget.startOpen;
+
+  /// Reviews land here so a verdict shows without reloading the week.
+  final Map<String, PresenceReview> _justReviewed = {};
+  final Set<String> _reviewing = {};
+
+  PresenceReview? _reviewFor(PresenceOccasion occasion) =>
+      _justReviewed[occasion.shiftId ?? ''] ?? occasion.review;
+
+  Future<void> _review(PresenceOccasion occasion) async {
+    final shiftId = occasion.shiftId;
+    if (shiftId == null || shiftId.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    final subject = [
+      _when(occasion.startedAt),
+      occasion.className ?? '',
+    ].where((part) => part.isNotEmpty).join(' · ');
+
+    final draft = await showDialog<ReviewDraft>(
+      context: context,
+      builder: (context) => ReviewDialog(
+        subject: subject,
+        actions: reviewActionOptions(l10n),
+      ),
+    );
+    if (draft == null || !mounted) return;
+
+    setState(() => _reviewing.add(shiftId));
+    try {
+      final signedIn = FirebaseAuth.instance.currentUser;
+      final review = await PresenceReportService.review(
+        shiftId: shiftId,
+        // The backend records the uid and email from the token; the name is
+        // only what a reader sees, so an empty one simply falls back to it.
+        reviewerName: (signedIn?.displayName ?? '').trim(),
+        actionKeys: draft.actionKeys,
+        actionLabels: draft.actionLabels,
+        note: draft.note,
+      );
+      if (!mounted) return;
+      setState(() {
+        _justReviewed[shiftId] = review;
+        _reviewing.remove(shiftId);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _reviewing.remove(shiftId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red.shade600),
+      );
+    }
+  }
 
   String _when(DateTime? at) {
     if (at == null) return '';
@@ -186,6 +256,65 @@ class _OccasionListState extends State<_OccasionList> {
     return '$hour:$minute ${local.hour < 12 ? 'am' : 'pm'}';
   }
 
+  /// What was decided about this class, or the way to decide it.
+  Widget _reviewFooter(
+    AppLocalizations l10n,
+    ThemeData theme,
+    PresenceOccasion occasion,
+  ) {
+    final review = _reviewFor(occasion);
+    final busy = _reviewing.contains(occasion.shiftId ?? '');
+
+    if (review == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: busy ? null : () => _review(occasion),
+          icon: busy
+              ? const SizedBox(
+                  height: 14, width: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.rate_review_outlined, size: 16),
+          label: Text(l10n.noShowMarkReviewed),
+        ),
+      );
+    }
+
+    final labels = review.actionLabels.isNotEmpty
+        ? review.actionLabels
+        : review.actionKeys;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (review.reviewer.isNotEmpty)
+            Text(
+              l10n.noShowReviewedBy(review.reviewer),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+          if (labels.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: labels
+                  .map((label) => Chip(
+                        label: Text(label, style: theme.textTheme.bodySmall),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ))
+                  .toList(),
+            ),
+          if (review.note != null)
+            Text(
+              l10n.noShowReviewNoteLabel(review.note!),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -194,26 +323,28 @@ class _OccasionListState extends State<_OccasionList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 12),
-        const Divider(height: 1),
-        TextButton(
-          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
-          onPressed: () => setState(() => _open = !_open),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  _open
-                      ? l10n.connectionOccasionsHide
-                      : l10n.connectionOccasionsShow(widget.occasions.length),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+        if (!widget.startOpen) ...[
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          TextButton(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
+            onPressed: () => setState(() => _open = !_open),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _open
+                        ? l10n.connectionOccasionsHide
+                        : l10n.connectionOccasionsShow(widget.occasions.length),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              Icon(_open ? Icons.expand_less : Icons.expand_more, size: 20),
-            ],
+                Icon(_open ? Icons.expand_less : Icons.expand_more, size: 20),
+              ],
+            ),
           ),
-        ),
+        ],
         if (_open)
           ...widget.occasions.map((occasion) {
             final students = occasion.studentLine;
@@ -242,8 +373,32 @@ class _OccasionListState extends State<_OccasionList> {
                         '${PresenceReportService.formatDuration(occasion.secondsLost)}',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
                       ),
+                      if (widget.canReview) ...[
+                        const SizedBox(width: 8),
+                        _ReviewBadge(reviewed: _reviewFor(occasion) != null),
+                      ],
                     ],
                   ),
+                  // The hours the class was meant to run. Without them "dropped
+                  // at 9:52" could be the middle of the lesson or the last
+                  // minute of it, and those are not the same thing at all.
+                  if (occasion.endedAt != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 13, color: theme.hintColor),
+                        const SizedBox(width: 5),
+                        Text(
+                          l10n.connectionOccasionScheduled(
+                            _clock(occasion.startedAt ?? occasion.endedAt!),
+                            _clock(occasion.endedAt!),
+                          ),
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.hintColor),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (occasion.className != null && occasion.className!.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(occasion.className!, style: theme.textTheme.bodyMedium),
@@ -255,20 +410,43 @@ class _OccasionListState extends State<_OccasionList> {
                     ),
                   const SizedBox(height: 8),
                   ...occasion.spells.map((spell) => Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          [
-                            spell.from == null ? '' : _clock(spell.from!),
-                            spell.returned
-                                ? l10n.connectionSpellBack(
-                                    PresenceReportService.formatDuration(spell.seconds ?? 0))
-                                : l10n.connectionSpellNeverBack,
-                            if (spell.isOurs) l10n.connectionSpellOurSide,
-                          ].where((part) => part.isNotEmpty).join(' — '),
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.hintColor),
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              [
+                                spell.from == null ? '' : _clock(spell.from!),
+                                spell.returned
+                                    ? l10n.connectionSpellBack(
+                                        PresenceReportService.formatDuration(spell.seconds ?? 0))
+                                    : l10n.connectionSpellNeverBack,
+                                if (spell.isOurs) l10n.connectionSpellOurSide,
+                              ].where((part) => part.isNotEmpty).join(' — '),
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: theme.hintColor),
+                            ),
+                            // The difference between a lesson going wrong and a
+                            // lesson that had already finished.
+                            if (spell.studentsWaiting.isNotEmpty)
+                              Text(
+                                l10n.connectionSpellStudentWaiting(
+                                    spell.studentsWaiting.join(', ')),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.amber.shade900,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            else if (spell.roomWasEmpty)
+                              Text(
+                                l10n.connectionSpellRoomEmpty,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.hintColor),
+                              ),
+                          ],
                         ),
                       )),
+                  if (widget.canReview) _reviewFooter(l10n, theme, occasion),
                 ],
               ),
             );
@@ -351,32 +529,85 @@ class _Note extends StatelessWidget {
     );
   }
 }
-
-/// Every teacher's connection for a period, worst first.
+/// How each teacher's connection held up, for administrators.
 ///
-/// For administrators, and the point of it is a conversation rather than a
-/// ranking: somebody near the top needs help with their line, not a mark
-/// against their name. Interruptions the classroom system caused are excluded
-/// from these figures entirely.
+/// The point is a conversation rather than a ranking: somebody near the top
+/// needs help with their line, not a mark against their name. Interruptions the
+/// classroom system caused are excluded from these figures entirely.
+///
+/// The list never grows the page. Sitting among other cards it scrolls inside
+/// a fixed box; given a page of its own ([filling] a tab) it takes the height
+/// available and scrolls within that. Either way a teacher's classes open in a
+/// dialog rather than unfolding in place, so the layout does not move under
+/// the reader.
 class ConnectionOverviewCard extends StatefulWidget {
-  const ConnectionOverviewCard({super.key});
+  const ConnectionOverviewCard({super.key, this.filling = false});
+
+  /// Fill the space given instead of sitting in a card of its own. Used where
+  /// this is the whole view rather than one panel among several.
+  final bool filling;
 
   @override
   State<ConnectionOverviewCard> createState() => _ConnectionOverviewCardState();
 }
 
+/// Which teachers to show. Support first, so the default is everyone.
+enum _OverviewFilter { all, neverReturned, leftWaiting, needsReview, repeated }
+
 class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
-  /// Enough to start a conversation, few enough to read at a glance.
-  static const int _maxNames = 6;
+  /// The list scrolls past this rather than growing the page.
+  static const double _listMaxHeight = 320;
 
   String _period = 'weekly';
   bool _loading = true;
   List<PresenceReport> _teachers = const [];
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+  _OverviewFilter _filter = _OverviewFilter.all;
+
+  /// The staff list behind the picker, and whoever is picked.
+  List<Employee> _staff = const [];
+  Employee? _pickedTeacher;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadStaff();
+  }
+
+  Future<void> _loadStaff() async {
+    try {
+      final staff = await NoShowService.fetchAvailableTeachers();
+      if (!mounted) return;
+      setState(() => _staff = staff);
+    } catch (_) {
+      // The picker is a convenience over the search box, not a requirement.
+    }
+  }
+
+  Future<void> _pickTeacher() async {
+    if (_staff.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    final selected = await showDialog<List<Employee>>(
+      context: context,
+      builder: (context) => EmployeeSelectionDialog(
+        employees: _staff,
+        selectedIds: _pickedTeacher == null
+            ? <String>{}
+            : <String>{_pickedTeacher!.documentId},
+        title: l10n.selectTeacher,
+        idSelector: (employee) => employee.documentId,
+      ),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    setState(() => _pickedTeacher = selected.first);
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -389,27 +620,63 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
     });
   }
 
+  List<PresenceReport> get _withDrops =>
+      _teachers.where((t) => t.counted.drops > 0).toList();
+
+  /// Everyone who dropped out, worst first, narrowed by the filters.
+  ///
+  /// Nobody is hidden by a cap: the whole point of looking here is to find one
+  /// teacher, and a list that quietly stopped at six would answer "they are
+  /// fine" for the seventh.
+  List<PresenceReport> get _visible {
+    final query = _query.trim().toLowerCase();
+    final picked = _pickedTeacher?.documentId;
+    return _withDrops.where((teacher) {
+      if (picked != null && picked.isNotEmpty && teacher.uid != picked) return false;
+      switch (_filter) {
+        case _OverviewFilter.neverReturned:
+          if (teacher.counted.neverReturned == 0) return false;
+          break;
+        case _OverviewFilter.leftWaiting:
+          if (!teacher.occasions.any((o) => o.someoneWasWaiting)) return false;
+          break;
+        case _OverviewFilter.needsReview:
+          if (!teacher.occasions.any((o) => !o.isReviewed)) return false;
+          break;
+        case _OverviewFilter.repeated:
+          if (teacher.counted.drops < 2) return false;
+          break;
+        case _OverviewFilter.all:
+          break;
+      }
+      if (query.isEmpty) return true;
+      final name = (teacher.name ?? teacher.uid).toLowerCase();
+      if (name.contains(query)) return true;
+      // A name half-remembered is often a class or a student instead.
+      return teacher.occasions.any((occasion) =>
+          (occasion.className ?? '').toLowerCase().contains(query) ||
+          occasion.students.any((s) => s.toLowerCase().contains(query)));
+    }).toList();
+  }
+
+  void _openTeacher(PresenceReport teacher) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => _TeacherClassesDialog(teacher: teacher),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    // Only those with something to show, worst first, and only a handful: a
-    // long list of zeroes buries the few names that need a conversation, and an
-    // unbounded list would overflow the column this sits in.
-    final withDrops =
-        _teachers.where((t) => t.counted.drops > 0).take(_maxNames).toList();
+    final withDrops = _withDrops;
+    final visible = _visible;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.dividerColor),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: widget.filling ? MainAxisSize.max : MainAxisSize.min,
+      children: [
             Row(
               children: [
                 const Icon(Icons.wifi_tethering, size: 22),
@@ -435,10 +702,10 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
               l10n.connectionOverviewSubtitle,
               style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             ),
-            const SizedBox(height: 16),
+
             if (_loading)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 18),
+                padding: EdgeInsets.symmetric(vertical: 28),
                 child: Center(
                   child: SizedBox(
                     height: 22, width: 22,
@@ -446,56 +713,368 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
                   ),
                 ),
               )
-            else if (withDrops.isEmpty)
+            else if (withDrops.isEmpty) ...[
+              const SizedBox(height: 16),
               Text(
                 l10n.connectionOverviewEmpty,
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
-              )
-            else
-              ...withDrops.map((teacher) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              _Scoreboard(teachers: withDrops),
+              const SizedBox(height: 14),
+              _Filters(
+                controller: _search,
+                query: _query,
+                filter: _filter,
+                pickedTeacher: _pickedTeacher,
+                canPick: _staff.isNotEmpty,
+                counts: {
+                  _OverviewFilter.all: withDrops.length,
+                  _OverviewFilter.neverReturned:
+                      withDrops.where((t) => t.counted.neverReturned > 0).length,
+                  _OverviewFilter.leftWaiting: withDrops
+                      .where((t) => t.occasions.any((o) => o.someoneWasWaiting))
+                      .length,
+                  _OverviewFilter.needsReview: withDrops
+                      .where((t) => t.occasions.any((o) => !o.isReviewed))
+                      .length,
+                  _OverviewFilter.repeated:
+                      withDrops.where((t) => t.counted.drops >= 2).length,
+                },
+                onQuery: (value) => setState(() => _query = value),
+                onFilter: (value) => setState(() => _filter = value),
+                onPickTeacher: _pickTeacher,
+                onClearTeacher: () => setState(() => _pickedTeacher = null),
+              ),
+              const SizedBox(height: 12),
+              if (visible.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    l10n.connectionOverviewNoMatch(_query),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                  ),
+                )
+              else
+                _list(visible),
+            ],
+      ],
+    );
+
+    if (widget.filling) {
+      return Padding(padding: const EdgeInsets.all(20), child: body);
+    }
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.dividerColor),
+      ),
+      child: Padding(padding: const EdgeInsets.all(20), child: body),
+    );
+  }
+
+  /// Given a page, take the height available; given a card, keep a fixed box.
+  Widget _list(List<PresenceReport> visible) {
+    final list = Scrollbar(
+      child: ListView.separated(
+        shrinkWrap: !widget.filling,
+        itemCount: visible.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) => _TeacherRow(
+          teacher: visible[index],
+          onTap: () => _openTeacher(visible[index]),
+        ),
+      ),
+    );
+    if (widget.filling) return Expanded(child: list);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: _listMaxHeight),
+      child: list,
+    );
+  }
+}
+
+/// The whole period in one line, so nobody has to add the list up themselves.
+class _Scoreboard extends StatelessWidget {
+  const _Scoreboard({required this.teachers});
+
+  final List<PresenceReport> teachers;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    var drops = 0;
+    var secondsLost = 0;
+    var neverReturned = 0;
+    for (final teacher in teachers) {
+      drops += teacher.counted.drops;
+      secondsLost += teacher.counted.secondsLost;
+      neverReturned += teacher.counted.neverReturned;
+    }
+
+    Widget figure(String value, String label) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value,
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(label,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.hintColor)),
+            ],
+          ),
+        );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          figure('${teachers.length}', l10n.connectionOverviewAffected),
+          figure('$drops', l10n.connectionReportTimesDropped),
+          figure(PresenceReportService.formatDuration(secondsLost),
+              l10n.connectionReportTimeLost),
+          figure('$neverReturned', l10n.connectionOverviewNeverBack),
+        ],
+      ),
+    );
+  }
+}
+
+/// Search and the three ways of narrowing the list.
+class _Filters extends StatelessWidget {
+  const _Filters({
+    required this.controller,
+    required this.query,
+    required this.filter,
+    required this.pickedTeacher,
+    required this.canPick,
+    required this.counts,
+    required this.onQuery,
+    required this.onFilter,
+    required this.onPickTeacher,
+    required this.onClearTeacher,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final _OverviewFilter filter;
+  final Employee? pickedTeacher;
+  final bool canPick;
+  final Map<_OverviewFilter, int> counts;
+  final ValueChanged<String> onQuery;
+  final ValueChanged<_OverviewFilter> onFilter;
+  final VoidCallback onPickTeacher;
+  final VoidCallback onClearTeacher;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final labels = {
+      _OverviewFilter.all: l10n.connectionOverviewFilterAll,
+      _OverviewFilter.neverReturned: l10n.connectionOverviewFilterNeverBack,
+      _OverviewFilter.leftWaiting: l10n.connectionOverviewFilterLeftWaiting,
+      _OverviewFilter.needsReview: l10n.noShowNeedsReview,
+      _OverviewFilter.repeated: l10n.connectionOverviewFilterRepeated,
+    };
+    final theme = Theme.of(context);
+    final picked = pickedTeacher;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          onChanged: onQuery,
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search, size: 20),
+            hintText: l10n.connectionOverviewSearchHint,
+            suffixIcon: query.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      controller.clear();
+                      onQuery('');
+                    },
+                  ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        if (canPick) ...[
+          const SizedBox(height: 10),
+          // The same picker used to choose a teacher everywhere else, so the
+          // name you type here is the name you typed there.
+          OutlinedButton.icon(
+            onPressed: onPickTeacher,
+            icon: const Icon(Icons.person_search_outlined, size: 18),
+            label: Text(
+              picked == null
+                  ? l10n.selectTeacher
+                  : '${picked.firstName} ${picked.lastName}'.trim(),
+            ),
+          ),
+          if (picked != null)
+            TextButton.icon(
+              onPressed: onClearTeacher,
+              icon: const Icon(Icons.close, size: 16),
+              label: Text(l10n.connectionOverviewFilterAll,
+                  style: theme.textTheme.bodySmall),
+            ),
+        ],
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _OverviewFilter.values.map((value) {
+            final count = counts[value] ?? 0;
+            return FilterChip(
+              label: Text('${labels[value]} ($count)'),
+              selected: filter == value,
+              onSelected: count == 0 && value != _OverviewFilter.all
+                  ? null
+                  : (_) => onFilter(value),
+              visualDensity: VisualDensity.compact,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// One teacher, at a glance. Their classes open on tap rather than in place.
+class _TeacherRow extends StatelessWidget {
+  const _TeacherRow({required this.teacher, required this.onTap});
+
+  final PresenceReport teacher;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    teacher.name ?? teacher.uid,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    teacher.counted.neverReturned > 0
+                        ? '${l10n.connectionOverviewClasses(teacher.classes)} · '
+                            '${l10n.connectionOverviewNeverBackCount(teacher.counted.neverReturned)}'
+                        : l10n.connectionOverviewClasses(teacher.classes),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.hintColor),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            _Pill(
+              label: '${teacher.counted.drops}',
+              sub: l10n.connectionReportTimesDropped,
+            ),
+            const SizedBox(width: 12),
+            _Pill(
+              label: PresenceReportService
+                  .formatDuration(teacher.counted.secondsLost),
+              sub: l10n.connectionReportTimeLost,
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, size: 20, color: theme.hintColor),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One teacher's classes, with the hours each was meant to run.
+class _TeacherClassesDialog extends StatelessWidget {
+  const _TeacherClassesDialog({required this.teacher});
+
+  final PresenceReport teacher;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 640),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    teacher.name ?? teacher.uid,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  Text(
-                                    l10n.connectionOverviewClasses(teacher.classes),
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(color: theme.hintColor),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _Pill(
-                              label: '${teacher.counted.drops}',
-                              sub: l10n.connectionReportTimesDropped,
-                            ),
-                            const SizedBox(width: 8),
-                            _Pill(
-                              label: PresenceReportService
-                                  .formatDuration(teacher.counted.secondsLost),
-                              sub: l10n.connectionReportTimeLost,
-                            ),
-                          ],
+                        Text(
+                          teacher.name ?? teacher.uid,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        // The classes behind this teacher's figure, so a
-                        // conversation about it can start from the record
-                        // rather than from the total.
-                        if (teacher.occasions.isNotEmpty)
-                          _OccasionList(occasions: teacher.occasions),
+                        Text(
+                          '${l10n.connectionOverviewClasses(teacher.classes)} · '
+                          '${teacher.counted.drops} ${l10n.connectionReportTimesDropped.toLowerCase()} · '
+                          '${PresenceReportService.formatDuration(teacher.counted.secondsLost)}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.hintColor),
+                        ),
                       ],
                     ),
-                  )),
-          ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: _OccasionList(
+                    occasions: teacher.occasions,
+                    startOpen: true,
+                    canReview: true,
+                  ),
+                ),
+              ),
+              if (teacher.platformDrops > 0) ...[
+                const SizedBox(height: 10),
+                Text(
+                  l10n.connectionReportOurFault(teacher.platformDrops),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.hintColor),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -517,6 +1096,30 @@ class _Pill extends StatelessWidget {
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         Text(sub, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
       ],
+    );
+  }
+}
+
+/// Whether somebody has looked at this class yet.
+class _ReviewBadge extends StatelessWidget {
+  const _ReviewBadge({required this.reviewed});
+
+  final bool reviewed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final color = reviewed ? const Color(0xff10B981) : const Color(0xffF59E0B);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        reviewed ? l10n.noShowReviewed : l10n.noShowNeedsReview,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+      ),
     );
   }
 }

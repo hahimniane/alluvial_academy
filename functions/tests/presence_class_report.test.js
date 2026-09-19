@@ -137,3 +137,42 @@ describe('toMs', () => {
     expect(toMs({})).toBeNull();
   });
 });
+
+describe('naming a class a reader recognises', () => {
+  const { buildClassSummary } = require('../services/presence/class_report');
+
+  const events = [
+    { at: 1000, uid: 'teacher_1', type: 'arrived', role: 'teacher', name: 'A' },
+    { at: 2000, uid: 'teacher_1', type: 'departed', role: 'teacher', name: 'A', cause: 'individual' },
+  ];
+  const summaryFor = (shiftData) =>
+    buildClassSummary({ shiftId: 's1', shiftData: { teacher_id: 'teacher_1', ...shiftData }, eventDocs: events });
+
+  test('a custom name wins when somebody set one', () => {
+    expect(summaryFor({ custom_name: 'Tuesday revision', subject_display_name: 'Quran Studies' }).class_name)
+      .toBe('Tuesday revision');
+  });
+
+  test('otherwise the subject, which is what most shifts actually carry', () => {
+    expect(summaryFor({ custom_name: null, subject_display_name: 'Quran Studies' }).class_name)
+      .toBe('Quran Studies');
+  });
+
+  test('the generated name is a last resort, not a first choice', () => {
+    expect(summaryFor({ auto_generated_name: 'Teacher - Quran - Student' }).class_name)
+      .toBe('Teacher - Quran - Student');
+  });
+
+  test('a class with no name at all says nothing rather than inventing one', () => {
+    expect(summaryFor({}).class_name).toBeNull();
+  });
+
+  test('the scheduled window is carried as numbers for the reader', () => {
+    const summary = summaryFor({
+      shift_start: '2026-09-18T21:00:00Z',
+      shift_end: '2026-09-18T22:00:00Z',
+    });
+    expect(summary.shift_start_ms).toBe(Date.parse('2026-09-18T21:00:00Z'));
+    expect(summary.shift_end_ms).toBe(Date.parse('2026-09-18T22:00:00Z'));
+  });
+});
