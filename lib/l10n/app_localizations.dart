@@ -33368,6 +33368,24 @@ abstract class AppLocalizations {
   /// **'More than once'**
   String get connectionOverviewFilterRepeated;
 
+  /// No description provided for @connectionSpellStudentWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{students} was left waiting'**
+  String connectionSpellStudentWaiting(Object students);
+
+  /// No description provided for @connectionSpellRoomEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'nobody was left in the room'**
+  String get connectionSpellRoomEmpty;
+
+  /// No description provided for @connectionOverviewFilterLeftWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Left a student waiting'**
+  String get connectionOverviewFilterLeftWaiting;
+
   /// Connection/drop-out reporting
   ///
   /// In en, this message translates to:

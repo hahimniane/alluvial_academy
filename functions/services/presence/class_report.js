@@ -8,7 +8,7 @@
  * teacher's number is fair.
  */
 
-const { buildAbsences } = require('./transitions');
+const { buildAbsences, whoElseWasThere } = require('./transitions');
 const { summariseAbsences, DEFAULT_MIN_ABSENCE_SECONDS } = require('./summary');
 
 /** Firestore timestamps, ISO strings and Dates all mean the same thing here. */
@@ -77,7 +77,7 @@ function buildClassSummary({
   if (events.length === 0) return null;
 
   const classEnd = toMs(shiftData.shift_end || shiftData.shiftEnd);
-  const absences = buildAbsences(events, { classEnd });
+  const absences = whoElseWasThere(events, buildAbsences(events, { classEnd }));
   const people = summariseAbsences(absences, { minSeconds });
 
   const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim() || null;

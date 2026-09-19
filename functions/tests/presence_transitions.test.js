@@ -321,3 +321,75 @@ describe('one teacher across several classes is one person', () => {
     expect(departures.map((d) => d.uid)).toEqual(['zh_someclasskey']);
   });
 });
+
+describe('whether anybody was left in the room', () => {
+  const { buildAbsences, whoElseWasThere } = require('../services/presence/transitions');
+
+  const at = (minute) => Date.UTC(2026, 8, 18, 21, minute);
+  const event = (type, uid, role, name, minute) =>
+    ({ type, uid, role, name, shiftId: 's1', atMs: at(minute), cause: 'individual' });
+
+  test('a student still there while the teacher is away is named', () => {
+    const events = [
+      event('arrived', 'teacher', 'teacher', 'Aicha', 0),
+      event('arrived', 'student', 'student', 'Amadou', 0),
+      event('departed', 'teacher', 'teacher', 'Aicha', 10),
+      event('arrived', 'teacher', 'teacher', 'Aicha', 20),
+    ];
+    const [absence] = whoElseWasThere(events, buildAbsences(events, { classEnd: at(60) }))
+      .filter((a) => a.uid === 'teacher');
+    expect(absence.studentsWaiting).toEqual(['Amadou']);
+    expect(absence.roomWasEmpty).toBe(false);
+  });
+
+  test('a room that emptied is not somebody being abandoned', () => {
+    const events = [
+      event('arrived', 'teacher', 'teacher', 'Aicha', 0),
+      event('arrived', 'student', 'student', 'Amadou', 0),
+      event('departed', 'student', 'student', 'Amadou', 9),
+      event('departed', 'teacher', 'teacher', 'Aicha', 10),
+    ];
+    const [absence] = whoElseWasThere(events, buildAbsences(events, { classEnd: at(60) }))
+      .filter((a) => a.uid === 'teacher');
+    expect(absence.studentsWaiting).toEqual([]);
+    expect(absence.roomWasEmpty).toBe(true);
+  });
+
+  test('leaving within seconds of each other is leaving together, not waiting', () => {
+    const together = [
+      { ...event('arrived', 'teacher', 'teacher', 'Aicha', 0) },
+      { ...event('arrived', 'student', 'student', 'Amadou', 0) },
+      { ...event('departed', 'teacher', 'teacher', 'Aicha', 10) },
+      // five seconds later — the same disconnection, not a student left behind
+      { ...event('departed', 'student', 'student', 'Amadou', 10), atMs: at(10) + 5000 },
+    ];
+    const [absence] = whoElseWasThere(together, buildAbsences(together, { classEnd: at(60) }))
+      .filter((a) => a.uid === 'teacher');
+    expect(absence.studentsWaiting).toEqual([]);
+    expect(absence.roomWasEmpty).toBe(true);
+  });
+
+  test('a student who arrives during the absence still counts as waiting', () => {
+    const events = [
+      event('arrived', 'teacher', 'teacher', 'Aicha', 0),
+      event('departed', 'teacher', 'teacher', 'Aicha', 5),
+      event('arrived', 'student', 'student', 'Amadou', 10),
+      event('arrived', 'teacher', 'teacher', 'Aicha', 30),
+    ];
+    const [absence] = whoElseWasThere(events, buildAbsences(events, { classEnd: at(60) }))
+      .filter((a) => a.uid === 'teacher');
+    expect(absence.studentsWaiting).toEqual(['Amadou']);
+  });
+
+  test('an absence nobody returned from still reports who was waiting', () => {
+    const events = [
+      event('arrived', 'teacher', 'teacher', 'Aicha', 0),
+      event('arrived', 'student', 'student', 'Amadou', 0),
+      event('departed', 'teacher', 'teacher', 'Aicha', 10),
+    ];
+    const [absence] = whoElseWasThere(events, buildAbsences(events, { classEnd: at(60) }))
+      .filter((a) => a.uid === 'teacher');
+    expect(absence.returned).toBe(false);
+    expect(absence.studentsWaiting).toEqual(['Amadou']);
+  });
+});

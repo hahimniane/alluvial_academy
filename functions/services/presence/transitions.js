@@ -236,6 +236,75 @@ function buildAbsences(events, { classEnd = null } = {}) {
   return absences.sort((a, b) => a.startedAtMs - b.startedAtMs);
 }
 
+/**
+ * Who else was in the room while somebody was absent from it.
+ *
+ * This is what separates a teacher dropping out from a class simply ending.
+ * A student sitting in the room alone for eleven minutes is a lesson going
+ * wrong; the same eleven minutes with nobody there is a class that finished,
+ * or that both sides left together. The count alone cannot tell them apart,
+ * and an administrator should not have to guess.
+ *
+ * An overlap shorter than the simultaneous window does not count as company:
+ * a student who left within a few seconds of the teacher went WITH them, and
+ * reading that as "the student was waiting" would invent an abandonment.
+ */
+function whoElseWasThere(events, absences) {
+  const ordered = [...events].sort((a, b) => a.atMs - b.atMs);
+
+  // When each person was in the room. A stretch left open at the end of the
+  // events is open-ended, not closed at the last thing that happened.
+  const stretches = [];
+  const open = new Map();
+  for (const event of ordered) {
+    const key = `${event.shiftId}|${event.uid}`;
+    if (event.type === 'arrived') {
+      if (!open.has(key)) {
+        open.set(key, { shiftId: event.shiftId, uid: event.uid, name: event.name,
+          role: event.role, from: event.atMs });
+      }
+    } else if (event.type === 'departed') {
+      const stretch = open.get(key);
+      if (stretch) {
+        open.delete(key);
+        stretches.push({ ...stretch, to: event.atMs });
+      }
+    }
+  }
+  for (const stretch of open.values()) stretches.push({ ...stretch, to: Infinity });
+
+  return absences.map((absence) => {
+    const from = absence.startedAtMs;
+    const to = Number.isFinite(absence.endedAtMs) ? absence.endedAtMs : Infinity;
+    const company = new Map();
+
+    for (const stretch of stretches) {
+      if (stretch.shiftId !== absence.shiftId) continue;
+      if (stretch.uid === absence.uid) continue;
+      const overlap = Math.min(to, stretch.to) - Math.max(from, stretch.from);
+      if (!(overlap > SIMULTANEOUS_WINDOW_MS)) continue;
+      if (!company.has(stretch.uid)) {
+        company.set(stretch.uid, {
+          uid: stretch.uid,
+          name: stretch.name || null,
+          role: stretch.role || null,
+        });
+      }
+    }
+
+    const others = [...company.values()];
+    return {
+      ...absence,
+      othersPresent: others,
+      studentsWaiting: others
+        .filter((person) => String(person.role || '') === 'student')
+        .map((person) => person.name)
+        .filter(Boolean),
+      roomWasEmpty: others.length === 0,
+    };
+  });
+}
+
 module.exports = {
   SIMULTANEOUS_WINDOW_MS,
   SIMULTANEOUS_MIN_PEOPLE,
@@ -246,4 +315,5 @@ module.exports = {
   reportIsBlind,
   classifyDepartures,
   buildAbsences,
+  whoElseWasThere,
 };

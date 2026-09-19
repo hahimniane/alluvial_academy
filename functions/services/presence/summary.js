@@ -94,6 +94,11 @@ function summariseAbsences(absences, { minSeconds = DEFAULT_MIN_ABSENCE_SECONDS 
       seconds: Number.isFinite(absence.seconds) ? absence.seconds : null,
       returned: absence.returned !== false,
       cause,
+      // Whether anybody was left sitting there. A teacher gone eleven minutes
+      // while a student waits is a lesson going wrong; the same eleven minutes
+      // with the room empty is a class that had already finished.
+      studentsWaiting: Array.isArray(absence.studentsWaiting) ? absence.studentsWaiting : [],
+      roomWasEmpty: absence.roomWasEmpty === true,
     });
   }
 
@@ -122,6 +127,9 @@ const _occasionFrom = (summary, person) => ({
   // The hours the class was meant to run, so a drop can be read against it.
   startedAt: summary.shift_start_ms ?? null,
   endedAt: summary.shift_end_ms ?? null,
+  // An administrator's verdict, if one has been given, so the list can show
+  // what still needs looking at without opening every class.
+  review: summary.review || null,
   drops: person.counted.drops,
   secondsLost: person.counted.secondsLost,
   longestSeconds: person.counted.longestSeconds,

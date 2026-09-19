@@ -1,6 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:alluwalacademyadmin/core/models/employee_model.dart';
 import 'package:alluwalacademyadmin/core/services/presence_report_service.dart';
+import 'package:alluwalacademyadmin/core/widgets/review_dialog.dart';
+import 'package:alluwalacademyadmin/features/no_show/services/no_show_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/widgets/create_shift_dialog.dart'
+    show EmployeeSelectionDialog;
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// A teacher's own connection during class.
@@ -158,7 +164,11 @@ class _ConnectionReportCardState extends State<ConnectionReportCard> {
 /// it answers the two questions anybody actually asks — which day, and which
 /// student was waiting.
 class _OccasionList extends StatefulWidget {
-  const _OccasionList({required this.occasions, this.startOpen = false});
+  const _OccasionList({
+    required this.occasions,
+    this.startOpen = false,
+    this.canReview = false,
+  });
 
   final List<PresenceOccasion> occasions;
 
@@ -166,12 +176,68 @@ class _OccasionList extends StatefulWidget {
   /// rather than a detail hanging off a summary.
   final bool startOpen;
 
+  /// Administrators can record what they did about a class. A teacher reading
+  /// their own figures cannot: the point of showing them is that they can act
+  /// before the next lesson, not that they close their own cases.
+  final bool canReview;
+
   @override
   State<_OccasionList> createState() => _OccasionListState();
 }
 
 class _OccasionListState extends State<_OccasionList> {
   late bool _open = widget.startOpen;
+
+  /// Reviews land here so a verdict shows without reloading the week.
+  final Map<String, PresenceReview> _justReviewed = {};
+  final Set<String> _reviewing = {};
+
+  PresenceReview? _reviewFor(PresenceOccasion occasion) =>
+      _justReviewed[occasion.shiftId ?? ''] ?? occasion.review;
+
+  Future<void> _review(PresenceOccasion occasion) async {
+    final shiftId = occasion.shiftId;
+    if (shiftId == null || shiftId.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    final subject = [
+      _when(occasion.startedAt),
+      occasion.className ?? '',
+    ].where((part) => part.isNotEmpty).join(' · ');
+
+    final draft = await showDialog<ReviewDraft>(
+      context: context,
+      builder: (context) => ReviewDialog(
+        subject: subject,
+        actions: reviewActionOptions(l10n),
+      ),
+    );
+    if (draft == null || !mounted) return;
+
+    setState(() => _reviewing.add(shiftId));
+    try {
+      final signedIn = FirebaseAuth.instance.currentUser;
+      final review = await PresenceReportService.review(
+        shiftId: shiftId,
+        // The backend records the uid and email from the token; the name is
+        // only what a reader sees, so an empty one simply falls back to it.
+        reviewerName: (signedIn?.displayName ?? '').trim(),
+        actionKeys: draft.actionKeys,
+        actionLabels: draft.actionLabels,
+        note: draft.note,
+      );
+      if (!mounted) return;
+      setState(() {
+        _justReviewed[shiftId] = review;
+        _reviewing.remove(shiftId);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _reviewing.remove(shiftId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red.shade600),
+      );
+    }
+  }
 
   String _when(DateTime? at) {
     if (at == null) return '';
@@ -188,6 +254,65 @@ class _OccasionListState extends State<_OccasionList> {
     final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     return '$hour:$minute ${local.hour < 12 ? 'am' : 'pm'}';
+  }
+
+  /// What was decided about this class, or the way to decide it.
+  Widget _reviewFooter(
+    AppLocalizations l10n,
+    ThemeData theme,
+    PresenceOccasion occasion,
+  ) {
+    final review = _reviewFor(occasion);
+    final busy = _reviewing.contains(occasion.shiftId ?? '');
+
+    if (review == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: busy ? null : () => _review(occasion),
+          icon: busy
+              ? const SizedBox(
+                  height: 14, width: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.rate_review_outlined, size: 16),
+          label: Text(l10n.noShowMarkReviewed),
+        ),
+      );
+    }
+
+    final labels = review.actionLabels.isNotEmpty
+        ? review.actionLabels
+        : review.actionKeys;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (review.reviewer.isNotEmpty)
+            Text(
+              l10n.noShowReviewedBy(review.reviewer),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+          if (labels.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: labels
+                  .map((label) => Chip(
+                        label: Text(label, style: theme.textTheme.bodySmall),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ))
+                  .toList(),
+            ),
+          if (review.note != null)
+            Text(
+              l10n.noShowReviewNoteLabel(review.note!),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -248,6 +373,10 @@ class _OccasionListState extends State<_OccasionList> {
                         '${PresenceReportService.formatDuration(occasion.secondsLost)}',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
                       ),
+                      if (widget.canReview) ...[
+                        const SizedBox(width: 8),
+                        _ReviewBadge(reviewed: _reviewFor(occasion) != null),
+                      ],
                     ],
                   ),
                   // The hours the class was meant to run. Without them "dropped
@@ -281,20 +410,43 @@ class _OccasionListState extends State<_OccasionList> {
                     ),
                   const SizedBox(height: 8),
                   ...occasion.spells.map((spell) => Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          [
-                            spell.from == null ? '' : _clock(spell.from!),
-                            spell.returned
-                                ? l10n.connectionSpellBack(
-                                    PresenceReportService.formatDuration(spell.seconds ?? 0))
-                                : l10n.connectionSpellNeverBack,
-                            if (spell.isOurs) l10n.connectionSpellOurSide,
-                          ].where((part) => part.isNotEmpty).join(' — '),
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.hintColor),
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              [
+                                spell.from == null ? '' : _clock(spell.from!),
+                                spell.returned
+                                    ? l10n.connectionSpellBack(
+                                        PresenceReportService.formatDuration(spell.seconds ?? 0))
+                                    : l10n.connectionSpellNeverBack,
+                                if (spell.isOurs) l10n.connectionSpellOurSide,
+                              ].where((part) => part.isNotEmpty).join(' — '),
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: theme.hintColor),
+                            ),
+                            // The difference between a lesson going wrong and a
+                            // lesson that had already finished.
+                            if (spell.studentsWaiting.isNotEmpty)
+                              Text(
+                                l10n.connectionSpellStudentWaiting(
+                                    spell.studentsWaiting.join(', ')),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.amber.shade900,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            else if (spell.roomWasEmpty)
+                              Text(
+                                l10n.connectionSpellRoomEmpty,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.hintColor),
+                              ),
+                          ],
                         ),
                       )),
+                  if (widget.canReview) _reviewFooter(l10n, theme, occasion),
                 ],
               ),
             );
@@ -400,7 +552,7 @@ class ConnectionOverviewCard extends StatefulWidget {
 }
 
 /// Which teachers to show. Support first, so the default is everyone.
-enum _OverviewFilter { all, neverReturned, repeated }
+enum _OverviewFilter { all, neverReturned, leftWaiting, needsReview, repeated }
 
 class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
   /// The list scrolls past this rather than growing the page.
@@ -413,10 +565,43 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
   String _query = '';
   _OverviewFilter _filter = _OverviewFilter.all;
 
+  /// The staff list behind the picker, and whoever is picked.
+  List<Employee> _staff = const [];
+  Employee? _pickedTeacher;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadStaff();
+  }
+
+  Future<void> _loadStaff() async {
+    try {
+      final staff = await NoShowService.fetchAvailableTeachers();
+      if (!mounted) return;
+      setState(() => _staff = staff);
+    } catch (_) {
+      // The picker is a convenience over the search box, not a requirement.
+    }
+  }
+
+  Future<void> _pickTeacher() async {
+    if (_staff.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    final selected = await showDialog<List<Employee>>(
+      context: context,
+      builder: (context) => EmployeeSelectionDialog(
+        employees: _staff,
+        selectedIds: _pickedTeacher == null
+            ? <String>{}
+            : <String>{_pickedTeacher!.documentId},
+        title: l10n.selectTeacher,
+        idSelector: (employee) => employee.documentId,
+      ),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    setState(() => _pickedTeacher = selected.first);
   }
 
   @override
@@ -445,10 +630,18 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
   /// fine" for the seventh.
   List<PresenceReport> get _visible {
     final query = _query.trim().toLowerCase();
+    final picked = _pickedTeacher?.documentId;
     return _withDrops.where((teacher) {
+      if (picked != null && picked.isNotEmpty && teacher.uid != picked) return false;
       switch (_filter) {
         case _OverviewFilter.neverReturned:
           if (teacher.counted.neverReturned == 0) return false;
+          break;
+        case _OverviewFilter.leftWaiting:
+          if (!teacher.occasions.any((o) => o.someoneWasWaiting)) return false;
+          break;
+        case _OverviewFilter.needsReview:
+          if (!teacher.occasions.any((o) => !o.isReviewed)) return false;
           break;
         case _OverviewFilter.repeated:
           if (teacher.counted.drops < 2) return false;
@@ -534,15 +727,25 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
                 controller: _search,
                 query: _query,
                 filter: _filter,
+                pickedTeacher: _pickedTeacher,
+                canPick: _staff.isNotEmpty,
                 counts: {
                   _OverviewFilter.all: withDrops.length,
                   _OverviewFilter.neverReturned:
                       withDrops.where((t) => t.counted.neverReturned > 0).length,
+                  _OverviewFilter.leftWaiting: withDrops
+                      .where((t) => t.occasions.any((o) => o.someoneWasWaiting))
+                      .length,
+                  _OverviewFilter.needsReview: withDrops
+                      .where((t) => t.occasions.any((o) => !o.isReviewed))
+                      .length,
                   _OverviewFilter.repeated:
                       withDrops.where((t) => t.counted.drops >= 2).length,
                 },
                 onQuery: (value) => setState(() => _query = value),
                 onFilter: (value) => setState(() => _filter = value),
+                onPickTeacher: _pickTeacher,
+                onClearTeacher: () => setState(() => _pickedTeacher = null),
               ),
               const SizedBox(height: 12),
               if (visible.isEmpty)
@@ -652,17 +855,25 @@ class _Filters extends StatelessWidget {
     required this.controller,
     required this.query,
     required this.filter,
+    required this.pickedTeacher,
+    required this.canPick,
     required this.counts,
     required this.onQuery,
     required this.onFilter,
+    required this.onPickTeacher,
+    required this.onClearTeacher,
   });
 
   final TextEditingController controller;
   final String query;
   final _OverviewFilter filter;
+  final Employee? pickedTeacher;
+  final bool canPick;
   final Map<_OverviewFilter, int> counts;
   final ValueChanged<String> onQuery;
   final ValueChanged<_OverviewFilter> onFilter;
+  final VoidCallback onPickTeacher;
+  final VoidCallback onClearTeacher;
 
   @override
   Widget build(BuildContext context) {
@@ -670,8 +881,12 @@ class _Filters extends StatelessWidget {
     final labels = {
       _OverviewFilter.all: l10n.connectionOverviewFilterAll,
       _OverviewFilter.neverReturned: l10n.connectionOverviewFilterNeverBack,
+      _OverviewFilter.leftWaiting: l10n.connectionOverviewFilterLeftWaiting,
+      _OverviewFilter.needsReview: l10n.noShowNeedsReview,
       _OverviewFilter.repeated: l10n.connectionOverviewFilterRepeated,
     };
+    final theme = Theme.of(context);
+    final picked = pickedTeacher;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,6 +910,27 @@ class _Filters extends StatelessWidget {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
+        if (canPick) ...[
+          const SizedBox(height: 10),
+          // The same picker used to choose a teacher everywhere else, so the
+          // name you type here is the name you typed there.
+          OutlinedButton.icon(
+            onPressed: onPickTeacher,
+            icon: const Icon(Icons.person_search_outlined, size: 18),
+            label: Text(
+              picked == null
+                  ? l10n.selectTeacher
+                  : '${picked.firstName} ${picked.lastName}'.trim(),
+            ),
+          ),
+          if (picked != null)
+            TextButton.icon(
+              onPressed: onClearTeacher,
+              icon: const Icon(Icons.close, size: 16),
+              label: Text(l10n.connectionOverviewFilterAll,
+                  style: theme.textTheme.bodySmall),
+            ),
+        ],
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -825,6 +1061,7 @@ class _TeacherClassesDialog extends StatelessWidget {
                   child: _OccasionList(
                     occasions: teacher.occasions,
                     startOpen: true,
+                    canReview: true,
                   ),
                 ),
               ),
@@ -859,6 +1096,30 @@ class _Pill extends StatelessWidget {
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         Text(sub, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
       ],
+    );
+  }
+}
+
+/// Whether somebody has looked at this class yet.
+class _ReviewBadge extends StatelessWidget {
+  const _ReviewBadge({required this.reviewed});
+
+  final bool reviewed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final color = reviewed ? const Color(0xff10B981) : const Color(0xffF59E0B);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        reviewed ? l10n.noShowReviewed : l10n.noShowNeedsReview,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+      ),
     );
   }
 }

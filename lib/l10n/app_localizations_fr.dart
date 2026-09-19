@@ -18747,6 +18747,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connectionOverviewFilterRepeated => 'Plus d\'une fois';
 
   @override
+  String connectionSpellStudentWaiting(Object students) {
+    return '$students est resté(e) à attendre';
+  }
+
+  @override
+  String get connectionSpellRoomEmpty => 'personne ne restait dans la salle';
+
+  @override
+  String get connectionOverviewFilterLeftWaiting => 'Élève laissé en attente';
+
+  @override
   String get connectionReportThisWeek => 'Cette semaine';
 
   @override

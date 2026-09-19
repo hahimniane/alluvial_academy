@@ -18397,6 +18397,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectionOverviewFilterRepeated => 'More than once';
 
   @override
+  String connectionSpellStudentWaiting(Object students) {
+    return '$students was left waiting';
+  }
+
+  @override
+  String get connectionSpellRoomEmpty => 'nobody was left in the room';
+
+  @override
+  String get connectionOverviewFilterLeftWaiting => 'Left a student waiting';
+
+  @override
   String get connectionReportThisWeek => 'This week';
 
   @override

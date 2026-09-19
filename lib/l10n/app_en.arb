@@ -8346,6 +8346,23 @@
   "@connectionOverviewFilterRepeated": {
     "description": "Connection/drop-out reporting"
   },
+  "connectionSpellStudentWaiting": "{students} was left waiting",
+  "@connectionSpellStudentWaitin": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "students": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionSpellRoomEmpty": "nobody was left in the room",
+  "@connectionSpellRoomEmpt": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterLeftWaiting": "Left a student waiting",
+  "@connectionOverviewFilterLeftWaitin": {
+    "description": "Connection/drop-out reporting"
+  },
   "connectionReportThisWeek": "This week",
   "@connectionReportThisWeek": {
     "description": "Connection/drop-out reporting"
