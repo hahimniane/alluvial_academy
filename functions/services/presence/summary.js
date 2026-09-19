@@ -119,7 +119,9 @@ const _occasionFrom = (summary, person) => ({
   shiftId: summary.shift_id || null,
   className: summary.class_name || null,
   students: Array.isArray(summary.students) ? summary.students : [],
+  // The hours the class was meant to run, so a drop can be read against it.
   startedAt: summary.shift_start_ms ?? null,
+  endedAt: summary.shift_end_ms ?? null,
   drops: person.counted.drops,
   secondsLost: person.counted.secondsLost,
   longestSeconds: person.counted.longestSeconds,

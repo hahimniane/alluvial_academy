@@ -80,7 +80,12 @@ class PresenceOccasion {
   final String? shiftId;
   final String? className;
   final List<String> students;
+
+  /// The hours the class was scheduled to run. A drop at 9:52 reads very
+  /// differently once you know the lesson was due to end at 10:00.
   final DateTime? startedAt;
+  final DateTime? endedAt;
+
   final int drops;
   final int secondsLost;
   final int neverReturned;
@@ -91,6 +96,7 @@ class PresenceOccasion {
     this.className,
     this.students = const [],
     this.startedAt,
+    this.endedAt,
     this.drops = 0,
     this.secondsLost = 0,
     this.neverReturned = 0,
@@ -107,6 +113,7 @@ class PresenceOccasion {
           ? students.map((s) => '$s').where((s) => s.isNotEmpty).toList()
           : const [],
       startedAt: PresenceSpell._time(data['startedAt']),
+      endedAt: PresenceSpell._time(data['endedAt']),
       drops: PresenceTally._int(data['drops']),
       secondsLost: PresenceTally._int(data['secondsLost']),
       neverReturned: PresenceTally._int(data['neverReturned']),

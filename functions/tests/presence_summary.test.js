@@ -173,6 +173,7 @@ describe('the evidence behind a teacher\'s number', () => {
     class_name: 'Quran — Monday',
     students: ['Amadou Diallo'],
     shift_start_ms: Date.UTC(2026, 8, 14, 9, 0),
+    shift_end_ms: Date.UTC(2026, 8, 14, 10, 0),
     people: summariseAbsences([absence()]),
     ...over,
   });
@@ -185,6 +186,7 @@ describe('the evidence behind a teacher\'s number', () => {
       className: 'Quran — Monday',
       students: ['Amadou Diallo'],
       startedAt: Date.UTC(2026, 8, 14, 9, 0),
+      endedAt: Date.UTC(2026, 8, 14, 10, 0),
       drops: 1,
     });
     expect(person.occasions[0].spells).toHaveLength(1);

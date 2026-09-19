@@ -18713,6 +18713,31 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String connectionOccasionScheduled(String from, String to) {
+    return 'Cours prévu de $from à $to';
+  }
+
+  @override
+  String get connectionOverviewAffected => 'Enseignants concernés';
+
+  @override
+  String get connectionOverviewNeverBack => 'Sans retour';
+
+  @override
+  String connectionOverviewNeverBackCount(int count) {
+    return 'n\'a pas pu revenir dans $count';
+  }
+
+  @override
+  String get connectionOverviewFilterAll => 'Tout le monde';
+
+  @override
+  String get connectionOverviewFilterNeverBack => 'Sans retour';
+
+  @override
+  String get connectionOverviewFilterRepeated => 'Plus d\'une fois';
+
+  @override
   String get connectionReportThisWeek => 'Cette semaine';
 
   @override

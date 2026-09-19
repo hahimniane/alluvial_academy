@@ -18311,6 +18311,31 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String connectionOccasionScheduled(String from, String to) {
+    return 'Class ran $from – $to';
+  }
+
+  @override
+  String get connectionOverviewAffected => 'Teachers affected';
+
+  @override
+  String get connectionOverviewNeverBack => 'Never got back';
+
+  @override
+  String connectionOverviewNeverBackCount(int count) {
+    return 'did not get back into $count';
+  }
+
+  @override
+  String get connectionOverviewFilterAll => 'Everyone';
+
+  @override
+  String get connectionOverviewFilterNeverBack => 'Never got back';
+
+  @override
+  String get connectionOverviewFilterRepeated => 'More than once';
+
+  @override
   String get connectionReportThisWeek => 'This week';
 
   @override

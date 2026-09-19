@@ -33311,6 +33311,48 @@ abstract class AppLocalizations {
   /// Connection/drop-out reporting
   ///
   /// In en, this message translates to:
+  /// **'Class ran {from} – {to}'**
+  String connectionOccasionScheduled(String from, String to);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers affected'**
+  String get connectionOverviewAffected;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Never got back'**
+  String get connectionOverviewNeverBack;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'did not get back into {count}'**
+  String connectionOverviewNeverBackCount(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get connectionOverviewFilterAll;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Never got back'**
+  String get connectionOverviewFilterNeverBack;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'More than once'**
+  String get connectionOverviewFilterRepeated;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
   /// **'This week'**
   String get connectionReportThisWeek;
 

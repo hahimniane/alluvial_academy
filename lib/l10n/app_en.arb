@@ -8293,6 +8293,47 @@
       }
     }
   },
+  "connectionOccasionScheduled": "Class ran {from} – {to}",
+  "@connectionOccasionScheduled": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionOverviewAffected": "Teachers affected",
+  "@connectionOverviewAffected": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNeverBack": "Never got back",
+  "@connectionOverviewNeverBack": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewNeverBackCount": "did not get back into {count}",
+  "@connectionOverviewNeverBackCount": {
+    "description": "Connection/drop-out reporting",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "connectionOverviewFilterAll": "Everyone",
+  "@connectionOverviewFilterAll": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterNeverBack": "Never got back",
+  "@connectionOverviewFilterNeverBack": {
+    "description": "Connection/drop-out reporting"
+  },
+  "connectionOverviewFilterRepeated": "More than once",
+  "@connectionOverviewFilterRepeated": {
+    "description": "Connection/drop-out reporting"
+  },
   "connectionReportThisWeek": "This week",
   "@connectionReportThisWeek": {
     "description": "Connection/drop-out reporting"
