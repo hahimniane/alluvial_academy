@@ -355,6 +355,20 @@ async function runOnce() {
 
   await recycleHungSessions();
 
+  // Let go of the hub this lane is leaving BEFORE joining the one it is moving
+  // to. A lane is one Zoom host account and a host can run only one meeting, so
+  // starting the new hub first means Zoom refuses the join outright:
+  //
+  //   errorCode 3000  "Already has other meetings in progress."
+  //
+  // The bot then retried every 31 seconds, and each retry that finally got in
+  // re-opened the breakout rooms — which throws whoever is inside them back
+  // out. That is a whole class, teacher and student together, in the middle of
+  // a lesson. 26 such refusals in three days, 7 of them during one teacher's
+  // classes. Closing first costs a few seconds with no host on the lane, which
+  // nobody notices, and the handover then succeeds on the first attempt.
+  await closeExpiredSessions(activeIds);
+
   for (const directive of directives) {
     if (!directive.hubDocId || !directive.meetingNumber || !directive.sdkKey || !directive.signatureRole1) {
       continue;
@@ -362,8 +376,6 @@ async function runOnce() {
     if (liveness.isRejoinBlocked(rejoinBlockedUntil, directive.hubDocId, Date.now())) continue;
     await startHub(directive);
   }
-
-  await closeExpiredSessions(activeIds);
 }
 
 async function main() {
