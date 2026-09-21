@@ -997,6 +997,17 @@ class _TeacherAvailabilityResponseDialogState
 
   bool get _requiresComment => _status == 'partial';
 
+  /// Whether this request has concrete windows a teacher can pick from.
+  ///
+  /// The picker and the submit guard have to agree. Where the family recorded
+  /// no window, or the session does not fit the one they did, there is nothing
+  /// to tap — so demanding a slot there would leave the teacher unable to
+  /// respond at all, and the dialog tells them to use the comment instead.
+  bool get _offersSlots => sessionFitsBlock(
+        blockById(widget.job.block),
+        widget.job.effectiveSessionMinutes,
+      );
+
   /// The concrete windows the family's answer allows, ranked by tapping.
   ///
   /// Replaces a free-text box nothing could parse: admin used to read times by
@@ -1044,9 +1055,16 @@ class _TeacherAvailabilityResponseDialogState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Pick the slots you can teach',
+          Text.rich(
+            TextSpan(
+              text: 'Pick the slots you can teach',
               style: GoogleFonts.inter(
-                  fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xff334155))),
+                  fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xff334155)),
+              children: const [
+                TextSpan(text: ' *', style: TextStyle(color: Color(0xffDC2626))),
+              ],
+            ),
+          ),
           const SizedBox(height: 2),
           Text(
             '${block.label}, ${block.rangeLabel} · ${sessionLabel(minutes)} per session'
@@ -1300,10 +1318,21 @@ class _TeacherAvailabilityResponseDialogState
               );
               return;
             }
-            if (_rankedSlots.isEmpty) {
+            // Saying "I am available" without naming an hour leaves admin
+            // nothing to schedule. Asked only where slots exist to be picked.
+            if (_offersSlots && _rankedSlots.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Pick at least one slot you can teach.'),
+                  content: Text('Pick at least one slot you can teach before submitting.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
+            if (!_offersSlots && comment.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('This request has no slots to pick, so tell admin when you are free.'),
                   backgroundColor: Colors.red,
                 ),
               );

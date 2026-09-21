@@ -34,7 +34,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
+import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, sessionFitsBlock, sessionLabel, slotsFor } from "@/lib/enrollmentDomain";
 import { convertTimeSlot, zoneAbbreviation } from "@/lib/timeZoneConvert";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
@@ -247,6 +247,21 @@ export function TeacherJobBoardPage() {
     const comment = draft.comment.trim();
     if (draft.status === "partial" && !comment) {
       setSubmitError("Please add a comment for this response.");
+      return;
+    }
+    // Saying "I am available" without naming an hour leaves admin with nothing
+    // to schedule, so the response has to carry at least one slot. Asked only
+    // when this request actually offers slots: where the family recorded no
+    // window, or the session does not fit the one they did, the picker shows
+    // nothing to tap and the teacher is told to explain in the comment instead
+    // — so that is what is required there.
+    if (sessionFitsBlock(blockById(activeJob.block), activeJob.sessionMinutes)) {
+      if (draft.rankedSlots.length === 0) {
+        setSubmitError("Pick at least one slot you can teach before submitting.");
+        return;
+      }
+    } else if (!comment) {
+      setSubmitError("This request has no slots to pick, so tell admin when you are free.");
       return;
     }
 
@@ -722,6 +737,7 @@ function SlotPicker({
     [block, job.sessionMinutes],
   );
   const needed = job.sessionsPerWeek;
+  const required = sessionFitsBlock(block, job.sessionMinutes);
 
   const toggle = (slot: string) => {
     const ranked = draft.rankedSlots.includes(slot)
@@ -753,7 +769,10 @@ function SlotPicker({
 
   return (
     <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#FAFBFC] p-3">
-      <p className="text-xs font-bold text-[#334155]">{tr("Pick the slots you can teach")}</p>
+      <p className="text-xs font-bold text-[#334155]">
+        {tr("Pick the slots you can teach")}
+        {required ? <span className="text-[#DC2626]"> *</span> : null}
+      </p>
       <p className="mt-0.5 text-[11px] text-[#64748B]">
         {block.label}, {blockRangeLabel(block)} · {sessionLabel(job.sessionMinutes)} {tr("per session")}
         {needed > 0 ? ` · ${needed} a week` : ""}

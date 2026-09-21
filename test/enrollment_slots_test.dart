@@ -83,4 +83,30 @@ void main() {
       expect(sessionLabel(120), '2 hours');
     });
   });
+
+  group('when a teacher must name a slot', () {
+    // Both the picker and the submit guard ask sessionFitsBlock, so a teacher
+    // is only required to rank a slot where there is one to rank. Demanding it
+    // otherwise would leave them unable to answer a request at all.
+    test('a request with a workable window requires a slot', () {
+      expect(sessionFitsBlock(blockById('Evening'), 120), isTrue);
+      expect(sessionFitsBlock(blockById('Morning'), 60), isTrue);
+    });
+
+    test('a request with no window recorded does not', () {
+      expect(sessionFitsBlock(blockById(''), 60), isFalse);
+      expect(sessionFitsBlock(null, 60), isFalse);
+    });
+
+    test('a session too long for its block does not', () {
+      final evening = blockById('Evening');
+      expect(slotsFor(evening, 600), isEmpty);
+      expect(sessionFitsBlock(evening, 600), isFalse);
+    });
+
+    test('a nonsense session length does not', () {
+      expect(sessionFitsBlock(blockById('Evening'), 0), isFalse);
+      expect(sessionFitsBlock(blockById('Evening'), -30), isFalse);
+    });
+  });
 }
