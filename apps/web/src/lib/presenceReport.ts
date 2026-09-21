@@ -32,7 +32,9 @@ export type PresenceOccasion = {
   shiftId: string | null;
   className: string | null;
   students: string[];
+  /** The hours the class was scheduled to run. */
   startedAt: number | null;
+  endedAt: number | null;
   drops: number;
   secondsLost: number;
   longestSeconds: number;
@@ -145,6 +147,7 @@ export function occasionsOf(report: PresenceReport | null | undefined): Presence
       className: occasion.className ?? null,
       students: Array.isArray(occasion.students) ? occasion.students.filter(Boolean) : [],
       startedAt: Number(occasion.startedAt) || null,
+      endedAt: Number(occasion.endedAt) || null,
       drops: Number(occasion.drops) || 0,
       secondsLost: Number(occasion.secondsLost) || 0,
       longestSeconds: Number(occasion.longestSeconds) || 0,
@@ -160,6 +163,18 @@ export function formatOccasionDate(startedAt: number | null, locale?: string): s
     weekday: "short", day: "numeric", month: "short",
     hour: "numeric", minute: "2-digit",
   });
+}
+
+/** "9:00 am – 10:00 am", the hours a class was meant to run. */
+export function formatClassWindow(
+  startedAt: number | null,
+  endedAt: number | null,
+  locale?: string,
+): string {
+  if (!endedAt) return "";
+  const from = formatSpellTime(startedAt ?? endedAt, locale);
+  const to = formatSpellTime(endedAt, locale);
+  return from && to ? `${from} – ${to}` : "";
 }
 
 /** "9:14 am", the moment a drop began. */

@@ -24,6 +24,15 @@ const { rollUp } = require('../services/presence/summary');
 const EVENTS = 'class_presence_events';
 const CLASS_SUMMARIES = 'class_presence_summaries';
 const PERIOD_REPORTS = 'presence_period_reports';
+/**
+ * An administrator's verdict on a class's drop-outs.
+ *
+ * Kept in its own collection rather than on the summary, because a summary is
+ * derived and may be recomputed, while a person's judgement is not ours to
+ * regenerate. The summary carries a copy so a period can show the status
+ * without opening every class.
+ */
+const REVIEWS = 'class_presence_reviews';
 
 /** A class is only summarised once its grace period has run out. */
 const CLASS_SETTLE_MINUTES = 20;
@@ -86,8 +95,10 @@ const summariseFinishedClasses = async ({ now = new Date() } = {}) => {
     // sheet would claim it went perfectly, which we have no basis to say.
     if (!summary) { skipped += 1; continue; }
 
+    const review = await db.collection(REVIEWS).doc(shiftId).get();
     await summaryRef.set({
       ...summary,
+      review: review.exists ? (review.data() || null) : null,
       computed_at: admin.firestore.FieldValue.serverTimestamp(),
     });
     written += 1;
@@ -285,7 +296,64 @@ const getPresenceOverview = onCall(async (request) => {
   };
 });
 
+/**
+ * Record an administrator's verdict on a class's drop-outs.
+ *
+ * The same shape as reviewing a no-show, because it is the same job: somebody
+ * looked, decided what happened, and said what they did about it. Written to
+ * its own collection so a recomputed summary cannot erase a person's
+ * judgement, and copied onto the summary so a week can be read without
+ * opening every class.
+ */
+const reviewPresenceDrop = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  const allowed = await isAdminRequester({ uid, authToken: request.auth?.token });
+  if (!allowed) {
+    throw new HttpsError('permission-denied', 'Only administrators can review drop-outs.');
+  }
+
+  const shiftId = String(request.data?.shiftId || '').trim();
+  if (!shiftId) throw new HttpsError('invalid-argument', 'shiftId is required');
+
+  const asList = (value) => (Array.isArray(value) ? value : [])
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean)
+    .slice(0, 20);
+
+  const db = admin.firestore();
+  // Clearing a review is how a wrong verdict is taken back, so an empty
+  // payload removes it rather than writing an empty one.
+  if (request.data?.clear === true) {
+    await db.collection(REVIEWS).doc(shiftId).delete();
+    await db.collection(CLASS_SUMMARIES).doc(shiftId)
+      .set({ review: null }, { merge: true }).catch(() => {});
+    return { success: true, cleared: true };
+  }
+
+  const review = {
+    shift_id: shiftId,
+    status: 'reviewed',
+    reviewed_by: uid,
+    reviewed_by_name: String(request.data?.reviewerName || '').trim() || null,
+    reviewed_by_email: String(request.auth?.token?.email || '').trim() || null,
+    review_actions: asList(request.data?.actions),
+    review_action_labels: asList(request.data?.actionLabels),
+    review_note: String(request.data?.note || '').trim().slice(0, 2000) || null,
+    reviewed_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await db.collection(REVIEWS).doc(shiftId).set(review, { merge: true });
+  // Best effort: the review's own record is the one that matters, and a class
+  // that has not been summarised yet picks this up when it is.
+  await db.collection(CLASS_SUMMARIES).doc(shiftId)
+    .set({ review }, { merge: true }).catch(() => {});
+
+  return { success: true, shiftId };
+});
+
 module.exports = {
+  reviewPresenceDrop,
   summariseClassPresence,
   generateWeeklyPresenceReports,
   generateMonthlyPresenceReports,

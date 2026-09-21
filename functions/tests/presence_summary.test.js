@@ -152,6 +152,8 @@ describe('the evidence behind a teacher\'s number', () => {
       seconds: 120,
       returned: true,
       cause: 'individual',
+      studentsWaiting: [],
+      roomWasEmpty: false,
     }]);
   });
 
@@ -173,6 +175,7 @@ describe('the evidence behind a teacher\'s number', () => {
     class_name: 'Quran — Monday',
     students: ['Amadou Diallo'],
     shift_start_ms: Date.UTC(2026, 8, 14, 9, 0),
+    shift_end_ms: Date.UTC(2026, 8, 14, 10, 0),
     people: summariseAbsences([absence()]),
     ...over,
   });
@@ -185,6 +188,7 @@ describe('the evidence behind a teacher\'s number', () => {
       className: 'Quran — Monday',
       students: ['Amadou Diallo'],
       startedAt: Date.UTC(2026, 8, 14, 9, 0),
+      endedAt: Date.UTC(2026, 8, 14, 10, 0),
       drops: 1,
     });
     expect(person.occasions[0].spells).toHaveLength(1);
@@ -216,5 +220,43 @@ describe('the evidence behind a teacher\'s number', () => {
     expect(person.counted.drops).toBe(80);
     expect(person.occasions).toHaveLength(60);
     expect(person.occasions[0].shiftId).toBe('shift_79');
+  });
+});
+
+describe('what an administrator needs to judge a drop-out', () => {
+  const { rollUp } = require('../services/presence/summary');
+
+  const classWith = (over) => ({
+    shift_id: 's1', class_name: 'Quran', students: ['Amadou'],
+    shift_start_ms: Date.UTC(2026, 8, 18, 21, 0),
+    shift_end_ms: Date.UTC(2026, 8, 18, 22, 0),
+    people: [{
+      uid: 't1', role: 'teacher', name: 'Aicha',
+      counted: { drops: 1, secondsLost: 60, longestSeconds: 60, neverReturned: 0 },
+      byCause: {},
+      spells: [{
+        from: Date.UTC(2026, 8, 18, 21, 10), to: null, seconds: 60,
+        returned: true, cause: 'individual',
+        studentsWaiting: ['Amadou'], roomWasEmpty: false,
+      }],
+    }],
+    ...over,
+  });
+
+  test('whether a student was left waiting reaches the period', () => {
+    const [person] = rollUp([classWith()]);
+    expect(person.occasions[0].spells[0].studentsWaiting).toEqual(['Amadou']);
+    expect(person.occasions[0].spells[0].roomWasEmpty).toBe(false);
+  });
+
+  test('an unreviewed class says so rather than pretending to be settled', () => {
+    const [person] = rollUp([classWith()]);
+    expect(person.occasions[0].review).toBeNull();
+  });
+
+  test("a reviewed class carries the reviewer's verdict", () => {
+    const review = { status: 'reviewed', reviewed_by: 'admin_1', review_note: 'Router replaced' };
+    const [person] = rollUp([classWith({ review })]);
+    expect(person.occasions[0].review).toEqual(review);
   });
 });

@@ -28475,6 +28475,24 @@ abstract class AppLocalizations {
   /// **'Unable to update recording access.'**
   String get bulkClassRecordingUpdateFailed;
 
+  /// No description provided for @classPresenceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Class Presence'**
+  String get classPresenceTitle;
+
+  /// No description provided for @presenceViewDidNotShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Did not show up'**
+  String get presenceViewDidNotShow;
+
+  /// No description provided for @presenceViewDroppedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped out'**
+  String get presenceViewDroppedOut;
+
   /// No description provided for @noShowAlertsTitle.
   ///
   /// In en, this message translates to:
@@ -33295,6 +33313,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'our side'**
   String get connectionSpellOurSide;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Search by teacher, class or student'**
+  String get connectionOverviewSearchHint;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody matches “{query}”.'**
+  String connectionOverviewNoMatch(String query);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Class ran {from} – {to}'**
+  String connectionOccasionScheduled(String from, String to);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers affected'**
+  String get connectionOverviewAffected;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Never got back'**
+  String get connectionOverviewNeverBack;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'did not get back into {count}'**
+  String connectionOverviewNeverBackCount(int count);
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get connectionOverviewFilterAll;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'Never got back'**
+  String get connectionOverviewFilterNeverBack;
+
+  /// Connection/drop-out reporting
+  ///
+  /// In en, this message translates to:
+  /// **'More than once'**
+  String get connectionOverviewFilterRepeated;
+
+  /// No description provided for @connectionSpellStudentWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{students} was left waiting'**
+  String connectionSpellStudentWaiting(Object students);
+
+  /// No description provided for @connectionSpellRoomEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'nobody was left in the room'**
+  String get connectionSpellRoomEmpty;
+
+  /// No description provided for @connectionOverviewFilterLeftWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Left a student waiting'**
+  String get connectionOverviewFilterLeftWaiting;
 
   /// Connection/drop-out reporting
   ///

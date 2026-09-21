@@ -9,6 +9,7 @@ import {
   describeConnection,
   describeStudents,
   formatDuration,
+  formatClassWindow,
   formatOccasionDate,
   formatSpellTime,
   occasionsOf,
@@ -191,8 +192,15 @@ function OccasionList({ occasions }: { occasions: PresenceOccasion[] }) {
                   </p>
                 </div>
 
+                {formatClassWindow(occasion.startedAt, occasion.endedAt) ? (
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    {tr("Class ran {window}", {
+                      window: formatClassWindow(occasion.startedAt, occasion.endedAt),
+                    })}
+                  </p>
+                ) : null}
                 {occasion.className ? (
-                  <p className="mt-1 text-sm text-[#334155]">{occasion.className}</p>
+                  <p className="text-sm text-[#334155]">{occasion.className}</p>
                 ) : null}
                 {students ? (
                   <p className="text-sm text-[#64748B]">{tr("With {students}", { students })}</p>

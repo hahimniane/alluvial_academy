@@ -28,9 +28,32 @@ const clone = (value) => {
   return value;
 };
 
+/** Firestore's own sentinel for removing a field. */
+const DELETE_SENTINEL = { __delete__: true };
+
+/**
+ * What Firestore actually does, which is not what a shallow copy does.
+ *
+ * A merge write DEEP-merges nested maps: writing {a: {x: 1}} over {a: {y: 2}}
+ * leaves {a: {x: 1, y: 2}}, not {a: {x: 1}}. A double that replaced the whole
+ * map instead hid a bug where a finished class never left the stored
+ * participant list and was re-reported as departing every few seconds.
+ */
 const applyData = (existing, data, merge = false) => {
   const next = merge ? { ...(existing || {}) } : {};
-  for (const [key, value] of Object.entries(data || {})) next[key] = clone(value);
+  for (const [key, value] of Object.entries(data || {})) {
+    if (value === DELETE_SENTINEL) {
+      delete next[key];
+      continue;
+    }
+    const isPlainMap = (candidate) => candidate && typeof candidate === 'object'
+      && !Array.isArray(candidate) && !candidate.toDate;
+    if (merge && isPlainMap(value) && isPlainMap(next[key])) {
+      next[key] = applyData(next[key], value, true);
+      continue;
+    }
+    next[key] = clone(value);
+  }
   return next;
 };
 
@@ -73,7 +96,7 @@ const mockFirestore = jest.fn(() => ({
     };
   },
 }));
-mockFirestore.FieldValue = { serverTimestamp };
+mockFirestore.FieldValue = { serverTimestamp, delete: () => DELETE_SENTINEL };
 mockFirestore.Timestamp = { fromDate: makeTimestamp };
 
 jest.mock('firebase-admin', () => ({ firestore: mockFirestore }));
@@ -404,5 +427,59 @@ describe('drop-out recording', () => {
     expect(res.statusCode).toBe(200);
     expect(stores.hub_meetings.get('hub_1').status).toBe('roomsOpen');
     firestore().batch = realBatch;
+  });
+});
+
+describe('a class that has finished', () => {
+  const person = (uid, name) => ({
+    identity: uid, routingUid: '', zoomUserId: 1, name, role: 'teacher',
+    source: 'zoom_hub_bot',
+  });
+
+  const report = (participants) => makeRequest({
+    hubDocId: 'busy_hub',
+    status: 'roomsOpen',
+    stats: { liveRoomCount: 2 },
+    liveParticipantsByShift: participants,
+  });
+
+  beforeEach(() => {
+    stores.hub_meetings.set('busy_hub', {
+      lane: 1,
+      rooms: [{ shiftId: 'morning' }, { shiftId: 'afternoon' }],
+      bot_status: 'roomsOpen',
+      live_participants_by_shift: {
+        morning: [person('teacher_1', 'Habibu')],
+        afternoon: [person('teacher_2', 'Asma')],
+      },
+      heartbeat_at: makeTimestamp(new Date(Date.now() - 5 * 60 * 1000)),
+    });
+  });
+
+  test('leaves the stored list when its room closes', async () => {
+    await zoomHubBotState(report({ afternoon: [person('teacher_2', 'Asma')] }), makeResponse());
+    const stored = stores.hub_meetings.get('busy_hub').live_participants_by_shift;
+    expect(Object.keys(stored)).toEqual(['afternoon']);
+  });
+
+  test('is not reported as departing over and over for the rest of the day', async () => {
+    // The bug: a merge write deep-merges nested maps, so the finished class
+    // stayed in the stored list and every later report found it missing from
+    // the incoming one and recorded the teacher departing again — 2,177 times
+    // for one teacher, three seconds apart, hours after the class ended.
+    const stillThere = { afternoon: [person('teacher_2', 'Asma')] };
+
+    for (let i = 0; i < 6; i += 1) {
+      stores.hub_meetings.get('busy_hub').heartbeat_at =
+        makeTimestamp(new Date(Date.now() - 5 * 60 * 1000));
+      await zoomHubBotState(report(stillThere), makeResponse());
+      // The finished class must be gone from the stored list every time, not
+      // just the first: while it lingers, the next report re-reports it.
+      expect(Object.keys(
+        stores.hub_meetings.get('busy_hub').live_participants_by_shift,
+      )).toEqual(['afternoon']);
+    }
+
+    expect(presenceEvents().filter((e) => e.type === 'departed')).toHaveLength(1);
   });
 });

@@ -8,7 +8,7 @@
  * teacher's number is fair.
  */
 
-const { buildAbsences } = require('./transitions');
+const { buildAbsences, whoElseWasThere } = require('./transitions');
 const { summariseAbsences, DEFAULT_MIN_ABSENCE_SECONDS } = require('./summary');
 
 /** Firestore timestamps, ISO strings and Dates all mean the same thing here. */
@@ -77,7 +77,7 @@ function buildClassSummary({
   if (events.length === 0) return null;
 
   const classEnd = toMs(shiftData.shift_end || shiftData.shiftEnd);
-  const absences = buildAbsences(events, { classEnd });
+  const absences = whoElseWasThere(events, buildAbsences(events, { classEnd }));
   const people = summariseAbsences(absences, { minSeconds });
 
   const teacherId = String(shiftData.teacher_id || shiftData.teacherId || '').trim() || null;
@@ -87,16 +87,28 @@ function buildClassSummary({
     shift_id: shiftId,
     teacher_id: teacherId,
     teacher_name: shiftData.teacher_name || shiftData.teacherName || null,
-    class_name: shiftData.custom_name || shiftData.class_name || null,
+    // Most shifts have no custom name, so the subject is what a reader
+    // recognises. The teacher and the students are shown beside this already,
+    // which is why auto_generated_name — "<teacher> - <subject> - <student>" —
+    // is the last resort rather than the first.
+    class_name: shiftData.custom_name
+      || shiftData.class_name
+      || shiftData.subject_display_name
+      || shiftData.subjectDisplayName
+      || shiftData.auto_generated_name
+      || null,
     shift_start: shiftData.shift_start || shiftData.shiftStart || null,
     shift_end: shiftData.shift_end || shiftData.shiftEnd || null,
     // Who the class was with, copied rather than referenced: a teacher may
     // question a figure long after the shift has been archived out from under
     // it, and "which student was this?" has to still have an answer then.
     students: _studentNames(shiftData),
-    // The same instant as shift_start, as a number, so a period can order and
-    // trim its classes without reopening every Firestore timestamp.
+    // The same instants as shift_start/shift_end, as numbers, so a period can
+    // order and trim its classes without reopening every Firestore timestamp —
+    // and so a reader can see the hours the class was meant to run. "Dropped at
+    // 9:52" means nothing until you know the lesson ended at 10:00.
     shift_start_ms: toMs(shiftData.shift_start || shiftData.shiftStart),
+    shift_end_ms: toMs(shiftData.shift_end || shiftData.shiftEnd),
     min_absence_seconds: minSeconds,
     events_considered: events.length,
     people,

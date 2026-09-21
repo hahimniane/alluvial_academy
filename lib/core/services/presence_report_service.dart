@@ -45,11 +45,22 @@ class PresenceSpell {
   final bool returned;
   final String cause;
 
+  /// Who was left sitting in the room while this person was gone.
+  ///
+  /// This is what separates a teacher dropping out from a class simply
+  /// ending. A student waiting alone is a lesson going wrong; the same
+  /// minutes with nobody there is a class that had already finished, or that
+  /// both sides left together.
+  final List<String> studentsWaiting;
+  final bool roomWasEmpty;
+
   const PresenceSpell({
     this.from,
     this.seconds,
     this.returned = true,
     this.cause = 'individual',
+    this.studentsWaiting = const [],
+    this.roomWasEmpty = false,
   });
 
   /// Ours rather than theirs — a hub handover or a bot restart.
@@ -62,11 +73,55 @@ class PresenceSpell {
 
   factory PresenceSpell.fromMap(Map<dynamic, dynamic> data) {
     final seconds = data['seconds'];
+    final waiting = data['studentsWaiting'];
     return PresenceSpell(
       from: _time(data['from']),
       seconds: seconds is num ? seconds.toInt() : int.tryParse('${seconds ?? ''}'),
       returned: data['returned'] != false,
       cause: '${data['cause'] ?? 'individual'}',
+      studentsWaiting: waiting is List
+          ? waiting.map((s) => '$s').where((s) => s.isNotEmpty).toList()
+          : const [],
+      roomWasEmpty: data['roomWasEmpty'] == true,
+    );
+  }
+}
+
+/// An administrator's verdict on one class's drop-outs.
+class PresenceReview {
+  final String? reviewedByName;
+  final String? reviewedByEmail;
+  final List<String> actionKeys;
+  final List<String> actionLabels;
+  final String? note;
+
+  const PresenceReview({
+    this.reviewedByName,
+    this.reviewedByEmail,
+    this.actionKeys = const [],
+    this.actionLabels = const [],
+    this.note,
+  });
+
+  String get reviewer =>
+      reviewedByName?.trim().isNotEmpty == true
+          ? reviewedByName!.trim()
+          : (reviewedByEmail?.trim() ?? '');
+
+  static List<String> _strings(dynamic value) => value is List
+      ? value.map((s) => '$s').where((s) => s.isNotEmpty).toList()
+      : const [];
+
+  static PresenceReview? fromMap(dynamic data) {
+    if (data is! Map) return null;
+    if ('${data['status'] ?? ''}'.toLowerCase() != 'reviewed') return null;
+    final note = '${data['review_note'] ?? ''}'.trim();
+    return PresenceReview(
+      reviewedByName: data['reviewed_by_name']?.toString(),
+      reviewedByEmail: data['reviewed_by_email']?.toString(),
+      actionKeys: _strings(data['review_actions']),
+      actionLabels: _strings(data['review_action_labels']),
+      note: note.isEmpty ? null : note,
     );
   }
 }
@@ -80,22 +135,51 @@ class PresenceOccasion {
   final String? shiftId;
   final String? className;
   final List<String> students;
+
+  /// The hours the class was scheduled to run. A drop at 9:52 reads very
+  /// differently once you know the lesson was due to end at 10:00.
   final DateTime? startedAt;
+  final DateTime? endedAt;
+
   final int drops;
   final int secondsLost;
   final int neverReturned;
   final List<PresenceSpell> spells;
+
+  /// Null until somebody has looked at it and said what happened.
+  final PresenceReview? review;
 
   const PresenceOccasion({
     this.shiftId,
     this.className,
     this.students = const [],
     this.startedAt,
+    this.endedAt,
     this.drops = 0,
     this.secondsLost = 0,
     this.neverReturned = 0,
     this.spells = const [],
+    this.review,
   });
+
+  bool get isReviewed => review != null;
+
+  /// Somebody was left sitting there, in at least one of these absences.
+  bool get someoneWasWaiting =>
+      spells.any((spell) => spell.studentsWaiting.isNotEmpty);
+
+  PresenceOccasion copyWith({PresenceReview? review}) => PresenceOccasion(
+        shiftId: shiftId,
+        className: className,
+        students: students,
+        startedAt: startedAt,
+        endedAt: endedAt,
+        drops: drops,
+        secondsLost: secondsLost,
+        neverReturned: neverReturned,
+        spells: spells,
+        review: review ?? this.review,
+      );
 
   factory PresenceOccasion.fromMap(Map<dynamic, dynamic> data) {
     final students = data['students'];
@@ -107,12 +191,14 @@ class PresenceOccasion {
           ? students.map((s) => '$s').where((s) => s.isNotEmpty).toList()
           : const [],
       startedAt: PresenceSpell._time(data['startedAt']),
+      endedAt: PresenceSpell._time(data['endedAt']),
       drops: PresenceTally._int(data['drops']),
       secondsLost: PresenceTally._int(data['secondsLost']),
       neverReturned: PresenceTally._int(data['neverReturned']),
       spells: spells is List
           ? spells.whereType<Map>().map(PresenceSpell.fromMap).toList()
           : const [],
+      review: PresenceReview.fromMap(data['review']),
     );
   }
 
@@ -221,6 +307,32 @@ class PresenceReportService {
       AppLogger.error('PresenceReportService: could not load overview: $e');
       return const [];
     }
+  }
+
+  /// Record what an administrator decided about one class's drop-outs.
+  ///
+  /// Returns the verdict as stored so the row can show it without a reload;
+  /// throws on refusal, so a failure is never mistaken for a saved review.
+  static Future<PresenceReview> review({
+    required String shiftId,
+    required String reviewerName,
+    List<String> actionKeys = const [],
+    List<String> actionLabels = const [],
+    String note = '',
+  }) async {
+    await _functions.httpsCallable('reviewPresenceDrop').call({
+      'shiftId': shiftId,
+      'reviewerName': reviewerName,
+      'actions': actionKeys,
+      'actionLabels': actionLabels,
+      'note': note,
+    });
+    return PresenceReview(
+      reviewedByName: reviewerName,
+      actionKeys: actionKeys,
+      actionLabels: actionLabels,
+      note: note.trim().isEmpty ? null : note.trim(),
+    );
   }
 
   /// A duration the way a person says it. Under a minute keeps its seconds,

@@ -15596,6 +15596,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to update recording access.';
 
   @override
+  String get classPresenceTitle => 'Class Presence';
+
+  @override
+  String get presenceViewDidNotShow => 'Did not show up';
+
+  @override
+  String get presenceViewDroppedOut => 'Dropped out';
+
+  @override
   String get noShowAlertsTitle => 'No-Show Alerts';
 
   @override
@@ -18352,6 +18361,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectionSpellOurSide => 'our side';
+
+  @override
+  String get connectionOverviewSearchHint =>
+      'Search by teacher, class or student';
+
+  @override
+  String connectionOverviewNoMatch(String query) {
+    return 'Nobody matches “$query”.';
+  }
+
+  @override
+  String connectionOccasionScheduled(String from, String to) {
+    return 'Class ran $from – $to';
+  }
+
+  @override
+  String get connectionOverviewAffected => 'Teachers affected';
+
+  @override
+  String get connectionOverviewNeverBack => 'Never got back';
+
+  @override
+  String connectionOverviewNeverBackCount(int count) {
+    return 'did not get back into $count';
+  }
+
+  @override
+  String get connectionOverviewFilterAll => 'Everyone';
+
+  @override
+  String get connectionOverviewFilterNeverBack => 'Never got back';
+
+  @override
+  String get connectionOverviewFilterRepeated => 'More than once';
+
+  @override
+  String connectionSpellStudentWaiting(Object students) {
+    return '$students was left waiting';
+  }
+
+  @override
+  String get connectionSpellRoomEmpty => 'nobody was left in the room';
+
+  @override
+  String get connectionOverviewFilterLeftWaiting => 'Left a student waiting';
 
   @override
   String get connectionReportThisWeek => 'This week';

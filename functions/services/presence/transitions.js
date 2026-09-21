@@ -40,26 +40,27 @@ const CAUSE_INDIVIDUAL = 'individual';
 /**
  * Who this participant is, for the purpose of noticing they went.
  *
- * Somebody who joined through the app carries a routing id and that is the
- * best answer. Somebody who opened the Zoom link directly carries none — every
- * id field arrives empty — and an earlier version dropped them on the floor,
- * which quietly excluded exactly the people most likely to be having trouble
- * getting in.
+ * The account id comes first, because it is the only id that means the same
+ * person in every class. The routing id looks like an identity and is not one:
+ * it is `zh_<hash(uid:shiftId)>`, minted per class, so keying on it turned one
+ * teacher into a fresh stranger in every lesson and split their week across
+ * several rows that each said "1 class".
  *
- * For those, the display name comes before Zoom's participant id. Zoom mints a
- * fresh participant id for every connection, so the id cannot survive the one
- * thing this module exists to measure: it would read a person's return as a
- * stranger's arrival and record no absence at all. The name persists across a
- * reconnect. Two people sharing a name inside one class room would merge, which
- * undercounts; the id would miss every drop there is.
- *
- * The id only has to be stable between two consecutive reports of the same
- * meeting, which all three are.
+ * Somebody who opened the Zoom link directly carries neither — every id field
+ * arrives empty — and an earlier version dropped them on the floor, which
+ * quietly excluded exactly the people most likely to be having trouble getting
+ * in. For those the display name comes next, and Zoom's participant id last:
+ * Zoom mints a fresh one on every connection, so it cannot survive the one
+ * thing this module exists to measure. Two people sharing a name inside one
+ * class room would merge, which undercounts; the participant id would miss
+ * every drop there is.
  */
 const _identify = (person = {}) => {
-  const routing = String(
-    person.routingUid || person.routing_uid || person.uid || person.identity || '',
+  const account = String(
+    person.identity || person.userId || person.user_id || person.uid || '',
   ).trim();
+  if (account) return account;
+  const routing = String(person.routingUid || person.routing_uid || '').trim();
   if (routing) return routing;
   const name = String(person.name || '').trim();
   if (name) return `name:${name}`;
@@ -235,6 +236,75 @@ function buildAbsences(events, { classEnd = null } = {}) {
   return absences.sort((a, b) => a.startedAtMs - b.startedAtMs);
 }
 
+/**
+ * Who else was in the room while somebody was absent from it.
+ *
+ * This is what separates a teacher dropping out from a class simply ending.
+ * A student sitting in the room alone for eleven minutes is a lesson going
+ * wrong; the same eleven minutes with nobody there is a class that finished,
+ * or that both sides left together. The count alone cannot tell them apart,
+ * and an administrator should not have to guess.
+ *
+ * An overlap shorter than the simultaneous window does not count as company:
+ * a student who left within a few seconds of the teacher went WITH them, and
+ * reading that as "the student was waiting" would invent an abandonment.
+ */
+function whoElseWasThere(events, absences) {
+  const ordered = [...events].sort((a, b) => a.atMs - b.atMs);
+
+  // When each person was in the room. A stretch left open at the end of the
+  // events is open-ended, not closed at the last thing that happened.
+  const stretches = [];
+  const open = new Map();
+  for (const event of ordered) {
+    const key = `${event.shiftId}|${event.uid}`;
+    if (event.type === 'arrived') {
+      if (!open.has(key)) {
+        open.set(key, { shiftId: event.shiftId, uid: event.uid, name: event.name,
+          role: event.role, from: event.atMs });
+      }
+    } else if (event.type === 'departed') {
+      const stretch = open.get(key);
+      if (stretch) {
+        open.delete(key);
+        stretches.push({ ...stretch, to: event.atMs });
+      }
+    }
+  }
+  for (const stretch of open.values()) stretches.push({ ...stretch, to: Infinity });
+
+  return absences.map((absence) => {
+    const from = absence.startedAtMs;
+    const to = Number.isFinite(absence.endedAtMs) ? absence.endedAtMs : Infinity;
+    const company = new Map();
+
+    for (const stretch of stretches) {
+      if (stretch.shiftId !== absence.shiftId) continue;
+      if (stretch.uid === absence.uid) continue;
+      const overlap = Math.min(to, stretch.to) - Math.max(from, stretch.from);
+      if (!(overlap > SIMULTANEOUS_WINDOW_MS)) continue;
+      if (!company.has(stretch.uid)) {
+        company.set(stretch.uid, {
+          uid: stretch.uid,
+          name: stretch.name || null,
+          role: stretch.role || null,
+        });
+      }
+    }
+
+    const others = [...company.values()];
+    return {
+      ...absence,
+      othersPresent: others,
+      studentsWaiting: others
+        .filter((person) => String(person.role || '') === 'student')
+        .map((person) => person.name)
+        .filter(Boolean),
+      roomWasEmpty: others.length === 0,
+    };
+  });
+}
+
 module.exports = {
   SIMULTANEOUS_WINDOW_MS,
   SIMULTANEOUS_MIN_PEOPLE,
@@ -245,4 +315,5 @@ module.exports = {
   reportIsBlind,
   classifyDepartures,
   buildAbsences,
+  whoElseWasThere,
 };
