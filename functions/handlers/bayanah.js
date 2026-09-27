@@ -177,6 +177,17 @@ const requireHost = async (request) => {
 
 // ───────────────────────────── Admin: authoring ─────────────────────────────
 
+/**
+ * Whether joiners get the monthly-quiz head start on this event.
+ *
+ * Two game modes the host picks at creation: the default carries each player's
+ * head start from the month's quiz (a familiar face can start ahead), while an
+ * event created with the head start off begins everyone on zero — a clean game
+ * where only points won in the room count. Absence means the default (on), so
+ * events made before the toggle existed keep their behaviour.
+ */
+const startingBonusEnabled = (event) => (event || {}).bonus_enabled !== false;
+
 const createBayanahEvent = onCall({region: 'us-central1', cors: true}, async (request) => {
   const {uid} = await requireAdmin(request);
   const title = String(request.data?.title || '').trim() || 'Bayanah Competition';
@@ -557,9 +568,9 @@ const joinBayanah = onCall({region: 'us-central1', cors: true}, async (request) 
     return {eventId: ref.id, rejoined: true, bonusPoints: existing.data().bonus_points || 0};
   }
 
-  const bonus = event.bonus_enabled === false
-    ? {points: 0, answered: 0, correct: 0}
-    : await bonusPointsFor(uid, String(event.month_key || monthKeyForDate()));
+  const bonus = startingBonusEnabled(event)
+    ? await bonusPointsFor(uid, String(event.month_key || monthKeyForDate()))
+    : {points: 0, answered: 0, correct: 0};
 
   await playerRef.set({
     uid,
@@ -698,6 +709,7 @@ module.exports = {
   __test__: {
     sanitizeQuestion,
     bonusPointsFor,
+    startingBonusEnabled,
     isAdminUser,
     isStudentUser,
     SPEED_WEIGHT,

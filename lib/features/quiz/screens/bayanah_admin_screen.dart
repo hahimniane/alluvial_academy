@@ -27,9 +27,53 @@ class BayanahAdminScreen extends StatefulWidget {
 class _BayanahAdminScreenState extends State<BayanahAdminScreen> {
   final _service = BayanahService();
 
+  /// One choice in the "Starting points" picker. A plain tappable row rather
+  /// than RadioListTile, whose group API Flutter has deprecated.
+  Widget _startModeOption({
+    required bool selected,
+    required VoidCallback onTap,
+    required String title,
+    required String subtitle,
+  }) =>
+      InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? _teal : const Color(0xFF94A3B8),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
   Future<void> _createEvent() async {
     final titleCtrl = TextEditingController(text: 'Bayanah Competition');
     DateTime? date = DateTime.now();
+    // Default keeps today's behaviour: players carry a head start from the
+    // month's quiz. Turning it off makes everyone begin this game on zero.
+    bool bonusEnabled = true;
     final created = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -65,6 +109,28 @@ class _BayanahAdminScreenState extends State<BayanahAdminScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Divider(height: 20),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Starting points',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 4),
+              _startModeOption(
+                selected: bonusEnabled,
+                onTap: () => setLocal(() => bonusEnabled = true),
+                title: 'Head start from the monthly quiz',
+                subtitle:
+                    "Players who did this month's quiz begin with those points.",
+              ),
+              const SizedBox(height: 6),
+              _startModeOption(
+                selected: !bonusEnabled,
+                onTap: () => setLocal(() => bonusEnabled = false),
+                title: 'Everyone starts at 0',
+                subtitle: 'A clean game — only points won here count.',
+              ),
             ],
           ),
           actions: [
@@ -86,6 +152,7 @@ class _BayanahAdminScreenState extends State<BayanahAdminScreen> {
       eventDate: d == null
           ? null
           : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+      bonusEnabled: bonusEnabled,
     );
   }
 
@@ -201,14 +268,18 @@ class _BayanahAdminScreenState extends State<BayanahAdminScreen> {
 /// One event: questions on the left, host controls + leaderboard on the right.
 class BayanahEventScreen extends StatefulWidget {
   final String eventId;
-  const BayanahEventScreen({super.key, required this.eventId});
+
+  /// Injectable only so a widget test can pump the screen without Firebase;
+  /// production always uses the real service.
+  final BayanahService? service;
+  const BayanahEventScreen({super.key, required this.eventId, this.service});
 
   @override
   State<BayanahEventScreen> createState() => _BayanahEventScreenState();
 }
 
 class _BayanahEventScreenState extends State<BayanahEventScreen> {
-  final _service = BayanahService();
+  late final _service = widget.service ?? BayanahService();
   bool _busy = false;
   /// The timer you last used — new questions start there so a whole round can
   /// share one length without retyping, while any question can still differ.
@@ -216,6 +287,25 @@ class _BayanahEventScreenState extends State<BayanahEventScreen> {
 
   /// Reveal the answer by itself the moment the timer runs out.
   bool _autoReveal = true;
+
+  /// Whether the correct answers are masked in the question list. The host
+  /// shares this screen during a game, so once the event leaves 'draft' the
+  /// answers hide themselves — a host should never have to remember to. A
+  /// manual tap on the eye button after that point wins (_hideTouched).
+  bool _hideAnswers = false;
+  bool _hideTouched = false;
+
+  /// Hide answers automatically the moment a game can be projected, unless the
+  /// host has already made their own choice this session.
+  void _syncHideAnswers(BayanahEvent e) {
+    if (_hideTouched) return;
+    final shouldHide = e.status == 'lobby' || e.status == 'live';
+    if (shouldHide != _hideAnswers) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hideTouched) setState(() => _hideAnswers = shouldHide);
+      });
+    }
+  }
   Timer? _autoRevealTimer;
   String? _armedQuestionId;
   /// Repaints the host panel once a second so the countdown and the Reveal
@@ -324,6 +414,7 @@ class _BayanahEventScreenState extends State<BayanahEventScreen> {
         if (event != null) {
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _syncAutoReveal(event));
+          _syncHideAnswers(event);
         }
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -331,6 +422,20 @@ class _BayanahEventScreenState extends State<BayanahEventScreen> {
             title: Text(event?.title ?? 'Bayanah',
                 style: const TextStyle(fontWeight: FontWeight.w800)),
             actions: [
+              if (event != null)
+                IconButton(
+                  tooltip: _hideAnswers
+                      ? 'Answers hidden — safe to share your screen'
+                      : 'Answers visible — hide before sharing your screen',
+                  onPressed: () => setState(() {
+                    _hideAnswers = !_hideAnswers;
+                    _hideTouched = true;
+                  }),
+                  icon: Icon(_hideAnswers
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded),
+                  color: _hideAnswers ? _teal : const Color(0xFFDC2626),
+                ),
               if (event != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
@@ -461,10 +566,12 @@ class _BayanahEventScreenState extends State<BayanahEventScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
-                    '✓ ${q.options.isNotEmpty && q.correctIndex < q.options.length ? q.options[q.correctIndex] : '—'}'
+                    '${_hideAnswers ? '✓ answer hidden' : '✓ ${q.options.isNotEmpty && q.correctIndex < q.options.length ? q.options[q.correctIndex] : '—'}'}'
                     '  ·  ${(q.durationMs / 1000).round()}s  ·  ${q.points} pts',
-                    style: const TextStyle(
-                        fontSize: 11.5, color: Color(0xFF64748B)),
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontStyle: _hideAnswers ? FontStyle.italic : FontStyle.normal,
+                        color: const Color(0xFF64748B)),
                   ),
                 ],
               ),

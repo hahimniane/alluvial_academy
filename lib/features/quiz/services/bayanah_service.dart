@@ -190,12 +190,18 @@ class BayanahPlayer {
 }
 
 class BayanahService {
-  final FirebaseFirestore _db;
-  final FirebaseFunctions _fns;
+  final FirebaseFirestore? _dbOverride;
+  final FirebaseFunctions? _fnsOverride;
 
   BayanahService({FirebaseFirestore? db, FirebaseFunctions? functions})
-      : _db = db ?? FirebaseFirestore.instance,
-        _fns = functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
+      : _dbOverride = db,
+        _fnsOverride = functions;
+
+  // Resolved lazily so constructing the service touches no Firebase — a widget
+  // test can subclass it and override the streams without a live app.
+  FirebaseFirestore get _db => _dbOverride ?? FirebaseFirestore.instance;
+  FirebaseFunctions get _fns =>
+      _fnsOverride ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
   CollectionReference<Map<String, dynamic>> get _events =>
       _db.collection('bayanah_events');
@@ -227,10 +233,15 @@ class BayanahService {
       .map((s) => s.docs.map(BayanahPlayer.fromDoc).toList());
 
   // ── Admin ──
-  Future<String> createEvent({required String title, String? eventDate}) async {
+  Future<String> createEvent({
+    required String title,
+    String? eventDate,
+    bool bonusEnabled = true,
+  }) async {
     final res = await _fns.httpsCallable('createBayanahEvent').call<dynamic>({
       'title': title,
       if (eventDate != null) 'eventDate': eventDate,
+      'bonusEnabled': bonusEnabled,
     });
     return '${(res.data as Map)['eventId']}';
   }

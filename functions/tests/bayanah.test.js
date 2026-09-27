@@ -276,3 +276,20 @@ describe('reveal gating', () => {
       .toBe(false);
   });
 });
+
+describe('starting points mode', () => {
+  const {startingBonusEnabled} = __test__;
+
+  test('the default game carries the monthly head start', () => {
+    expect(startingBonusEnabled({bonus_enabled: true})).toBe(true);
+  });
+
+  test('a game created with the head start off starts everyone at zero', () => {
+    expect(startingBonusEnabled({bonus_enabled: false})).toBe(false);
+  });
+
+  test('an event from before the toggle keeps the old behaviour (on)', () => {
+    expect(startingBonusEnabled({})).toBe(true);
+    expect(startingBonusEnabled(null)).toBe(true);
+  });
+});
