@@ -127,6 +127,39 @@ const _billedStudentIds = (items) => {
   return seen;
 };
 
+// The set of students a recurring plan bills: the base_items' student_ids when
+// present, otherwise the plan's single student_id. Used to tell whether two
+// plans cover the identical enrollment.
+const _planStudentSet = (plan = {}) =>
+  new Set(
+    Array.isArray(plan.base_items) && plan.base_items.length
+      ? plan.base_items.map((it) => it && it.student_id).filter(Boolean)
+      : [plan.student_id].filter(Boolean)
+  );
+
+// Returns the first existing plan that bills the exact same student set as the
+// one about to be created, or null when there is none. Exact-set equality is
+// deliberate: it blocks re-creating a plan for the identical enrollment, never
+// a genuinely different one (e.g. a second child, or one child vs. the whole
+// family). Pure, so the duplicate rule is unit-tested without Firestore.
+const _findDuplicateActivePlan = ({studentIds = [], existingPlans = []}) => {
+  const want = new Set((studentIds || []).filter(Boolean));
+  if (want.size === 0) return null;
+  for (const plan of existingPlans) {
+    const have = _planStudentSet(plan);
+    if (have.size !== want.size) continue;
+    let same = true;
+    for (const s of want) {
+      if (!have.has(s)) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return plan;
+  }
+  return null;
+};
+
 const _normalizePeriod = (value) => {
   const raw = (value || '').toString().trim();
   const match = raw.match(/(\d{4})-(\d{2})/);
@@ -960,8 +993,44 @@ const createInvoice = async (request) => {
     ? db.collection('recurring_billing_plans').doc()
     : null;
 
+  const allowDuplicatePlan =
+    data.allowDuplicatePlan === true || data.allow_duplicate_plan === true;
+
   const result = await db.runTransaction(async (tx) => {
     const now = new Date();
+
+    // Guard against duplicate recurring plans for the same family + students.
+    // Admins have more than once created a second plan for an enrollment that
+    // already had one — seconds apart — and every month both plans billed the
+    // parent. This read runs before any write so two simultaneous creates can
+    // not both slip through. An exact match on the billed-student set is the
+    // conservative test: it blocks re-creating a plan for the identical
+    // enrollment, never a genuinely different one. allowDuplicatePlan is the
+    // explicit way to override when a second plan really is intended.
+    if (recurringPlanRef && !allowDuplicatePlan) {
+      const existingActive = await tx.get(
+        db
+          .collection('recurring_billing_plans')
+          .where('parent_id', '==', invoicePayload.parent_id)
+          .where('status', '==', 'active')
+      );
+      const clash = _findDuplicateActivePlan({
+        studentIds: Array.isArray(invoicePayload.student_ids) &&
+          invoicePayload.student_ids.length
+          ? invoicePayload.student_ids
+          : [invoicePayload.student_id],
+        existingPlans: existingActive.docs.map((d) => d.data() || {})
+      });
+      if (clash) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `An active recurring plan already exists for this family and student ` +
+            `(${clash.total_amount} ${clash.currency || 'USD'} each ${clash.interval || 'month'}). ` +
+            `Edit that plan instead of creating another, or set allowDuplicatePlan to create a second one on purpose.`
+        );
+      }
+    }
+
     const invoiceNumber = await _nextInvoiceNumber(tx, now.getUTCFullYear());
     const dueDate =
       invoicePayload.due_date ||
@@ -2504,5 +2573,6 @@ module.exports = {
   _runRecurringInvoiceGeneration,
   _canUserPayInvoice,
   _invoiceDeletionBlockReason,
+  _findDuplicateActivePlan,
   applyPaymentStatusInTransaction
 };
