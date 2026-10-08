@@ -1327,6 +1327,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "hub_meetings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "lane",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "window_end",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "teaching_shifts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "shift_end",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

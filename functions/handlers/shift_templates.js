@@ -4,6 +4,7 @@ const {onCall} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const {DateTime} = require('luxon');
+const {isDeepStrictEqual} = require('util');
 
 const PROJECT_ID = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || process.env.PROJECT_ID || '';
 const TEMPLATE_COLLECTION = 'shift_templates';
@@ -285,6 +286,34 @@ const _defaultVideoProviderForCategory = (category) =>
     ? 'zoom'
     : 'realtimekit';
 
+// Would saving `generated` over `existing` change anything a reader can see?
+// Compares only the fields the generator owns (so hub ids, attendance and
+// other fields added later never force a rewrite) and ignores the two
+// timestamps every generation stamps fresh. Timestamps compare by instant.
+const GENERATED_SHIFT_VOLATILE_FIELDS = new Set(['created_at', 'last_modified']);
+const _comparableShiftValue = (value) => {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== 'object') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (Array.isArray(value)) return value.map(_comparableShiftValue);
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = _comparableShiftValue(value[key]);
+  return out;
+};
+const _generatedShiftUnchanged = (existing, generated) => {
+  if (!existing || !generated) return false;
+  for (const key of Object.keys(generated)) {
+    if (GENERATED_SHIFT_VOLATILE_FIELDS.has(key)) continue;
+    if (!isDeepStrictEqual(
+      _comparableShiftValue(existing[key]),
+      _comparableShiftValue(generated[key]),
+    )) return false;
+  }
+  return true;
+};
+
 const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc, shiftEndUtc}) => {
   const category = template.category || template.shift_category || 'teaching';
   const videoProvider = (
@@ -373,6 +402,7 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
   let skippedOutsideEndDate = 0;
   let skippedNoMatch = 0;
   let skippedPaused = 0;
+  let skippedUnchanged = 0;
 
   let batch = db.batch();
   let pendingWrites = 0;
@@ -472,6 +502,16 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       shiftEndUtc,
     });
 
+    // Re-saving a shift the template already produced, unchanged, is not a
+    // no-op: every write fans out to five triggers that re-run the Zoom hub
+    // guardrails and provisioning. Thousands of these every midnight were
+    // most of that hour's Firestore bill. Only write when something differs.
+    if (existingShift.exists &&
+        _generatedShiftUnchanged(existingShift.data() || {}, shiftData)) {
+      skippedUnchanged += 1;
+      continue;
+    }
+
     batch.set(shiftRef, shiftData, {merge: true});
     created += 1;
     pendingWrites += 1;
@@ -503,7 +543,7 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       {merge: true},
     );
 
-  return {created, skippedConflicts, skippedTeacherModified, skippedAdminModified, skippedDeleted, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch, skippedPaused};
+  return {created, skippedConflicts, skippedTeacherModified, skippedAdminModified, skippedDeleted, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch, skippedPaused, skippedUnchanged};
 };
 
 // Remove legacy generated shifts so the dev UI doesn't show duplicates.
@@ -1138,6 +1178,7 @@ module.exports = {
   _cleanupGeneratedShifts,
   __test: {
     _buildGeneratedShiftData,
+    _generatedShiftUnchanged,
     _defaultVideoProviderForCategory,
     _buildGeneratedShiftId,
     _matchesRecurrence,
