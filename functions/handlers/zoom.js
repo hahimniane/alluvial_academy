@@ -2454,6 +2454,9 @@ const _sendZoomHubAdminAlert = async ({
     resolved: false,
     status: 'open',
     resolved_at: null,
+    // An open alert must never expire; a reopened one sheds the deadline its
+    // earlier resolution gave it.
+    expire_at: admin.firestore.FieldValue.delete(),
     auto_resolved: false,
     auto_resolved_reason: null,
     created_at: existing.created_at || admin.firestore.FieldValue.serverTimestamp(),
@@ -2881,6 +2884,7 @@ const _revalidateStoredZoomHubGuardrail = async ({
       resolved_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
       resolution_reason: 'class_schedule_corrected',
+      expire_at: _alertExpireAt(),
     }, { merge: true });
   }
 
@@ -3506,6 +3510,7 @@ const ensureZoomHubMeeting = async ({
         segment_shift_ids: meta.segmentShiftIds || [],
         window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
         window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
+        expire_at: _hubExpireAt(windowInfo.windowEnd),
         ...assignedClassFields,
         laneIndex: meta.laneIndex,
         lane: meta.lane,
@@ -3581,6 +3586,7 @@ const ensureZoomHubMeeting = async ({
     segment_shift_ids: meta.segmentShiftIds || [],
     window_start: admin.firestore.Timestamp.fromDate(windowInfo.windowStart),
     window_end: admin.firestore.Timestamp.fromDate(windowInfo.windowEnd),
+    expire_at: _hubExpireAt(windowInfo.windowEnd),
     ...assignedClassFields,
     laneIndex: meta.laneIndex,
     lane: meta.lane,
@@ -4248,10 +4254,63 @@ const _zoomHubAlertStillActive = ({ reason, hubData, now }) => {
   return false;
 };
 
+// How long finished hub docs and resolved alerts are kept before Firestore's
+// TTL removes them (field `expire_at`). Presence summaries copy what they need
+// off the hub at class end, and presence events reference hubs by id only, so
+// nothing reads a hub doc two weeks after its window closed. Resolved alerts
+// stay a month for the admin alert history. Open alerts never carry
+// expire_at: reopening deletes the field.
+const ZOOM_HUB_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+const ZOOM_HUB_ALERT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const ZOOM_HUB_WATCH_LOOKBACK_MS = 48 * 60 * 60 * 1000;
+const _hubExpireAt = (windowEnd) => admin.firestore.Timestamp.fromDate(
+  new Date(windowEnd.getTime() + ZOOM_HUB_DOC_RETENTION_MS),
+);
+const _alertExpireAt = (now = new Date()) => admin.firestore.Timestamp.fromDate(
+  new Date(now.getTime() + ZOOM_HUB_ALERT_RETENTION_MS),
+);
+
+// A teaching_shifts write that changed nothing a reader could notice. The
+// nightly generator re-saves every future shift it owns; comparing the before
+// and after documents (minus the bookkeeping timestamps every save bumps)
+// lets the write triggers skip the work instead of re-provisioning the hub.
+const SHIFT_VOLATILE_FIELDS = new Set([
+  'updated_at', 'updatedAt', 'last_modified', 'lastModified',
+]);
+const _shiftComparable = (value) => {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== 'object') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (Array.isArray(value)) return value.map(_shiftComparable);
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = _shiftComparable(value[key]);
+  return out;
+};
+const _shiftContentUnchanged = (before, after) => {
+  if (!before || !after) return false;
+  const { isDeepStrictEqual } = require('util');
+  const strip = (doc) => {
+    const out = {};
+    for (const key of Object.keys(doc)) {
+      if (SHIFT_VOLATILE_FIELDS.has(key)) continue;
+      out[key] = _shiftComparable(doc[key]);
+    }
+    return out;
+  };
+  return isDeepStrictEqual(strip(before), strip(after));
+};
+
 const _resolveStaleZoomHubAlerts = async ({ db, hubDocs = [], now = new Date() }) => {
   const hubById = new Map(hubDocs.map((doc) => [doc.id, doc.data() || {}]));
+  // Only open alerts can be auto-resolved, and every zoom_hub alert is written
+  // with status 'open' / 'resolved' (see _sendZoomHubAdminAlert and the
+  // resolve paths), so the query can say so instead of reading the whole
+  // history every two minutes. _zoomHubAlertIsOpen below still decides.
   const snapshot = await db.collection('system_alerts')
     .where('type', '==', 'zoom_hub')
+    .where('status', '==', 'open')
     .get();
   let batch = db.batch();
   let pending = 0;
@@ -4278,6 +4337,7 @@ const _resolveStaleZoomHubAlerts = async ({ db, hubDocs = [], now = new Date() }
       auto_resolved_reason: 'hub_recovered_or_window_closed',
       resolved_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      expire_at: _alertExpireAt(now),
     }, { merge: true });
     pending += 1;
     resolvedCount += 1;
@@ -5031,6 +5091,11 @@ const onTeachingShiftWritten = onDocumentWritten({
   const before = event.data.before && event.data.before.exists
     ? event.data.before.data()
     : null;
+  // A save that changed nothing (the nightly generator re-writing an identical
+  // future shift, a repair sweep touching a timestamp) has nothing to provision.
+  // Re-running the guardrails and hub provisioning for thousands of such
+  // writes every midnight was most of that hour's Firestore bill.
+  if (before && _shiftContentUnchanged(before, shiftData)) return;
   const shiftRef = afterSnap.ref ||
     admin.firestore().collection('teaching_shifts').doc(event.params.shiftId);
 
@@ -5185,7 +5250,16 @@ const watchZoomHubBots = onSchedule({
 }, async () => {
   const now = new Date();
   const db = admin.firestore();
-  const snapshot = await db.collection('hub_meetings').get();
+  // Every check below either needs the hub to be inside its window or to have
+  // closed recently (ending a meeting, retiring a zombie, honouring ended_at).
+  // A Zoom meeting cannot outlive 30 hours, so a hub whose window closed more
+  // than two days ago has nothing left to end; reading it every two minutes,
+  // forever, was pure cost as hub_meetings grew.
+  const snapshot = await db.collection('hub_meetings')
+    .where('window_end', '>=', admin.firestore.Timestamp.fromDate(
+      new Date(now.getTime() - ZOOM_HUB_WATCH_LOOKBACK_MS),
+    ))
+    .get();
   const resolvedAlertCount = await _resolveStaleZoomHubAlerts({
     db,
     hubDocs: snapshot.docs,
@@ -6320,6 +6394,7 @@ module.exports = {
   onTeachingShiftWritten,
   zoomWebhook,
   __test__: {
+    _shiftContentUnchanged,
     _sendZoomHubAdminAlert,
     _zoomAlertNeedsHuman,
     ZOOM_WEBHOOK_RUNTIME_OPTIONS,

@@ -1775,10 +1775,13 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
   };
 
   try {
-    // Step 1: Fix shifts that are still "active" or "scheduled" but should be completed
+    // Step 1: Fix shifts that are still "active" or "scheduled" but should be completed.
+    // Only a shift whose end has passed can need completing, so ask for those
+    // rather than every open shift on the books (thousands, every 30 minutes).
     console.log('📋 Step 1: Fixing shifts that should be completed...');
     const shiftsSnapshot = await db.collection('teaching_shifts')
       .where('status', 'in', ['active', 'scheduled'])
+      .where('shift_end', '<', admin.firestore.Timestamp.fromDate(new Date()))
       .get();
     
     stats.shiftsChecked = shiftsSnapshot.docs.length;
@@ -1810,9 +1813,32 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
     }
 
     console.log(`\n✅ Fixed ${stats.shiftsFixed} shifts\n`);
+  } catch (error) {
+    console.error('\n❌ Error in fixTimesheetsPayAndStatus:', error);
+    console.error('Stack trace:', error.stack);
+    throw error;
+  }
+});
 
-    // Step 2: Fix all timesheet payment issues
-    console.log('📋 Step 2: Fixing timesheet payment issues...');
+// The timesheet payment repair used to be Step 2 of the 30-minute job above:
+// every timesheet ever written (6,000+) plus one shift read per timesheet, 48
+// times a day, to catch a zero or an overpayment. It is a repair sweep over
+// historical rows, not a live path, so every six hours loses nothing.
+const fixTimesheetsPayment = onSchedule('every 6 hours', async () => {
+  console.log('🔧 Timesheet Payment Repair');
+  console.log('===========================\n');
+
+  const db = admin.firestore();
+  const stats = {
+    timesheetsFixed: 0,
+    timesheetsChecked: 0,
+    zeroPayFixed: 0,
+    overpaidFixed: 0,
+    errors: []
+  };
+
+  try {
+    console.log('📋 Fixing timesheet payment issues...');
     const timesheetsSnapshot = await db.collection('timesheet_entries').get();
     stats.timesheetsChecked = timesheetsSnapshot.docs.length;
     console.log(`   Found ${stats.timesheetsChecked} timesheet entries to check\n`);
@@ -1931,8 +1957,6 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
     // Summary
     console.log('\n📊 Fix Summary:');
     console.log('================');
-    console.log(`   Shifts checked: ${stats.shiftsChecked}`);
-    console.log(`   Shifts fixed: ${stats.shiftsFixed}`);
     console.log(`   Timesheets checked: ${stats.timesheetsChecked}`);
     console.log(`   Timesheets fixed: ${stats.timesheetsFixed}`);
     console.log(`   Zero payment fixed: ${stats.zeroPayFixed}`);
@@ -1945,7 +1969,7 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
 
     console.log('\n✅ All fixes completed successfully!');
   } catch (error) {
-    console.error('\n❌ Error in fixTimesheetsPayAndStatus:', error);
+    console.error('\n❌ Error in fixTimesheetsPayment:', error);
     console.error('Stack trace:', error.stack);
     throw error;
   }
@@ -2939,6 +2963,7 @@ module.exports = {
   cancelShiftNotificationTask,
   fixActiveShiftsStatus,
   fixTimesheetsPayAndStatus,
+  fixTimesheetsPayment,
   teacherRescheduleShift,
   teacherRescheduleFutureShifts,
   // CORS + public Cloud Run invoker so browser OPTIONS preflight succeeds; auth

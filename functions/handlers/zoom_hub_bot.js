@@ -295,8 +295,15 @@ const zoomHubBotDirectives = onRequest({
     }
 
     const now = new Date();
+    // Only hubs whose window has not closed can be active (_hubIsActive is
+    // window_start <= now <= window_end), so ask Firestore for just those.
+    // hub_meetings keeps one doc per class-segment per day and the bots poll
+    // this every 30 seconds, so reading the whole lane (hundreds of dead
+    // segments) on every poll was the single largest Firestore cost in the
+    // project. The in-memory filter below stays as the source of truth.
     const snapshot = await admin.firestore().collection('hub_meetings')
       .where('lane', '==', lane)
+      .where('window_end', '>=', admin.firestore.Timestamp.fromDate(now))
       .get();
 
     const activeDocs = snapshot.docs.filter((doc) => _hubIsActive(doc.data() || {}, now));

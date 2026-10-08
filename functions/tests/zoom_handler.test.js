@@ -59,6 +59,12 @@ const clone = (value) => {
 const applyData = (existing, data, merge = false) => {
   const next = merge ? { ...(existing || {}) } : {};
   for (const [key, value] of Object.entries(data || {})) {
+    // Firestore drops a field written with FieldValue.delete(), whether or
+    // not it existed; the double must not keep the sentinel as a value.
+    if (value && value.__delete__) {
+      delete next[key];
+      continue;
+    }
     if (value && value.__op === 'increment') {
       next[key] = (Number(next[key]) || 0) + value.amount;
     } else {
@@ -2974,6 +2980,8 @@ describe('Zoom handler', () => {
     ]);
     stores.system_alerts.set('hub_1_heartbeat_stale', {
       type: 'zoom_hub',
+      status: 'open',
+      resolved: false,
       severity: 'critical',
       reason: 'heartbeat_stale',
       title: 'Critical Zoom hub bot heartbeat is stale',
@@ -3156,6 +3164,8 @@ describe('Zoom handler', () => {
     });
     stores.system_alerts.set('recovered_hub_rooms_not_open', {
       type: 'zoom_hub',
+      status: 'open',
+      resolved: false,
       severity: 'critical',
       reason: 'rooms_not_open',
       title: 'Critical Zoom hub rooms are not open',
@@ -3192,6 +3202,8 @@ describe('Zoom handler', () => {
     });
     stores.system_alerts.set('returned_hub_bot_unavailable_after_recovery', {
       type: 'zoom_hub',
+      status: 'open',
+      resolved: false,
       severity: 'critical',
       reason: 'bot_unavailable_after_recovery',
       title: 'Zoom hub bot did not come back',
@@ -5378,5 +5390,56 @@ describe('Zoom handler', () => {
     expect(stores.teaching_shifts.get('long_shift').zoom_hub_guardrail_reason)
       .toBe('duration_exceeds_limit');
     expect(mockZoomClient.createMeeting).not.toHaveBeenCalled();
+  });
+});
+
+describe('onTeachingShiftWritten no-op guard (_shiftContentUnchanged)', () => {
+  const { _shiftContentUnchanged } = require('../handlers/zoom').__test__;
+  const base = () => ({
+    teacher_id: 't1',
+    student_ids: ['s1', 's2'],
+    shift_start: makeTimestamp(new Date(1_000)),
+    shift_end: makeTimestamp(new Date(4_600_000)),
+    video_provider: 'zoom',
+    zoom_meeting_id: '123',
+    status: 'scheduled',
+    updated_at: makeTimestamp(new Date(10)),
+    last_modified: makeTimestamp(new Date(10)),
+  });
+
+  test('a save that only bumped the bookkeeping timestamps changed nothing', () => {
+    const after = { ...base(), updated_at: makeTimestamp(new Date(99_999)), last_modified: makeTimestamp(new Date(99_999)) };
+    expect(_shiftContentUnchanged(base(), after)).toBe(true);
+  });
+
+  test('any real field change is a change', () => {
+    expect(_shiftContentUnchanged(base(), { ...base(), student_ids: ['s1'] })).toBe(false);
+    expect(_shiftContentUnchanged(base(), { ...base(), zoom_meeting_id: '456' })).toBe(false);
+    expect(_shiftContentUnchanged(base(), { ...base(), status: 'cancelled' })).toBe(false);
+  });
+
+  test('a new field appearing is a change, and a missing before is never a no-op', () => {
+    expect(_shiftContentUnchanged(base(), { ...base(), hub_doc_id: 'zoom_hub_x' })).toBe(false);
+    expect(_shiftContentUnchanged(null, base())).toBe(false);
+  });
+});
+
+describe('zoom_hub alerts are always written with a status', () => {
+  // _resolveStaleZoomHubAlerts asks Firestore for status == 'open' instead of
+  // reading every alert ever written; that is only safe while every writer
+  // stamps the field. A doc without it would be invisible to auto-resolve.
+  test('_sendZoomHubAdminAlert creates the alert as status open', async () => {
+    const { _sendZoomHubAdminAlert } = require('../handlers/zoom').__test__;
+    stores.system_alerts = new Map();
+    await _sendZoomHubAdminAlert({
+      alertId: 'status_invariant_hub_rooms_not_open',
+      reason: 'rooms_not_open',
+      title: 't',
+      body: 'b',
+      data: { hubDocId: 'status_invariant_hub', lane: 1 },
+    });
+    const written = stores.system_alerts.get('status_invariant_hub_rooms_not_open');
+    expect(written).toEqual(expect.objectContaining({ type: 'zoom_hub', status: 'open', resolved: false }));
+    expect(written.expire_at).toBeUndefined();
   });
 });

@@ -146,6 +146,7 @@ exports.onTeacherDeleted = shiftTemplateHandlers.onTeacherDeleted;
 // Zoom functions removed - all video calls now use LiveKit
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
 exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
+exports.fixTimesheetsPayment = shiftHandlers.fixTimesheetsPayment;
 // Shift trade: native app claims a published shift through this callable.
 exports.claimShift = shiftHandlers.claimShift;
 
