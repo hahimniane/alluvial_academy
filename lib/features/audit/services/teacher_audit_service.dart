@@ -18,6 +18,19 @@ import '../../../core/services/shift_archive_reader.dart';
 import '../../../core/services/teacher_metrics_service.dart';
 import '../../../l10n/app_localizations_en.dart';
 
+
+/// The bucket a shift's hours land in when the audit groups them by subject.
+///
+/// Firestore refuses a map with an empty key, and a class created without a
+/// subject stores `''` (templates) or nothing at all (one-off shifts), so a
+/// blank subject folds into "Other" instead of breaking the whole audit write.
+String auditSubjectLabel(Map<String, dynamic> dataMap) {
+  for (final key in const ['subject_display_name', 'subject']) {
+    final value = dataMap[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  return 'Other';
+}
 /// Optimized service for computing and managing teacher audit metrics
 class TeacherAuditService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -679,8 +692,7 @@ class TeacherAuditService {
         if (endTimestamp == null) continue;
         final end = endTimestamp.toDate();
         final duration = end.difference(start).inMinutes / 60.0;
-        final subject =
-            dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
+        final subject = auditSubjectLabel(dataMap);
         cache.hoursBySubject[subject] =
             (cache.hoursBySubject[subject] ?? 0) + duration;
         cache.totalHours += duration;
@@ -1099,8 +1111,7 @@ class TeacherAuditService {
       final end = endTimestamp.toDate();
       final duration = end.difference(start).inMinutes / 60.0;
       final status = dataMap['status'] ?? 'scheduled';
-      final subject =
-          dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
+      final subject = auditSubjectLabel(dataMap);
       final shiftHourlyRate = (dataMap['hourly_rate'] as num?)?.toDouble();
       final title =
           dataMap['custom_name'] ?? dataMap['auto_generated_name'] ?? 'Unnamed';
@@ -1311,8 +1322,7 @@ class TeacherAuditService {
 
       // **OPTIMIZATION: Extract all fields once (reduce map lookups)**
       final status = dataMap['status'] ?? 'scheduled';
-      final subject =
-          dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
+      final subject = auditSubjectLabel(dataMap);
       final endTimestamp = dataMap['shift_end'] as Timestamp?;
       if (endTimestamp == null) continue;
       final end = endTimestamp.toDate();
