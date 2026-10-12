@@ -281,6 +281,18 @@ const _generateAutoName = (teacherName, subject, studentNames) => {
   }
 };
 
+const _isTeachingCategory = (category) =>
+  String(category || 'teaching').trim().toLowerCase() === 'teaching';
+
+// A class is taught in a subject: every audit, invoice and report groups hours
+// by it, and a template saved without one generates subject-less shifts for
+// months. Non-teaching categories (meetings, leadership, training) carry none.
+const _assertTeachingSubjectOrThrow = ({category, subject}) => {
+  if (!_isTeachingCategory(category)) return;
+  if (String(subject ?? '').trim()) return;
+  throw new functions.https.HttpsError('invalid-argument', 'Pick a subject for this class.');
+};
+
 const _defaultVideoProviderForCategory = (category) =>
   String(category || 'teaching').trim().toLowerCase() === 'teaching'
     ? 'zoom'
@@ -614,6 +626,7 @@ const createShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   if (!teacherId || !baseShiftId) {
     throw new functions.https.HttpsError('invalid-argument', 'teacher_id and base_shift_id are required');
   }
+  _assertTeachingSubjectOrThrow({category: data.category, subject: data.subject});
 
   const adminTimezone = _normalizeTimezone(data.admin_timezone || 'UTC');
   const teacherTimezone = _normalizeTimezone(data.teacher_timezone || 'UTC');
@@ -951,7 +964,14 @@ const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
   if (data.teacher_name) updates.teacher_name = String(data.teacher_name).trim();
   if (Array.isArray(data.student_ids)) updates.student_ids = data.student_ids;
   if (Array.isArray(data.student_names)) updates.student_names = data.student_names;
-  if (data.subject) updates.subject = String(data.subject).trim();
+  if (data.subject !== undefined) {
+    const subject = String(data.subject ?? '').trim();
+    _assertTeachingSubjectOrThrow({
+      category: data.category || (templateSnap.data() || {}).category,
+      subject,
+    });
+    if (subject) updates.subject = subject;
+  }
   if (data.subject_id !== undefined) updates.subject_id = data.subject_id || null;
   if (data.subject_display_name !== undefined) updates.subject_display_name = data.subject_display_name || null;
   if (data.hourly_rate !== undefined) updates.hourly_rate = data.hourly_rate ?? null;
@@ -1177,6 +1197,8 @@ module.exports = {
   _generateShiftsForTemplate,
   _cleanupGeneratedShifts,
   __test: {
+    _isTeachingCategory,
+    _assertTeachingSubjectOrThrow,
     _buildGeneratedShiftData,
     _generatedShiftUnchanged,
     _defaultVideoProviderForCategory,
