@@ -196,6 +196,10 @@ export function ShiftEditorDialog({
       setError("Pick a teacher.");
       return;
     }
+    if (category === "teaching" && !subject) {
+      setError("Pick a subject.");
+      return;
+    }
     const start = combine(dateStr, startStr, timezone);
     let end = combine(dateStr, endStr, timezone);
     if (!start || !end) {
@@ -409,6 +413,7 @@ export function ShiftEditorDialog({
                 <select
                   value={subjectId}
                   onChange={(event) => setSubjectId(event.target.value)}
+                  required
                   className="w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 text-sm"
                 >
                   <option value="">Pick a subject…</option>

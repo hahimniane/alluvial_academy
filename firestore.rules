@@ -459,9 +459,22 @@ service cloud.firestore {
 
       allow list: if isSignedIn();
 
-      // Allow create only for admins
+      // A teaching shift is taught in a subject. Non-teaching shifts
+      // (meetings, leadership, training) carry none.
 
-      allow create: if isSignedIn() && isAdmin();
+      function teachingShiftHasSubject(data) {
+        return (('shift_category' in data) && data.shift_category != 'teaching')
+          || (('subject' in data) && data.subject is string && data.subject.size() > 0);
+      }
+
+      function keepsTeachingSubject() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subject', 'shift_category'])
+          || teachingShiftHasSubject(request.resource.data);
+      }
+
+      // Allow create only for admins, and never without a subject
+
+      allow create: if isSignedIn() && isAdmin() && teachingShiftHasSubject(request.resource.data);
 
       // Allow update for admins, teachers updating their own shifts, or teachers claiming published shifts
 
@@ -473,7 +486,7 @@ service cloud.firestore {
 
         canClaimShift()
 
-      );
+      ) && keepsTeachingSubject();
 
       // Allow delete only for admins
 
@@ -1234,8 +1247,11 @@ service cloud.firestore {
     }
 
     // All other collections - admin only (fallback rule)
-    match /{document=**} {
-      allow read, write: if isAdmin();
+    // teaching_shifts has its own block above; the fallback must not let an
+    // admin write there and bypass its subject requirement (rules are OR'd).
+    match /{collection}/{document=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && collection != 'teaching_shifts';
     }
 
   }

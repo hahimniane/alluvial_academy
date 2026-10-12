@@ -563,6 +563,9 @@ export async function createShift(input: CreateShiftInput): Promise<SavedShiftOu
   if (input.category === "teaching" && !hasStudents) {
     throw new Error("Pick at least one student for a teaching shift.");
   }
+  if (input.category === "teaching" && !input.subject) {
+    throw new Error("Pick a subject.");
+  }
 
   const conflict = await findTeacherConflict(input.teacher.id, start, end);
   if (conflict) {
