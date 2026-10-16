@@ -35,6 +35,13 @@ test("setup advances only in order: account, then schedule, then parent", () => 
   assert.equal(noAccount.nextAction, "Next: create account");
 
   const noSchedule = setupFor({ studentUserId: "uid-1", parentLinked: false }, false);
+  const deadAccount = setupFor({ studentUserId: "uid-deleted", parentLinked: false }, false, false);
+  assert.equal(deadAccount.stage, "needs-account");
+  assert.equal(deadAccount.hasAccount, false);
+  assert.equal(deadAccount.accountMissing, true);
+  assert.equal(deadAccount.nextAction, "Next: create the account again (the old one was deleted)");
+  assert.equal(noSchedule.accountMissing, false);
+  assert.equal(noAccount.accountMissing, false);
   assert.equal(noSchedule.stage, "needs-schedule");
   assert.equal(noSchedule.nextAction, "Next: finalize schedule");
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import {
   collection,
+  documentId,
   doc,
   arrayUnion,
   deleteField,
@@ -217,6 +218,8 @@ export function StudentApplicantsAdmin() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
+  /** Student accounts that still exist, or null until the matched list has checked. */
+  const [existingStudents, setExistingStudents] = useState<Set<string> | null>(null);
   const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
   const [broadcastFor, setBroadcastFor] = useState<EnrollmentApplicant | null>(null);
   const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
@@ -238,10 +241,17 @@ export function StudentApplicantsAdmin() {
   const setups = useMemo(() => {
     const map = new Map<string, SetupState>();
     for (const applicant of applicants) {
-      map.set(applicant.id, setupFor(applicant, scheduledStudents.has(applicant.studentUserId)));
+      map.set(
+        applicant.id,
+        setupFor(
+          applicant,
+          scheduledStudents.has(applicant.studentUserId),
+          existingStudents === null || existingStudents.has(applicant.studentUserId),
+        ),
+      );
     }
     return map;
-  }, [applicants, scheduledStudents]);
+  }, [applicants, scheduledStudents, existingStudents]);
 
   const stageCounts = useMemo(
     () => countByStage(applicants.map((a) => setups.get(a.id)!.stage)),
@@ -447,6 +457,7 @@ export function StudentApplicantsAdmin() {
       key={group.key}
       applicant={applicant}
       classmates={group.isFamilyClass ? group.members : null}
+      setupOf={(id) => setups.get(id)}
       tab={activeTabConfig}
       setup={isMatched ? setups.get(applicant.id) ?? null : null}
       onDiscount={() => setDiscountFor(applicant)}
@@ -522,12 +533,14 @@ export function StudentApplicantsAdmin() {
         const [nextApplicants, nextCounts] = await Promise.all([loadApplicants(status), loadCounts()]);
         setApplicants(nextApplicants);
         setCounts(nextCounts);
-        const [scheduled, discounts, familyDiscounts] = await Promise.all([
+        const [scheduled, existing, discounts, familyDiscounts] = await Promise.all([
           status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Set<string>()),
+          status === "matched" ? loadExistingStudents(nextApplicants) : Promise.resolve(null),
           loadDiscounts(nextApplicants),
           loadFamilyDiscounts(nextApplicants),
         ]);
         setScheduledStudents(scheduled);
+        setExistingStudents(existing);
         setApplicants(
           nextApplicants.map((applicant) => ({
             ...applicant,
@@ -1341,6 +1354,7 @@ function NoMatchesState({ onClear }: { onClear: () => void }) {
 function ApplicantCard({
   applicant,
   classmates,
+  setupOf,
   tab,
   setup,
   onDiscount,
@@ -1357,6 +1371,8 @@ function ApplicantCard({
   applicant: EnrollmentApplicant;
   /** Every child in this exclusive family class, or null when there is one. */
   classmates: EnrollmentApplicant[] | null;
+  /** Setup state of any applicant in the list, for the classmates of a family class. */
+  setupOf: (id: string) => SetupState | undefined;
   tab: ApplicantTab;
   setup: SetupState | null;
   onDiscount: () => void;
@@ -1454,8 +1470,15 @@ function ApplicantCard({
             <MatchedSetupActions
               enrollmentId={applicant.id}
               studentName={classmates ? listNames(classmates.map((c) => c.studentName)) : applicant.studentName}
-              classmates={classmates?.map((c) => ({ enrollmentId: c.id, studentName: c.studentName, studentUserId: c.studentUserId })) ?? null}
-              studentUserId={applicant.studentUserId}
+              classmates={
+                classmates?.map((c) => ({
+                  enrollmentId: c.id,
+                  studentName: c.studentName,
+                  studentUserId: setupOf(c.id)?.accountMissing ? "" : c.studentUserId,
+                })) ?? null
+              }
+              studentUserId={setup.accountMissing ? "" : applicant.studentUserId}
+              accountMissing={setup.accountMissing}
               parentLinked={applicant.parentLinked}
               hasSchedule={setup?.hasSchedule ?? false}
               defaultParentEmail={applicant.email}
@@ -1812,6 +1835,29 @@ async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise
     }
   }
   return scheduled;
+}
+
+/**
+ * Which of the named student accounts still exist.
+ *
+ * An application remembers the account this flow created for it. When that
+ * account is later deleted by hand — a duplicate of a child the parent already
+ * had — the application keeps pointing at it, the account step reads as done,
+ * and the schedule step can never open ("not listed yet… try again"). Three
+ * cards sat like that for a month in Oct 2026. One `documentId() in` query per
+ * 30 accounts tells the list which ids are real.
+ */
+async function loadExistingStudents(applicants: EnrollmentApplicant[]): Promise<Set<string>> {
+  const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
+  const existing = new Set<string>();
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const snapshot = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
+    for (const user of snapshot.docs) {
+      if (stringValue(user.data().user_type).toLowerCase() === "student") existing.add(user.id);
+    }
+  }
+  return existing;
 }
 
 function normalizeApplicant(id: string, data: Record<string, unknown>): EnrollmentApplicant {
