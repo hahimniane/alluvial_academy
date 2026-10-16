@@ -3062,14 +3062,15 @@ class TeacherAuditService {
 
     try {
       final chat = ChatService();
-      // Same Firestore doc as "Recent Chats" / ensureAuditDiscussionChatId: create
-      // chats/{sortedUid1_uid2} first, then write the message into that thread.
-      final chatId = await chat.getOrCreateIndividualChat(teacherId);
+      // Audit results come from the school, not from whichever leader pressed
+      // the button: the teacher's Admin Support thread, which every admin reads
+      // in the Support Inbox. Same thread ensureAuditDiscussionChatId opens.
+      final chatId = await chat.getOrCreateAdminSupportChatForUser(teacherId);
       final auditRef = _firestore.collection(_auditCollection).doc(auditId);
       final auditSnap = await auditRef.get();
       if (auditSnap.exists) {
         final existing = auditSnap.data()?['discussionChatId'] as String? ?? '';
-        if (existing.isEmpty) {
+        if (existing != chatId) {
           await auditRef.update({
             'discussionChatId': chatId,
             'lastUpdated': FieldValue.serverTimestamp(),
@@ -3528,11 +3529,17 @@ class TeacherAuditService {
       final data = doc.data();
       if (data == null) return null;
       final existing = data['discussionChatId'] as String?;
-      if (existing != null && existing.isNotEmpty) return existing;
+      // Audit discussions live in the teacher's Admin Support thread. An audit
+      // that still points at a leader's personal chat is moved over.
+      if (existing != null &&
+          ChatService.humanUserIdFromAdminSupportChatDocId(existing) != null) {
+        return existing;
+      }
       final teacherId = data['userId'] as String? ?? '';
       if (teacherId.isEmpty) return null;
       final chatService = ChatService();
-      final chatId = await chatService.getOrCreateIndividualChat(teacherId);
+      final chatId =
+          await chatService.getOrCreateAdminSupportChatForUser(teacherId);
       await doc.reference.update({
         'discussionChatId': chatId,
         'lastUpdated': FieldValue.serverTimestamp(),

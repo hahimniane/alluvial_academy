@@ -30,6 +30,8 @@ type ChatPreview = {
   lastMessageTime: Date | null;
   unreadCount: number;
   isGroup: boolean;
+  /** The member's own Admin Support thread. */
+  isSupport: boolean;
   participants: string[];
 };
 
@@ -196,7 +198,7 @@ export function StudentChatPage() {
     const uid = user?.uid;
     if (!uid) return chats;
     return chats.map((chat) => {
-      if (chat.isGroup) return chat;
+      if (chat.isGroup || chat.isSupport) return chat;
       const other = chat.participants.find((participant) => participant !== uid);
       const resolved = other ? participantNames[other] : "";
       return resolved ? { ...chat, displayName: resolved } : chat;
@@ -233,7 +235,7 @@ export function StudentChatPage() {
       displayName: chat.displayName,
       email: chat.email,
       isGroup: chat.isGroup,
-      isSupport: false,
+      isSupport: chat.isSupport,
       participants: chat.participants,
     });
     if (user) {
@@ -1242,19 +1244,23 @@ async function sendChatMessage({
 
 function normalizeChat(id: string, data: Record<string, unknown>, uid: string): ChatPreview | null {
   const participants = arrayOfStrings(data.participants);
-  if (participants.includes("admin_support")) return null;
+  // The member's Admin Support thread is a conversation like any other: it
+  // used to be dropped here, so a reply from the school never showed up in
+  // Recent and its unread count was never seen.
+  const isSupport = participants.includes("admin_support");
   const last = objectValue(data.last_message);
   const lastMessage = stringValue(last.content ?? data.last_message_text ?? data.lastMessage);
   if (!lastMessage) return null;
   const fallbackName = participants.find((participant) => participant !== uid) || "Conversation";
   return {
     id,
-    displayName: stringValue(data.group_name ?? data.name ?? data.displayName) || fallbackName,
+    displayName: isSupport ? "Admin Support" : stringValue(data.group_name ?? data.name ?? data.displayName) || fallbackName,
     email: stringValue(data.email),
     lastMessage,
     lastMessageTime: dateValue(last.timestamp ?? data.last_message_time ?? data.updated_at),
     unreadCount: numberValue(data.unread_count),
     isGroup: data.chat_type === "group" || data.is_group === true,
+    isSupport,
     participants,
   };
 }
@@ -1447,6 +1453,7 @@ function mergeSentPreview(chats: ChatPreview[], conversation: Conversation, cont
     lastMessage: content,
     lastMessageTime: new Date(),
     unreadCount: 0,
+    isSupport: conversation.isSupport,
     isGroup: conversation.isGroup,
     participants: conversation.participants,
   };
