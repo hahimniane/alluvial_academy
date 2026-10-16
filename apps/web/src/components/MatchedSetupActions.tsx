@@ -50,6 +50,7 @@ export function MatchedSetupActions({
   studentName,
   classmates,
   studentUserId,
+  accountMissing = false,
   parentLinked,
   hasSchedule,
   defaultParentEmail,
@@ -64,6 +65,8 @@ export function MatchedSetupActions({
   /** Every child in an exclusive family class, or null for a single student. */
   classmates: Classmate[] | null;
   studentUserId: string;
+  /** The application named an account that has since been deleted. */
+  accountMissing?: boolean;
   parentLinked: boolean;
   hasSchedule: boolean;
   defaultParentEmail: string;
@@ -166,7 +169,10 @@ export function MatchedSetupActions({
     }
     const missing = studentIds.filter((id) => !students.some((student) => student.id === id));
     if (studentIds.length === 0 || missing.length > 0) {
-      throw new Error("The student accounts were created but are not listed yet. Try again in a moment.");
+      throw new Error(
+        "The student account is not in the student list. If it was just created, try again in a moment; " +
+          "if it was deleted, reload this page and create the account again from step 1.",
+      );
     }
     setEditor({ studentIds, staff, students, subjects, adminName: profile.name, adminTimezone: profile.timezone });
   };
@@ -179,6 +185,12 @@ export function MatchedSetupActions({
 
   return (
     <div className="mb-3">
+      {accountMissing ? (
+        <p className="mb-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-xs text-[#92400E]">
+          The account this application was linked to no longer exists. Create account links the child&apos;s
+          current account instead of making a new one.
+        </p>
+      ) : null}
       <ol className="flex flex-wrap items-stretch gap-2" aria-label="Setup steps">
         <Step
           number={1}

@@ -17,6 +17,13 @@ export type SetupStage = "needs-account" | "needs-schedule" | "needs-parent" | "
 
 export type SetupState = {
   hasAccount: boolean;
+  /**
+   * The application names an account that no longer exists — created by this
+   * flow, then deleted by hand as a duplicate. The card must say so and let
+   * the account step run again; otherwise it shows a done step that leads to
+   * a schedule step that can never open.
+   */
+  accountMissing: boolean;
   hasSchedule: boolean;
   hasParent: boolean;
   stage: SetupStage;
@@ -52,8 +59,12 @@ const NEXT_ACTION: Record<SetupStage, string> = {
 export const setupFor = (
   applicant: Pick<TriageApplicant, "studentUserId" | "parentLinked">,
   hasSchedule: boolean,
+  /** Whether the named account still exists; true until the list has checked. */
+  accountExists = true,
 ): SetupState => {
-  const hasAccount = applicant.studentUserId.trim().length > 0;
+  const named = applicant.studentUserId.trim().length > 0;
+  const accountMissing = named && !accountExists;
+  const hasAccount = named && accountExists;
   // No account means no student to put on a shift, so a schedule cannot be
   // trusted even if one were somehow reported.
   const scheduled = hasAccount && hasSchedule;
@@ -67,7 +78,8 @@ export const setupFor = (
         ? "needs-parent"
         : "ready";
 
-  return { hasAccount, hasSchedule: scheduled, hasParent, stage, nextAction: NEXT_ACTION[stage] };
+  const nextAction = accountMissing ? "Next: create the account again (the old one was deleted)" : NEXT_ACTION[stage];
+  return { hasAccount, accountMissing, hasSchedule: scheduled, hasParent, stage, nextAction };
 };
 
 /* ---------------------------------------------------------------- steps -- */
