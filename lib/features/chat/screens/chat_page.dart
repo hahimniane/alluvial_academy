@@ -846,6 +846,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _openChat(ChatUser user) async {
+    if (user.id == ChatService.adminSupportId) {
+      await _openAdminSupportChatAsUser();
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChatScreen(chatUser: user),

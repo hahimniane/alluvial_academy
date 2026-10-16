@@ -1,3 +1,4 @@
+import '../../features/chat/services/chat_service.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -459,6 +460,32 @@ class NotificationService {
       final groupName = data['groupName'] as String?;
 
       final isGroup = chatType == 'group';
+
+      if (chatType == 'admin_support' && chatId != null && chatId.isNotEmpty) {
+        final member = ChatService.humanUserIdFromAdminSupportChatDocId(chatId);
+        final me = FirebaseAuth.instance.currentUser?.uid;
+        final ChatUser supportUser = member != null && member == me
+            ? ChatUser(
+                id: ChatService.adminSupportId,
+                name: 'Admin Support',
+                email: 'Message the school administrators',
+                role: 'admin',
+              )
+            // Staff: the thread is opened by its doc id, named for the member.
+            : ChatUser(id: chatId, name: senderName ?? 'Admin Support', email: '');
+        final navigator = navigatorKey.currentState;
+        if (navigator != null) {
+          navigator.push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  ChatScreen(chatUser: supportUser, isAdminSupportChat: true),
+            ),
+          );
+        } else {
+          _pendingNavigation = data;
+        }
+        return;
+      }
 
       if (isGroup) {
         if (chatId == null || chatId.isEmpty) {

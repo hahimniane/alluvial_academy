@@ -42,6 +42,38 @@ class ChatService {
     return null;
   }
 
+  /// The Admin Support thread for [userId]: the same doc id the member's own
+  /// app opens, so a message an admin starts lands in the thread they see.
+  static String adminSupportChatIdFor(String userId) {
+    final ids = [userId, adminSupportId]..sort();
+    return '${ids[0]}_${ids[1]}';
+  }
+
+  /// Whether a message is waiting on the current user to read it.
+  ///
+  /// In a shared Admin Support thread every admin answers as the school, so a
+  /// reply from one admin is not something another admin has to read. If it
+  /// counted as "incoming" for staff, the next admin to open the thread marked
+  /// the first admin's reply read, and the member's unread badge vanished
+  /// before they had seen it. Staff only read the member's messages; the member
+  /// reads everything that is not theirs.
+  static bool isIncomingFor({
+    required String chatId,
+    required Object? senderId,
+    required String? viewerId,
+  }) {
+    final member = humanUserIdFromAdminSupportChatDocId(chatId);
+    if (member != null && member != viewerId) return senderId == member;
+    return senderId != viewerId;
+  }
+
+  bool _isIncomingForCurrentUser(String chatId, Map<String, dynamic> data) =>
+      isIncomingFor(
+        chatId: chatId,
+        senderId: data['sender_id'],
+        viewerId: currentUserId,
+      );
+
   // Get all users for browsing (except current user)
   Stream<List<ChatUser>> getAllUsers() {
     return _firestore.collection('users').snapshots().map((snapshot) => snapshot
@@ -329,8 +361,28 @@ class ChatService {
         final participants = List<String>.from(chatData['participants'] ?? []);
         final otherUserId = participants.firstWhere((id) => id != currentUserId,
             orElse: () => '');
-        // Skip admin_support chats in the normal list — they're shown separately for admins
-        if (otherUserId == adminSupportId) continue;
+        // The member's own Admin Support thread sits in their chat list like
+        // any conversation, with its unread count. (Admins never appear as a
+        // participant of a support thread; they read it in the Support Inbox.)
+        if (otherUserId == adminSupportId) {
+          chatFutures.add(() async {
+            final lastMessage =
+                await _resolveVisibleLastMessage(chatDoc.id, chatData);
+            if (lastMessage == null) return null;
+            final unreadCount = await _getUnreadCount(chatDoc.id);
+            return ChatUser(
+              id: adminSupportId,
+              name: 'Admin Support',
+              email: 'Message the school administrators',
+              role: 'admin',
+              lastMessage: _recentMessagePreview(lastMessage),
+              lastMessageTime:
+                  (lastMessage['timestamp'] as Timestamp?)?.toDate(),
+              unreadCount: unreadCount,
+            );
+          }());
+          continue;
+        }
         if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
           chatFutures.add(() async {
             final lastMessage =
@@ -1319,7 +1371,7 @@ class ChatService {
     for (var doc in messagesQuery.docs) {
       final data = doc.data();
       // Filter out current user's messages in client
-      if (data['sender_id'] != currentUserId &&
+      if (_isIncomingForCurrentUser(chatId, data) &&
           !_isMessageHiddenForCurrentUser(data)) {
         batch.update(doc.reference, {'is_read': true});
       }
@@ -1357,7 +1409,7 @@ class ChatService {
     int count = 0;
     for (var doc in unreadQuery.docs) {
       final data = doc.data();
-      if (data['sender_id'] != currentUserId &&
+      if (_isIncomingForCurrentUser(chatId, data) &&
           !_isMessageHiddenForCurrentUser(data)) {
         count++;
       }
@@ -1385,7 +1437,7 @@ class ChatService {
       var count = 0;
       for (final doc in snap.docs) {
         final data = doc.data();
-        if (data['sender_id'] != currentUserId &&
+        if (_isIncomingForCurrentUser(chatId, data) &&
             !_isMessageHiddenForCurrentUser(data)) {
           count++;
         }

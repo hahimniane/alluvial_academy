@@ -311,8 +311,9 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel>
                   final d = u.data() ?? {};
                   final nameFromDoc =
                       '${d['first_name'] ?? ''} ${d['last_name'] ?? ''}'.trim();
+                  // Staff open the support thread by its doc id (see ChatScreen).
                   final chatUser = ChatUser(
-                    id: audit.oderId,
+                    id: chatId,
                     name: audit.teacherName.isNotEmpty
                         ? audit.teacherName
                         : (nameFromDoc.isNotEmpty ? nameFromDoc : audit.oderId),
@@ -326,6 +327,7 @@ class _AuditDetailFullPanelState extends State<AuditDetailFullPanel>
                       builder: (_) => ChatScreen(
                         chatUser: chatUser,
                         initialMessage: _buildAuditDiscussionDraft(audit),
+                        isAdminSupportChat: true,
                         forceAllowMessaging: true,
                       ),
                     ),
@@ -645,9 +647,12 @@ class _AuditDiscussionChatIcon extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final chatService = ChatService();
     final stored = audit.discussionChatId?.trim();
-    final cid = (stored != null && stored.isNotEmpty)
+    final cid = (stored != null &&
+            ChatService.humanUserIdFromAdminSupportChatDocId(stored) != null)
         ? stored
-        : chatService.individualChatIdWith(audit.oderId);
+        : (audit.oderId.isEmpty
+            ? null
+            : ChatService.adminSupportChatIdFor(audit.oderId));
     if (cid == null) {
       return IconButton(
         tooltip: l10n.auditDiscussionAdminButton,
