@@ -3600,10 +3600,26 @@ const ensureZoomHubMeeting = async ({
     updated_at: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
+  // A merge write onto a deleted class recreates it as a "ghost" doc holding
+  // only Zoom fields (31 seen Sep-Oct 2026), so only stamp classes that exist.
+  const roomShiftIds = _classRoomsOnly(rooms)
+    .map((room) => room.shiftId)
+    .filter((id) => id && !String(id).startsWith('__spare_'));
+  const liveShiftIds = new Set();
+  for (let i = 0; i < roomShiftIds.length; i += 50) {
+    const snaps = await Promise.all(
+      roomShiftIds.slice(i, i + 50).map((id) => db.collection('teaching_shifts').doc(id).get()),
+    );
+    snaps.forEach((snap, index) => {
+      if (snap.exists) liveShiftIds.add(roomShiftIds[i + index]);
+    });
+  }
+
   let batch = db.batch();
   let batchCount = 0;
   for (const room of _classRoomsOnly(rooms)) {
     if (!room.shiftId || String(room.shiftId).startsWith('__spare_')) continue;
+    if (!liveShiftIds.has(room.shiftId)) continue;
     const ref = db.collection('teaching_shifts').doc(room.shiftId);
     batch.set(ref, {
       hubMeetingId: meta.hubDocId,
