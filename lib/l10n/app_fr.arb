@@ -7345,5 +7345,19 @@
   "connectionOverviewTitle": "Connexions des enseignants",
   "connectionOverviewSubtitle": "Qui se déconnecte des cours, et combien de temps de cours cela coûte.",
   "connectionOverviewEmpty": "Aucun problème de connexion enregistré pour cette période.",
-  "connectionOverviewClasses": "{count} cours"
+  "connectionOverviewClasses": "{count} cours",
+  "formConditionShowOnlyIf": "Afficher seulement si",
+  "formConditionHideIf": "Masquer si",
+  "formConditionAlwaysShow": "Toujours afficher",
+  "formConditionEquals": "est",
+  "formConditionNotEquals": "n'est pas",
+  "formConditionContains": "contient",
+  "formConditionContainsAny": "inclut l'un de",
+  "formConditionContainsAll": "inclut tous",
+  "formConditionContainsExactly": "est exactement",
+  "formConditionIsAnswered": "a une réponse",
+  "formConditionIsNotAnswered": "n'a pas de réponse",
+  "formConditionValueHint": "Réponse",
+  "formConditionPickAnswer": "Choisir une réponse",
+  "formConditionIncomplete": "La question {number} a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher »."
 }

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
+import 'package:alluwalacademyadmin/features/forms/utils/form_answer_order.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// In-memory shift cache so repeat opens (modal / review) avoid extra reads.
@@ -123,6 +124,7 @@ class FormSubmissionDetailsView extends StatefulWidget {
 
 class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
   Map<String, String>? _fieldLabels;
+  Map<String, int> _fieldOrder = const {};
   bool _isLoadingLabels = true;
   TeachingShift? _shift;
   bool _isLoadingShift = true;
@@ -166,6 +168,7 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
         oldWidget.formId != widget.formId) {
       setState(() {
         _fieldLabels = null;
+        _fieldOrder = const {};
         _isLoadingLabels = true;
         _shouldFetchShiftFromNetwork();
       });
@@ -222,11 +225,13 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
 
   Future<void> _loadFieldLabels() async {
     try {
-      final labels = await FormLabelsCacheService()
-          .getLabelsForFormResponse(widget.formId);
+      final cache = FormLabelsCacheService();
+      final labels = await cache.getLabelsForFormResponse(widget.formId);
+      final order = await cache.getFieldOrderForFormResponse(widget.formId);
       if (mounted) {
         setState(() {
           _fieldLabels = labels.isNotEmpty ? labels : null;
+          _fieldOrder = order;
           _isLoadingLabels = false;
         });
       }
@@ -420,7 +425,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
               ),
             ),
           if (widget.responses.isNotEmpty)
-            ...widget.responses.entries.map((entry) {
+            ...FormAnswerOrder.orderEntries(widget.responses, _fieldOrder)
+                .map((entry) {
               final label = _getFieldLabel(entry.key);
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),

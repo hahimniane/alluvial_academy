@@ -33421,6 +33421,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} classes'**
   String connectionOverviewClasses(int count);
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Show only if'**
+  String get formConditionShowOnlyIf;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Hide if'**
+  String get formConditionHideIf;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Always show'**
+  String get formConditionAlwaysShow;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'is'**
+  String get formConditionEquals;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'is not'**
+  String get formConditionNotEquals;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'contains'**
+  String get formConditionContains;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'includes any of'**
+  String get formConditionContainsAny;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'includes all of'**
+  String get formConditionContainsAll;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'is exactly'**
+  String get formConditionContainsExactly;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'is answered'**
+  String get formConditionIsAnswered;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'is not answered'**
+  String get formConditionIsNotAnswered;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Answer'**
+  String get formConditionValueHint;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Pick an answer'**
+  String get formConditionPickAnswer;
+
+  /// Form builder: conditional question rule
+  ///
+  /// In en, this message translates to:
+  /// **'Question {number} has a \"Show only if\" rule with no answer to compare. Pick one or choose \"Always show\".'**
+  String formConditionIncomplete(int number);
 }
 
 class _AppLocalizationsDelegate

@@ -14,6 +14,9 @@ import 'form_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';
+import '../services/form_labels_cache_service.dart';
+import '../utils/class_report_eligibility.dart';
+import '../utils/form_answer_order.dart';
 import '../utils/parent_form_access_policy.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
@@ -1134,7 +1137,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (anyExistingResponse.docs.isNotEmpty) {
         // Form already submitted - show read-only view with actual data
         if (!mounted) return;
-        _showOldFormSubmission(anyExistingResponse.docs.first.id,
+        await _showOldFormSubmission(anyExistingResponse.docs.first.id,
             anyExistingResponse.docs.first.data());
         return;
       }
@@ -1150,7 +1153,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (readinessResponse.docs.isNotEmpty) {
         // Old readiness form found - show it
         if (!mounted) return;
-        _showOldFormSubmission(readinessResponse.docs.first.id,
+        await _showOldFormSubmission(readinessResponse.docs.first.id,
             readinessResponse.docs.first.data(),
             isReadinessForm: true);
         return;
@@ -1189,8 +1192,19 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   }
 
   /// Show old format form submission in read-only view
-  void _showOldFormSubmission(String submissionId, Map<String, dynamic> data,
-      {bool isReadinessForm = false}) {
+  Future<void> _showOldFormSubmission(
+      String submissionId, Map<String, dynamic> data,
+      {bool isReadinessForm = false}) async {
+    var fieldOrder = const <String, int>{};
+    if (!isReadinessForm) {
+      try {
+        fieldOrder = await FormLabelsCacheService()
+            .getFieldOrderForFormResponse(submissionId);
+      } catch (e) {
+        AppLogger.error('Error loading question order for $submissionId: $e');
+      }
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1201,6 +1215,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         maxChildSize: 0.95,
         builder: (context, scrollController) {
           final responses = data['responses'] as Map<String, dynamic>? ?? data;
+          final orderedResponses =
+              FormAnswerOrder.orderEntries(responses, fieldOrder);
           final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate() ??
               (data['submitted_at'] as Timestamp?)?.toDate();
           final formTitle = data['formTitle'] as String? ??
@@ -1301,9 +1317,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                   child: ListView.builder(
                     controller: scrollController,
                     padding: const EdgeInsets.all(20),
-                    itemCount: responses.entries.length,
+                    itemCount: orderedResponses.length,
                     itemBuilder: (context, index) {
-                      final entry = responses.entries.elementAt(index);
+                      final entry = orderedResponses[index];
                       final fieldId = entry.key;
                       final value = entry.value;
 
@@ -1440,6 +1456,13 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           final responses = data['responses'] as Map<String, dynamic>? ?? {};
           final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
           final templateFields = template.fields;
+          final orderedResponses = FormAnswerOrder.orderEntries(
+            responses,
+            FormAnswerOrder.fieldOrder([
+              for (final field in templateFields)
+                {'id': field.id, 'order': field.order},
+            ]),
+          );
 
           // Build field labels from template
           final fieldLabels = <String, String>{};
@@ -1533,9 +1556,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                       : ListView.builder(
                           controller: scrollController,
                           padding: const EdgeInsets.all(20),
-                          itemCount: responses.length,
+                          itemCount: orderedResponses.length,
                           itemBuilder: (context, index) {
-                            final entry = responses.entries.elementAt(index);
+                            final entry = orderedResponses[index];
                             final fieldId = entry.key;
                             final value = entry.value;
                             final label = fieldLabels[fieldId] ?? fieldId;
@@ -1640,131 +1663,77 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
 
     try {
-      // Current calendar month only (bounded query — avoids downloading all historical shifts)
+      // The same rolling window the teacher web console lists pending reports
+      // from: every class that ended in the last 60 days and was not cancelled.
       final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final startNextMonth = DateTime(now.year, now.month + 1, 1);
+      final windowStart = ClassReportEligibility.windowStart(now);
 
-      final shiftsSnapshot = await FirebaseFirestore.instance
-          .collection('teaching_shifts')
-          .where('teacher_id', isEqualTo: user.uid)
-          .where(
-            'shift_start',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
-          )
-          .where(
-            'shift_start',
-            isLessThan: Timestamp.fromDate(startNextMonth),
-          )
-          .get();
+      final snapshots = await Future.wait(
+        ['teacher_id', 'teacherId'].map(
+          (teacherField) => FirebaseFirestore.instance
+              .collection('teaching_shifts')
+              .where(teacherField, isEqualTo: user.uid)
+              .where(
+                'shift_start',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(windowStart),
+              )
+              .where('shift_start', isLessThanOrEqualTo: Timestamp.fromDate(now))
+              .orderBy('shift_start')
+              .get()
+              .then((snapshot) => snapshot.docs)
+              .catchError((Object e) {
+            AppLogger.error('Error loading shifts by $teacherField: $e');
+            return <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+          }),
+        ),
+      );
 
-      // Filter and sort in memory (matches pattern used in ShiftService.getTeacherShifts)
-      final allShifts = shiftsSnapshot.docs.map((doc) {
+      DateTime? asDate(dynamic value) {
+        if (value is Timestamp) return value.toDate();
+        if (value is DateTime) return value;
+        return null;
+      }
+
+      final byId = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+      for (final docs in snapshots) {
+        for (final doc in docs) {
+          byId[doc.id] = doc;
+        }
+      }
+
+      final recentShifts = byId.values.where((doc) {
         final data = doc.data();
-        DateTime? shiftStart;
-        final shiftStartValue = data['shift_start'];
-        if (shiftStartValue is Timestamp) {
-          shiftStart = shiftStartValue.toDate();
-        } else if (shiftStartValue is DateTime) {
-          shiftStart = shiftStartValue;
-        }
-        return {
-          'doc': doc,
-          'shiftStart': shiftStart,
-        };
-      }).toList();
-
-      // Filter: only completed or missed shifts that have ended (not future, not scheduled)
-
-      final recentShifts = allShifts.where((item) {
-        final doc = item['doc'] as QueryDocumentSnapshot;
-        final data = doc.data() as Map<String, dynamic>;
-        final shiftStart = item['shiftStart'] as DateTime?;
-        final shiftId = doc.id;
-
-        if (shiftStart == null) return false;
-
-        // Get shift end time
-        DateTime? shiftEnd;
-        final endValue = data['shift_end'];
-        if (endValue is Timestamp) {
-          shiftEnd = endValue.toDate();
-        } else if (endValue is DateTime) {
-          shiftEnd = endValue;
-        }
-
-        if (shiftEnd == null) return false;
-
-        // Convert to local time for comparison
-        final startLocal = shiftStart.toLocal();
-        final endLocal = shiftEnd.toLocal();
-
-        // Get status from Firestore
-        final statusStr = data['status'] as String? ?? 'scheduled';
-
-        // FIRST CHECK: Explicitly exclude scheduled, active, cancelled
-        if (statusStr == 'scheduled' ||
-            statusStr == 'active' ||
-            statusStr == 'cancelled') {
-          return false;
-        }
-
-        // SECOND CHECK: Must be in a completed/missed state
-        final isCompletedOrMissed = statusStr == 'completed' ||
-            statusStr == 'fullyCompleted' ||
-            statusStr == 'partiallyCompleted' ||
-            statusStr == 'missed';
-
-        if (!isCompletedOrMissed) {
-          return false;
-        }
-
-        // THIRD CHECK: Must have started AND ended (both must be in the past)
-        if (!startLocal.isBefore(now)) {
-          return false; // Has not started yet
-        }
-
-        // FOURTH CHECK: Shift must be within the current month (so teachers see the whole month)
-        if (startLocal.isBefore(startOfMonth)) {
-          return false; // Before current month
-        }
-
-        // Shift must have ended (end time is in the past, at least 1 second ago)
-        final timeSinceEnd = now.difference(endLocal);
-        if (timeSinceEnd.inSeconds <= 0) {
-          return false; // Has not ended yet
-        }
-
-        // All checks passed - include this shift
-        return true;
+        return ClassReportEligibility.isEligible(
+          start: asDate(data['shift_start']),
+          end: asDate(data['shift_end']),
+          status: data['status'] as String? ?? 'scheduled',
+          now: now,
+        );
       }).toList()
         ..sort((a, b) {
-          final aStart = a['shiftStart'] as DateTime?;
-          final bStart = b['shiftStart'] as DateTime?;
+          final aStart = asDate(a.data()['shift_start']);
+          final bStart = asDate(b.data()['shift_start']);
           if (aStart == null && bStart == null) return 0;
           if (aStart == null) return 1;
           if (bStart == null) return -1;
-          return bStart.compareTo(aStart); // Descending (most recent first)
+          return bStart.compareTo(aStart); // Most recent first
         });
 
-      // Show all shifts in the month (up to 100 to cover busy schedules)
-      final shiftsToShow = recentShifts
-          .take(100)
-          .map((item) => item['doc'] as QueryDocumentSnapshot)
-          .toList();
+      final shiftsToShow = recentShifts.take(150).toList();
 
       // Check for existing forms for each shift
+      final formResponseIds = await Future.wait(
+        shiftsToShow
+            .map((doc) => ShiftFormService.getFormResponseForShift(doc.id)),
+      );
       final shiftsWithFormStatus = <Map<String, dynamic>>[];
-      for (final doc in shiftsToShow) {
-        final shiftId = doc.id;
-        final formResponseId =
-            await ShiftFormService.getFormResponseForShift(shiftId);
-        final hasForm = formResponseId != null;
-
+      for (var i = 0; i < shiftsToShow.length; i++) {
+        final doc = shiftsToShow[i];
+        final formResponseId = formResponseIds[i];
         shiftsWithFormStatus.add({
           'doc': doc,
-          'shiftId': shiftId,
-          'hasForm': hasForm,
+          'shiftId': doc.id,
+          'hasForm': formResponseId != null,
           'formResponseId': formResponseId,
         });
       }

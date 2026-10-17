@@ -18778,4 +18778,48 @@ class AppLocalizationsFr extends AppLocalizations {
   String connectionOverviewClasses(int count) {
     return '$count cours';
   }
+
+  @override
+  String get formConditionShowOnlyIf => 'Afficher seulement si';
+
+  @override
+  String get formConditionHideIf => 'Masquer si';
+
+  @override
+  String get formConditionAlwaysShow => 'Toujours afficher';
+
+  @override
+  String get formConditionEquals => 'est';
+
+  @override
+  String get formConditionNotEquals => 'n\'est pas';
+
+  @override
+  String get formConditionContains => 'contient';
+
+  @override
+  String get formConditionContainsAny => 'inclut l\'un de';
+
+  @override
+  String get formConditionContainsAll => 'inclut tous';
+
+  @override
+  String get formConditionContainsExactly => 'est exactement';
+
+  @override
+  String get formConditionIsAnswered => 'a une réponse';
+
+  @override
+  String get formConditionIsNotAnswered => 'n\'a pas de réponse';
+
+  @override
+  String get formConditionValueHint => 'Réponse';
+
+  @override
+  String get formConditionPickAnswer => 'Choisir une réponse';
+
+  @override
+  String formConditionIncomplete(int number) {
+    return 'La question $number a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher ».';
+  }
 }
