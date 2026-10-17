@@ -293,3 +293,79 @@ describe('attendance analytics helpers', () => {
       .toBe('2026-02-24T10:06:00.000Z');
   });
 });
+
+describe('attendance accuracy fixes (Oct 2026)', () => {
+  const t = require('../handlers/attendance').__test__;
+  const at = (hhmm) => new Date(`2026-10-01T${hhmm}:00Z`);
+  const shiftStart = at('15:00');
+  const shiftEnd = at('16:00');
+  const now = at('20:00');
+
+  test('a beacon window whose end equals its start counts 0 seconds, not the whole class', () => {
+    const m = t.computeParticipantPresenceMetrics({
+      sessionData: {presence_windows: [{join_at: at('15:05'), leave_at: at('15:05')}]},
+      shiftStart, shiftEnd, now,
+    });
+    expect(m.totalPresenceSeconds).toBe(0);
+  });
+
+  test('a window with no end at all is still open (clipped to the class end)', () => {
+    const m = t.computeParticipantPresenceMetrics({
+      sessionData: {presence_windows: [{join_at: at('15:30')}]},
+      shiftStart, shiftEnd, now,
+    });
+    expect(m.totalPresenceSeconds).toBe(30 * 60);
+  });
+
+  test('overlapping beacon and bot windows are counted once', () => {
+    const m = t.computeParticipantPresenceMetrics({
+      sessionData: {
+        presence_windows: [{join_at: at('14:58'), leave_at: at('15:20')}],
+        bot_windows: [{join_at: at('15:10'), leave_at: at('15:50')}],
+      },
+      shiftStart, shiftEnd, now,
+    });
+    expect(m.totalPresenceSeconds).toBe(50 * 60);
+  });
+
+  test('the bot alone makes a student present when the beacon stopped before class', () => {
+    const bot = t.botWindowsFromEvents([
+      {uid: 'S1', type: 'arrived', at: at('14:56')},
+      {uid: 'S1', type: 'departed', at: at('15:32')},
+    ]);
+    const sessions = t.attachBotPresence(
+      new Map([['shift1', new Map([['S1', {presence_windows: [{join_at: at('14:57'), leave_at: at('14:58')}]}]])]]),
+      new Map([['shift1', bot]]),
+    );
+    const m = t.computeParticipantPresenceMetrics({
+      sessionData: sessions.get('shift1').get('S1'), shiftStart, shiftEnd, now,
+    });
+    expect(m.totalPresenceSeconds).toBe(32 * 60);
+  });
+
+  test('bot events pair arrivals with departures; a missed departure closes at the next arrival', () => {
+    const byUid = t.botWindowsFromEvents([
+      {uid: 'S1', type: 'arrived', at: at('15:00')},
+      {uid: 'S1', type: 'arrived', at: at('15:20')},
+      {uid: 'S1', type: 'departed', at: at('15:40')},
+      {uid: 'S2', type: 'departed', at: at('15:10')},
+      {uid: 'S3', type: 'arrived', at: at('15:45')},
+    ]);
+    expect(byUid.get('S1')).toEqual([
+      {join_at: at('15:00'), leave_at: at('15:20')},
+      {join_at: at('15:20'), leave_at: at('15:40')},
+    ]);
+    expect(byUid.get('S2')).toEqual([]);
+    expect(byUid.get('S3')).toEqual([{join_at: at('15:45'), leave_at: null}]);
+  });
+
+  test('only reports of the current version are served', () => {
+    const docs = [
+      {id: 'u1_monthly_month_2026-08_v1'},
+      {id: 'u1_monthly_month_2026-08_v2'},
+      {id: 'u1_monthly_month_2026-08_v3'},
+      {id: 'u2_monthly_month_2026-08'},
+    ];
+    expect(t.currentVersionReports(docs).map((d) => d.id)).toEqual(['u1_monthly_month_2026-08_v3']);
+  });
+});
