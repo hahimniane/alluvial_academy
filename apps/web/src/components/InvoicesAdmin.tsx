@@ -270,8 +270,10 @@ export function InvoicesAdmin() {
 
   const preview = useMemo(() => {
     const charges = children
+      .filter((child) => (amountDrafts[child.id]?.amount ?? "").trim() !== "")
       .map((child) => ({ child, amount: Number(amountDrafts[child.id]?.amount ?? "") }))
-      .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0);
+      // 0 is a real charge: a family member away this month stays on the invoice.
+      .filter((entry) => Number.isFinite(entry.amount) && entry.amount >= 0);
     if (charges.length === 0) return null;
     return previewDiscounts(charges, familyDiscount, new Date(billingMonth.getFullYear(), billingMonth.getMonth(), 1));
   }, [children, amountDrafts, familyDiscount, billingMonth]);
@@ -289,7 +291,8 @@ export function InvoicesAdmin() {
       .map((child) => {
         const draft = amountDrafts[child.id] ?? { description: "Tuition", amount: "" };
         const amount = Number(draft.amount);
-        if (!draft.amount.trim() || !Number.isFinite(amount) || amount <= 0) return null;
+        // Blank leaves the child off; 0 keeps them on the invoice at no charge.
+        if (!draft.amount.trim() || !Number.isFinite(amount) || amount < 0) return null;
         return {
           child,
           item: {
@@ -305,7 +308,7 @@ export function InvoicesAdmin() {
       })
       .filter((entry): entry is { child: BillableChild; item: InvoiceLineDraft } => entry !== null);
 
-    if (items.length === 0) {
+    if (!items.some((entry) => entry.item.total > 0)) {
       setMessage("Enter an amount for at least one student");
       return;
     }
