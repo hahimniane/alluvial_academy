@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'form_builder.dart';
 import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
+import '../models/question_condition.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Forms List Screen - Google Forms style list view
@@ -1395,6 +1396,8 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
       context: context,
       builder: (context) => _FieldEditorDialog(
         field: field,
+        earlierFields: _fields.take(index).toList(),
+        number: index + 1,
         onSave: (updatedField) {
       setState(() {
         _fields[index] = FormFieldDefinition(
@@ -1889,11 +1892,19 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
 /// Dialog for editing individual form fields
 class _FieldEditorDialog extends StatefulWidget {
   final FormFieldDefinition field;
+
+  /// Questions above this one: a "Show only if" rule can depend on them.
+  final List<FormFieldDefinition> earlierFields;
+
+  /// This question's position, for the incomplete-rule message.
+  final int number;
   final Function(FormFieldDefinition) onSave;
 
   const _FieldEditorDialog({
     required this.field,
     required this.onSave,
+    this.earlierFields = const [],
+    this.number = 1,
   });
 
   @override
@@ -1906,6 +1917,8 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   late String _fieldType;
   late bool _required;
   late List<TextEditingController> _optionControllers;
+  QuestionCondition? _condition;
+  late TextEditingController _conditionValueController;
 
   final List<String> _fieldTypes = [
     'text',
@@ -1926,6 +1939,10 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
     _fieldType = widget.field.type;
     _required = widget.field.required;
     _optionControllers = (widget.field.options ?? []).map((opt) => TextEditingController(text: opt)).toList();
+    _condition = QuestionCondition.fromFirestore(widget.field.conditionalLogic);
+    _conditionValueController = TextEditingController(
+      text: _condition?.expectedValue?.toString() ?? '',
+    );
     if (_optionControllers.isEmpty && _needsOptions(_fieldType)) {
       _optionControllers.add(TextEditingController());
     }
@@ -1935,6 +1952,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   void dispose() {
     _labelController.dispose();
     _placeholderController.dispose();
+    _conditionValueController.dispose();
     for (var controller in _optionControllers) {
       controller.dispose();
     }
@@ -1977,6 +1995,22 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
       return;
     }
 
+    final rule = _condition;
+    if (rule != null && _conditionParent == null) {
+      // The question it depended on is gone: the rule cannot be evaluated.
+      _condition = null;
+    } else if (rule != null && QuestionCondition.needsValue(rule.condition)) {
+      final hasValue = rule.expectedValues != null
+          ? rule.expectedValues!.isNotEmpty
+          : (rule.expectedValue?.toString().trim().isNotEmpty ?? false);
+      if (!hasValue) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.formConditionIncomplete(widget.number))),
+        );
+        return;
+      }
+    }
+
     final updatedField = FormFieldDefinition(
       id: widget.field.id,
       label: _labelController.text.trim(),
@@ -1985,7 +2019,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
       required: _required,
       order: widget.field.order,
       options: options,
-      conditionalLogic: widget.field.conditionalLogic,
+      conditionalLogic: _condition?.toFirestore(),
       validation: widget.field.validation,
     );
 
@@ -2175,6 +2209,8 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                       SizedBox(height: 20),
                     ],
                     
+                    _buildConditionEditor(),
+
                     // Required checkbox
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -2222,6 +2258,216 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- "SHOW ONLY IF" (same rule shape and wording as the form builder) ---
+
+  static const Set<String> _singleChoiceTypes = {'radio', 'dropdown'};
+  static const Set<String> _multiChoiceTypes = {'multi_select', 'checkbox', 'checkboxes'};
+
+  FormFieldDefinition? get _conditionParent {
+    final id = _condition?.dependsOnFieldId;
+    if (id == null) return null;
+    for (final f in widget.earlierFields) {
+      if (f.id == id) return f;
+    }
+    return null;
+  }
+
+  List<String> _conditionsFor(FormFieldDefinition parent) {
+    if (_singleChoiceTypes.contains(parent.type)) {
+      return const [
+        QuestionCondition.equals,
+        QuestionCondition.notEquals,
+        QuestionCondition.isNotEmpty,
+        QuestionCondition.isEmpty,
+      ];
+    }
+    if (_multiChoiceTypes.contains(parent.type)) {
+      return const [
+        QuestionCondition.contains,
+        QuestionCondition.containsAll,
+        QuestionCondition.containsExactly,
+        QuestionCondition.isNotEmpty,
+        QuestionCondition.isEmpty,
+      ];
+    }
+    return const [
+      QuestionCondition.equals,
+      QuestionCondition.notEquals,
+      QuestionCondition.contains,
+      QuestionCondition.isNotEmpty,
+      QuestionCondition.isEmpty,
+    ];
+  }
+
+  String _conditionLabel(String condition, {required bool multiSelect}) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (condition) {
+      case QuestionCondition.equals:
+        return l10n.formConditionEquals;
+      case QuestionCondition.notEquals:
+        return l10n.formConditionNotEquals;
+      case QuestionCondition.contains:
+        return multiSelect ? l10n.formConditionContainsAny : l10n.formConditionContains;
+      case QuestionCondition.containsAll:
+        return l10n.formConditionContainsAll;
+      case QuestionCondition.containsExactly:
+        return l10n.formConditionContainsExactly;
+      case QuestionCondition.isEmpty:
+        return l10n.formConditionIsNotAnswered;
+      case QuestionCondition.isNotEmpty:
+        return l10n.formConditionIsAnswered;
+      default:
+        return condition;
+    }
+  }
+
+  void _setConditionParent(String? parentId) {
+    setState(() {
+      if (parentId == null) {
+        _condition = null;
+      } else {
+        final parent = widget.earlierFields.firstWhere((f) => f.id == parentId);
+        _condition = QuestionCondition(
+          dependsOnFieldId: parentId,
+          condition: _conditionsFor(parent).first,
+          isVisible: _condition?.isVisible ?? true,
+        );
+      }
+      _conditionValueController.text = '';
+    });
+  }
+
+  void _setConditionKind(String kind, FormFieldDefinition parent) {
+    final condition = _condition;
+    if (condition == null) return;
+    setState(() {
+      final multi = _multiChoiceTypes.contains(parent.type);
+      final isList = QuestionCondition.usesExpectedValues(kind, multiSelect: multi);
+      condition.condition = kind;
+      if (!QuestionCondition.needsValue(kind)) {
+        condition.expectedValue = null;
+        condition.expectedValues = null;
+      } else if (isList) {
+        condition.expectedValues ??= condition.expectedValue == null ? [] : [condition.expectedValue];
+        condition.expectedValue = null;
+      } else {
+        final values = condition.expectedValues;
+        condition.expectedValue ??= values != null && values.isNotEmpty ? values.first : null;
+        condition.expectedValues = null;
+      }
+    });
+  }
+
+  Widget _boxedDropdown<T>({required T? value, required List<DropdownMenuItem<T>> items, required ValueChanged<T?> onChanged, Widget? hint}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          hint: hint,
+          style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionEditor() {
+    final l10n = AppLocalizations.of(context)!;
+    final candidates = widget.earlierFields;
+    final condition = _condition;
+    final parent = _conditionParent;
+    if (candidates.isEmpty && condition == null) return const SizedBox.shrink();
+    final multi = parent != null && _multiChoiceTypes.contains(parent.type);
+    final options = parent?.options ?? const <String>[];
+    final listValue = condition != null &&
+        QuestionCondition.usesExpectedValues(condition.condition, multiSelect: multi);
+
+    Widget? valueInput;
+    if (parent != null && condition != null && QuestionCondition.needsValue(condition.condition)) {
+      if (options.isNotEmpty && listValue) {
+        final picked = condition.expectedValues ?? [];
+        valueInput = Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: options.map((option) {
+            final selected = picked.contains(option);
+            return FilterChip(
+              label: Text(option),
+              selected: selected,
+              onSelected: (on) => setState(() {
+                final next = List<dynamic>.from(picked);
+                on ? next.add(option) : next.remove(option);
+                condition.expectedValues = next;
+              }),
+            );
+          }).toList(),
+        );
+      } else if (options.isNotEmpty) {
+        final current = condition.expectedValue?.toString();
+        valueInput = _boxedDropdown<String>(
+          value: options.contains(current) ? current : null,
+          hint: Text(l10n.formConditionPickAnswer),
+          items: options.map((o) => DropdownMenuItem<String>(value: o, child: Text(o))).toList(),
+          onChanged: (v) => setState(() => condition.expectedValue = v),
+        );
+      } else {
+        valueInput = TextField(
+          controller: _conditionValueController,
+          decoration: InputDecoration(
+            hintText: l10n.formConditionValueHint,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onChanged: (v) => condition.expectedValue = v.trim(),
+        );
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            condition != null && !condition.isVisible ? l10n.formConditionHideIf : l10n.formConditionShowOnlyIf,
+            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          _boxedDropdown<String?>(
+            value: parent?.id,
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(l10n.formConditionAlwaysShow)),
+              ...candidates.asMap().entries.map((e) => DropdownMenuItem<String?>(
+                    value: e.value.id,
+                    child: Text('${e.key + 1}. ${e.value.label}', overflow: TextOverflow.ellipsis),
+                  )),
+            ],
+            onChanged: _setConditionParent,
+          ),
+          if (parent != null && condition != null) ...[
+            const SizedBox(height: 8),
+            _boxedDropdown<String>(
+              value: _conditionsFor(parent).contains(condition.condition) ? condition.condition : null,
+              items: _conditionsFor(parent)
+                  .map((k) => DropdownMenuItem<String>(value: k, child: Text(_conditionLabel(k, multiSelect: multi))))
+                  .toList(),
+              onChanged: (k) {
+                if (k != null) _setConditionKind(k, parent);
+              },
+            ),
+            if (valueInput != null) ...[const SizedBox(height: 8), valueInput],
+          ],
+        ],
       ),
     );
   }
