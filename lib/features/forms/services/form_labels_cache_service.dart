@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../utils/form_answer_order.dart';
+
 /// Service to cache form field labels for fast retrieval
 /// This prevents multiple Firestore queries for the same form template
 class FormLabelsCacheService {
@@ -15,6 +17,8 @@ class FormLabelsCacheService {
   static const int _maxCacheEntries = 200;
   final Map<String, Map<String, String>> _labelsCache = {};
   final Map<String, DateTime> _labelsCacheTime = {};
+  // Same keys as [_labelsCache]: question id -> rank in the form.
+  final Map<String, Map<String, int>> _orderCache = {};
 
   // Cache: formResponseId -> formId/templateId (to avoid querying form_responses multiple times)
   final Map<String, String?> _formIdCache = {};
@@ -96,9 +100,30 @@ class FormLabelsCacheService {
       );
       _labelsCache.remove(oldest.key);
       _labelsCacheTime.remove(oldest.key);
+      _orderCache.remove(oldest.key);
     }
     _labelsCache[key] = labels;
     _labelsCacheTime[key] = DateTime.now();
+  }
+
+  /// Question order (question id -> rank) of the form or template a response
+  /// was filed on, so viewers can list its answers in question order. Resolves
+  /// the same form/template the labels come from.
+  Future<Map<String, int>> getFieldOrderForFormResponse(
+      String formResponseId) async {
+    await getLabelsForFormResponse(formResponseId);
+    final formId = _formIdCache[formResponseId];
+    final templateId = _templateIdCache[formResponseId];
+    final keys = <String>[
+      if (formId != null) formId,
+      if (templateId != null) 'template_$templateId',
+      if (formId != null && templateId == null) 'template_$formId',
+    ];
+    for (final key in keys) {
+      final order = _orderCache[key];
+      if (order != null && order.isNotEmpty) return order;
+    }
+    return const {};
   }
 
   /// Get field labels for a form (old system)
@@ -125,6 +150,7 @@ class FormLabelsCacheService {
 
           if (labels.isNotEmpty) {
             _putCache(formId, labels);
+            _orderCache[formId] = FormAnswerOrder.fieldOrder(formData['fields']);
             debugPrint('✅ Cached ${labels.length} labels for form $formId');
             return labels;
           }
@@ -167,6 +193,7 @@ class FormLabelsCacheService {
           _extractLabelsFromFields(fields, labels);
           if (labels.isNotEmpty) {
             _putCache(cacheKey, labels);
+            _orderCache[cacheKey] = FormAnswerOrder.fieldOrder(fields);
             debugPrint('✅ Cached ${labels.length} labels for template $templateId');
             return labels;
           }
@@ -219,6 +246,7 @@ class FormLabelsCacheService {
   void clearCache() {
     _labelsCache.clear();
     _labelsCacheTime.clear();
+    _orderCache.clear();
     _formIdCache.clear();
     _templateIdCache.clear();
     debugPrint('🗑️ Form labels cache cleared');
@@ -230,6 +258,8 @@ class FormLabelsCacheService {
     _labelsCache.remove('template_$formId');
     _labelsCacheTime.remove(formId);
     _labelsCacheTime.remove('template_$formId');
+    _orderCache.remove(formId);
+    _orderCache.remove('template_$formId');
     _formIdCache.remove(formId);
     _templateIdCache.remove(formId);
   }

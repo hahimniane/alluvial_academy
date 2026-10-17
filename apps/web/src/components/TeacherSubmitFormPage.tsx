@@ -35,6 +35,10 @@ import { auth, db, storage } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
+import { buildFieldLayout, orderResponseEntries, storedOrder } from "@/lib/formAnswerOrder";
+import { CLASS_REPORT_WINDOW_DAYS, chooseClassReportTemplate, isClassReportEligible } from "@/lib/classReport";
+import { missingRequiredFieldIds, visibleFieldIds } from "@/lib/formConditions";
+import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type Frequency = "perSession" | "weekly" | "monthly" | "onDemand";
@@ -91,6 +95,7 @@ type TemplateField = {
   required: boolean;
   order: number;
   options: string[];
+  conditionalLogic?: unknown;
 };
 
 type ShiftOption = {
@@ -110,6 +115,7 @@ type ExistingSubmission = {
   submittedAt: Date | null;
   responses: Record<string, unknown>;
   fieldLabels: Record<string, string>;
+  fieldOrder: Record<string, number>;
 };
 
 type TimesheetDetail = {
@@ -338,6 +344,7 @@ export function TeacherSubmitFormPage() {
   const [access, setAccess] = useState<AccessState>("checking");
   const [summary, setSummary] = useState<TeacherSummary>({ displayName: "Teacher", firstName: "Teacher", initials: "TE" });
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([]);
+  const [dailyTemplateId, setDailyTemplateId] = useState("");
   const [submitted, setSubmitted] = useState<SubmittedStatus>({ daily: false, weekly: false, monthly: false });
   const [loading, setLoading] = useState(true);
   const [openingClassReport, setOpeningClassReport] = useState(false);
@@ -377,9 +384,10 @@ export function TeacherSubmitFormPage() {
         if (!mounted) return;
         setSummary(summaryForUser(nextUser, userRecord));
         setAccess("allowed");
-        const [loadedTemplates, loadedSubmitted] = await Promise.all([loadTemplates(), loadSubmittedStatus(nextUser.uid)]);
+        const [loadedTemplates, loadedSubmitted, configuredDailyTemplateId] = await Promise.all([loadTemplates(), loadSubmittedStatus(nextUser.uid), loadDailyTemplateId()]);
         if (!mounted) return;
         setTemplates(loadedTemplates);
+        setDailyTemplateId(configuredDailyTemplateId);
         setSubmitted(loadedSubmitted);
       } catch (error) {
         if (mounted) {
@@ -427,22 +435,27 @@ export function TeacherSubmitFormPage() {
     });
   }, [search, templates]);
 
+  const classReportTemplate = useMemo(() => {
+    const baseTemplates = templates.length > 0 ? templates : defaultTemplates;
+    return chooseClassReportTemplate(baseTemplates.filter((template) => canRoleSeeTemplate(template, "teacher")), dailyTemplateId);
+  }, [templates, dailyTemplateId]);
+
   const groupedTemplates = useMemo(() => {
     return categoryConfigs
       .map((category) => {
         const items = visibleTemplates
           .filter((template) => template.category === category.id)
-          .sort((a, b) => templateSort(a, b, category.id));
+          .sort((a, b) => templateSort(a, b, category.id, classReportTemplate?.id ?? ""));
         return { category, items };
       })
       .filter((group) => group.items.length > 0);
-  }, [visibleTemplates]);
+  }, [visibleTemplates, classReportTemplate]);
 
   useEffect(() => {
     if (!currentUser || loading || typeof window === "undefined") return;
     const requestedShiftId = new URLSearchParams(window.location.search).get("shift")?.trim() ?? "";
     if (!requestedShiftId || openedShiftDeepLink.current === requestedShiftId) return;
-    const perSessionTemplate = visibleTemplates.find((template) => template.frequency === "perSession" && template.isActive);
+    const perSessionTemplate = classReportTemplate;
     if (!perSessionTemplate) return;
     openedShiftDeepLink.current = requestedShiftId;
     // This runs after the form list has painted, so without a state of its own
@@ -460,7 +473,7 @@ export function TeacherSubmitFormPage() {
     })
       .catch(() => setMessage("Could not open the selected class. Please choose it from the form list."))
       .finally(() => setOpeningClassReport(false));
-  }, [currentUser, loading, visibleTemplates]);
+  }, [currentUser, loading, classReportTemplate]);
 
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
@@ -489,7 +502,9 @@ export function TeacherSubmitFormPage() {
       return;
     }
     setSelectedShift(shift);
-    setActiveTemplate(shiftTemplate);
+    // Every class report is filed on the one class-report template, whichever
+    // per-class card the teacher opened, so a class never has two report forms.
+    setActiveTemplate(classReportTemplate ?? shiftTemplate);
     setShiftTemplate(null);
   };
 
@@ -689,6 +704,8 @@ function TeacherFormSheet({
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const previewUrlsRef = useRef<Set<string>>(new Set());
+  const shownFieldIds = useMemo(() => visibleFieldIds(fields, values), [fields, values]);
+  const shownFields = fields.filter((item) => shownFieldIds.has(item.id));
 
   useEffect(() => {
     return () => {
@@ -717,10 +734,11 @@ function TeacherFormSheet({
 
   const submit = async () => {
     const nextErrors: Record<string, string> = {};
-    fields.forEach((item) => {
+    const missingRequired = new Set(missingRequiredFieldIds(fields, values));
+    shownFields.forEach((item) => {
       const value = values[item.id];
       const empty = isEmptyFormValue(value);
-      if (item.required && empty) nextErrors[item.id] = "This question is required";
+      if (missingRequired.has(item.id)) nextErrors[item.id] = "This question is required";
       if (!empty && item.type === "email" && typeof value === "string" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) {
         nextErrors[item.id] = "Please enter a valid email address";
       }
@@ -736,10 +754,13 @@ function TeacherFormSheet({
     let uploadedPaths: string[] = [];
     try {
       if (!navigator.onLine) throw new Error(tr("You appear to be offline. Reconnect and try again."));
-      const uploadResult = await uploadPendingFiles(values, user.uid);
+      // A question hidden by its condition is not part of this submission, so
+      // neither its answer nor any file picked for it is sent.
+      const shownValues = Object.fromEntries(Object.entries(values).filter(([fieldId]) => shownFieldIds.has(fieldId)));
+      const uploadResult = await uploadPendingFiles(shownValues, user.uid);
       const uploadedValues = uploadResult.values;
       uploadedPaths = uploadResult.storagePaths;
-      const responses = fields.reduce<Record<string, SubmittedFieldValue>>((acc, item) => {
+      const responses = shownFields.reduce<Record<string, SubmittedFieldValue>>((acc, item) => {
         acc[item.id] = uploadedValues[item.id] ?? "";
         return acc;
       }, {});
@@ -826,10 +847,10 @@ function TeacherFormSheet({
         </section>
 
         <div className="mt-6">
-          {fields.length === 0 ? (
+          {shownFields.length === 0 ? (
             <div className="rounded-lg border border-[#F59E0B] bg-[#FEF3C7] p-4 text-sm font-semibold text-[#B45309]">{tr("No form fields are currently visible.")}</div>
           ) : (
-            fields.map((item) => (
+            shownFields.map((item) => (
               <FormQuestionCard key={item.id} field={item} value={values[item.id]} error={errors[item.id]} onChange={(value) => setValue(item.id, value)} />
             ))
           )}
@@ -844,7 +865,7 @@ function TeacherFormSheet({
             <button
               type="button"
               onClick={submit}
-              disabled={submitting || fields.length === 0}
+              disabled={submitting || shownFields.length === 0}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0386FF] px-6 py-3 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#93C5FD]"
             >
               {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
@@ -1321,7 +1342,7 @@ function TimesheetValue({ label, value }: { label: string; value: string }) {
 }
 
 function ExistingSubmissionSheet({ submission, onClose }: { submission: ExistingSubmission; onClose: () => void }) {
-  const entries = Object.entries(submission.responses);
+  const entries = orderResponseEntries(submission.responses, submission.fieldOrder);
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0F172A]/45 px-4 py-5">
       <div className="mx-auto max-w-[760px]">
@@ -1389,6 +1410,11 @@ async function loadTemplates() {
   return records.length > 0 ? records : defaultTemplates;
 }
 
+async function loadDailyTemplateId() {
+  const config = await getDoc(doc(db, "settings", "form_config")).catch(() => null);
+  return stringValue(config?.exists() ? (config.data() as Record<string, unknown>).dailyTemplateId : "");
+}
+
 async function loadSubmittedStatus(uid: string): Promise<SubmittedStatus> {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1444,12 +1470,14 @@ function shouldPreferTemplate(candidate: FormTemplateRecord, existing: FormTempl
   return (candidate.updatedAt?.getTime() ?? 0) > (existing.updatedAt?.getTime() ?? 0);
 }
 
-function templateSort(a: FormTemplateRecord, b: FormTemplateRecord, category: Category) {
+function templateSort(a: FormTemplateRecord, b: FormTemplateRecord, category: Category, classReportTemplateId: string) {
   if (category === "teaching") {
     const order: Record<Frequency, number> = { perSession: 0, weekly: 1, monthly: 2, onDemand: 3 };
-    return order[a.frequency] - order[b.frequency];
+    const byFrequency = order[a.frequency] - order[b.frequency];
+    if (byFrequency !== 0) return byFrequency;
+    if (a.id === classReportTemplateId || b.id === classReportTemplateId) return a.id === classReportTemplateId ? -1 : 1;
   }
-  return a.name.localeCompare(b.name);
+  return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 }
 
 function normalizeRole(role: string) {
@@ -1529,15 +1557,17 @@ function normalizeFields(value: unknown): TemplateField[] {
   return entries
     .map(([id, item], index) => {
       const data = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      return field(
+      const normalized = field(
         id,
         stringValue(data.label) || stringValue(data.name) || "Untitled Field",
         normalizeFieldType(stringValue(data.type)),
-        numberValue(data.order) || index,
+        storedOrder(data.order) ?? index,
         data.required === true,
         stringValue(data.placeholder),
         stringArray(data.options),
       );
+      if (data.conditionalLogic !== undefined && data.conditionalLogic !== null) normalized.conditionalLogic = data.conditionalLogic;
+      return normalized;
     })
     .sort((a, b) => a.order - b.order);
 }
@@ -1591,28 +1621,15 @@ function stringValue(value: unknown) {
 
 async function loadRecentTeacherShifts(uid: string): Promise<ShiftOption[]> {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const snapshots = await Promise.all(
-    ["teacher_id", "teacherId"].map((teacherField) =>
-      getDocs(
-        query(
-          collection(db, "teaching_shifts"),
-          where(teacherField, "==", uid),
-          where("shift_start", ">=", Timestamp.fromDate(startOfMonth)),
-          where("shift_start", "<", Timestamp.fromDate(startNextMonth)),
-          limit(100),
-        ),
-      ).catch(() => null),
-    ),
-  );
+  // The same rolling window the dashboard lists pending reports from, so every
+  // class it sends here can be opened.
+  const shiftDocs = await fetchTeacherShiftDocs(uid, { daysBack: CLASS_REPORT_WINDOW_DAYS, daysForward: 0 });
 
   const byId = new Map<string, ShiftOption>();
   // The shift document already names its own report, so keep it while we are
   // here rather than re-reading every shift one at a time later.
   const linkedResponseIds = new Map<string, string>();
-  snapshots
-    .flatMap((snap) => snap?.docs ?? [])
+  shiftDocs
     .map((docSnap) => {
       const data = docSnap.data() as Record<string, unknown>;
       const linked = stringValue(data.form_response_id ?? data.formResponseId);
@@ -1622,8 +1639,7 @@ async function loadRecentTeacherShifts(uid: string): Promise<ShiftOption[]> {
       const status = stringValue(data.status) || "scheduled";
       if (!start || !end) return null;
       const normalizedStatus = normalizeShiftStatus(status);
-      const allowed = ["completed", "fullyCompleted", "partiallyCompleted", "missed"].includes(normalizedStatus);
-      if (!allowed || start >= now || end >= now) return null;
+      if (!isClassReportEligible({ start, end, status }, now)) return null;
       const names = stringArray(data.student_names ?? data.studentNames);
       const subject = stringValue(data.subject_display_name ?? data.subjectDisplayName ?? data.subject) || "Unknown Subject";
       return {
@@ -1814,40 +1830,27 @@ async function loadExistingSubmission(formResponseId: string): Promise<ExistingS
   const data = responseDoc.data() as Record<string, unknown>;
   const rawResponses = data.responses && typeof data.responses === "object" ? (data.responses as Record<string, unknown>) : {};
   const formId = stringValue(data.formId ?? data.form_id ?? data.templateId ?? data.formTemplateId);
+  const layout = formId ? await loadFieldLayoutForForm(formId) : { labels: {}, order: {} };
   return {
     id: responseDoc.id,
     formTitle: stringValue(data.formTitle ?? data.formName ?? data.title) || "Submitted Form",
     submittedAt: dateValue(data.submittedAt ?? data.submitted_at),
     responses: rawResponses,
-    fieldLabels: formId ? await loadFieldLabelsForForm(formId) : {},
+    fieldLabels: layout.labels,
+    fieldOrder: layout.order,
   };
 }
 
-async function loadFieldLabelsForForm(formId: string): Promise<Record<string, string>> {
+async function loadFieldLayoutForForm(formId: string) {
   const template = await getDoc(doc(db, "form_templates", formId)).catch(() => null);
   if (template?.exists()) {
-    return buildFieldLabels((template.data() as Record<string, unknown>).fields);
+    return buildFieldLayout((template.data() as Record<string, unknown>).fields);
   }
   const legacy = await getDoc(doc(db, "form", formId)).catch(() => null);
   if (legacy?.exists()) {
-    return buildFieldLabels((legacy.data() as Record<string, unknown>).fields);
+    return buildFieldLayout((legacy.data() as Record<string, unknown>).fields);
   }
-  return {};
-}
-
-function buildFieldLabels(value: unknown): Record<string, string> {
-  const entries: Array<[string, unknown]> = Array.isArray(value)
-    ? value.map((item, index) => [stringValue((item as Record<string, unknown>)?.id) || `field_${index}`, item])
-    : value && typeof value === "object"
-      ? Object.entries(value as Record<string, unknown>)
-      : [];
-
-  return entries.reduce<Record<string, string>>((acc, [id, item]) => {
-    const data = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-    const label = stringValue(data.label ?? data.name);
-    if (id && label) acc[id] = label;
-    return acc;
-  }, {});
+  return { labels: {}, order: {} };
 }
 
 async function linkFormResponseToShiftAndTimesheet(shift: ShiftOption, formResponseId: string) {

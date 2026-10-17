@@ -18428,4 +18428,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String connectionOverviewClasses(int count) {
     return '$count classes';
   }
+
+  @override
+  String get formConditionShowOnlyIf => 'Show only if';
+
+  @override
+  String get formConditionHideIf => 'Hide if';
+
+  @override
+  String get formConditionAlwaysShow => 'Always show';
+
+  @override
+  String get formConditionEquals => 'is';
+
+  @override
+  String get formConditionNotEquals => 'is not';
+
+  @override
+  String get formConditionContains => 'contains';
+
+  @override
+  String get formConditionContainsAny => 'includes any of';
+
+  @override
+  String get formConditionContainsAll => 'includes all of';
+
+  @override
+  String get formConditionContainsExactly => 'is exactly';
+
+  @override
+  String get formConditionIsAnswered => 'is answered';
+
+  @override
+  String get formConditionIsNotAnswered => 'is not answered';
+
+  @override
+  String get formConditionValueHint => 'Answer';
+
+  @override
+  String get formConditionPickAnswer => 'Pick an answer';
+
+  @override
+  String formConditionIncomplete(int number) {
+    return 'Question $number has a \"Show only if\" rule with no answer to compare. Pick one or choose \"Always show\".';
+  }
 }

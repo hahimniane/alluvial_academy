@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/form_audience.dart';
+
 /// Form frequency types
 enum FormFrequency {
   perSession, // Daily Class Report - filled after each session
@@ -358,16 +360,9 @@ class FormTemplate {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdBy: data['createdBy'] as String?,
       subjectId: data['subjectId'] as String?,
-      allowedRoles: _toStringList(data['allowedRoles']),
+      allowedRoles: FormAudience.parse(data),
       themeColor: data['themeColor'] as String?,
     );
-  }
-
-  static List<String>? _toStringList(dynamic v) {
-    if (v == null) return null;
-    if (v is List) return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
-    if (v is Map) return v.values.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
-    return null;
   }
 
   FormTemplate copyWith({

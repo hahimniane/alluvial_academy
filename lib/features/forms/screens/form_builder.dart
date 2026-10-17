@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
+import 'package:alluwalacademyadmin/features/forms/models/question_condition.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -125,6 +126,8 @@ class FormQuestion {
   int order;
   /// Body text for a title block, or the media URL for an image/video block.
   String content;
+  /// "Show only if" rule, saved as the field's `conditionalLogic`.
+  QuestionCondition? condition;
 
   FormQuestion({
     required this.id,
@@ -138,6 +141,7 @@ class FormQuestion {
     this.scaleLabelMax = '',
     this.content = '',
     this.order = 0,
+    this.condition,
   }) {
     if (options.isEmpty) {
       this.options = ['Option 1'];
@@ -170,7 +174,9 @@ class FormQuestion {
         'max': scaleLabelMax,
       };
     }
-    
+
+    if (condition != null) data['conditionalLogic'] = condition!.toFirestore();
+
     return data;
   }
 
@@ -191,6 +197,7 @@ class FormQuestion {
       content: kDisplayOnlyTypes.contains(type)
           ? (data['placeholder'] as String? ?? '')
           : '',
+      condition: QuestionCondition.fromFirestore(data['conditionalLogic']),
     );
   }
 }
@@ -323,6 +330,8 @@ class _FormBuilderState extends State<FormBuilder> {
                   QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'))
               ? (fieldData['placeholder'] as String? ?? '')
               : '',
+          condition:
+              QuestionCondition.fromFirestore(fieldData['conditionalLogic']),
         );
       }).toList();
     } else {
@@ -717,6 +726,7 @@ class _FormBuilderState extends State<FormBuilder> {
         return _QuestionCard(
           key: ValueKey(_questions[index].id),
           question: _questions[index],
+          allQuestions: _questions,
           index: index,
           themeColor: themeColor,
           isActive: isActive,
@@ -822,6 +832,7 @@ class _FormBuilderState extends State<FormBuilder> {
         scaleMax: original.scaleMax,
         scaleLabelMin: original.scaleLabelMin,
         scaleLabelMax: original.scaleLabelMax,
+        condition: original.condition?.copy(),
       );
       _questions.insert(index + 1, copy);
       _focusedQuestionIndex = index + 1;
@@ -848,6 +859,22 @@ class _FormBuilderState extends State<FormBuilder> {
         SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
       );
       return;
+    }
+
+    for (var i = 0; i < _questions.length; i++) {
+      final condition = _questions[i].condition;
+      if (condition != null &&
+          _conditionParentExists(_questions[i]) &&
+          !condition.isComplete) {
+        setState(() => _focusedQuestionIndex = i);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                AppLocalizations.of(context)!.formConditionIncomplete(i + 1)),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -884,6 +911,10 @@ class _FormBuilderState extends State<FormBuilder> {
           validation: validation,
           // Display blocks carry their body text / media URL here.
           placeholder: isDisplayBlock ? q.content : q.title,
+          // A rule pointing at a deleted question would hide this one forever.
+          conditionalLogic: q.condition != null && _conditionParentExists(q)
+              ? q.condition!.toFirestore()
+              : null,
         ));
       }
 
@@ -948,6 +979,12 @@ class _FormBuilderState extends State<FormBuilder> {
     }
   }
 
+  bool _conditionParentExists(FormQuestion question) {
+    final parentId = question.condition?.dependsOnFieldId;
+    if (parentId == null || parentId == question.id) return false;
+    return _questions.any((q) => q.id == parentId);
+  }
+
   Future<void> _handleBack() async {
     if (_hasUnsavedChanges) {
       final shouldLeave = await showDialog<bool>(
@@ -1010,6 +1047,7 @@ class _SidebarItem extends StatelessWidget {
 
 class _QuestionCard extends StatefulWidget {
   final FormQuestion question;
+  final List<FormQuestion> allQuestions;
   final int index;
   final Color themeColor;
   final bool isActive;
@@ -1021,6 +1059,7 @@ class _QuestionCard extends StatefulWidget {
   const _QuestionCard({
     required Key key,
     required this.question,
+    required this.allQuestions,
     required this.index,
     required this.themeColor,
     required this.isActive,
@@ -1136,6 +1175,25 @@ class _QuestionCardState extends State<_QuestionCard> {
               Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 16)),
           ],
         ),
+        if (_conditionParent != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.call_split, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${widget.question.condition!.isVisible ? AppLocalizations.of(context)!.formConditionShowOnlyIf : AppLocalizations.of(context)!.formConditionHideIf}: '
+                  '${_questionLabel(_conditionParent!)}',
+                  style: GoogleFonts.roboto(
+                      fontSize: 12, color: Colors.grey[700]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         // Aperçu statique du champ
         IgnorePointer(
@@ -1252,6 +1310,8 @@ class _QuestionCardState extends State<_QuestionCard> {
         // Zone de contenu dynamique selon le type
         _buildEditorContent(),
 
+        _buildConditionEditor(),
+
         const SizedBox(height: 24),
         const Divider(height: 1),
         const SizedBox(height: 8),
@@ -1292,6 +1352,317 @@ class _QuestionCardState extends State<_QuestionCard> {
                     ],
                   ),
                 ],
+    );
+  }
+
+  // --- "SHOW ONLY IF" ---
+
+  FormQuestion? get _conditionParent {
+    final id = widget.question.condition?.dependsOnFieldId;
+    if (id == null) return null;
+    for (final q in widget.allQuestions) {
+      if (q.id == id && q.id != widget.question.id) return q;
+    }
+    return null;
+  }
+
+  String _questionLabel(FormQuestion question) {
+    final number = widget.allQuestions.indexOf(question) + 1;
+    final title = question.title.trim().isEmpty
+        ? AppLocalizations.of(context)!.formQuestion
+        : question.title.trim();
+    return '$number. $title';
+  }
+
+  /// Earlier questions that collect an answer, plus the current parent if a
+  /// reorder has moved it below this one.
+  List<FormQuestion> get _conditionCandidates {
+    final candidates = widget.allQuestions
+        .take(widget.index)
+        .where((q) => !kDisplayOnlyTypes.contains(q.type))
+        .toList();
+    final parent = _conditionParent;
+    if (parent != null && !candidates.contains(parent)) candidates.add(parent);
+    return candidates;
+  }
+
+  static bool _isMultiSelect(FormQuestion question) =>
+      question.type == QuestionType.checkboxes;
+
+  static bool _hasOptions(FormQuestion question) =>
+      question.type == QuestionType.multipleChoice ||
+      question.type == QuestionType.dropdown ||
+      question.type == QuestionType.checkboxes;
+
+  List<String> _conditionsFor(FormQuestion parent) {
+    switch (parent.type) {
+      case QuestionType.multipleChoice:
+      case QuestionType.dropdown:
+        return const [
+          QuestionCondition.equals,
+          QuestionCondition.notEquals,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+      case QuestionType.checkboxes:
+        return const [
+          QuestionCondition.contains,
+          QuestionCondition.containsAll,
+          QuestionCondition.containsExactly,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+      case QuestionType.fileUpload:
+        return const [QuestionCondition.isNotEmpty, QuestionCondition.isEmpty];
+      default:
+        return const [
+          QuestionCondition.equals,
+          QuestionCondition.notEquals,
+          QuestionCondition.contains,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+    }
+  }
+
+  String _conditionLabel(String condition, {required bool multiSelect}) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (condition) {
+      case QuestionCondition.equals:
+        return l10n.formConditionEquals;
+      case QuestionCondition.notEquals:
+        return l10n.formConditionNotEquals;
+      case QuestionCondition.contains:
+        return multiSelect
+            ? l10n.formConditionContainsAny
+            : l10n.formConditionContains;
+      case QuestionCondition.containsAll:
+        return l10n.formConditionContainsAll;
+      case QuestionCondition.containsExactly:
+        return l10n.formConditionContainsExactly;
+      case QuestionCondition.isEmpty:
+        return l10n.formConditionIsNotAnswered;
+      case QuestionCondition.isNotEmpty:
+        return l10n.formConditionIsAnswered;
+      default:
+        return condition;
+    }
+  }
+
+  void _setConditionParent(String? parentId) {
+    setState(() {
+      if (parentId == null) {
+        widget.question.condition = null;
+      } else {
+        final parent =
+            widget.allQuestions.firstWhere((q) => q.id == parentId);
+        widget.question.condition = QuestionCondition(
+          dependsOnFieldId: parentId,
+          condition: _conditionsFor(parent).first,
+          isVisible: widget.question.condition?.isVisible ?? true,
+        );
+      }
+      widget.onChanged();
+    });
+  }
+
+  void _setConditionKind(String kind, FormQuestion parent) {
+    final condition = widget.question.condition;
+    if (condition == null) return;
+    setState(() {
+      final multi = _isMultiSelect(parent);
+      final wasList = QuestionCondition.usesExpectedValues(condition.condition,
+          multiSelect: multi);
+      final isList =
+          QuestionCondition.usesExpectedValues(kind, multiSelect: multi);
+      condition.condition = kind;
+      if (!QuestionCondition.needsValue(kind)) {
+        condition.expectedValue = null;
+        condition.expectedValues = null;
+      } else if (isList && !wasList) {
+        condition.expectedValues =
+            condition.expectedValue == null ? [] : [condition.expectedValue];
+        condition.expectedValue = null;
+      } else if (!isList && wasList) {
+        final values = condition.expectedValues;
+        condition.expectedValue =
+            values != null && values.isNotEmpty ? values.first : null;
+        condition.expectedValues = null;
+      }
+      widget.onChanged();
+    });
+  }
+
+  Widget _compactDropdown<T>({
+    required double width,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    Widget? hint,
+  }) {
+    return Container(
+      width: width,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          hint: hint,
+          style: GoogleFonts.roboto(fontSize: 13, color: Colors.black87),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionEditor() {
+    final l10n = AppLocalizations.of(context)!;
+    final candidates = _conditionCandidates;
+    final condition = widget.question.condition;
+    final parent = _conditionParent;
+    if (candidates.isEmpty && condition == null) return const SizedBox.shrink();
+
+    final kinds = parent == null ? const <String>[] : _conditionsFor(parent);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Icon(Icons.call_split, size: 18, color: Colors.grey[700]),
+          Text(
+            condition != null && !condition.isVisible
+                ? l10n.formConditionHideIf
+                : l10n.formConditionShowOnlyIf,
+            style: GoogleFonts.roboto(fontSize: 13, color: Colors.grey[800]),
+          ),
+          _compactDropdown<String?>(
+            width: 240,
+            value: parent?.id,
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(l10n.formConditionAlwaysShow,
+                    overflow: TextOverflow.ellipsis),
+              ),
+              ...candidates.map((q) => DropdownMenuItem<String?>(
+                    value: q.id,
+                    child: Text(_questionLabel(q),
+                        overflow: TextOverflow.ellipsis),
+                  )),
+            ],
+            onChanged: _setConditionParent,
+          ),
+          if (condition != null && parent != null) ...[
+            _compactDropdown<String>(
+              width: 170,
+              value: condition.condition,
+              items: [
+                ...kinds,
+                if (!kinds.contains(condition.condition)) condition.condition,
+              ]
+                  .map((kind) => DropdownMenuItem<String>(
+                        value: kind,
+                        child: Text(
+                          _conditionLabel(kind,
+                              multiSelect: _isMultiSelect(parent)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (kind) {
+                if (kind != null) _setConditionKind(kind, parent);
+              },
+            ),
+            if (QuestionCondition.needsValue(condition.condition))
+              _buildConditionValue(condition, parent),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConditionValue(QuestionCondition condition, FormQuestion parent) {
+    final l10n = AppLocalizations.of(context)!;
+    if (QuestionCondition.usesExpectedValues(condition.condition,
+        multiSelect: _isMultiSelect(parent))) {
+      final picked = condition.expectedValues ?? const [];
+      final options = <String>[
+        ...parent.options,
+        ...picked
+            .map((v) => v.toString())
+            .where((v) => !parent.options.contains(v)),
+      ];
+      return Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: options.map((option) {
+          final selected = picked.contains(option);
+          return FilterChip(
+            label: Text(option, style: GoogleFonts.roboto(fontSize: 12)),
+            selected: selected,
+            onSelected: (on) => setState(() {
+              final next = List<dynamic>.of(picked)..remove(option);
+              if (on) next.add(option);
+              condition.expectedValues = next;
+              widget.onChanged();
+            }),
+          );
+        }).toList(),
+      );
+    }
+
+    if (_hasOptions(parent)) {
+      final current = condition.expectedValue?.toString();
+      final options = <String>[
+        ...parent.options,
+        if (current != null && !parent.options.contains(current)) current,
+      ];
+      return _compactDropdown<String>(
+        width: 200,
+        value: current,
+        hint: Text(l10n.formConditionPickAnswer,
+            overflow: TextOverflow.ellipsis),
+        items: options
+            .map((option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option, overflow: TextOverflow.ellipsis),
+                ))
+            .toList(),
+        onChanged: (value) => setState(() {
+          condition.expectedValue = value;
+          widget.onChanged();
+        }),
+      );
+    }
+
+    return SizedBox(
+      width: 200,
+      height: 40,
+      child: TextFormField(
+        key: ValueKey('condition_${parent.id}_${condition.condition}'),
+        initialValue: condition.expectedValue?.toString() ?? '',
+        style: GoogleFonts.roboto(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: l10n.formConditionValueHint,
+          isDense: true,
+          border: const OutlineInputBorder(),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        ),
+        onChanged: (value) {
+          condition.expectedValue = value;
+          widget.onChanged();
+        },
+      ),
     );
   }
 

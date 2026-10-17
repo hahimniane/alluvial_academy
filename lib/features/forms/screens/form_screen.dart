@@ -4140,6 +4140,17 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return isVisible ? conditionMet : !conditionMet;
   }
 
+  /// Same verdict the form shows: a field whose rule cannot be evaluated is
+  /// skipped on screen ([_getVisibleFields]) and so is not submitted either.
+  bool _isShownForSubmit(String fieldId, dynamic fieldData) {
+    if (fieldData is! Map<String, dynamic>) return true;
+    try {
+      return _shouldShowField(fieldId, fieldData);
+    } catch (_) {
+      return false;
+    }
+  }
+
   // Get the current value of a field (from controller or fieldValues)
   dynamic _getCurrentFieldValue(String fieldId) {
     // Check if it's stored in fieldValues (for multi-select, boolean, etc.)
@@ -4593,12 +4604,22 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             e.key,
       };
 
+      // A question hidden by its "show only if" rule is not part of this
+      // submission, so its answer (and any file picked for it) is not sent.
+      final hiddenFieldIds = <String>{
+        for (final e in runtimeFields.entries)
+          if (!_isShownForSubmit(e.key, e.value)) e.key,
+      };
+
       // Process each field and upload images to Firebase Storage
       for (var entry in fieldControllers.entries) {
         final fieldId = entry.key;
         final controller = entry.value;
 
-        if (displayOnlyFieldIds.contains(fieldId)) continue;
+        if (displayOnlyFieldIds.contains(fieldId) ||
+            hiddenFieldIds.contains(fieldId)) {
+          continue;
+        }
 
         AppLogger.debug('Processing field: $fieldId');
 
