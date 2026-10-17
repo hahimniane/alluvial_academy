@@ -8391,5 +8391,66 @@
         "type": "int"
       }
     }
+  },
+  "formConditionShowOnlyIf": "Show only if",
+  "@formConditionShowOnlyIf": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionHideIf": "Hide if",
+  "@formConditionHideIf": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionAlwaysShow": "Always show",
+  "@formConditionAlwaysShow": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionEquals": "is",
+  "@formConditionEquals": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionNotEquals": "is not",
+  "@formConditionNotEquals": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionContains": "contains",
+  "@formConditionContains": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionContainsAny": "includes any of",
+  "@formConditionContainsAny": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionContainsAll": "includes all of",
+  "@formConditionContainsAll": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionContainsExactly": "is exactly",
+  "@formConditionContainsExactly": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionIsAnswered": "is answered",
+  "@formConditionIsAnswered": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionIsNotAnswered": "is not answered",
+  "@formConditionIsNotAnswered": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionValueHint": "Answer",
+  "@formConditionValueHint": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionPickAnswer": "Pick an answer",
+  "@formConditionPickAnswer": {
+    "description": "Form builder: conditional question rule"
+  },
+  "formConditionIncomplete": "Question {number} has a \"Show only if\" rule with no answer to compare. Pick one or choose \"Always show\".",
+  "@formConditionIncomplete": {
+    "description": "Form builder: conditional question rule",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
   }
 }

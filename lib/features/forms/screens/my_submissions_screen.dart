@@ -8,6 +8,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../utils/form_answer_order.dart';
 import '../utils/form_response_owner_queries.dart';
 import '../utils/form_review_status.dart';
 import '../utils/form_submission_view_mode.dart';
@@ -834,6 +835,7 @@ class _SubmissionDetailView extends StatefulWidget {
 
 class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
   Map<String, String> _fieldLabels = {};
+  Map<String, int> _fieldOrder = const {};
   bool _isLoadingLabels = true;
 
   @override
@@ -849,8 +851,10 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
       AppLogger.debug(
           'Loading form labels for submission: ${widget.submissionId}');
 
-      final labels = await FormLabelsCacheService()
-          .getLabelsForFormResponse(widget.submissionId);
+      final cache = FormLabelsCacheService();
+      final labels = await cache.getLabelsForFormResponse(widget.submissionId);
+      final order =
+          await cache.getFieldOrderForFormResponse(widget.submissionId);
 
       AppLogger.debug(
           'Loaded ${labels.length} field labels for submission ${widget.submissionId}');
@@ -858,6 +862,7 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
       if (mounted) {
         setState(() {
           _fieldLabels = labels;
+          _fieldOrder = order;
           _isLoadingLabels = false;
         });
       }
@@ -873,6 +878,8 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
   @override
   Widget build(BuildContext context) {
     final responses = widget.data['responses'] as Map<String, dynamic>? ?? {};
+    final orderedResponses =
+        FormAnswerOrder.orderEntries(responses, _fieldOrder);
     final submittedAt = (widget.data['submittedAt'] as Timestamp?)?.toDate();
 
     return DraggableScrollableSheet(
@@ -1033,7 +1040,7 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: 16),
                             itemBuilder: (context, index) {
-                              final entry = responses.entries.elementAt(index);
+                              final entry = orderedResponses[index];
                               final fieldId = entry.key;
                               final fieldLabel =
                                   _fieldLabels[fieldId] ?? fieldId;

@@ -2,7 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {onCall} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
-const {onDocumentDeleted} = require('firebase-functions/v2/firestore');
+const {onDocumentDeleted, onDocumentDeletedWithAuthContext} = require('firebase-functions/v2/firestore');
 const {DateTime} = require('luxon');
 const {isDeepStrictEqual} = require('util');
 
@@ -1143,6 +1143,65 @@ const excludeShiftTemplateDate = onCall(async (request) => {
   return {templateId, excluded_date: excluded.toDate().toISOString().slice(0, 10)};
 });
 
+const _isTechnicalActor = (value) => {
+  const normalized = (value || '').toString().trim().toLowerCase();
+  return normalized === 'system' ||
+    normalized === 'automation' ||
+    normalized.endsWith('.gserviceaccount.com') ||
+    normalized.includes('firebase-adminsdk') ||
+    normalized.includes('compute@developer');
+};
+
+/**
+ * The date to exclude from a template when a person deletes one of its
+ * upcoming classes, or null when nothing should change.
+ *
+ * Keeping a deleted class deleted used to depend on the app calling
+ * excludeShiftTemplateDate first. An app that skipped it (an old mobile build
+ * or a cached web bundle) left the date in the series, and the nightly
+ * generator recreated the class — 8 Wednesday classes deleted on 2026-10-13
+ * were back the next morning. Deletes done by our own server code (template
+ * edits, archival) are not a person's decision and are ignored.
+ */
+const _exclusionForDeletedShift = ({shift, template, authType, authId, now = new Date()}) => {
+  if (!shift || shift.generated_from_template !== true) return null;
+  const templateId = (shift.template_id || '').toString().trim();
+  if (!templateId) return null;
+  if ((shift.status || '').toString().trim().toLowerCase() !== 'scheduled') return null;
+  const type = (authType || '').toString().trim().toLowerCase();
+  if (!authId || type === 'system' || type === 'service_account' || _isTechnicalActor(authId)) return null;
+  const start = _toJsDate(shift.shift_start);
+  if (!start || start.getTime() <= now.getTime()) return null;
+  if (!template || template.is_active === false) return null;
+  const timezone = _normalizeTimezone(template.admin_timezone || 'UTC');
+  const day = DateTime.fromJSDate(start, {zone: timezone}).startOf('day');
+  return {templateId, excludedDay: day.toJSDate()};
+};
+
+const onGeneratedShiftDeleted = onDocumentDeletedWithAuthContext('teaching_shifts/{shiftId}', async (event) => {
+  if (!_isTemplatesEnabledProject()) return;
+  const shift = event.data?.data ? event.data.data() : null;
+  const templateId = (shift?.template_id || '').toString().trim();
+  if (!templateId || shift?.generated_from_template !== true) return;
+  const templateRef = admin.firestore().collection(TEMPLATE_COLLECTION).doc(templateId);
+  const templateSnap = await templateRef.get();
+  const exclusion = _exclusionForDeletedShift({
+    shift,
+    template: templateSnap.exists ? templateSnap.data() : null,
+    authType: event.authType,
+    authId: event.authId,
+  });
+  if (!exclusion) return;
+  const excluded = admin.firestore.Timestamp.fromDate(exclusion.excludedDay);
+  // update(), not set({merge:true}): the merge form silently drops nested arrayUnion.
+  await templateRef.update({
+    'enhanced_recurrence.excludedDates': admin.firestore.FieldValue.arrayUnion(excluded),
+    last_modified: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  console.log(`[shift_templates] ${event.params.shiftId} deleted by ${event.authId}; ` +
+    `excluded ${exclusion.excludedDay.toISOString().slice(0, 10)} from ${templateId}`);
+});
+
 const onTeacherDeleted = onDocumentDeleted('users/{userId}', async (event) => {
   if (!_isTemplatesEnabledProject()) return;
 
@@ -1187,7 +1246,8 @@ const onTeacherDeleted = onDocumentDeleted('users/{userId}', async (event) => {
 });
 
 module.exports = {
-  __test__: {_isDayPaused, _matchesRecurrence, _cleanupCandidateFilter},
+  __test__: {_isDayPaused, _matchesRecurrence, _cleanupCandidateFilter, _exclusionForDeletedShift},
+  onGeneratedShiftDeleted,
   generateDailyShifts,
   createShiftTemplate,
   generateShiftsForTemplateCallable,

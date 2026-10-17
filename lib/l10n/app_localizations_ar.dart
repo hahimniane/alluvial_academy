@@ -18376,4 +18376,48 @@ class AppLocalizationsAr extends AppLocalizations {
   String connectionOverviewClasses(int count) {
     return '$count classes';
   }
+
+  @override
+  String get formConditionShowOnlyIf => 'إظهار فقط إذا';
+
+  @override
+  String get formConditionHideIf => 'إخفاء إذا';
+
+  @override
+  String get formConditionAlwaysShow => 'إظهار دائمًا';
+
+  @override
+  String get formConditionEquals => 'يساوي';
+
+  @override
+  String get formConditionNotEquals => 'لا يساوي';
+
+  @override
+  String get formConditionContains => 'يحتوي على';
+
+  @override
+  String get formConditionContainsAny => 'يتضمن أيًّا من';
+
+  @override
+  String get formConditionContainsAll => 'يتضمن كل';
+
+  @override
+  String get formConditionContainsExactly => 'هو بالضبط';
+
+  @override
+  String get formConditionIsAnswered => 'تمت الإجابة عليه';
+
+  @override
+  String get formConditionIsNotAnswered => 'لم تتم الإجابة عليه';
+
+  @override
+  String get formConditionValueHint => 'الإجابة';
+
+  @override
+  String get formConditionPickAnswer => 'اختر إجابة';
+
+  @override
+  String formConditionIncomplete(int number) {
+    return 'السؤال $number يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا».';
+  }
 }

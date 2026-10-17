@@ -6769,5 +6769,19 @@
   "publicSiteCmsTestimonialReplacePhoto": "استبدال الصورة",
   "publicSiteCmsTestimonialRemovePhoto": "إزالة الصورة",
   "publicSiteCmsTestimonialPhotoHint": "تُعرض كصورة دائرية بجانب الاسم. بدون صورة تظهر الأحرف الأولى.",
-  "publicSiteCmsTestimonialDeleted": "تم حذف الشهادة."
+  "publicSiteCmsTestimonialDeleted": "تم حذف الشهادة.",
+  "formConditionShowOnlyIf": "إظهار فقط إذا",
+  "formConditionHideIf": "إخفاء إذا",
+  "formConditionAlwaysShow": "إظهار دائمًا",
+  "formConditionEquals": "يساوي",
+  "formConditionNotEquals": "لا يساوي",
+  "formConditionContains": "يحتوي على",
+  "formConditionContainsAny": "يتضمن أيًّا من",
+  "formConditionContainsAll": "يتضمن كل",
+  "formConditionContainsExactly": "هو بالضبط",
+  "formConditionIsAnswered": "تمت الإجابة عليه",
+  "formConditionIsNotAnswered": "لم تتم الإجابة عليه",
+  "formConditionValueHint": "الإجابة",
+  "formConditionPickAnswer": "اختر إجابة",
+  "formConditionIncomplete": "السؤال {number} يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا»."
 }
