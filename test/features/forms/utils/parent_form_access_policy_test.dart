@@ -120,7 +120,10 @@ void main() {
 
   group('FormAudience.parse', () {
     test('reads allowedRoles as a list, a map of flags, a map or a string', () {
-      expect(FormAudience.parse({'allowedRoles': ['admin', 'parent']}),
+      expect(
+          FormAudience.parse({
+            'allowedRoles': ['admin', 'parent']
+          }),
           ['admin', 'parent']);
       expect(
           FormAudience.parse({
@@ -137,7 +140,11 @@ void main() {
     });
 
     test('falls back to audience, targetRoles and legacy permissions', () {
-      expect(FormAudience.parse({'audience': ['Parent']}), ['Parent']);
+      expect(
+          FormAudience.parse({
+            'audience': ['Parent']
+          }),
+          ['Parent']);
       expect(FormAudience.parse({'targetRoles': 'parents'}), ['parents']);
       expect(
           FormAudience.parse({

@@ -217,8 +217,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         // An unknown role is now treated as the least privileged one, so a
         // form is only shown when it explicitly allows that role.
         if (!widget.parentOnly) {
-          final userRoleLower =
-              _userRole == null ? '__unknown__' : _normalizeRoleName(_userRole!);
+          final userRoleLower = _userRole == null
+              ? '__unknown__'
+              : _normalizeRoleName(_userRole!);
 
           // Admins and coaches can see all forms
           if (userRoleLower == 'admin' || userRoleLower == 'coach') {
@@ -497,21 +498,22 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           child: _isLoading
               ? _buildLoadingState()
               : RefreshIndicator(
-              onRefresh: () => _loadAllData(forceTemplateRefresh: true),
-              color: const Color(0xFF6366F1),
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  _buildSliverAppBar(),
-                  _buildSearchSliver(),
-                  if (_errorMessage != null)
-                    SliverFillRemaining(child: _buildErrorState())
-                  else
-                    _buildSliverList(),
-                  // Padding final pour éviter que le dernier item soit caché par la navigation
-                  const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-                ],
-              ),
+                  onRefresh: () => _loadAllData(forceTemplateRefresh: true),
+                  color: const Color(0xFF6366F1),
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      _buildSliverAppBar(),
+                      _buildSearchSliver(),
+                      if (_errorMessage != null)
+                        SliverFillRemaining(child: _buildErrorState())
+                      else
+                        _buildSliverList(),
+                      // Padding final pour éviter que le dernier item soit caché par la navigation
+                      const SliverPadding(
+                          padding: EdgeInsets.only(bottom: 100)),
+                    ],
+                  ),
                 ),
         ),
       ),
@@ -1677,7 +1679,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 'shift_start',
                 isGreaterThanOrEqualTo: Timestamp.fromDate(windowStart),
               )
-              .where('shift_start', isLessThanOrEqualTo: Timestamp.fromDate(now))
+              .where('shift_start',
+                  isLessThanOrEqualTo: Timestamp.fromDate(now))
               .orderBy('shift_start')
               .get()
               .then((snapshot) => snapshot.docs)

@@ -6,7 +6,8 @@ import '../utils/form_answer_order.dart';
 /// Service to cache form field labels for fast retrieval
 /// This prevents multiple Firestore queries for the same form template
 class FormLabelsCacheService {
-  static final FormLabelsCacheService _instance = FormLabelsCacheService._internal();
+  static final FormLabelsCacheService _instance =
+      FormLabelsCacheService._internal();
   factory FormLabelsCacheService() => _instance;
   FormLabelsCacheService._internal();
 
@@ -94,7 +95,8 @@ class FormLabelsCacheService {
 
   void _putCache(String key, Map<String, String> labels) {
     // Evict oldest entries if at capacity
-    if (_labelsCache.length >= _maxCacheEntries && !_labelsCache.containsKey(key)) {
+    if (_labelsCache.length >= _maxCacheEntries &&
+        !_labelsCache.containsKey(key)) {
       final oldest = _labelsCacheTime.entries.reduce(
         (a, b) => a.value.isBefore(b.value) ? a : b,
       );
@@ -150,7 +152,8 @@ class FormLabelsCacheService {
 
           if (labels.isNotEmpty) {
             _putCache(formId, labels);
-            _orderCache[formId] = FormAnswerOrder.fieldOrder(formData['fields']);
+            _orderCache[formId] =
+                FormAnswerOrder.fieldOrder(formData['fields']);
             debugPrint('✅ Cached ${labels.length} labels for form $formId');
             return labels;
           }
@@ -180,10 +183,8 @@ class FormLabelsCacheService {
   Future<Map<String, String>> _loadLabelsForTemplate(
       String templateId, String cacheKey) async {
     try {
-      final templateDoc = await _firestore
-          .collection('form_templates')
-          .doc(templateId)
-          .get();
+      final templateDoc =
+          await _firestore.collection('form_templates').doc(templateId).get();
 
       if (templateDoc.exists) {
         final raw = templateDoc.data();
@@ -194,7 +195,8 @@ class FormLabelsCacheService {
           if (labels.isNotEmpty) {
             _putCache(cacheKey, labels);
             _orderCache[cacheKey] = FormAnswerOrder.fieldOrder(fields);
-            debugPrint('✅ Cached ${labels.length} labels for template $templateId');
+            debugPrint(
+                '✅ Cached ${labels.length} labels for template $templateId');
             return labels;
           }
         }

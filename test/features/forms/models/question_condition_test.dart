@@ -58,8 +58,7 @@ void main() {
 
   test('a comparison with no answer to compare is incomplete', () {
     expect(
-      QuestionCondition(dependsOnFieldId: 'a', condition: 'equals')
-          .isComplete,
+      QuestionCondition(dependsOnFieldId: 'a', condition: 'equals').isComplete,
       isFalse,
     );
     expect(

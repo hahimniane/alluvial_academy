@@ -15,8 +15,7 @@ void main() {
     );
   }
 
-  test('an ended class is reportable whatever non-cancelled status it has',
-      () {
+  test('an ended class is reportable whatever non-cancelled status it has', () {
     for (final status in [
       'scheduled',
       'active',
@@ -32,7 +31,13 @@ void main() {
   });
 
   test('cancelled, deleted and voided classes are refused', () {
-    for (final status in ['cancelled', 'Canceled', 'deleted', 'void', 'voided']) {
+    for (final status in [
+      'cancelled',
+      'Canceled',
+      'deleted',
+      'void',
+      'voided'
+    ]) {
       expect(ClassReportEligibility.isCancelledStatus(status), isTrue,
           reason: status);
       expect(eligible(const Duration(hours: 3), status), isFalse,
@@ -50,8 +55,8 @@ void main() {
   test('the window is the last 60 days: 59 days in, 61 days out', () {
     expect(eligible(const Duration(days: 59), 'scheduled'), isTrue);
     expect(eligible(const Duration(days: 61), 'completed'), isFalse);
-    expect(ClassReportEligibility.windowStart(now),
-        DateTime.utc(2026, 8, 17, 15));
+    expect(
+        ClassReportEligibility.windowStart(now), DateTime.utc(2026, 8, 17, 15));
   });
 
   test('a class from last calendar month is still reportable', () {

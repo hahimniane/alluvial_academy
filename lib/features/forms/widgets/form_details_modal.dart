@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/features/forms/utils/form_answer_order.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -37,7 +37,8 @@ void _putShiftCache(String key, TeachingShift shift) {
 class FormDetailsModal {
   FormDetailsModal._(); // Private constructor to prevent instantiation
 
-  static void show(BuildContext context, {
+  static void show(
+    BuildContext context, {
     required String formId,
     required String shiftId,
     required Map<String, dynamic> responses,
@@ -57,11 +58,14 @@ class FormDetailsModal {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+                  border: Border(
+                      bottom:
+                          BorderSide(color: Colors.grey.shade200, width: 1)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.visibility, color: Colors.blue.shade700, size: 24),
+                    Icon(Icons.visibility,
+                        color: Colors.blue.shade700, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -103,6 +107,7 @@ class FormSubmissionDetailsView extends StatefulWidget {
   final String formId;
   final String shiftId;
   final Map<String, dynamic> responses;
+
   /// When provided (e.g. batched prefetch in admin review), skips shift read.
   final TeachingShift? initialShift;
 
@@ -119,7 +124,8 @@ class FormSubmissionDetailsView extends StatefulWidget {
   });
 
   @override
-  State<FormSubmissionDetailsView> createState() => _FormSubmissionDetailsViewState();
+  State<FormSubmissionDetailsView> createState() =>
+      _FormSubmissionDetailsViewState();
 }
 
 class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
@@ -251,7 +257,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
       return AppLocalizations.of(context)!.commonUnknown;
     }
     final date = DateTime(2020, 1, 6).add(Duration(days: weekday - 1));
-    return DateFormat.EEEE(AppLocalizations.of(context)!.localeName).format(date);
+    return DateFormat.EEEE(AppLocalizations.of(context)!.localeName)
+        .format(date);
   }
 
   String _getFieldLabel(String fieldId) {
@@ -274,7 +281,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
     return fieldId
         .replaceAll('_', ' ')
         .split(' ')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .map((word) =>
+            word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
         .join(' ');
   }
 
@@ -343,7 +351,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
                         'Students',
                         _shift!.studentNames.join(', '),
                       ),
-                    if (_shift!.subjectDisplayName != null && _shift!.subjectDisplayName!.isNotEmpty)
+                    if (_shift!.subjectDisplayName != null &&
+                        _shift!.subjectDisplayName!.isNotEmpty)
                       _buildShiftInfoRow(
                         'Subject',
                         _shift!.subjectDisplayName!,
@@ -354,7 +363,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
                     ),
                     Builder(
                       builder: (context) {
-                        final duration = _shift!.shiftEnd.difference(_shift!.shiftStart);
+                        final duration =
+                            _shift!.shiftEnd.difference(_shift!.shiftStart);
                         final hours = duration.inHours;
                         final minutes = duration.inMinutes % 60;
                         return _buildShiftInfoRow(

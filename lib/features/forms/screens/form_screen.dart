@@ -28,9 +28,9 @@ class FormScreen extends StatefulWidget {
   final String? timesheetId;
   final String? shiftId;
   final String?
-  autoSelectFormId; // Auto-select and open a specific form by ID (can be from 'form' or 'form_templates')
+      autoSelectFormId; // Auto-select and open a specific form by ID (can be from 'form' or 'form_templates')
   final FormTemplate?
-  template; // Direct template object (preferred for new templates)
+      template; // Direct template object (preferred for new templates)
 
   const FormScreen({
     super.key,
@@ -193,9 +193,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
-        final status = (formData['status'] ?? 'active')
-            .toString()
-            .toLowerCase();
+        final status =
+            (formData['status'] ?? 'active').toString().toLowerCase();
         if (status != 'active') {
           AppLogger.warning(
             'FormScreen: Blocked auto-select old form $formId because status=$status',
@@ -247,7 +246,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 content: Text(
                   AppLocalizations.of(
                     context,
-                  )!.formNotFoundIdFormidPlease(formId),
+                  )!
+                      .formNotFoundIdFormidPlease(formId),
                 ),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 5),
@@ -478,9 +478,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return false;
     }
 
-    final formTitle = (formData['title'] ?? 'Untitled Form')
-        .toString()
-        .toLowerCase();
+    final formTitle =
+        (formData['title'] ?? 'Untitled Form').toString().toLowerCase();
     final isTeacher = _currentUserRole?.toLowerCase() == 'teacher';
 
     // Admin-only form keywords (teachers should NOT see these)
@@ -724,7 +723,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             decoration: InputDecoration(
                               hintText: AppLocalizations.of(
                                 context,
-                              )!.searchActiveForms,
+                              )!
+                                  .searchActiveForms,
                               hintStyle: GoogleFonts.inter(
                                 color: const Color(0xff6B7280),
                                 fontSize: 14,
@@ -777,7 +777,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           return _buildErrorState(
                             AppLocalizations.of(
                               context,
-                            )!.formsErrorLoading(snapshot.error.toString()),
+                            )!
+                                .formsErrorLoading(snapshot.error.toString()),
                           );
                         }
 
@@ -928,7 +929,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 child: Text(
                                   AppLocalizations.of(
                                     context,
-                                  )!.pleaseSignInToViewForms,
+                                  )!
+                                      .pleaseSignInToViewForms,
                                 ),
                               );
                             }
@@ -936,13 +938,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             if (responsesSnapshot.hasError) {
                               // Handle permission errors gracefully
                               if (responsesSnapshot.error.toString().contains(
-                                'permission-denied',
-                              )) {
+                                    'permission-denied',
+                                  )) {
                                 return Center(
                                   child: Text(
                                     AppLocalizations.of(
                                       context,
-                                    )!.pleaseSignInToAccessForms,
+                                    )!
+                                        .pleaseSignInToAccessForms,
                                   ),
                                 );
                               }
@@ -950,7 +953,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 child: Text(
                                   AppLocalizations.of(
                                     context,
-                                  )!.commonErrorWithDetails(
+                                  )!
+                                      .commonErrorWithDetails(
                                     responsesSnapshot.error.toString(),
                                   ),
                                 ),
@@ -1150,15 +1154,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             // Forms list
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('form')
-                    .snapshots(),
+                stream:
+                    FirebaseFirestore.instance.collection('form').snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return _buildErrorState(
                       AppLocalizations.of(
                         context,
-                      )!.formsErrorLoading(snapshot.error.toString()),
+                      )!
+                          .formsErrorLoading(snapshot.error.toString()),
                     );
                   }
 
@@ -1183,11 +1187,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     if (!_canAccessForm(data)) return false;
 
                     // Hide old readiness forms - teachers should use new template system
-                    final title = (data['title'] ?? '')
-                        .toString()
-                        .toLowerCase();
-                    final isLegacyReadinessForm =
-                        title.contains('readiness') ||
+                    final title =
+                        (data['title'] ?? '').toString().toLowerCase();
+                    final isLegacyReadinessForm = title.contains('readiness') ||
                         title.contains('class readiness') ||
                         title.contains('formulaire de préparation');
 
@@ -1284,20 +1286,22 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           child: Text(
                             AppLocalizations.of(
                               context,
-                            )!.pleaseSignInToViewForms,
+                            )!
+                                .pleaseSignInToViewForms,
                           ),
                         );
                       }
 
                       if (responsesSnapshot.hasError) {
                         if (responsesSnapshot.error.toString().contains(
-                          'permission-denied',
-                        )) {
+                              'permission-denied',
+                            )) {
                           return Center(
                             child: Text(
                               AppLocalizations.of(
                                 context,
-                              )!.pleaseSignInToAccessForms,
+                              )!
+                                  .pleaseSignInToAccessForms,
                             ),
                           );
                         }
@@ -1305,7 +1309,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           child: Text(
                             AppLocalizations.of(
                               context,
-                            )!.commonErrorWithDetails(
+                            )!
+                                .commonErrorWithDetails(
                               responsesSnapshot.error.toString(),
                             ),
                           ),
@@ -1394,8 +1399,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         color: isSelected
                             ? const Color(0xff0386FF)
                             : hasSubmitted
-                            ? const Color(0xff10B981)
-                            : const Color(0xffF3F4F6),
+                                ? const Color(0xff10B981)
+                                : const Color(0xffF3F4F6),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
@@ -1417,7 +1422,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                               form['title'] ??
                                   AppLocalizations.of(
                                     context,
-                                  )!.formsUntitledForm,
+                                  )!
+                                      .formsUntitledForm,
                             ),
                             style: GoogleFonts.inter(
                               fontSize: 14,
@@ -1676,7 +1682,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                         child: Text(
                                           AppLocalizations.of(
                                             context,
-                                          )!.noFormFieldsAreCurrentlyVisible,
+                                          )!
+                                              .noFormFieldsAreCurrentlyVisible,
                                           style: GoogleFonts.inter(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -1690,7 +1697,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                   Text(
                                     AppLocalizations.of(
                                           context,
-                                        )!.possibleCausesN +
+                                        )!
+                                            .possibleCausesN +
                                         '\n• This form may not have any fields configured\n'
                                             '• There may be a network connection issue\n'
                                             '• Your user permissions may have changed\n'
@@ -1742,35 +1750,38 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                       fieldEntry.value['label'] ??
                                           AppLocalizations.of(
                                             context,
-                                          )!.formsUntitledField,
+                                          )!
+                                              .formsUntitledField,
                                     ),
                                     fieldEntry.value['placeholder'] ??
                                         AppLocalizations.of(
                                           context,
-                                        )!.formsEnterValue,
+                                        )!
+                                            .formsEnterValue,
                                     fieldControllers[fieldKey]!,
                                     fieldEntry.value['required'] ?? false,
                                     fieldEntry.value['type'] ?? 'text',
                                     fieldKey,
-                                    options:
-                                        (fieldEntry.value['type'] == 'select' ||
+                                    options: (fieldEntry
+                                                    .value['type'] ==
+                                                'select' ||
                                             fieldEntry.value['type'] ==
                                                 'dropdown' ||
                                             fieldEntry.value['type'] ==
                                                 'multi_select' ||
                                             fieldEntry.value['type'] == 'radio')
                                         ? (fieldEntry.value['options'] is List)
-                                              ? List<String>.from(
-                                                  fieldEntry.value['options'],
-                                                )
-                                              : (fieldEntry.value['options']
+                                            ? List<String>.from(
+                                                fieldEntry.value['options'],
+                                              )
+                                            : (fieldEntry.value['options']
                                                     is String)
-                                              ? (fieldEntry.value['options']
+                                                ? (fieldEntry.value['options']
                                                         as String)
                                                     .split(',')
                                                     .map((e) => e.trim())
                                                     .toList()
-                                              : []
+                                                : []
                                         : null,
                                   ),
                                 );
@@ -1833,9 +1844,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
-                                    onPressed: _isSubmitDisabled
-                                        ? null
-                                        : _submitForm,
+                                    onPressed:
+                                        _isSubmitDisabled ? null : _submitForm,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _primaryColor,
                                       foregroundColor: Colors.white,
@@ -1855,12 +1865,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                               const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
+                                                child:
+                                                    CircularProgressIndicator(
                                                   strokeWidth: 2,
                                                   valueColor:
                                                       AlwaysStoppedAnimation<
-                                                        Color
-                                                      >(Colors.white),
+                                                          Color>(Colors.white),
                                                 ),
                                               ),
                                               const SizedBox(width: 12),
@@ -1868,7 +1878,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                                 child: Text(
                                                   AppLocalizations.of(
                                                     context,
-                                                  )!.submitting,
+                                                  )!
+                                                      .submitting,
                                                   style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w600,
@@ -1889,7 +1900,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                                 child: Text(
                                                   AppLocalizations.of(
                                                     context,
-                                                  )!.submitForm,
+                                                  )!
+                                                      .submitForm,
                                                   style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w600,
@@ -1906,9 +1918,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 SizedBox(
                                   width: double.infinity,
                                   child: OutlinedButton(
-                                    onPressed: _isSubmitting
-                                        ? null
-                                        : _resetForm,
+                                    onPressed:
+                                        _isSubmitting ? null : _resetForm,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: const Color(0xff6B7280),
                                       side: const BorderSide(
@@ -1932,7 +1943,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                           child: Text(
                                             AppLocalizations.of(
                                               context,
-                                            )!.commonReset,
+                                            )!
+                                                .commonReset,
                                             style: GoogleFonts.inter(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
@@ -1953,9 +1965,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             children: [
                               Expanded(
                                 child: ElevatedButton(
-                                  onPressed: _isSubmitDisabled
-                                      ? null
-                                      : _submitForm,
+                                  onPressed:
+                                      _isSubmitDisabled ? null : _submitForm,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _primaryColor,
                                     foregroundColor: Colors.white,
@@ -1979,8 +1990,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                                 strokeWidth: 2,
                                                 valueColor:
                                                     AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
+                                                        Color>(Colors.white),
                                               ),
                                             ),
                                             const SizedBox(width: 12),
@@ -1988,7 +1998,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                               child: Text(
                                                 AppLocalizations.of(
                                                   context,
-                                                )!.submitting,
+                                                )!
+                                                    .submitting,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
@@ -2008,7 +2019,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                               child: Text(
                                                 AppLocalizations.of(
                                                   context,
-                                                )!.submitForm,
+                                                )!
+                                                    .submitForm,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
@@ -2047,7 +2059,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                         child: Text(
                                           AppLocalizations.of(
                                             context,
-                                          )!.commonReset,
+                                          )!
+                                              .commonReset,
                                           style: GoogleFonts.inter(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
@@ -2330,8 +2343,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   ) {
     // Ensure initialValue exists in options list to avoid assertion errors
     final currentValue = controller.text;
-    final validInitialValue =
-        (currentValue.isNotEmpty &&
+    final validInitialValue = (currentValue.isNotEmpty &&
             options != null &&
             options.contains(currentValue))
         ? currentValue
@@ -2368,8 +2380,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff111827)),
       dropdownColor: Colors.white,
       isExpanded: true, // Allow dropdown to expand to full width
-      items:
-          options
+      items: options
               ?.map(
                 (option) => DropdownMenuItem(
                   value: option,
@@ -2413,10 +2424,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     List<String> selectedValues = controller.text.isEmpty
         ? []
         : controller.text
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList();
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2471,10 +2482,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       child: Text(
                         selectedValues.isEmpty
                             ? hintText.isEmpty
-                                  ? AppLocalizations.of(
-                                      context,
-                                    )!.formSelectMultipleOptions
-                                  : hintText
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!
+                                    .formSelectMultipleOptions
+                                : hintText
                             : '${selectedValues.length} option(s) selected: ${selectedValues.join(', ')}',
                         style: GoogleFonts.inter(
                           fontSize: 14,
@@ -2555,7 +2567,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         Text(
                           AppLocalizations.of(
                             context,
-                          )!.theFormCreatorHasNotAdded,
+                          )!
+                              .theFormCreatorHasNotAdded,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xff9CA3AF),
@@ -2930,9 +2943,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String fieldKey,
   ) {
     final fieldKey = selectedFormData!['fields'].keys.firstWhere(
-      (key) => selectedFormData!['fields'][key]['label'] == label,
-      orElse: () => '',
-    );
+          (key) => selectedFormData!['fields'][key]['label'] == label,
+          orElse: () => '',
+        );
 
     final hasImage = fieldValues[fieldKey] != null;
 
@@ -3121,9 +3134,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String fieldKey,
   ) {
     final fieldKey = selectedFormData!['fields'].keys.firstWhere(
-      (key) => selectedFormData!['fields'][key]['label'] == label,
-      orElse: () => '',
-    );
+          (key) => selectedFormData!['fields'][key]['label'] == label,
+          orElse: () => '',
+        );
 
     final hasSignature = fieldValues[fieldKey] != null;
 
@@ -3499,12 +3512,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   if (studentDoc.exists) {
                     final studentData =
                         studentDoc.data() as Map<String, dynamic>;
-                    final firstName =
-                        studentData['first_name'] ??
+                    final firstName = studentData['first_name'] ??
                         studentData['firstName'] ??
                         '';
-                    final lastName =
-                        studentData['last_name'] ??
+                    final lastName = studentData['last_name'] ??
                         studentData['lastName'] ??
                         '';
                     if (firstName.isNotEmpty || lastName.isNotEmpty) {
@@ -3652,8 +3663,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       case 'shift.students':
         // Try multiple field names to find student names
         // Firestore uses 'student_names' (snake_case), but also check camelCase variants
-        final students =
-            shiftData['student_names'] as List<dynamic>? ??
+        final students = shiftData['student_names'] as List<dynamic>? ??
             shiftData['studentNames'] as List<dynamic>? ??
             shiftData['students'] as List<dynamic>?;
 
@@ -3751,8 +3761,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         }
 
         // SECOND CHECK: Must be in a completed/missed state
-        final isCompletedOrMissed =
-            status == ShiftStatus.completed ||
+        final isCompletedOrMissed = status == ShiftStatus.completed ||
             status == ShiftStatus.fullyCompleted ||
             status == ShiftStatus.partiallyCompleted ||
             status == ShiftStatus.missed;
@@ -3866,7 +3875,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 Text(
                   AppLocalizations.of(
                     context,
-                  )!.pleaseSelectWhichClassThisReport,
+                  )!
+                      .pleaseSelectWhichClassThisReport,
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -3912,8 +3922,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
                                     if (formDoc.exists && mounted) {
                                       final data = formDoc.data() ?? {};
-                                      final responses =
-                                          data['responses']
+                                      final responses = data['responses']
                                               as Map<String, dynamic>? ??
                                           {};
 
@@ -3938,7 +3947,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                           content: Text(
                                             AppLocalizations.of(
                                               context,
-                                            )!.formsErrorLoadingForm(
+                                            )!
+                                                .formsErrorLoadingForm(
                                               e.toString(),
                                             ),
                                           ),
@@ -4114,21 +4124,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           if (dependentValue is List) {
             final dependentSet = Set.from(dependentValue);
             final expectedSet = Set.from(expectedValues);
-            conditionMet =
-                dependentSet.length == expectedSet.length &&
+            conditionMet = dependentSet.length == expectedSet.length &&
                 dependentSet.containsAll(expectedSet);
           }
         }
         break;
       case 'is_empty':
-        conditionMet =
-            dependentValue == null ||
+        conditionMet = dependentValue == null ||
             dependentValue == '' ||
             (dependentValue is List && dependentValue.isEmpty);
         break;
       case 'is_not_empty':
-        conditionMet =
-            dependentValue != null &&
+        conditionMet = dependentValue != null &&
             dependentValue != '' &&
             !(dependentValue is List && dependentValue.isEmpty);
         break;
@@ -4431,33 +4438,34 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
             ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 420),
-                  child: Image.network(
-                    body,
-                    fit: BoxFit.contain,
-                    alignment: Alignment.centerLeft,
-                    loadingBuilder: (context, child, progress) => progress == null
-                        ? child
-                        : const SizedBox(
-                            height: 120,
-                            child: Center(
-                              child: SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: Image.network(
+                  body,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          height: 120,
+                          child: Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
+                        ),
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
+            ),
           ],
         ),
       );
@@ -4476,7 +4484,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
           if (body.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(body, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+            Text(body,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
           ],
         ],
       ),
@@ -4800,8 +4809,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final templateId = selectedFormData?['templateId'] as String?;
 
       // Get form name/title for better identification
-      final formName =
-          selectedFormData?['title'] as String? ??
+      final formName = selectedFormData?['title'] as String? ??
           selectedFormData?['name'] as String? ??
           'Untitled Form';
 
@@ -4829,13 +4837,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       var mergedResponses = Map<String, dynamic>.from(responses);
       String? makeupApprovalStatus;
       if (formType == 'daily' && widget.shiftId != null) {
-        final need =
-            await MakeupClassAttestation.shiftNeedsMakeupAttestationForDailyForm(
-              FirebaseFirestore.instance,
-              currentUser.uid,
-              shiftId: widget.shiftId!,
-              timesheetId: widget.timesheetId,
-            );
+        final need = await MakeupClassAttestation
+            .shiftNeedsMakeupAttestationForDailyForm(
+          FirebaseFirestore.instance,
+          currentUser.uid,
+          shiftId: widget.shiftId!,
+          timesheetId: widget.timesheetId,
+        );
         if (need) {
           if (!mounted) {
             setState(() => _isSubmitting = false);
@@ -4910,14 +4918,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             .collection('form_responses')
             .add(submissionData)
             .timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                AppLogger.debug(
-                  'Firestore submission timeout after 30 seconds',
-                );
-                throw Exception('Firestore submission timeout');
-              },
+          const Duration(seconds: 30),
+          onTimeout: () {
+            AppLogger.debug(
+              'Firestore submission timeout after 30 seconds',
             );
+            throw Exception('Firestore submission timeout');
+          },
+        );
       } on FirebaseException catch (e) {
         if (e.code != 'permission-denied') rethrow;
 
@@ -4956,14 +4964,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             .collection('form_responses')
             .add(legacySubmissionData)
             .timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                AppLogger.debug(
-                  'Firestore submission timeout after 30 seconds (legacy retry)',
-                );
-                throw Exception('Firestore submission timeout');
-              },
+          const Duration(seconds: 30),
+          onTimeout: () {
+            AppLogger.debug(
+              'Firestore submission timeout after 30 seconds (legacy retry)',
             );
+            throw Exception('Firestore submission timeout');
+          },
+        );
       }
 
       // Link submission to timesheet/shift when possible.
@@ -5050,9 +5058,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               fontWeight: FontWeight.w500,
             ),
           ),
-          backgroundColor: isError
-              ? const Color(0xffEF4444)
-              : const Color(0xff10B981),
+          backgroundColor:
+              isError ? const Color(0xffEF4444) : const Color(0xff10B981),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           margin: const EdgeInsets.all(16),

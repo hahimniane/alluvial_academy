@@ -40,7 +40,8 @@ class QuestionCondition {
   ];
 
   /// Whether [condition] compares against a list of picked answers.
-  static bool usesExpectedValues(String condition, {required bool multiSelect}) {
+  static bool usesExpectedValues(String condition,
+      {required bool multiSelect}) {
     if (condition == containsAll || condition == containsExactly) return true;
     return condition == contains && multiSelect;
   }
@@ -81,7 +82,8 @@ class QuestionCondition {
         dependsOnFieldId: dependsOnFieldId,
         condition: condition,
         expectedValue: expectedValue,
-        expectedValues: expectedValues == null ? null : List.of(expectedValues!),
+        expectedValues:
+            expectedValues == null ? null : List.of(expectedValues!),
         isVisible: isVisible,
       );
 

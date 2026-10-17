@@ -26,8 +26,8 @@ class FormAudience {
     if (permissions is Map) {
       final type = permissions['type']?.toString().trim().toLowerCase();
       if (type != 'public') {
-        final roles = _roleList(permissions['roles']) ??
-            _roleList(permissions['role']);
+        final roles =
+            _roleList(permissions['roles']) ?? _roleList(permissions['role']);
         if (roles != null && roles.isNotEmpty) return roles;
       }
     }
