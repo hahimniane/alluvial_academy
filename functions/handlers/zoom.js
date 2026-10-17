@@ -73,9 +73,13 @@ const ZOOM_HUB_DEFAULT_BOUNDARIES = ['05:00', '12:00', '17:00'];
 const ZOOM_HUB_MAX_CLASS_DURATION_MINUTES = Number(
   process.env.ZOOM_HUB_MAX_CLASS_DURATION_MINUTES || 180,
 );
+// One Zoom Pro user per lane; each lane runs one hub meeting at a time and a
+// hub holds at most 50 breakout rooms. A third lane was added 2026-10-17 when
+// weekend days outgrew two (84 classes on Sat Oct 17, peak 16 at once).
 const DEFAULT_ZOOM_CLASSROOM_HOST_ACCOUNTS = [
   'billing@alluwaleducationhub.org',
   'support@alluwaleducationhub.org',
+  'hassimiouniane@alluwaleducationhub.org',
 ];
 const ZOOM_HUB_AUTO_RESOLVE_ALERT_REASONS = new Set([
   'rooms_not_open',

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
+import 'package:alluwalacademyadmin/features/forms/models/question_condition.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -40,74 +41,127 @@ const Set<QuestionType> kDisplayOnlyTypes = {
 extension QuestionTypeExtension on QuestionType {
   String get displayName {
     switch (this) {
-      case QuestionType.shortAnswer: return 'Short answer';
-      case QuestionType.paragraph: return 'Paragraph';
-      case QuestionType.multipleChoice: return 'Multiple choice';
-      case QuestionType.checkboxes: return 'Checkboxes';
-      case QuestionType.dropdown: return 'Dropdown';
-      case QuestionType.linearScale: return 'Linear scale';
-      case QuestionType.date: return 'Date';
-      case QuestionType.time: return 'Time';
-      case QuestionType.fileUpload: return 'File upload';
-      case QuestionType.number: return 'Number';
-      case QuestionType.sectionHeader: return 'Title & text';
-      case QuestionType.imageBlock: return 'Image';
-      case QuestionType.sectionBreak: return 'Section';
+      case QuestionType.shortAnswer:
+        return 'Short answer';
+      case QuestionType.paragraph:
+        return 'Paragraph';
+      case QuestionType.multipleChoice:
+        return 'Multiple choice';
+      case QuestionType.checkboxes:
+        return 'Checkboxes';
+      case QuestionType.dropdown:
+        return 'Dropdown';
+      case QuestionType.linearScale:
+        return 'Linear scale';
+      case QuestionType.date:
+        return 'Date';
+      case QuestionType.time:
+        return 'Time';
+      case QuestionType.fileUpload:
+        return 'File upload';
+      case QuestionType.number:
+        return 'Number';
+      case QuestionType.sectionHeader:
+        return 'Title & text';
+      case QuestionType.imageBlock:
+        return 'Image';
+      case QuestionType.sectionBreak:
+        return 'Section';
     }
   }
-  
+
   IconData get icon {
     switch (this) {
-      case QuestionType.shortAnswer: return Icons.short_text;
-      case QuestionType.paragraph: return Icons.notes;
-      case QuestionType.multipleChoice: return Icons.radio_button_checked;
-      case QuestionType.checkboxes: return Icons.check_box;
-      case QuestionType.dropdown: return Icons.arrow_drop_down_circle;
-      case QuestionType.linearScale: return Icons.linear_scale;
-      case QuestionType.date: return Icons.calendar_today;
-      case QuestionType.time: return Icons.access_time;
-      case QuestionType.fileUpload: return Icons.cloud_upload;
-      case QuestionType.number: return Icons.pin;
-      case QuestionType.sectionHeader: return Icons.text_fields;
-      case QuestionType.imageBlock: return Icons.image_outlined;
-      case QuestionType.sectionBreak: return Icons.view_stream_outlined;
+      case QuestionType.shortAnswer:
+        return Icons.short_text;
+      case QuestionType.paragraph:
+        return Icons.notes;
+      case QuestionType.multipleChoice:
+        return Icons.radio_button_checked;
+      case QuestionType.checkboxes:
+        return Icons.check_box;
+      case QuestionType.dropdown:
+        return Icons.arrow_drop_down_circle;
+      case QuestionType.linearScale:
+        return Icons.linear_scale;
+      case QuestionType.date:
+        return Icons.calendar_today;
+      case QuestionType.time:
+        return Icons.access_time;
+      case QuestionType.fileUpload:
+        return Icons.cloud_upload;
+      case QuestionType.number:
+        return Icons.pin;
+      case QuestionType.sectionHeader:
+        return Icons.text_fields;
+      case QuestionType.imageBlock:
+        return Icons.image_outlined;
+      case QuestionType.sectionBreak:
+        return Icons.view_stream_outlined;
     }
   }
 
   String get firestoreType {
     switch (this) {
-      case QuestionType.shortAnswer: return 'text';
-      case QuestionType.paragraph: return 'long_text';
-      case QuestionType.multipleChoice: return 'radio';
-      case QuestionType.checkboxes: return 'multi_select';
-      case QuestionType.dropdown: return 'dropdown';
-      case QuestionType.linearScale: return 'scale';
-      case QuestionType.date: return 'date';
-      case QuestionType.time: return 'time';
-      case QuestionType.fileUpload: return 'file_upload';
-      case QuestionType.number: return 'number';
-      case QuestionType.sectionHeader: return 'heading';
-      case QuestionType.imageBlock: return 'image';
-      case QuestionType.sectionBreak: return 'section';
+      case QuestionType.shortAnswer:
+        return 'text';
+      case QuestionType.paragraph:
+        return 'long_text';
+      case QuestionType.multipleChoice:
+        return 'radio';
+      case QuestionType.checkboxes:
+        return 'multi_select';
+      case QuestionType.dropdown:
+        return 'dropdown';
+      case QuestionType.linearScale:
+        return 'scale';
+      case QuestionType.date:
+        return 'date';
+      case QuestionType.time:
+        return 'time';
+      case QuestionType.fileUpload:
+        return 'file_upload';
+      case QuestionType.number:
+        return 'number';
+      case QuestionType.sectionHeader:
+        return 'heading';
+      case QuestionType.imageBlock:
+        return 'image';
+      case QuestionType.sectionBreak:
+        return 'section';
     }
   }
-  
+
   static QuestionType fromFirestore(String type) {
     switch (type) {
-      case 'text': return QuestionType.shortAnswer;
-      case 'long_text': return QuestionType.paragraph;
-      case 'radio': return QuestionType.multipleChoice;
-      case 'multi_select': return QuestionType.checkboxes;
-      case 'dropdown': return QuestionType.dropdown;
-      case 'scale': return QuestionType.linearScale;
-      case 'date': return QuestionType.date;
-      case 'time': return QuestionType.time;
-      case 'file_upload': return QuestionType.fileUpload;
-      case 'number': return QuestionType.number;
-      case 'heading': return QuestionType.sectionHeader;
-      case 'image': return QuestionType.imageBlock;
-      case 'section': return QuestionType.sectionBreak;
-      default: return QuestionType.shortAnswer;
+      case 'text':
+        return QuestionType.shortAnswer;
+      case 'long_text':
+        return QuestionType.paragraph;
+      case 'radio':
+        return QuestionType.multipleChoice;
+      case 'multi_select':
+        return QuestionType.checkboxes;
+      case 'dropdown':
+        return QuestionType.dropdown;
+      case 'scale':
+        return QuestionType.linearScale;
+      case 'date':
+        return QuestionType.date;
+      case 'time':
+        return QuestionType.time;
+      case 'file_upload':
+        return QuestionType.fileUpload;
+      case 'number':
+        return QuestionType.number;
+      case 'heading':
+        return QuestionType.sectionHeader;
+      case 'image':
+        return QuestionType.imageBlock;
+      case 'section':
+        return QuestionType.sectionBreak;
+      default:
+        return QuestionType.shortAnswer;
     }
   }
 }
@@ -123,8 +177,12 @@ class FormQuestion {
   String scaleLabelMin;
   String scaleLabelMax;
   int order;
+
   /// Body text for a title block, or the media URL for an image/video block.
   String content;
+
+  /// "Show only if" rule, saved as the field's `conditionalLogic`.
+  QuestionCondition? condition;
 
   FormQuestion({
     required this.id,
@@ -138,6 +196,7 @@ class FormQuestion {
     this.scaleLabelMax = '',
     this.content = '',
     this.order = 0,
+    this.condition,
   }) {
     if (options.isEmpty) {
       this.options = ['Option 1'];
@@ -153,13 +212,13 @@ class FormQuestion {
       'required': required,
       'order': index,
     };
-    
-    if (type == QuestionType.multipleChoice || 
-        type == QuestionType.checkboxes || 
+
+    if (type == QuestionType.multipleChoice ||
+        type == QuestionType.checkboxes ||
         type == QuestionType.dropdown) {
       data['options'] = options;
     }
-    
+
     if (type == QuestionType.linearScale) {
       data['validation'] = {
         'min': scaleMin,
@@ -170,19 +229,23 @@ class FormQuestion {
         'max': scaleLabelMax,
       };
     }
-    
+
+    if (condition != null) data['conditionalLogic'] = condition!.toFirestore();
+
     return data;
   }
 
   factory FormQuestion.fromFirestore(String id, Map<String, dynamic> data) {
-    final type = QuestionTypeExtension.fromFirestore(data['type'] as String? ?? 'text');
-    
+    final type =
+        QuestionTypeExtension.fromFirestore(data['type'] as String? ?? 'text');
+
     return FormQuestion(
       id: id,
       type: type,
       title: data['label'] as String? ?? '',
       required: data['required'] as bool? ?? false,
-      options: (data['options'] as List<dynamic>?)?.cast<String>() ?? ['Option 1'],
+      options:
+          (data['options'] as List<dynamic>?)?.cast<String>() ?? ['Option 1'],
       scaleMin: (data['validation']?['min'] as int?) ?? 1,
       scaleMax: (data['validation']?['max'] as int?) ?? 5,
       scaleLabelMin: (data['scaleLabels']?['min'] as String?) ?? '',
@@ -191,6 +254,7 @@ class FormQuestion {
       content: kDisplayOnlyTypes.contains(type)
           ? (data['placeholder'] as String? ?? '')
           : '',
+      condition: QuestionCondition.fromFirestore(data['conditionalLogic']),
     );
   }
 }
@@ -213,7 +277,7 @@ class _FormBuilderState extends State<FormBuilder> {
   final TextEditingController _descriptionController = TextEditingController();
   List<FormQuestion> _questions = [];
   String _selectedThemeColor = '#673AB7';
-  
+
   // New Fields for Template System
   FormFrequency _frequency = FormFrequency.onDemand;
   FormCategory _category = FormCategory.other;
@@ -227,13 +291,20 @@ class _FormBuilderState extends State<FormBuilder> {
 
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
-  
+
   // UX State
-  int? _focusedQuestionIndex; // Null signifie qu'aucune question n'est en mode édition
+  int?
+      _focusedQuestionIndex; // Null signifie qu'aucune question n'est en mode édition
 
   final List<String> _themeColors = [
-    '#673AB7', '#1A73E8', '#0F9D58', '#F4B400', 
-    '#DB4437', '#FF6D00', '#00ACC1', '#AB47BC'
+    '#673AB7',
+    '#1A73E8',
+    '#0F9D58',
+    '#F4B400',
+    '#DB4437',
+    '#FF6D00',
+    '#00ACC1',
+    '#AB47BC'
   ];
 
   bool _initialized = false;
@@ -272,10 +343,11 @@ class _FormBuilderState extends State<FormBuilder> {
 
   void _loadExistingForm() {
     final data = widget.editFormData!;
-    _titleController.text = data['title'] ?? data['name'] ?? 'Untitled Form'; // Support both keys
+    _titleController.text =
+        data['title'] ?? data['name'] ?? 'Untitled Form'; // Support both keys
     _descriptionController.text = data['description'] ?? '';
     _selectedThemeColor = data['themeColor'] ?? '#673AB7';
-    
+
     // Load new fields if available
     if (data['frequency'] != null) {
       try {
@@ -285,7 +357,7 @@ class _FormBuilderState extends State<FormBuilder> {
         );
       } catch (_) {}
     }
-    
+
     if (data['category'] != null) {
       try {
         _category = FormCategory.values.firstWhere(
@@ -294,14 +366,14 @@ class _FormBuilderState extends State<FormBuilder> {
         );
       } catch (_) {}
     }
-    
+
     if (data['allowedRoles'] != null) {
       final roles = List<String>.from(data['allowedRoles']);
       for (var role in _allowedRoles.keys) {
         _allowedRoles[role] = roles.contains(role);
       }
     }
-    
+
     // Handle fields loading (support both map and list formats)
     if (data['fields'] is List) {
       // New format (List of FormFieldDefinition)
@@ -312,29 +384,35 @@ class _FormBuilderState extends State<FormBuilder> {
         // This is a rough mapping
         return FormQuestion(
           id: fieldData['id'] ?? const Uuid().v4(),
-          type: QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'),
+          type:
+              QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'),
           title: fieldData['label'] ?? '',
           required: fieldData['required'] ?? false,
-          options: (fieldData['options'] as List?)?.cast<String>() ?? ['Option 1'],
+          options:
+              (fieldData['options'] as List?)?.cast<String>() ?? ['Option 1'],
           scaleMin: fieldData['validation']?['min'] ?? 1,
           scaleMax: fieldData['validation']?['max'] ?? 5,
           order: fieldData['order'] ?? 0,
           content: kDisplayOnlyTypes.contains(
-                  QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'))
+                  QuestionTypeExtension.fromFirestore(
+                      fieldData['type'] ?? 'text'))
               ? (fieldData['placeholder'] as String? ?? '')
               : '',
+          condition:
+              QuestionCondition.fromFirestore(fieldData['conditionalLogic']),
         );
       }).toList();
     } else {
       // Old format (Map<String, dynamic>)
       final fields = data['fields'] as Map<String, dynamic>? ?? {};
-      _questions = fields.entries.map((e) => 
-        FormQuestion.fromFirestore(e.key, e.value as Map<String, dynamic>)
-      ).toList();
+      _questions = fields.entries
+          .map((e) => FormQuestion.fromFirestore(
+              e.key, e.value as Map<String, dynamic>))
+          .toList();
     }
-    
+
     _questions.sort((a, b) => a.order.compareTo(b.order));
-    
+
     if (_questions.isEmpty) {
       _questions.add(FormQuestion(
         id: const Uuid().v4(),
@@ -358,7 +436,8 @@ class _FormBuilderState extends State<FormBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Color(int.parse(_selectedThemeColor.replaceFirst('#', '0xFF')));
+    final themeColor =
+        Color(int.parse(_selectedThemeColor.replaceFirst('#', '0xFF')));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0EBF8), // Google Forms Background
@@ -370,21 +449,22 @@ class _FormBuilderState extends State<FormBuilder> {
             FocusScope.of(context).unfocus();
           }
         },
-                    child: Column(
-                      children: [
+        child: Column(
+          children: [
             _buildTopBar(themeColor),
-                Expanded(
-                  child: SingleChildScrollView(
+            Expanded(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 100),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 770), // Largeur standard Google Forms
-      child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+                    constraints: const BoxConstraints(
+                        maxWidth: 770), // Largeur standard Google Forms
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Expanded(
                           child: Column(
-                children: [
+                            children: [
                               const SizedBox(height: 12),
                               _buildFormHeaderCard(themeColor),
                               const SizedBox(height: 12),
@@ -424,7 +504,7 @@ class _FormBuilderState extends State<FormBuilder> {
         ],
       ),
       child: Row(
-            children: [
+        children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.grey),
             onPressed: () => _handleBack(),
@@ -433,17 +513,19 @@ class _FormBuilderState extends State<FormBuilder> {
           Icon(Icons.description, color: themeColor, size: 32),
           const SizedBox(width: 16),
           Expanded(
-                child: Text(
-              _titleController.text.isEmpty ? 'Untitled Form' : _titleController.text,
+            child: Text(
+              _titleController.text.isEmpty
+                  ? 'Untitled Form'
+                  : _titleController.text,
               style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           // Indicateur de sauvegarde
           if (_hasUnsavedChanges)
             Padding(
               padding: const EdgeInsets.only(right: 16),
-                child: Text(
+              child: Text(
                 AppLocalizations.of(context)!.unsavedChanges,
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
@@ -453,17 +535,18 @@ class _FormBuilderState extends State<FormBuilder> {
             backgroundColor: themeColor,
             radius: 14,
             child: PopupMenuButton<String>(
-              icon: const Icon(Icons.palette_outlined, color: Colors.white, size: 16),
+              icon: const Icon(Icons.palette_outlined,
+                  color: Colors.white, size: 16),
               itemBuilder: (context) => _themeColors.map((c) {
                 final color = Color(int.parse(c.replaceFirst('#', '0xFF')));
                 return PopupMenuItem(
                   value: c,
                   child: Row(
-        children: [
-              Container(
+                    children: [
+                      Container(
                         width: 20,
                         height: 20,
-                decoration: BoxDecoration(
+                        decoration: BoxDecoration(
                           color: color,
                           shape: BoxShape.circle,
                           border: c == _selectedThemeColor
@@ -475,9 +558,9 @@ class _FormBuilderState extends State<FormBuilder> {
                         const SizedBox(width: 8),
                         Text(AppLocalizations.of(context)!.selected),
                       ],
-        ],
-      ),
-    );
+                    ],
+                  ),
+                );
               }).toList(),
               onSelected: (v) => setState(() {
                 _selectedThemeColor = v;
@@ -494,13 +577,14 @@ class _FormBuilderState extends State<FormBuilder> {
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: _isSaving 
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                )
-              : Text(AppLocalizations.of(context)!.commonSave),
+            child: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : Text(AppLocalizations.of(context)!.commonSave),
           ),
         ],
       ),
@@ -510,25 +594,25 @@ class _FormBuilderState extends State<FormBuilder> {
   Widget _buildFormHeaderCard(Color themeColor) {
     return GestureDetector(
       // Empêcher la désélection quand on clique sur le header
-      onTap: () {}, 
+      onTap: () {},
       child: Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.transparent),
-        boxShadow: [
-          BoxShadow(
+          boxShadow: [
+            BoxShadow(
               color: Colors.black.withOpacity(0.1),
               blurRadius: 2,
               offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
         child: Column(
           children: [
-              Container(
+            Container(
               height: 10,
-                decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 color: themeColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(8),
@@ -536,22 +620,23 @@ class _FormBuilderState extends State<FormBuilder> {
                 ),
               ),
             ),
-          Padding(
+            Padding(
               padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   TextField(
                     controller: _titleController,
-                    style: GoogleFonts.roboto(fontSize: 32, fontWeight: FontWeight.w400),
+                    style: GoogleFonts.roboto(
+                        fontSize: 32, fontWeight: FontWeight.w400),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: AppLocalizations.of(context)!.untitledForm,
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),
-          ),
-          const SizedBox(height: 8),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _descriptionController,
                     style: GoogleFonts.roboto(fontSize: 14),
@@ -566,11 +651,15 @@ class _FormBuilderState extends State<FormBuilder> {
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
-                  
+
                   // SETTINGS SECTION
-                  Text(AppLocalizations.of(context)!.formSettings, style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[700])),
+                  Text(AppLocalizations.of(context)!.formSettings,
+                      style: GoogleFonts.roboto(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700])),
                   const SizedBox(height: 16),
-                  
+
                   // Frequency & Category Row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,10 +668,13 @@ class _FormBuilderState extends State<FormBuilder> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(AppLocalizations.of(context)!.frequency, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            Text(AppLocalizations.of(context)!.frequency,
+                                style: GoogleFonts.roboto(
+                                    fontSize: 12, color: Colors.grey[600])),
                             const SizedBox(height: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(4),
@@ -591,15 +683,21 @@ class _FormBuilderState extends State<FormBuilder> {
                                 child: DropdownButton<FormFrequency>(
                                   value: _frequency,
                                   isExpanded: true,
-                                  items: FormFrequency.values.map((f) => DropdownMenuItem(
-                                    value: f,
-                                    child: Text(f.name.substring(0, 1).toUpperCase() + f.name.substring(1)),
-                                  )).toList(),
+                                  items: FormFrequency.values
+                                      .map((f) => DropdownMenuItem(
+                                            value: f,
+                                            child: Text(f.name
+                                                    .substring(0, 1)
+                                                    .toUpperCase() +
+                                                f.name.substring(1)),
+                                          ))
+                                      .toList(),
                                   onChanged: (v) {
-                                    if (v != null) setState(() {
-                                      _frequency = v;
-                                      _hasUnsavedChanges = true;
-                                    });
+                                    if (v != null)
+                                      setState(() {
+                                        _frequency = v;
+                                        _hasUnsavedChanges = true;
+                                      });
                                   },
                                 ),
                               ),
@@ -612,10 +710,13 @@ class _FormBuilderState extends State<FormBuilder> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(AppLocalizations.of(context)!.category, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            Text(AppLocalizations.of(context)!.category,
+                                style: GoogleFonts.roboto(
+                                    fontSize: 12, color: Colors.grey[600])),
                             const SizedBox(height: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(4),
@@ -624,15 +725,21 @@ class _FormBuilderState extends State<FormBuilder> {
                                 child: DropdownButton<FormCategory>(
                                   value: _category,
                                   isExpanded: true,
-                                  items: FormCategory.values.map((c) => DropdownMenuItem(
-                                    value: c,
-                                    child: Text(c.name.substring(0, 1).toUpperCase() + c.name.substring(1)),
-                                  )).toList(),
+                                  items: FormCategory.values
+                                      .map((c) => DropdownMenuItem(
+                                            value: c,
+                                            child: Text(c.name
+                                                    .substring(0, 1)
+                                                    .toUpperCase() +
+                                                c.name.substring(1)),
+                                          ))
+                                      .toList(),
                                   onChanged: (v) {
-                                    if (v != null) setState(() {
-                                      _category = v;
-                                      _hasUnsavedChanges = true;
-                                    });
+                                    if (v != null)
+                                      setState(() {
+                                        _category = v;
+                                        _hasUnsavedChanges = true;
+                                      });
                                   },
                                 ),
                               ),
@@ -642,22 +749,26 @@ class _FormBuilderState extends State<FormBuilder> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  Text(AppLocalizations.of(context)!.targetAudienceAllowedRoles, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                  Text(AppLocalizations.of(context)!.targetAudienceAllowedRoles,
+                      style: GoogleFonts.roboto(
+                          fontSize: 12, color: Colors.grey[600])),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
                     children: _allowedRoles.entries.map((entry) {
                       return FilterChip(
-                        label: Text(entry.key.substring(0, 1).toUpperCase() + entry.key.substring(1)),
+                        label: Text(entry.key.substring(0, 1).toUpperCase() +
+                            entry.key.substring(1)),
                         selected: entry.value,
                         selectedColor: themeColor.withOpacity(0.2),
                         checkmarkColor: themeColor,
                         labelStyle: TextStyle(
                           color: entry.value ? themeColor : Colors.black87,
-                          fontWeight: entry.value ? FontWeight.bold : FontWeight.normal,
+                          fontWeight:
+                              entry.value ? FontWeight.bold : FontWeight.normal,
                         ),
                         onSelected: (selected) => setState(() {
                           _allowedRoles[entry.key] = selected;
@@ -667,10 +778,10 @@ class _FormBuilderState extends State<FormBuilder> {
                     }).toList(),
                   ),
                 ],
-                      ),
-                    ),
-                  ],
-                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -692,7 +803,7 @@ class _FormBuilderState extends State<FormBuilder> {
       },
       itemCount: _questions.length,
       onReorder: (oldIndex, newIndex) {
-          setState(() {
+        setState(() {
           if (newIndex > oldIndex) newIndex--;
           final item = _questions.removeAt(oldIndex);
           _questions.insert(newIndex, item);
@@ -700,13 +811,13 @@ class _FormBuilderState extends State<FormBuilder> {
           // Mise à jour de l'index focus si nécessaire
           if (_focusedQuestionIndex == oldIndex) {
             _focusedQuestionIndex = newIndex;
-          } else if (_focusedQuestionIndex != null && 
-                     _focusedQuestionIndex! > oldIndex && 
-                     _focusedQuestionIndex! <= newIndex) {
+          } else if (_focusedQuestionIndex != null &&
+              _focusedQuestionIndex! > oldIndex &&
+              _focusedQuestionIndex! <= newIndex) {
             _focusedQuestionIndex = _focusedQuestionIndex! - 1;
-          } else if (_focusedQuestionIndex != null && 
-                     _focusedQuestionIndex! < oldIndex && 
-                     _focusedQuestionIndex! >= newIndex) {
+          } else if (_focusedQuestionIndex != null &&
+              _focusedQuestionIndex! < oldIndex &&
+              _focusedQuestionIndex! >= newIndex) {
             _focusedQuestionIndex = _focusedQuestionIndex! + 1;
           }
         });
@@ -717,6 +828,7 @@ class _FormBuilderState extends State<FormBuilder> {
         return _QuestionCard(
           key: ValueKey(_questions[index].id),
           question: _questions[index],
+          allQuestions: _questions,
           index: index,
           themeColor: themeColor,
           isActive: isActive,
@@ -736,20 +848,20 @@ class _FormBuilderState extends State<FormBuilder> {
     // Styles flottants
     return Container(
       width: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
+        boxShadow: [
+          BoxShadow(
             color: Colors.black.withOpacity(0.12),
             blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           _SidebarItem(
             icon: Icons.add_circle_outline,
             tooltip: AppLocalizations.of(context)!.addQuestion,
@@ -790,7 +902,7 @@ class _FormBuilderState extends State<FormBuilder> {
 
   /// Insert any block (question or display block) below the focused one.
   void _insertBlock(QuestionType type, String title) {
-              setState(() {
+    setState(() {
       final newQ = FormQuestion(
         id: const Uuid().v4(),
         type: type,
@@ -800,7 +912,7 @@ class _FormBuilderState extends State<FormBuilder> {
       if (_focusedQuestionIndex != null) {
         _questions.insert(_focusedQuestionIndex! + 1, newQ);
         _focusedQuestionIndex = _focusedQuestionIndex! + 1;
-                } else {
+      } else {
         _questions.add(newQ);
         _focusedQuestionIndex = _questions.length - 1;
       }
@@ -810,7 +922,7 @@ class _FormBuilderState extends State<FormBuilder> {
   }
 
   void _duplicateQuestion(int index) {
-            setState(() {
+    setState(() {
       final original = _questions[index];
       final copy = FormQuestion(
         id: const Uuid().v4(),
@@ -822,6 +934,7 @@ class _FormBuilderState extends State<FormBuilder> {
         scaleMax: original.scaleMax,
         scaleLabelMin: original.scaleLabelMin,
         scaleLabelMax: original.scaleLabelMax,
+        condition: original.condition?.copy(),
       );
       _questions.insert(index + 1, copy);
       _focusedQuestionIndex = index + 1;
@@ -834,7 +947,8 @@ class _FormBuilderState extends State<FormBuilder> {
     if (_questions.length <= 1) return;
     setState(() {
       _questions.removeAt(index);
-      if (_focusedQuestionIndex != null && _focusedQuestionIndex! >= _questions.length) {
+      if (_focusedQuestionIndex != null &&
+          _focusedQuestionIndex! >= _questions.length) {
         _focusedQuestionIndex = _questions.length - 1;
       }
       _hasUnsavedChanges = true;
@@ -845,9 +959,26 @@ class _FormBuilderState extends State<FormBuilder> {
   Future<void> _saveForm() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
+        SnackBar(
+            content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
       );
       return;
+    }
+
+    for (var i = 0; i < _questions.length; i++) {
+      final condition = _questions[i].condition;
+      if (condition != null &&
+          _conditionParentExists(_questions[i]) &&
+          !condition.isComplete) {
+        setState(() => _focusedQuestionIndex = i);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                AppLocalizations.of(context)!.formConditionIncomplete(i + 1)),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -860,16 +991,17 @@ class _FormBuilderState extends State<FormBuilder> {
       final fieldsList = <FormFieldDefinition>[];
       for (var i = 0; i < _questions.length; i++) {
         final q = _questions[i];
-        
+
         // Map UI type to Firestore type string
         String typeString = q.type.firestoreType;
-        
+
         // Build validation map
         Map<String, dynamic>? validation;
-        if (q.type == QuestionType.linearScale || q.type == QuestionType.number) {
+        if (q.type == QuestionType.linearScale ||
+            q.type == QuestionType.number) {
           validation = {'min': q.scaleMin, 'max': q.scaleMax};
         }
-        
+
         final isDisplayBlock = kDisplayOnlyTypes.contains(q.type);
         fieldsList.add(FormFieldDefinition(
           id: q.id,
@@ -878,12 +1010,18 @@ class _FormBuilderState extends State<FormBuilder> {
           // A block that shows content can never be a required answer.
           required: isDisplayBlock ? false : q.required,
           order: i + 1, // 1-based order
-          options: (q.type == QuestionType.multipleChoice || 
-                   q.type == QuestionType.checkboxes || 
-                   q.type == QuestionType.dropdown) ? q.options : null,
+          options: (q.type == QuestionType.multipleChoice ||
+                  q.type == QuestionType.checkboxes ||
+                  q.type == QuestionType.dropdown)
+              ? q.options
+              : null,
           validation: validation,
           // Display blocks carry their body text / media URL here.
           placeholder: isDisplayBlock ? q.content : q.title,
+          // A rule pointing at a deleted question would hide this one forever.
+          conditionalLogic: q.condition != null && _conditionParentExists(q)
+              ? q.condition!.toFirestore()
+              : null,
         ));
       }
 
@@ -892,7 +1030,7 @@ class _FormBuilderState extends State<FormBuilder> {
           .where((e) => e.value)
           .map((e) => e.key)
           .toList();
-          
+
       if (activeRoles.isEmpty) {
         // Default to teacher if none selected
         activeRoles.add('teacher');
@@ -900,7 +1038,8 @@ class _FormBuilderState extends State<FormBuilder> {
 
       // 3. Create FormTemplate object
       final template = FormTemplate(
-        id: widget.editFormId ?? '', // Empty ID means new form creation (or handled by versioning)
+        id: widget.editFormId ??
+            '', // Empty ID means new form creation (or handled by versioning)
         name: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         frequency: _frequency,
@@ -912,7 +1051,8 @@ class _FormBuilderState extends State<FormBuilder> {
         isActive: true,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        themeColor: _selectedThemeColor, // Custom field, added to FormTemplate or extra map
+        themeColor:
+            _selectedThemeColor, // Custom field, added to FormTemplate or extra map
       );
 
       // 4. Save using FormTemplateService with Versioning
@@ -922,16 +1062,17 @@ class _FormBuilderState extends State<FormBuilder> {
       setState(() {
         _isSaving = false;
         _hasUnsavedChanges = false;
-        });
+      });
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.formSavedSuccessfullyPreviousVersionsDeactivated),
+            content: Text(AppLocalizations.of(context)!
+                .formSavedSuccessfullyPreviousVersionsDeactivated),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Go back to forms list
         Navigator.of(context).pop();
       }
@@ -948,13 +1089,20 @@ class _FormBuilderState extends State<FormBuilder> {
     }
   }
 
+  bool _conditionParentExists(FormQuestion question) {
+    final parentId = question.condition?.dependsOnFieldId;
+    if (parentId == null || parentId == question.id) return false;
+    return _questions.any((q) => q.id == parentId);
+  }
+
   Future<void> _handleBack() async {
     if (_hasUnsavedChanges) {
       final shouldLeave = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(AppLocalizations.of(context)!.unsavedChanges),
-          content: Text(AppLocalizations.of(context)!.youHaveUnsavedChangesAreYou),
+          content:
+              Text(AppLocalizations.of(context)!.youHaveUnsavedChangesAreYou),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -967,10 +1115,10 @@ class _FormBuilderState extends State<FormBuilder> {
           ],
         ),
       );
-      
+
       if (shouldLeave != true) return;
     }
-    
+
     if (mounted) Navigator.of(context).pop();
   }
 }
@@ -1010,6 +1158,7 @@ class _SidebarItem extends StatelessWidget {
 
 class _QuestionCard extends StatefulWidget {
   final FormQuestion question;
+  final List<FormQuestion> allQuestions;
   final int index;
   final Color themeColor;
   final bool isActive;
@@ -1021,6 +1170,7 @@ class _QuestionCard extends StatefulWidget {
   const _QuestionCard({
     required Key key,
     required this.question,
+    required this.allQuestions,
     required this.index,
     required this.themeColor,
     required this.isActive,
@@ -1039,7 +1189,7 @@ class _QuestionCardState extends State<_QuestionCard> {
   bool _uploading = false;
   double _uploadProgress = 0;
   String? _uploadError;
-  
+
   @override
   void initState() {
     super.initState();
@@ -1066,30 +1216,30 @@ class _QuestionCardState extends State<_QuestionCard> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
+        boxShadow: [
+          BoxShadow(
             color: Colors.black.withOpacity(widget.isActive ? 0.2 : 0.05),
             blurRadius: widget.isActive ? 5 : 2,
             offset: const Offset(0, 1),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+            children: [
               // La barre latérale colorée (Active Indicator)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: widget.isActive ? 6 : 0,
                 color: widget.themeColor,
               ),
-              
+
               // Contenu principal
               Expanded(
                 child: GestureDetector(
@@ -1100,17 +1250,16 @@ class _QuestionCardState extends State<_QuestionCard> {
                     curve: Curves.easeInOut,
                     alignment: Alignment.topCenter,
                     child: Padding(
-      padding: const EdgeInsets.all(24),
-                      child: widget.isActive 
-                        ? _buildEditMode() 
-                        : _buildViewMode(),
+                      padding: const EdgeInsets.all(24),
+                      child:
+                          widget.isActive ? _buildEditMode() : _buildViewMode(),
                     ),
                   ),
-                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
@@ -1118,24 +1267,46 @@ class _QuestionCardState extends State<_QuestionCard> {
   // --- MODE VUE (Semblable au formulaire final) ---
   Widget _buildViewMode() {
     return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                widget.question.title.isEmpty ? 'Question' : widget.question.title,
+                widget.question.title.isEmpty
+                    ? 'Question'
+                    : widget.question.title,
                 style: GoogleFonts.roboto(
-                  fontSize: 16, 
+                  fontSize: 16,
                   color: Colors.black87,
                   fontWeight: FontWeight.w400,
-          ),
-        ),
-      ),
+                ),
+              ),
+            ),
             if (widget.question.required)
-              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 16)),
+              Text(AppLocalizations.of(context)!.commonRequired,
+                  style: TextStyle(color: Colors.red, fontSize: 16)),
           ],
         ),
+        if (_conditionParent != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.call_split, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${widget.question.condition!.isVisible ? AppLocalizations.of(context)!.formConditionShowOnlyIf : AppLocalizations.of(context)!.formConditionHideIf}: '
+                  '${_questionLabel(_conditionParent!)}',
+                  style:
+                      GoogleFonts.roboto(fontSize: 12, color: Colors.grey[700]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         // Aperçu statique du champ
         IgnorePointer(
@@ -1156,31 +1327,33 @@ class _QuestionCardState extends State<_QuestionCard> {
             child: Container(
               width: 40,
               height: 20,
-      decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (i) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  width: 3,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    shape: BoxShape.circle,
-                  ),
-                )),
+                children: List.generate(
+                    6,
+                    (i) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[400],
+                            shape: BoxShape.circle,
+                          ),
+                        )),
               ),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        
+
         // Ligne Titre + Type Selector
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          children: [
             Expanded(
               flex: 3,
               child: Container(
@@ -1205,7 +1378,7 @@ class _QuestionCardState extends State<_QuestionCard> {
               child: Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -1220,37 +1393,41 @@ class _QuestionCardState extends State<_QuestionCard> {
                                 .where((t) => !kDisplayOnlyTypes.contains(t))
                                 .toList())
                         .map((type) => DropdownMenuItem(
-                      value: type,
-                      child: Row(
-                children: [
-                          Icon(type.icon, size: 20, color: Colors.grey[700]),
-                          const SizedBox(width: 12),
-                  Text(
-                            type.displayName,
-                            style: GoogleFonts.roboto(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    )).toList(),
+                              value: type,
+                              child: Row(
+                                children: [
+                                  Icon(type.icon,
+                                      size: 20, color: Colors.grey[700]),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    type.displayName,
+                                    style: GoogleFonts.roboto(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
                     onChanged: (val) {
                       if (val != null) {
-                          setState(() {
+                        setState(() {
                           widget.question.type = val;
                           widget.onChanged();
                         });
                       }
                     },
                   ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
 
         const SizedBox(height: 16),
 
         // Zone de contenu dynamique selon le type
         _buildEditorContent(),
+
+        _buildConditionEditor(),
 
         const SizedBox(height: 24),
         const Divider(height: 1),
@@ -1259,7 +1436,7 @@ class _QuestionCardState extends State<_QuestionCard> {
         // Toolbar du bas
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
+          children: [
             IconButton(
               icon: const Icon(Icons.content_copy),
               tooltip: AppLocalizations.of(context)!.duplicate,
@@ -1277,7 +1454,8 @@ class _QuestionCardState extends State<_QuestionCard> {
               margin: const EdgeInsets.symmetric(horizontal: 8),
             ),
             if (!kDisplayOnlyTypes.contains(widget.question.type)) ...[
-              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(fontSize: 13)),
+              Text(AppLocalizations.of(context)!.commonRequired,
+                  style: TextStyle(fontSize: 13)),
               Switch(
                 value: widget.question.required,
                 activeColor: widget.themeColor,
@@ -1289,9 +1467,320 @@ class _QuestionCardState extends State<_QuestionCard> {
             ],
             const SizedBox(width: 8),
             const Icon(Icons.more_vert, color: Colors.grey),
-                    ],
-                  ),
-                ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- "SHOW ONLY IF" ---
+
+  FormQuestion? get _conditionParent {
+    final id = widget.question.condition?.dependsOnFieldId;
+    if (id == null) return null;
+    for (final q in widget.allQuestions) {
+      if (q.id == id && q.id != widget.question.id) return q;
+    }
+    return null;
+  }
+
+  String _questionLabel(FormQuestion question) {
+    final number = widget.allQuestions.indexOf(question) + 1;
+    final title = question.title.trim().isEmpty
+        ? AppLocalizations.of(context)!.formQuestion
+        : question.title.trim();
+    return '$number. $title';
+  }
+
+  /// Earlier questions that collect an answer, plus the current parent if a
+  /// reorder has moved it below this one.
+  List<FormQuestion> get _conditionCandidates {
+    final candidates = widget.allQuestions
+        .take(widget.index)
+        .where((q) => !kDisplayOnlyTypes.contains(q.type))
+        .toList();
+    final parent = _conditionParent;
+    if (parent != null && !candidates.contains(parent)) candidates.add(parent);
+    return candidates;
+  }
+
+  static bool _isMultiSelect(FormQuestion question) =>
+      question.type == QuestionType.checkboxes;
+
+  static bool _hasOptions(FormQuestion question) =>
+      question.type == QuestionType.multipleChoice ||
+      question.type == QuestionType.dropdown ||
+      question.type == QuestionType.checkboxes;
+
+  List<String> _conditionsFor(FormQuestion parent) {
+    switch (parent.type) {
+      case QuestionType.multipleChoice:
+      case QuestionType.dropdown:
+        return const [
+          QuestionCondition.equals,
+          QuestionCondition.notEquals,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+      case QuestionType.checkboxes:
+        return const [
+          QuestionCondition.contains,
+          QuestionCondition.containsAll,
+          QuestionCondition.containsExactly,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+      case QuestionType.fileUpload:
+        return const [QuestionCondition.isNotEmpty, QuestionCondition.isEmpty];
+      default:
+        return const [
+          QuestionCondition.equals,
+          QuestionCondition.notEquals,
+          QuestionCondition.contains,
+          QuestionCondition.isNotEmpty,
+          QuestionCondition.isEmpty,
+        ];
+    }
+  }
+
+  String _conditionLabel(String condition, {required bool multiSelect}) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (condition) {
+      case QuestionCondition.equals:
+        return l10n.formConditionEquals;
+      case QuestionCondition.notEquals:
+        return l10n.formConditionNotEquals;
+      case QuestionCondition.contains:
+        return multiSelect
+            ? l10n.formConditionContainsAny
+            : l10n.formConditionContains;
+      case QuestionCondition.containsAll:
+        return l10n.formConditionContainsAll;
+      case QuestionCondition.containsExactly:
+        return l10n.formConditionContainsExactly;
+      case QuestionCondition.isEmpty:
+        return l10n.formConditionIsNotAnswered;
+      case QuestionCondition.isNotEmpty:
+        return l10n.formConditionIsAnswered;
+      default:
+        return condition;
+    }
+  }
+
+  void _setConditionParent(String? parentId) {
+    setState(() {
+      if (parentId == null) {
+        widget.question.condition = null;
+      } else {
+        final parent = widget.allQuestions.firstWhere((q) => q.id == parentId);
+        widget.question.condition = QuestionCondition(
+          dependsOnFieldId: parentId,
+          condition: _conditionsFor(parent).first,
+          isVisible: widget.question.condition?.isVisible ?? true,
+        );
+      }
+      widget.onChanged();
+    });
+  }
+
+  void _setConditionKind(String kind, FormQuestion parent) {
+    final condition = widget.question.condition;
+    if (condition == null) return;
+    setState(() {
+      final multi = _isMultiSelect(parent);
+      final wasList = QuestionCondition.usesExpectedValues(condition.condition,
+          multiSelect: multi);
+      final isList =
+          QuestionCondition.usesExpectedValues(kind, multiSelect: multi);
+      condition.condition = kind;
+      if (!QuestionCondition.needsValue(kind)) {
+        condition.expectedValue = null;
+        condition.expectedValues = null;
+      } else if (isList && !wasList) {
+        condition.expectedValues =
+            condition.expectedValue == null ? [] : [condition.expectedValue];
+        condition.expectedValue = null;
+      } else if (!isList && wasList) {
+        final values = condition.expectedValues;
+        condition.expectedValue =
+            values != null && values.isNotEmpty ? values.first : null;
+        condition.expectedValues = null;
+      }
+      widget.onChanged();
+    });
+  }
+
+  Widget _compactDropdown<T>({
+    required double width,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    Widget? hint,
+  }) {
+    return Container(
+      width: width,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          hint: hint,
+          style: GoogleFonts.roboto(fontSize: 13, color: Colors.black87),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionEditor() {
+    final l10n = AppLocalizations.of(context)!;
+    final candidates = _conditionCandidates;
+    final condition = widget.question.condition;
+    final parent = _conditionParent;
+    if (candidates.isEmpty && condition == null) return const SizedBox.shrink();
+
+    final kinds = parent == null ? const <String>[] : _conditionsFor(parent);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Icon(Icons.call_split, size: 18, color: Colors.grey[700]),
+          Text(
+            condition != null && !condition.isVisible
+                ? l10n.formConditionHideIf
+                : l10n.formConditionShowOnlyIf,
+            style: GoogleFonts.roboto(fontSize: 13, color: Colors.grey[800]),
+          ),
+          _compactDropdown<String?>(
+            width: 240,
+            value: parent?.id,
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(l10n.formConditionAlwaysShow,
+                    overflow: TextOverflow.ellipsis),
+              ),
+              ...candidates.map((q) => DropdownMenuItem<String?>(
+                    value: q.id,
+                    child: Text(_questionLabel(q),
+                        overflow: TextOverflow.ellipsis),
+                  )),
+            ],
+            onChanged: _setConditionParent,
+          ),
+          if (condition != null && parent != null) ...[
+            _compactDropdown<String>(
+              width: 170,
+              value: condition.condition,
+              items: [
+                ...kinds,
+                if (!kinds.contains(condition.condition)) condition.condition,
+              ]
+                  .map((kind) => DropdownMenuItem<String>(
+                        value: kind,
+                        child: Text(
+                          _conditionLabel(kind,
+                              multiSelect: _isMultiSelect(parent)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (kind) {
+                if (kind != null) _setConditionKind(kind, parent);
+              },
+            ),
+            if (QuestionCondition.needsValue(condition.condition))
+              _buildConditionValue(condition, parent),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConditionValue(
+      QuestionCondition condition, FormQuestion parent) {
+    final l10n = AppLocalizations.of(context)!;
+    if (QuestionCondition.usesExpectedValues(condition.condition,
+        multiSelect: _isMultiSelect(parent))) {
+      final picked = condition.expectedValues ?? const [];
+      final options = <String>[
+        ...parent.options,
+        ...picked
+            .map((v) => v.toString())
+            .where((v) => !parent.options.contains(v)),
+      ];
+      return Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: options.map((option) {
+          final selected = picked.contains(option);
+          return FilterChip(
+            label: Text(option, style: GoogleFonts.roboto(fontSize: 12)),
+            selected: selected,
+            onSelected: (on) => setState(() {
+              final next = List<dynamic>.of(picked)..remove(option);
+              if (on) next.add(option);
+              condition.expectedValues = next;
+              widget.onChanged();
+            }),
+          );
+        }).toList(),
+      );
+    }
+
+    if (_hasOptions(parent)) {
+      final current = condition.expectedValue?.toString();
+      final options = <String>[
+        ...parent.options,
+        if (current != null && !parent.options.contains(current)) current,
+      ];
+      return _compactDropdown<String>(
+        width: 200,
+        value: current,
+        hint:
+            Text(l10n.formConditionPickAnswer, overflow: TextOverflow.ellipsis),
+        items: options
+            .map((option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option, overflow: TextOverflow.ellipsis),
+                ))
+            .toList(),
+        onChanged: (value) => setState(() {
+          condition.expectedValue = value;
+          widget.onChanged();
+        }),
+      );
+    }
+
+    return SizedBox(
+      width: 200,
+      height: 40,
+      child: TextFormField(
+        key: ValueKey('condition_${parent.id}_${condition.condition}'),
+        initialValue: condition.expectedValue?.toString() ?? '',
+        style: GoogleFonts.roboto(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: l10n.formConditionValueHint,
+          isDense: true,
+          border: const OutlineInputBorder(),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        ),
+        onChanged: (value) {
+          condition.expectedValue = value;
+          widget.onChanged();
+        },
+      ),
     );
   }
 
@@ -1364,7 +1853,8 @@ class _QuestionCardState extends State<_QuestionCard> {
             const SizedBox(height: 8),
             Text(
               'Uploading… ${(_uploadProgress * 100).round()}%',
-              style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey.shade600),
+              style:
+                  GoogleFonts.roboto(fontSize: 12, color: Colors.grey.shade600),
             ),
           ] else if (url.isEmpty) ...[
             InkWell(
@@ -1431,7 +1921,8 @@ class _QuestionCardState extends State<_QuestionCard> {
                   },
                   icon: const Icon(Icons.close, size: 18),
                   label: const Text('Remove'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                  style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade700),
                 ),
               ],
             ),
@@ -1439,7 +1930,8 @@ class _QuestionCardState extends State<_QuestionCard> {
           if (_uploadError != null) ...[
             const SizedBox(height: 6),
             Text(_uploadError!,
-                style: GoogleFonts.roboto(fontSize: 12, color: Colors.red.shade700)),
+                style: GoogleFonts.roboto(
+                    fontSize: 12, color: Colors.red.shade700)),
           ],
         ],
       ),
@@ -1469,7 +1961,8 @@ class _QuestionCardState extends State<_QuestionCard> {
     // Storage rules cap uploads at 10 MB; reject here so the failure is
     // explained rather than surfacing as a permission error.
     if (bytes.length > 10 * 1024 * 1024) {
-      setState(() => _uploadError = 'That image is larger than 10 MB. Pick a smaller one.');
+      setState(() => _uploadError =
+          'That image is larger than 10 MB. Pick a smaller one.');
       return;
     }
     final user = FirebaseAuth.instance.currentUser;
@@ -1493,12 +1986,16 @@ class _QuestionCardState extends State<_QuestionCard> {
         bytes,
         SettableMetadata(
           contentType: _imageContentType(safeName),
-          customMetadata: {'uploadedBy': user.uid, 'usage': 'form_builder_image_block'},
+          customMetadata: {
+            'uploadedBy': user.uid,
+            'usage': 'form_builder_image_block'
+          },
         ),
       );
       final sub = task.snapshotEvents.listen((snapshot) {
         if (!mounted || snapshot.totalBytes == 0) return;
-        setState(() => _uploadProgress = snapshot.bytesTransferred / snapshot.totalBytes);
+        setState(() =>
+            _uploadProgress = snapshot.bytesTransferred / snapshot.totalBytes);
       });
       final snapshot = await task;
       await sub.cancel();
@@ -1515,7 +2012,8 @@ class _QuestionCardState extends State<_QuestionCard> {
       setState(() {
         _uploading = false;
         _uploadProgress = 0;
-        _uploadError = 'The image could not be uploaded. Check your connection and try again.';
+        _uploadError =
+            'The image could not be uploaded. Check your connection and try again.';
       });
     }
   }
@@ -1550,14 +2048,15 @@ class _QuestionCardState extends State<_QuestionCard> {
             child: Row(
               children: [
                 if (isRadio)
-                  const Icon(Icons.radio_button_unchecked, color: Colors.grey, size: 20)
+                  const Icon(Icons.radio_button_unchecked,
+                      color: Colors.grey, size: 20)
                 else if (isCheckbox)
-                  const Icon(Icons.check_box_outline_blank, color: Colors.grey, size: 20)
+                  const Icon(Icons.check_box_outline_blank,
+                      color: Colors.grey, size: 20)
                 else
-                  Text('${index + 1}.', style: const TextStyle(color: Colors.grey)),
-                
+                  Text('${index + 1}.',
+                      style: const TextStyle(color: Colors.grey)),
                 const SizedBox(width: 12),
-                
                 Expanded(
                   child: _InlineTextField(
                     value: entry.value,
@@ -1593,27 +2092,30 @@ class _QuestionCardState extends State<_QuestionCard> {
         // Bouton Ajouter une option
         InkWell(
           onTap: () => setState(() {
-            widget.question.options.add('Option ${widget.question.options.length + 1}');
+            widget.question.options
+                .add('Option ${widget.question.options.length + 1}');
             widget.onChanged();
           }),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
+            child: Row(
+              children: [
                 if (isRadio)
-                  const Icon(Icons.radio_button_unchecked, color: Colors.transparent, size: 20)
+                  const Icon(Icons.radio_button_unchecked,
+                      color: Colors.transparent, size: 20)
                 else if (isCheckbox)
-                  const Icon(Icons.check_box_outline_blank, color: Colors.transparent, size: 20)
+                  const Icon(Icons.check_box_outline_blank,
+                      color: Colors.transparent, size: 20)
                 else
                   const SizedBox(width: 16),
                 const SizedBox(width: 12),
-                    Text(
+                Text(
                   AppLocalizations.of(context)!.addOption,
                   style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
                 ),
-              ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -1630,13 +2132,15 @@ class _QuestionCardState extends State<_QuestionCard> {
               child: DropdownButton<int>(
                 value: widget.question.scaleMin,
                 isExpanded: true,
-                items: [0, 1].map((v) => DropdownMenuItem(
-                  value: v,
-                  child: Text(AppLocalizations.of(context)!.v),
-                )).toList(),
+                items: [0, 1]
+                    .map((v) => DropdownMenuItem(
+                          value: v,
+                          child: Text(AppLocalizations.of(context)!.v),
+                        ))
+                    .toList(),
                 onChanged: (v) {
                   if (v != null) {
-                setState(() {
+                    setState(() {
                       widget.question.scaleMin = v;
                       widget.onChanged();
                     });
@@ -1655,26 +2159,26 @@ class _QuestionCardState extends State<_QuestionCard> {
                 isExpanded: true,
                 items: List.generate(9, (i) => i + 2)
                     .map((v) => DropdownMenuItem(
-                      value: v,
-                      child: Text(AppLocalizations.of(context)!.v),
-                    ))
+                          value: v,
+                          child: Text(AppLocalizations.of(context)!.v),
+                        ))
                     .toList(),
                 onChanged: (v) {
                   if (v != null) {
-                  setState(() {
+                    setState(() {
                       widget.question.scaleMax = v;
                       widget.onChanged();
                     });
                   }
-            },
-          ),
-        ),
-      ],
+                },
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         // Labels
         Row(
-        children: [
+          children: [
             Expanded(
               child: _InlineTextField(
                 value: widget.question.scaleLabelMin,
@@ -1684,14 +2188,15 @@ class _QuestionCardState extends State<_QuestionCard> {
                 },
                 decoration: InputDecoration(
                   hintText: AppLocalizations.of(context)!.labelOptional,
-                  hintStyle: GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
+                  hintStyle:
+                      GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
                   border: const UnderlineInputBorder(),
                   prefix: Text(
                     '${widget.question.scaleMin} ',
                     style: GoogleFonts.roboto(color: Colors.grey),
+                  ),
+                ),
               ),
-            ),
-          ),
             ),
             const SizedBox(width: 24),
             Expanded(
@@ -1703,17 +2208,18 @@ class _QuestionCardState extends State<_QuestionCard> {
                 },
                 decoration: InputDecoration(
                   hintText: AppLocalizations.of(context)!.labelOptional,
-                  hintStyle: GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
+                  hintStyle:
+                      GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
                   border: const UnderlineInputBorder(),
                   prefix: Text(
                     '${widget.question.scaleMax} ',
                     style: GoogleFonts.roboto(color: Colors.grey),
                   ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ],
     );
   }
@@ -1749,26 +2255,31 @@ class _QuestionCardState extends State<_QuestionCard> {
           ),
         );
       case QuestionType.multipleChoice:
-    return Column(
-          children: widget.question.options.map((o) => RadioListTile<String>(
-            title: Text(o, style: const TextStyle(color: Colors.black87)),
-            value: o,
-            groupValue: null,
-            onChanged: null,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          )).toList(),
+        return Column(
+          children: widget.question.options
+              .map((o) => RadioListTile<String>(
+                    title:
+                        Text(o, style: const TextStyle(color: Colors.black87)),
+                    value: o,
+                    groupValue: null,
+                    onChanged: null,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ))
+              .toList(),
         );
       case QuestionType.checkboxes:
         return Column(
-          children: widget.question.options.map((o) => CheckboxListTile(
-            title: Text(o),
-            value: false,
-            onChanged: null,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-          )).toList(),
+          children: widget.question.options
+              .map((o) => CheckboxListTile(
+                    title: Text(o),
+                    value: false,
+                    onChanged: null,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ))
+              .toList(),
         );
       case QuestionType.dropdown:
         return Container(
@@ -1805,7 +2316,8 @@ class _QuestionCardState extends State<_QuestionCard> {
           children: [
             Icon(Icons.calendar_today, color: Colors.grey.shade400),
             const SizedBox(width: 8),
-            Text(AppLocalizations.of(context)!.datePicker, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+            Text(AppLocalizations.of(context)!.datePicker,
+                style: GoogleFonts.roboto(color: Colors.grey.shade400)),
           ],
         );
       case QuestionType.time:
@@ -1813,7 +2325,8 @@ class _QuestionCardState extends State<_QuestionCard> {
           children: [
             Icon(Icons.access_time, color: Colors.grey.shade400),
             const SizedBox(width: 8),
-            Text(AppLocalizations.of(context)!.timePicker, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+            Text(AppLocalizations.of(context)!.timePicker,
+                style: GoogleFonts.roboto(color: Colors.grey.shade400)),
           ],
         );
       case QuestionType.sectionHeader:
@@ -1831,18 +2344,20 @@ class _QuestionCardState extends State<_QuestionCard> {
       case QuestionType.imageBlock:
         return _buildImageBlockEditor();
       case QuestionType.fileUpload:
-    return Container(
+        return Container(
           padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+          decoration: BoxDecoration(
+            border: Border.all(
+                color: Colors.grey.shade300, style: BorderStyle.solid),
             borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
+          ),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+            children: [
               Icon(Icons.cloud_upload_outlined, color: Colors.grey.shade400),
-                        const SizedBox(width: 8),
-              Text(AppLocalizations.of(context)!.fileUpload, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+              const SizedBox(width: 8),
+              Text(AppLocalizations.of(context)!.fileUpload,
+                  style: GoogleFonts.roboto(color: Colors.grey.shade400)),
             ],
           ),
         );
@@ -1856,9 +2371,9 @@ class _QuestionCardState extends State<_QuestionCard> {
             border: isEditing
                 ? const UnderlineInputBorder()
                 : const UnderlineInputBorder(borderSide: BorderSide.none),
-      ),
-    );
-  }
+          ),
+        );
+    }
   }
 }
 

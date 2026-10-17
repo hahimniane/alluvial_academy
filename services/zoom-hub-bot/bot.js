@@ -154,7 +154,17 @@ async function ensureBrowser() {
 }
 
 async function startHub(directive) {
-  if (sessions.has(directive.hubDocId)) return;
+  const running = sessions.get(directive.hubDocId);
+  if (running) {
+    // A rolling segment grows as later classes merge into it, so the window
+    // end this page joined with goes stale. Judged by the stale end, the bot
+    // left the hub a minute past it and rejoined on the next poll, and the
+    // rejoin re-opened the breakout rooms — throwing every class in progress
+    // back to the main room. Oct 11 and Oct 14 2026: 7:16 PM and 8:16 PM,
+    // one minute after each superseded window end. Keep the end current.
+    if (directive.windowEnd) running.windowEnd = new Date(directive.windowEnd).getTime();
+    return;
+  }
   const activeBrowser = await ensureBrowser();
   const context = await activeBrowser.newContext({
     viewport: { width: 640, height: 480 },

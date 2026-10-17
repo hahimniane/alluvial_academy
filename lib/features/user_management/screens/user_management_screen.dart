@@ -840,11 +840,19 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         final hours = ShiftSessionAggregator.getScheduledHours(data);
         if (hours <= 0) continue;
 
+        // A class shared by a family is one hour of teaching, not one hour per
+        // child: each student carries their share, so the family's rows add up
+        // to the hours actually taught.
+        final sharers = studentIds
+            .map((id) => id.toString().trim())
+            .where((id) => id.isNotEmpty)
+            .length;
+        final share = sharers > 0 ? hours / sharers : hours;
         for (final rawId in studentIds) {
           final studentId = rawId.toString().trim();
           if (studentId.isEmpty) continue;
-          hoursByStudent.update(studentId, (v) => v + hours,
-              ifAbsent: () => hours);
+          hoursByStudent.update(studentId, (v) => v + share,
+              ifAbsent: () => share);
           if (teacherName.isNotEmpty) {
             teacherNamesByStudent
                 .putIfAbsent(studentId, () => <String>{})

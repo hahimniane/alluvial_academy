@@ -142,6 +142,8 @@ exports.generateShiftsForTemplate =
 exports.updateShiftTemplate = shiftTemplateHandlers.updateShiftTemplate;
 exports.excludeShiftTemplateDate =
   shiftTemplateHandlers.excludeShiftTemplateDate;
+exports.onGeneratedShiftDeleted =
+  shiftTemplateHandlers.onGeneratedShiftDeleted;
 exports.onTeacherDeleted = shiftTemplateHandlers.onTeacherDeleted;
 // Zoom functions removed - all video calls now use LiveKit
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;

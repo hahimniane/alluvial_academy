@@ -77,7 +77,16 @@ const buildPeriodKey = (periodType, periodStart) => {
 // (future classes no longer counted as missed, left_early status, session
 // breakdowns) must not be served from cache. Bump again whenever report
 // semantics change.
-const REPORT_DOC_VERSION = 'v2';
+// v3: a beacon window whose end equals its start counts as 0 seconds, not as
+// open until the class ends; overlapping windows are merged; the hub bot's
+// room presence counts as attendance.
+const REPORT_DOC_VERSION = 'v3';
+
+/** Only reports computed under the current semantics. Older versions share
+ * the same period_key, and serving them next to current ones showed a student
+ * twice — once with the pre-fix figures (Malik Fofana, Aug 2026). */
+const currentVersionReports = (docs) =>
+  (docs || []).filter((doc) => `${doc.id || ''}`.endsWith(`_${REPORT_DOC_VERSION}`));
 
 const buildReportDocId = ({ studentId, periodType, periodStart }) =>
   `${studentId}_${periodType}_${buildPeriodKey(periodType, periodStart)}_${REPORT_DOC_VERSION}`;
@@ -144,18 +153,36 @@ const parseLegacyWindow = (sessionData) => {
   return [
     {
       joinAt: joinedAt,
-      leaveAt: leftAt && leftAt > joinedAt ? leftAt : null,
+      // An end equal to the start is a closed, empty window. Treating it as
+      // open credited the whole class to a student who stayed a minute.
+      leaveAt: leftAt && leftAt >= joinedAt ? leftAt : null,
     },
   ];
 };
 
-const normalizeRawWindows = (sessionData) => {
+const normalizeRawWindows = (sessionData) => [
+  ...normalizeSessionWindows(sessionData),
+  ...normalizeBotWindows(sessionData),
+];
+
+/** Room time the hub bot saw, attached by attachBotPresence. */
+const normalizeBotWindows = (sessionData) =>
+  (Array.isArray(sessionData.bot_windows) ? sessionData.bot_windows : [])
+    .map((windowData) => {
+      const joinAt = toDate(windowData && windowData.join_at);
+      if (!joinAt) return null;
+      const leaveAt = toDate(windowData.leave_at);
+      return { joinAt, leaveAt: leaveAt && leaveAt >= joinAt ? leaveAt : null };
+    })
+    .filter(Boolean);
+
+const normalizeSessionWindows = (sessionData) => {
   const rawWindows = Array.isArray(sessionData.presence_windows)
     ? sessionData.presence_windows
     : null;
 
   if (!rawWindows || rawWindows.length === 0) {
-    return parseLegacyWindow(sessionData);
+    return sessionData.joined_at ? parseLegacyWindow(sessionData) : [];
   }
 
   return rawWindows
@@ -166,7 +193,7 @@ const normalizeRawWindows = (sessionData) => {
       const leaveAt = toDate(windowData.leave_at);
       return {
         joinAt,
-        leaveAt: leaveAt && leaveAt > joinAt ? leaveAt : null,
+        leaveAt: leaveAt && leaveAt >= joinAt ? leaveAt : null,
       };
     })
     .filter(Boolean);
@@ -222,7 +249,17 @@ const computeParticipantPresenceMetrics = ({
         now,
       }))
     .filter(Boolean)
-    .sort((a, b) => a.start - b.start);
+    .sort((a, b) => a.start - b.start)
+    // The beacon and the bot often both saw the same minutes; count them once.
+    .reduce((merged, windowData) => {
+      const last = merged[merged.length - 1];
+      if (last && windowData.start <= last.end) {
+        if (windowData.end > last.end) last.end = windowData.end;
+      } else {
+        merged.push({ start: windowData.start, end: windowData.end });
+      }
+      return merged;
+    }, []);
 
   const derivedJoinCount = rawWindows.length;
   const joinCountRaw = Number(sessionData.join_count);
@@ -843,6 +880,81 @@ const loadSessionsByShift = async ({ shiftIds }) => {
   return sessionsByShift;
 };
 
+/**
+ * The hub bot's arrivals and departures for one class, as presence windows per
+ * person. An arrival with no departure stays open (clipped to the class end
+ * later); a second arrival closes the first, because the departure between
+ * them was missed.
+ */
+const botWindowsFromEvents = (events) => {
+  const byUid = new Map();
+  const sorted = [...(events || [])]
+    .map((event) => ({ ...event, at: toDate(event.at) }))
+    .filter((event) => event.at && event.uid)
+    .sort((a, b) => a.at - b.at);
+  for (const event of sorted) {
+    const uid = `${event.uid}`;
+    if (!byUid.has(uid)) byUid.set(uid, []);
+    const windows = byUid.get(uid);
+    const open = windows.length > 0 && windows[windows.length - 1].leave_at === null
+      ? windows[windows.length - 1]
+      : null;
+    if (event.type === 'arrived') {
+      if (open) open.leave_at = event.at;
+      windows.push({ join_at: event.at, leave_at: null });
+    } else if (event.type === 'departed' && open) {
+      open.leave_at = event.at;
+    }
+  }
+  return byUid;
+};
+
+const BOT_PRESENCE_CONCURRENCY = 20;
+
+const loadBotPresenceByShift = async ({ shiftIds }) => {
+  const db = admin.firestore();
+  const result = new Map();
+  const ids = Array.isArray(shiftIds) ? shiftIds : [];
+  for (let i = 0; i < ids.length; i += BOT_PRESENCE_CONCURRENCY) {
+    const chunk = ids.slice(i, i + BOT_PRESENCE_CONCURRENCY);
+    const snapshots = await Promise.all(chunk.map((shiftId) =>
+      db.collection('class_presence_events').doc(shiftId).collection('events').get()
+        .catch(() => null)));
+    snapshots.forEach((snap, index) => {
+      if (!snap || snap.empty) return;
+      result.set(chunk[index], botWindowsFromEvents(snap.docs.map((doc) => doc.data() || {})));
+    });
+  }
+  return result;
+};
+
+/**
+ * Adds the bot's room time to each person's session for the class. A student
+ * whose browser beacon stopped (page closed, moved to the Zoom app) but who sat
+ * in their class room the whole time is present — the bot saw them.
+ */
+const attachBotPresence = (sessionsByShift, botByShift) => {
+  for (const [shiftId, byUid] of botByShift.entries()) {
+    if (!sessionsByShift.has(shiftId)) sessionsByShift.set(shiftId, new Map());
+    const sessions = sessionsByShift.get(shiftId);
+    for (const [uid, windows] of byUid.entries()) {
+      const existing = sessions.get(uid);
+      sessions.set(uid, existing
+        ? { ...existing, bot_windows: windows }
+        : { shift_id: shiftId, user_id: uid, bot_windows: windows, source: 'zoom_hub_bot' });
+    }
+  }
+  return sessionsByShift;
+};
+
+const loadPresenceByShift = async ({ shiftIds }) => {
+  const [sessionsByShift, botByShift] = await Promise.all([
+    loadSessionsByShift({ shiftIds }),
+    loadBotPresenceByShift({ shiftIds }),
+  ]);
+  return attachBotPresence(sessionsByShift, botByShift);
+};
+
 const writeReports = async ({ reports }) => {
   const db = admin.firestore();
   let batch = db.batch();
@@ -968,7 +1080,7 @@ const detectClassAttendanceNoShowsForWindow = async ({
     return { scannedShifts: 0, alertCount: 0, skipped: 0 };
   }
 
-  const sessionsByShift = await loadSessionsByShift({
+  const sessionsByShift = await loadPresenceByShift({
     shiftIds: shifts.map((shift) => shift.id),
   });
   const participantMetricsByShift = buildParticipantMetricsIndex({
@@ -1036,7 +1148,7 @@ const generateStudentAttendanceReportsForPeriod = async ({
   const now = new Date();
   const shifts = await loadShiftsForPeriod({ periodStart, periodEnd });
   const shiftIds = shifts.map((shift) => shift.id);
-  const sessionsByShift = await loadSessionsByShift({ shiftIds });
+  const sessionsByShift = await loadPresenceByShift({ shiftIds });
   const participantMetricsByShift = buildParticipantMetricsIndex({
     shifts,
     sessionsByShift,
@@ -1235,25 +1347,24 @@ const getAdminStudentAttendanceOverview = onCall(async (request) => {
     generated = true;
   }
 
-  let reportsSnapshot = await db
+  const loadCurrentReports = async () => currentVersionReports((await db
     .collection(REPORT_COLLECTION)
     .where('period_key', '==', periodKey)
-    .get();
+    .get()).docs);
 
-  if (reportsSnapshot.empty && !generated) {
+  let reportDocs = await loadCurrentReports();
+
+  if (reportDocs.length === 0 && !generated) {
     await generateStudentAttendanceReportsForPeriod({
       periodType,
       periodStart,
       periodEnd,
     });
     generated = true;
-    reportsSnapshot = await db
-      .collection(REPORT_COLLECTION)
-      .where('period_key', '==', periodKey)
-      .get();
+    reportDocs = await loadCurrentReports();
   }
 
-  const reports = reportsSnapshot.docs.map((doc) => doc.data() || {});
+  const reports = reportDocs.map((doc) => doc.data() || {});
   const studentIds = [...new Set(
     reports.map((report) => `${report.student_id || ''}`.trim()).filter(Boolean),
   )];
@@ -1300,6 +1411,12 @@ module.exports = {
     buildReportDocId,
     normalizeShiftRecord,
     normalizeRawWindows,
+    botWindowsFromEvents,
+    attachBotPresence,
+    currentVersionReports,
+    loadShiftsForPeriod,
+    loadPresenceByShift,
+    buildParticipantMetricsIndex,
     computeParticipantPresenceMetrics,
     calculateOverlapSeconds,
     missingStateForShift,

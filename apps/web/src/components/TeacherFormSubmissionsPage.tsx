@@ -20,6 +20,7 @@ import { auth, db } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
+import { buildFieldLayout, orderResponseEntries, type FieldLayout } from "@/lib/formAnswerOrder";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type SubmissionRecord = {
@@ -29,6 +30,7 @@ type SubmissionRecord = {
   status: string;
   responses: Record<string, unknown>;
   fieldLabels: Record<string, string>;
+  fieldOrder: Record<string, number>;
   submittedAt: Date | null;
   yearMonth: string;
 };
@@ -387,7 +389,7 @@ function GroupSheet({ group, onClose, onView }: { group: SubmissionGroup; onClos
 }
 
 function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecord; onClose: () => void }) {
-  const entries = Object.entries(submission.responses);
+  const entries = orderResponseEntries(submission.responses, submission.fieldOrder);
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/30" role="dialog" aria-modal="true" aria-label={`${submission.formTitle} details`}>
       <div className="max-h-[90vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-2xl lg:mx-auto lg:max-w-3xl">
@@ -469,7 +471,7 @@ async function loadSubmissions(user: User) {
 async function hydrateTitles(records: SubmissionRecord[]) {
   const templateIds = Array.from(new Set(records.filter((item) => item.formId && item.formId !== noFormIdGroup).map((item) => item.formId)));
   const titles = new Map<string, string>();
-  const labels = new Map<string, Record<string, string>>();
+  const layouts = new Map<string, FieldLayout>();
   await Promise.all(
     templateIds.map(async (id) => {
       const template = await getDoc(doc(db, "form_templates", id)).catch(() => null);
@@ -477,7 +479,7 @@ async function hydrateTitles(records: SubmissionRecord[]) {
         const data = template.data() as Record<string, unknown>;
         const title = stringValue(data.name ?? data.title);
         if (title) titles.set(id, title);
-        labels.set(id, buildFieldLabels(data.fields));
+        layouts.set(id, buildFieldLayout(data.fields));
         return;
       }
       const legacy = await getDoc(doc(db, "form", id)).catch(() => null);
@@ -485,13 +487,15 @@ async function hydrateTitles(records: SubmissionRecord[]) {
         const data = legacy.data() as Record<string, unknown>;
         const title = stringValue(data.title ?? data.formTitle);
         if (title) titles.set(id, title);
-        labels.set(id, buildFieldLabels(data.fields));
+        layouts.set(id, buildFieldLayout(data.fields));
       }
     }),
   );
   for (const record of records) {
     if (!record.formTitle && record.formId) record.formTitle = titles.get(record.formId) || "Form Submission";
-    record.fieldLabels = labels.get(record.formId) ?? {};
+    const layout = layouts.get(record.formId);
+    record.fieldLabels = layout?.labels ?? {};
+    record.fieldOrder = layout?.order ?? {};
   }
 }
 
@@ -507,24 +511,10 @@ function normalizeSubmission(id: string, data: Record<string, unknown>): Submiss
     status: stringValue(data.status) || "Submitted",
     responses,
     fieldLabels: {},
+    fieldOrder: {},
     submittedAt,
     yearMonth: stringValue(data.yearMonth) || (submittedAt ? yearMonthFor(submittedAt) : ""),
   };
-}
-
-function buildFieldLabels(value: unknown): Record<string, string> {
-  const entries: Array<[string, unknown]> = Array.isArray(value)
-    ? value.map((item, index) => [stringValue((item as Record<string, unknown>)?.id) || `field_${index}`, item])
-    : value && typeof value === "object"
-      ? Object.entries(value as Record<string, unknown>)
-      : [];
-
-  return entries.reduce<Record<string, string>>((acc, [id, item]) => {
-    const data = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-    const label = stringValue(data.label ?? data.name);
-    if (id && label) acc[id] = label;
-    return acc;
-  }, {});
 }
 
 function currentYearMonth() {

@@ -7375,5 +7375,19 @@
   "auditStrictClockNotice": "La politique stricte de pointage est active pour cette période. Les formulaires ne modifient pas les heures travaillées.",
   "missedShiftNeedsMakeupNotice": "Ce cours a été manqué. Pour l'enseigner et être rémunéré(e), demandez un cours de rattrapage.",
   "makeupRequestPending": "Demande de rattrapage en attente d'examen",
-  "makeupRequestApprovedStatus": "Cours de rattrapage approuvé et programmé"
+  "makeupRequestApprovedStatus": "Cours de rattrapage approuvé et programmé",
+  "formConditionShowOnlyIf": "Afficher seulement si",
+  "formConditionHideIf": "Masquer si",
+  "formConditionAlwaysShow": "Toujours afficher",
+  "formConditionEquals": "est",
+  "formConditionNotEquals": "n'est pas",
+  "formConditionContains": "contient",
+  "formConditionContainsAny": "inclut l'un de",
+  "formConditionContainsAll": "inclut tous",
+  "formConditionContainsExactly": "est exactement",
+  "formConditionIsAnswered": "a une réponse",
+  "formConditionIsNotAnswered": "n'a pas de réponse",
+  "formConditionValueHint": "Réponse",
+  "formConditionPickAnswer": "Choisir une réponse",
+  "formConditionIncomplete": "La question {number} a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher »."
 }

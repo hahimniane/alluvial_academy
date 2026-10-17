@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/form_audience.dart';
+
 /// Form frequency types
 enum FormFrequency {
   perSession, // Daily Class Report - filled after each session
@@ -33,7 +35,7 @@ extension FormCategoryExtension on FormCategory {
         return 'Other Forms';
     }
   }
-  
+
   String get icon {
     switch (this) {
       case FormCategory.teaching:
@@ -65,9 +67,9 @@ extension FormFrequencyAvailability on FormFrequency {
       case FormFrequency.weekly:
         // Sunday = 7, Monday = 1, Tuesday = 2
         final dayOfWeek = now.weekday;
-        return dayOfWeek == DateTime.sunday || 
-               dayOfWeek == DateTime.monday || 
-               dayOfWeek == DateTime.tuesday;
+        return dayOfWeek == DateTime.sunday ||
+            dayOfWeek == DateTime.monday ||
+            dayOfWeek == DateTime.tuesday;
       case FormFrequency.monthly:
         // Available last 3 days of month or first 3 days of next month
         final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -106,12 +108,12 @@ extension FormFrequencyAvailability on FormFrequency {
       case FormFrequency.perSession:
         return 'Available after each class session';
       case FormFrequency.weekly:
-        return isAvailableToday 
-            ? 'Available now (Sunday - Tuesday)' 
+        return isAvailableToday
+            ? 'Available now (Sunday - Tuesday)'
             : 'Available Sunday, Monday, and Tuesday only';
       case FormFrequency.monthly:
-        return isAvailableToday 
-            ? 'Available now (end/start of month)' 
+        return isAvailableToday
+            ? 'Available now (end/start of month)'
             : 'Available last 3 days of month or first 3 days of next month';
       case FormFrequency.onDemand:
         return 'Available anytime';
@@ -308,11 +310,12 @@ class FormTemplate {
     // Parse fields - support both Map and List formats
     List<FormFieldDefinition> fields = [];
     final rawFields = data['fields'];
-    
+
     if (rawFields is Map<String, dynamic>) {
       // Format: { "field_id": { ... field data ... } }
       fields = rawFields.entries
-          .map((e) => FormFieldDefinition.fromMap(e.key, e.value as Map<String, dynamic>))
+          .map((e) => FormFieldDefinition.fromMap(
+              e.key, e.value as Map<String, dynamic>))
           .toList();
     } else if (rawFields is List) {
       // Format: [ { "id": "field_id", ... } ]
@@ -322,7 +325,7 @@ class FormTemplate {
         return FormFieldDefinition.fromMap(fieldId, fieldData);
       }).toList();
     }
-    
+
     fields.sort((a, b) => a.order.compareTo(b.order));
 
     // Parse auto-fill rules (support List or Map-for compatibility)
@@ -358,16 +361,9 @@ class FormTemplate {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdBy: data['createdBy'] as String?,
       subjectId: data['subjectId'] as String?,
-      allowedRoles: _toStringList(data['allowedRoles']),
+      allowedRoles: FormAudience.parse(data),
       themeColor: data['themeColor'] as String?,
     );
-  }
-
-  static List<String>? _toStringList(dynamic v) {
-    if (v == null) return null;
-    if (v is List) return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
-    if (v is Map) return v.values.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
-    return null;
   }
 
   FormTemplate copyWith({
@@ -405,4 +401,3 @@ class FormTemplate {
         themeColor: themeColor ?? this.themeColor,
       );
 }
-

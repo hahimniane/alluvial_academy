@@ -6799,5 +6799,19 @@
   "auditStrictClockNotice": "سياسة تسجيل الحضور والانصراف الصارمة مفعلة لهذه الفترة. النماذج لا تؤثر على الساعات المحتسبة.",
   "missedShiftNeedsMakeupNotice": "هذه الحصة فائتة. لتدريسها واستحقاق أجرها، يرجى طلب حصة تعويضية.",
   "makeupRequestPending": "طلب التعويض قيد مراجعة الإدارة",
-  "makeupRequestApprovedStatus": "تمت الموافقة على الحصة التعويضية وجدولتها"
+  "makeupRequestApprovedStatus": "تمت الموافقة على الحصة التعويضية وجدولتها",
+  "formConditionShowOnlyIf": "إظهار فقط إذا",
+  "formConditionHideIf": "إخفاء إذا",
+  "formConditionAlwaysShow": "إظهار دائمًا",
+  "formConditionEquals": "يساوي",
+  "formConditionNotEquals": "لا يساوي",
+  "formConditionContains": "يحتوي على",
+  "formConditionContainsAny": "يتضمن أيًّا من",
+  "formConditionContainsAll": "يتضمن كل",
+  "formConditionContainsExactly": "هو بالضبط",
+  "formConditionIsAnswered": "تمت الإجابة عليه",
+  "formConditionIsNotAnswered": "لم تتم الإجابة عليه",
+  "formConditionValueHint": "الإجابة",
+  "formConditionPickAnswer": "اختر إجابة",
+  "formConditionIncomplete": "السؤال {number} يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا»."
 }

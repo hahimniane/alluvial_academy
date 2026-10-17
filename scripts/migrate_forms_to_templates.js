@@ -176,6 +176,8 @@ function convertField(field, order) {
     order: field.order ?? order,
     options: field.options || null,
     validation: field.validation || null,
+    // "Show only if" rule, in the shape the form screen evaluates.
+    conditionalLogic: field.conditionalLogic || null,
   };
 }
 

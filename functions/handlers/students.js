@@ -17,6 +17,16 @@ const generateStudentCode = (firstName, lastName) => {
   return `${firstNormalized}.${lastNormalized}`;
 };
 
+const _aliasTakenInAuth = async (studentCode) => {
+  try {
+    await admin.auth().getUserByEmail(`${studentCode}@alluwaleducationhub.org`);
+    return true;
+  } catch (error) {
+    if (error && error.code === 'auth/user-not-found') return false;
+    throw error;
+  }
+};
+
 const createStudentAccount = async (data, context) => {
   console.log('--- CREATE STUDENT ACCOUNT ---');
   await verifyCallableCallerIsAdmin(data, context);
@@ -130,7 +140,11 @@ const createStudentAccount = async (data, context) => {
         .limit(1)
         .get();
 
-      if (existingQuery.empty) {
+      // The login is taken if a sign-in account already holds its alias, even
+      // with no profile behind it: a creation that failed half way (Jan 2026,
+      // amadou.sidy@) left one, and every later attempt hit "email already in
+      // use" instead of moving on to the next name.
+      if (existingQuery.empty && !(await _aliasTakenInAuth(studentCode))) {
         break;
       }
 

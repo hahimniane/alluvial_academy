@@ -2,6 +2,25 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {onDocumentCreated, onDocumentUpdated} = require('firebase-functions/v2/firestore');
 
+const ADMIN_SUPPORT_ID = 'admin_support';
+
+/**
+ * Who hears about a message in the shared Admin Support thread.
+ *
+ * Its participants are [member, 'admin_support']: no admin is a participant,
+ * because the inbox belongs to the school, not to one person. So "everyone
+ * except the sender" reached nobody when a teacher wrote in (the only other
+ * participant is the virtual id), and reached the teacher under one admin's
+ * personal name when an admin replied. A member's message now goes to every
+ * active admin; any admin's reply goes to the member, titled "Admin Support".
+ */
+const supportRouting = ({participants, senderId}) => {
+  if (!Array.isArray(participants) || !participants.includes(ADMIN_SUPPORT_ID)) return null;
+  const memberId = participants.find((id) => id && id !== ADMIN_SUPPORT_ID) || '';
+  if (!memberId) return null;
+  return senderId === memberId ? {notify: 'admins', memberId} : {notify: 'member', memberId};
+};
+
 /**
  * Trigger when a new chat message is created
  * Sends push notification to all recipients in the chat
@@ -56,19 +75,37 @@ const onChatMessageCreated = onDocumentCreated(
       const chatType = chatData.chat_type || 'individual';
       const groupName = chatData.group_name;
 
-      // Get recipients (everyone except the sender)
-      const recipientIds = participants.filter(id => id !== senderId);
+      // Get recipients (everyone except the sender; the support inbox routes by side)
+      const routing = supportRouting({participants, senderId});
+      let recipientIds;
+      if (routing && routing.notify === 'admins') {
+        const admins = await admin.firestore()
+          .collection('users')
+          .where('user_type', 'in', ['admin', 'super_admin'])
+          .get();
+        recipientIds = admins.docs
+          .filter((doc) => doc.get('is_active') !== false && doc.id !== senderId)
+          .map((doc) => doc.id);
+      } else if (routing) {
+        recipientIds = [routing.memberId];
+      } else {
+        recipientIds = participants.filter(id => id !== senderId && id !== ADMIN_SUPPORT_ID);
+      }
 
       if (recipientIds.length === 0) {
         console.log('[CHAT] No recipients to notify');
         return null;
       }
 
-      // Fetch recipient user data and FCM tokens
-      const recipientDocs = await admin.firestore()
-        .collection('users')
-        .where(admin.firestore.FieldPath.documentId(), 'in', recipientIds.slice(0, 10)) // Firestore limit
-        .get();
+      // Fetch recipient user data and FCM tokens (an `in` query takes 30 ids)
+      const recipientDocs = [];
+      for (let i = 0; i < recipientIds.length; i += 30) {
+        const page = await admin.firestore()
+          .collection('users')
+          .where(admin.firestore.FieldPath.documentId(), 'in', recipientIds.slice(i, i + 30))
+          .get();
+        recipientDocs.push(...page.docs);
+      }
 
       const tokensToSend = [];
       const recipientData = {};
@@ -118,9 +155,11 @@ const onChatMessageCreated = onDocumentCreated(
       }
 
       // Prepare notification
-      const title = chatType === 'group' 
-        ? `${groupName}: ${senderName}`
-        : senderName;
+      const title = routing
+        ? (routing.notify === 'member' ? 'Admin Support' : `Admin Support · ${senderName}`)
+        : chatType === 'group'
+          ? `${groupName}: ${senderName}`
+          : senderName;
       
       // Truncate message for preview
       const maxPreviewLength = 100;
@@ -421,6 +460,7 @@ const onShiftCreated = onDocumentCreated(
 );
 
 module.exports = {
+  __test: {supportRouting},
   onChatMessageCreated,
   updateChatNotificationPreference,
   onShiftStatusChange,
