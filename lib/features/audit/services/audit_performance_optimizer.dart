@@ -260,6 +260,17 @@ class OptimizedCSVExporter {
   }
 }
 
+/// Whether a shift is a class someone is taught in (and so belongs in an
+/// audit): a teaching shift with at least one student. Leadership shifts —
+/// hosting, meetings, outreach — have no students and are not audited.
+bool isTaughtClass(Map<String, dynamic> shift) {
+  final category =
+      (shift['shift_category'] ?? shift['category'] ?? 'teaching').toString();
+  if (category.toLowerCase() != 'teaching') return false;
+  final students = shift['student_ids'] ?? shift['studentIds'];
+  return students is List && students.isNotEmpty;
+}
+
 /// **OPTIMIZATION 5: Parallel Teacher Lookup**
 class OptimizedTeacherLoader {
   
@@ -284,6 +295,30 @@ class OptimizedTeacherLoader {
       for (var doc in snapshot.docs) {
         allDocs[doc.id] = doc;
       }
+    }
+
+    // Admins who also teach. Their account is typed "admin", so the queries
+    // above never return them and their classes were never audited — Abdulai
+    // in Jul 2026, Chernor Diallo's Sep 2026 classes. An admin is listed when
+    // they are the teacher on a class with students; leadership shifts
+    // (hosting, meetings, outreach) are not audited and do not count.
+    final admins = await FirebaseFirestore.instance
+        .collection('users')
+        .where('user_type', whereIn: ['admin', 'super_admin', 'Admin'])
+        .get();
+    final teachingAdmins = await Future.wait(admins.docs
+        .where((doc) => !allDocs.containsKey(doc.id))
+        .map((doc) async {
+      final shifts = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .where('teacher_id', isEqualTo: doc.id)
+          .where('shift_category', isEqualTo: 'teaching')
+          .limit(5)
+          .get();
+      return shifts.docs.any((s) => isTaughtClass(s.data())) ? doc : null;
+    }));
+    for (final doc in teachingAdmins.whereType<QueryDocumentSnapshot>()) {
+      allDocs[doc.id] = doc;
     }
     
     // Process documents
