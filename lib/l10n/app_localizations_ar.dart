@@ -18378,6 +18378,105 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get requestMakeupClass => 'طلب درس تعويضي';
+
+  @override
+  String get requestMakeupClassTitle => 'طلب درس تعويضي';
+
+  @override
+  String get requestMakeupClassSubtitle =>
+      'اقترح تاريخًا ووقتًا لهذا الدرس الفائت.';
+
+  @override
+  String get proposedDate => 'التاريخ المقترح';
+
+  @override
+  String get proposedStartTime => 'وقت البدء المقترح';
+
+  @override
+  String proposedDuration(int minutes) {
+    return 'المدة: $minutes دقيقة';
+  }
+
+  @override
+  String get reasonForReschedule => 'سبب التعويض';
+
+  @override
+  String get reasonPowerOutage => 'انقطاع الكهرباء';
+
+  @override
+  String get reasonInternet => 'مشكلة في الإنترنت أو الاتصال';
+
+  @override
+  String get reasonIllness => 'مرض / عذر صحي';
+
+  @override
+  String get reasonStudentAbsent => 'غياب الطالب / عدم توفره';
+
+  @override
+  String get reasonPersonal => 'ظرف طارئ شخصي أو عائلي';
+
+  @override
+  String get reasonOther => 'أخرى';
+
+  @override
+  String get notesOptional => 'ملاحظات إضافية (اختياري)';
+
+  @override
+  String get notesHint => 'أضف أي تفاصيل للمشرف...';
+
+  @override
+  String get rescheduleConflictWarning =>
+      'لديك بالفعل حصة أخرى مجدولة في هذا الوقت.';
+
+  @override
+  String get submitRequest => 'إرسال الطلب';
+
+  @override
+  String get makeupRequestSubmitted =>
+      'تم إرسال طلب التعويض! سيقوم المشرف بمراجعته وجدولته.';
+
+  @override
+  String get rescheduleRequestsTitle => 'طلبات التعويض';
+
+  @override
+  String get rescheduleRequestApproved =>
+      'تمت الموافقة على الحصة التعويضية وجدولتها!';
+
+  @override
+  String get rescheduleRequestDeclined => 'تم رفض طلب التعويض.';
+
+  @override
+  String get approveAndSchedule => 'الموافقة والجدولة';
+
+  @override
+  String get adjustTimeAndApprove => 'تعديل الوقت والموافقة';
+
+  @override
+  String get declineRequest => 'رفض';
+
+  @override
+  String get declineReason => 'سبب الرفض';
+
+  @override
+  String get declineReasonHint => 'اشرح سبب رفض هذا الطلب...';
+
+  @override
+  String get auditStrictClockNotice =>
+      'سياسة تسجيل الحضور والانصراف الصارمة مفعلة لهذه الفترة. النماذج لا تؤثر على الساعات المحتسبة.';
+
+  @override
+  String get missedShiftNeedsMakeupNotice =>
+      'هذه الحصة فائتة. لتدريسها واستحقاق أجرها، يرجى طلب حصة تعويضية.';
+
+  @override
+  String get makeupRequestPending => 'طلب التعويض قيد مراجعة الإدارة';
+
+  @override
+  String get makeupRequestApprovedStatus =>
+      'تمت الموافقة على الحصة التعويضية وجدولتها';
+
+  @override
   String get formConditionShowOnlyIf => 'إظهار فقط إذا';
 
   @override

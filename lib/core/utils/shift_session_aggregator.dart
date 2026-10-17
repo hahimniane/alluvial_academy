@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
 
 import 'makeup_class_attestation.dart';
+import '../constants/audit_policy.dart';
 
 /// Aggregated result for a single shift session.
 class ShiftSessionResult {
@@ -177,12 +178,28 @@ class ShiftSessionAggregator {
 
     // If no valid timesheets, check for form-only path
     if (validTimesheets.isEmpty) {
-      final eligibleForms = forms
-          .where(MakeupClassAttestation.formEligibleForFormOnlyMakeupEconomics)
-          .toList();
       final shiftClaimsForm = shift['form_completed'] == true ||
           (shift['form_response_id'] != null &&
               shift['form_response_id'].toString().isNotEmpty);
+      final hasAnyForm = forms.isNotEmpty || shiftClaimsForm;
+
+      // Starting from the strict policy effective date (2026-11-01),
+      // form submissions without a valid timesheet do not award hours or pay.
+      if (AuditPolicyConstants.isShiftAfterStrictPolicy(shiftStart)) {
+        return ShiftSessionResult(
+          workedHours: 0.0,
+          realPay: 0.0,
+          payPaid: 0.0,
+          payApproved: 0.0,
+          payPending: 0.0,
+          hasPunchedTimesheets: false,
+          hasForm: hasAnyForm,
+        );
+      }
+
+      final eligibleForms = forms
+          .where(MakeupClassAttestation.formEligibleForFormOnlyMakeupEconomics)
+          .toList();
 
       if (eligibleForms.isEmpty && forms.isNotEmpty) {
         return ShiftSessionResult(

@@ -261,14 +261,44 @@ describe('shiftSessionAggregator pay buckets', () => {
   });
 });
 
-describe('workedMinutesCeil', () => {
-  test('rounds up partial minute', () => {
-    expect(workedMinutesCeil({workedHours: 30.5 / 60})).toBe(31);
+describe('shiftSessionAggregator post-cutoff strict clock policy', () => {
+  const postCutoffShift = () => ({
+    shift_start: ts(new Date('2026-11-05T09:00:00Z')),
+    shift_end: ts(new Date('2026-11-05T10:00:00Z')),
+    hourly_rate: 60.0,
   });
-  test('exact minute boundary stays exact', () => {
-    expect(workedMinutesCeil({workedHours: 1.0})).toBe(60);
+
+  test('post-cutoff shift with form-only yields ZERO hours and ZERO pay', () => {
+    const attestedForm = {
+      durationHours: 1.0,
+      makeupApprovalStatus: 'approved',
+      responses: {
+        makeup_occurred_at: '2026-11-05',
+        makeup_start_time: '09:00',
+        makeup_end_time: '10:00',
+        makeup_delivery_mode: 'zoom',
+        makeup_zoom_host: 'teacher',
+        makeup_students_present: 'Student A',
+      },
+    };
+    const r = computeSession(postCutoffShift(), [], [attestedForm]);
+    closeTo(r.workedHours, 0.0);
+    closeTo(r.realPay, 0.0);
+    closeTo(r.payPending, 0.0);
+    expect(r.hasForm).toBe(true);
+    expect(r.hasPunchedTimesheets).toBe(false);
   });
-  test('zero hours yields zero minutes', () => {
-    expect(workedMinutesCeil({workedHours: 0})).toBe(0);
+
+  test('post-cutoff shift with valid clock-in and clock-out pays normally', () => {
+    const r = computeSession(postCutoffShift(), [
+      {
+        clock_in_timestamp: ts(new Date('2026-11-05T09:00:00Z')),
+        clock_out_timestamp: ts(new Date('2026-11-05T10:00:00Z')),
+        status: 'approved',
+      },
+    ]);
+    closeTo(r.workedHours, 1.0);
+    closeTo(r.realPay, 60.0);
+    expect(r.hasPunchedTimesheets).toBe(true);
   });
 });

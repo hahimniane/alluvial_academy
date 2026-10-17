@@ -1,8 +1,5 @@
-/**
- * Standardized aggregator for shift hours and pay.
- * Implements the "Smart Detect" logic (Rules R1-R6) to resolve
- * contradictions between multi-segment shifts and duplicate writes.
- */
+const {isShiftAfterStrictPolicy} = require('./auditPolicyConstants');
+
 
 function toDate(v) {
   if (!v) return null;
@@ -175,10 +172,26 @@ function computeSession(shift, timesheets = [], forms = []) {
 
   // If no valid timesheets, check for form-only path
   if (validTimesheets.length === 0) {
-    const eligibleForms = filterFormsForMakeupEconomics(forms);
     const shiftClaimsForm =
       shift.form_completed === true ||
       (shift.form_response_id && String(shift.form_response_id).trim() !== '');
+    const hasAnyForm = forms.length > 0 || shiftClaimsForm;
+
+    // Starting from the strict policy effective date (2026-11-01),
+    // form submissions without a valid timesheet do not award hours or pay.
+    if (isShiftAfterStrictPolicy(shiftStart)) {
+      return {
+        workedHours: 0.0,
+        realPay: 0.0,
+        payPaid: 0.0,
+        payApproved: 0.0,
+        payPending: 0.0,
+        hasPunchedTimesheets: false,
+        hasForm: hasAnyForm,
+      };
+    }
+
+    const eligibleForms = filterFormsForMakeupEconomics(forms);
     const formDone =
       eligibleForms.length > 0 || (shiftClaimsForm && forms.length === 0);
 

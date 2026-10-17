@@ -33422,6 +33422,186 @@ abstract class AppLocalizations {
   /// **'{count} classes'**
   String connectionOverviewClasses(int count);
 
+  /// No description provided for @requestMakeupClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Makeup Class'**
+  String get requestMakeupClass;
+
+  /// No description provided for @requestMakeupClassTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Makeup Class'**
+  String get requestMakeupClassTitle;
+
+  /// No description provided for @requestMakeupClassSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Propose a date and time for this missed class.'**
+  String get requestMakeupClassSubtitle;
+
+  /// No description provided for @proposedDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed Date'**
+  String get proposedDate;
+
+  /// No description provided for @proposedStartTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed Start Time'**
+  String get proposedStartTime;
+
+  /// No description provided for @proposedDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration: {minutes} min'**
+  String proposedDuration(int minutes);
+
+  /// No description provided for @reasonForReschedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason for Makeup'**
+  String get reasonForReschedule;
+
+  /// No description provided for @reasonPowerOutage.
+  ///
+  /// In en, this message translates to:
+  /// **'Power Outage'**
+  String get reasonPowerOutage;
+
+  /// No description provided for @reasonInternet.
+  ///
+  /// In en, this message translates to:
+  /// **'Internet / Connection Issue'**
+  String get reasonInternet;
+
+  /// No description provided for @reasonIllness.
+  ///
+  /// In en, this message translates to:
+  /// **'Illness / Medical'**
+  String get reasonIllness;
+
+  /// No description provided for @reasonStudentAbsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Absent / Unavailable'**
+  String get reasonStudentAbsent;
+
+  /// No description provided for @reasonPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal / Family Emergency'**
+  String get reasonPersonal;
+
+  /// No description provided for @reasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get reasonOther;
+
+  /// No description provided for @notesOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional Notes (Optional)'**
+  String get notesOptional;
+
+  /// No description provided for @notesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add any notes for the admin...'**
+  String get notesHint;
+
+  /// No description provided for @rescheduleConflictWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'You already have another class scheduled at this time.'**
+  String get rescheduleConflictWarning;
+
+  /// No description provided for @submitRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Request'**
+  String get submitRequest;
+
+  /// No description provided for @makeupRequestSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup class requested! Admin will review and schedule it.'**
+  String get makeupRequestSubmitted;
+
+  /// No description provided for @rescheduleRequestsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup Requests'**
+  String get rescheduleRequestsTitle;
+
+  /// No description provided for @rescheduleRequestApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup class approved and scheduled!'**
+  String get rescheduleRequestApproved;
+
+  /// No description provided for @rescheduleRequestDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup request declined.'**
+  String get rescheduleRequestDeclined;
+
+  /// No description provided for @approveAndSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve & Schedule'**
+  String get approveAndSchedule;
+
+  /// No description provided for @adjustTimeAndApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Time & Approve'**
+  String get adjustTimeAndApprove;
+
+  /// No description provided for @declineRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get declineRequest;
+
+  /// No description provided for @declineReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline Reason'**
+  String get declineReason;
+
+  /// No description provided for @declineReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain why this request is declined...'**
+  String get declineReasonHint;
+
+  /// No description provided for @auditStrictClockNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Strict Timesheet Policy is active for this period. Forms do not modify worked hours or compensation.'**
+  String get auditStrictClockNotice;
+
+  /// No description provided for @missedShiftNeedsMakeupNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This class was missed. To teach and be paid for this session, request a makeup class.'**
+  String get missedShiftNeedsMakeupNotice;
+
+  /// No description provided for @makeupRequestPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup request pending admin review'**
+  String get makeupRequestPending;
+
+  /// No description provided for @makeupRequestApprovedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Makeup class approved and scheduled'**
+  String get makeupRequestApprovedStatus;
+
   /// Form builder: conditional question rule
   ///
   /// In en, this message translates to:

@@ -18780,6 +18780,107 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get requestMakeupClass => 'Demander un cours de rattrapage';
+
+  @override
+  String get requestMakeupClassTitle => 'Demander un cours de rattrapage';
+
+  @override
+  String get requestMakeupClassSubtitle =>
+      'Proposez une date et une heure pour ce cours manqué.';
+
+  @override
+  String get proposedDate => 'Date proposée';
+
+  @override
+  String get proposedStartTime => 'Heure de début proposée';
+
+  @override
+  String proposedDuration(int minutes) {
+    return 'Durée : $minutes min';
+  }
+
+  @override
+  String get reasonForReschedule => 'Motif du rattrapage';
+
+  @override
+  String get reasonPowerOutage => 'Panne d\'électricité';
+
+  @override
+  String get reasonInternet => 'Problème d\'internet / connexion';
+
+  @override
+  String get reasonIllness => 'Maladie / Raison médicale';
+
+  @override
+  String get reasonStudentAbsent => 'Élève absent / Indisponible';
+
+  @override
+  String get reasonPersonal => 'Urgence personnelle / familiale';
+
+  @override
+  String get reasonOther => 'Autre';
+
+  @override
+  String get notesOptional => 'Notes supplémentaires (facultatif)';
+
+  @override
+  String get notesHint => 'Ajoutez des précisions pour l\'administrateur...';
+
+  @override
+  String get rescheduleConflictWarning =>
+      'Vous avez déjà un autre cours prévu à cette heure-là.';
+
+  @override
+  String get submitRequest => 'Envoyer la demande';
+
+  @override
+  String get makeupRequestSubmitted =>
+      'Rattrapage demandé ! L\'administrateur va l\'examiner et le programmer.';
+
+  @override
+  String get rescheduleRequestsTitle => 'Demandes de rattrapage';
+
+  @override
+  String get rescheduleRequestApproved =>
+      'Cours de rattrapage approuvé et programmé !';
+
+  @override
+  String get rescheduleRequestDeclined => 'Demande de rattrapage refusée.';
+
+  @override
+  String get approveAndSchedule => 'Approuver et programmer';
+
+  @override
+  String get adjustTimeAndApprove => 'Modifier l\'heure et approuver';
+
+  @override
+  String get declineRequest => 'Refuser';
+
+  @override
+  String get declineReason => 'Motif du refus';
+
+  @override
+  String get declineReasonHint =>
+      'Expliquez pourquoi cette demande est refusée...';
+
+  @override
+  String get auditStrictClockNotice =>
+      'La politique stricte de pointage est active pour cette période. Les formulaires ne modifient pas les heures travaillées.';
+
+  @override
+  String get missedShiftNeedsMakeupNotice =>
+      'Ce cours a été manqué. Pour l\'enseigner et être rémunéré(e), demandez un cours de rattrapage.';
+
+  @override
+  String get makeupRequestPending =>
+      'Demande de rattrapage en attente d\'examen';
+
+  @override
+  String get makeupRequestApprovedStatus =>
+      'Cours de rattrapage approuvé et programmé';
+
+  @override
   String get formConditionShowOnlyIf => 'Afficher seulement si';
 
   @override

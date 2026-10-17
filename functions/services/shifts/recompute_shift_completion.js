@@ -12,6 +12,7 @@ const {
   toDouble,
   workedMinutesCeil,
 } = require('../../utils/shiftSessionAggregator');
+const {isShiftAfterStrictPolicy} = require('../../utils/auditPolicyConstants');
 
 /**
  * Pay buckets from computeSession are dollars; convert to whole minutes at shift hourly_rate.
@@ -97,8 +98,10 @@ function aggregateWorkedAndClockPresence({shiftStart, shiftEnd, timesheetDocs, s
   const scheduledMinutes = Math.max(1, Math.round(scheduledHours * 60));
 
   const hasClockInOnShift = shiftData.clock_in_time != null;
-  const neverClockedIn =
-    !hasDocPunch && !hasClockInOnShift && !result.hasForm;
+  const isStrictPolicy = isShiftAfterStrictPolicy(shiftData.shift_start || shiftData.start);
+  const neverClockedIn = isStrictPolicy
+    ? (!hasDocPunch && !hasClockInOnShift)
+    : (!hasDocPunch && !hasClockInOnShift && !result.hasForm);
 
   const {payPaidMinutes, payApprovedMinutes, payPendingMinutes} =
     derivePayBucketMinutes(result, shift, workedMinutes);

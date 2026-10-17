@@ -33,6 +33,7 @@ import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 import '../widgets/template_management_dialog.dart';
+import 'reschedule_requests_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -1743,6 +1744,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _showDuplicateWeekDialog();
         } else if (value == 'recording_access') {
           _showBulkRecordingPermissionDialog();
+        } else if (value == 'reschedule_requests') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RescheduleRequestsScreen(),
+            ),
+          );
         }
       },
       onAddSelected: (value) {
@@ -1861,9 +1869,28 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                               _showDSTAdjustmentDialog();
                             } else if (value == 'recording_access') {
                               _showBulkRecordingPermissionDialog();
+                            } else if (value == 'reschedule_requests') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const RescheduleRequestsScreen(),
+                                ),
+                              );
                             }
                           },
                           itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'reschedule_requests',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.event_repeat,
+                                      size: 20, color: Color(0xff0386FF)),
+                                  SizedBox(width: 8),
+                                  Text(AppLocalizations.of(context)!
+                                      .rescheduleRequestsTitle),
+                                ],
+                              ),
+                            ),
                             PopupMenuItem(
                               value: 'manage_subjects',
                               child: Row(
