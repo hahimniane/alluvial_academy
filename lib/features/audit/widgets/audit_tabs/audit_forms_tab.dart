@@ -10,6 +10,7 @@ import '../../../forms/widgets/form_details_modal.dart'
     show FormSubmissionDetailsView;
 import '../audit_shared_widgets.dart';
 import 'audit_form_title_resolver.dart';
+import '../../../../core/constants/audit_policy.dart';
 
 class AuditFormsTab extends StatefulWidget {
   final TeacherAuditFull audit;
@@ -176,6 +177,10 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     List<Map<String, dynamic>> rejectedNoShift,
     List<Map<String, dynamic>> rejectedNoTimesheet,
   ) {
+    if (AuditPolicyConstants.isYearMonthAfterStrictPolicy(
+        widget.audit.yearMonth)) {
+      return const SizedBox.shrink();
+    }
     return Material(
       color: const Color(0xFFEFF6FF),
       child: Padding(
@@ -354,6 +359,9 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
       ...rejectedDuplicate,
     ];
 
+    final isStrictPolicy =
+        AuditPolicyConstants.isYearMonthAfterStrictPolicy(widget.audit.yearMonth);
+
     final total = accepted.length + rejected.length;
     if (total == 0) {
       return AuditEmptyState(
@@ -364,7 +372,33 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
 
     return Column(
       children: [
-        if (pendingMakeup > 0)
+        if (isStrictPolicy)
+          Material(
+            color: const Color(0xFFEFF6FF),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: Color(0xFF2563EB), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      loc.auditStrictClockNotice,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff1E40AF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (pendingMakeup > 0)
           Material(
             color: const Color(0xFFFFF7ED),
             child: Padding(
@@ -397,7 +431,7 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
           rejectedNoTimesheet.length,
           rejectedDuplicate.length,
         ),
-        if (_selectedOverrideIds.isNotEmpty)
+        if (!isStrictPolicy && _selectedOverrideIds.isNotEmpty)
           _bulkAcceptBar(loc, rejectedNoShift, rejectedNoTimesheet),
         const Divider(height: 1, color: Color(0xffE2E8F0)),
         Expanded(
@@ -506,7 +540,8 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
   }
 
   Color _badgeColorForRejectedForm(Map<String, dynamic> form, Color fallback) {
-    if (TeacherAuditFull.formNeedsMakeupAdminDecision(form)) {
+    if (!AuditPolicyConstants.isYearMonthAfterStrictPolicy(widget.audit.yearMonth) &&
+        TeacherAuditFull.formNeedsMakeupAdminDecision(form)) {
       return const Color(0xFFD97706);
     }
     return fallback;
@@ -519,6 +554,9 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     List<Map<String, dynamic>> rejectedNoTimesheet,
     List<Map<String, dynamic>> rejectedDuplicate,
   ) {
+    final isStrictPolicy =
+        AuditPolicyConstants.isYearMonthAfterStrictPolicy(widget.audit.yearMonth);
+
     Widget section(
       String title,
       List<Map<String, dynamic>> items,
@@ -558,11 +596,12 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
             final badgeText = isAccepted
                 ? (acceptedLabel ?? (_) => loc.auditFormStatusAccepted)(form)
                 : rejectLabel!(form);
-            final showMissedHint = (isAccepted &&
+            final showMissedHint = !isStrictPolicy &&
+                ((isAccepted &&
                     (form['acceptanceKind'] == 'missed_shift_linked' ||
                         form['acceptanceKind'] == 'no_timesheet_makeup')) ||
                 (!isAccepted &&
-                    TeacherAuditFull.formNeedsMakeupAdminDecision(form));
+                    TeacherAuditFull.formNeedsMakeupAdminDecision(form)));
             final fid = (form['id'] as String? ?? '').trim();
             final badgeColor = isAccepted
                 ? _badgeColorForAcceptedForm(form, color)
@@ -674,7 +713,7 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
           const Color(0xFFEF4444),
           isAccepted: false,
           rejectLabel: (f) => _rejectBadgeLabel(loc, _rejectionReason(f)),
-          enableBulkSelect: true,
+          enableBulkSelect: !isStrictPolicy,
         ),
         section(
           loc.auditFormsSectionRejectedNoTimesheet(rejectedNoTimesheet.length),
@@ -682,12 +721,12 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
           const Color(0xFFEA580C),
           isAccepted: false,
           rejectLabel: (f) {
-            if (TeacherAuditFull.formNeedsMakeupAdminDecision(f)) {
+            if (!isStrictPolicy && TeacherAuditFull.formNeedsMakeupAdminDecision(f)) {
               return _acceptedBadgeLabel(loc, f);
             }
             return _rejectBadgeLabel(loc, _rejectionReason(f));
           },
-          enableBulkSelect: true,
+          enableBulkSelect: !isStrictPolicy,
         ),
         section(
           loc.auditFormsSectionRejectedDuplicate(rejectedDuplicate.length),
@@ -715,12 +754,43 @@ class _AuditFormsTabState extends State<AuditFormsTab> {
     final formId = (form['id'] as String? ?? '').trim();
     final responses = (form['responses'] as Map<String, dynamic>?) ?? {};
 
-    final showMakeupActions =
-        _missedMakeupNeedsDecision(form) && formId.isNotEmpty;
+    final isStrictPolicy =
+        AuditPolicyConstants.isYearMonthAfterStrictPolicy(widget.audit.yearMonth);
+
+    final showMakeupActions = !isStrictPolicy &&
+        _missedMakeupNeedsDecision(form) &&
+        formId.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        if (isStrictPolicy) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: Color(0xFF1D4ED8)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context)!.auditStrictClockNotice,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF1E40AF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (showMakeupActions) ...[
           Wrap(
             spacing: 8,

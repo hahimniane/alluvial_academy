@@ -221,6 +221,7 @@ class CompactShiftHeader extends StatelessWidget {
         _menuItem(Icons.attach_money, 'Pay Settings', 'pay'),
         _menuItem(Icons.access_time, 'DST Adjustment', 'dst'),
         const PopupMenuDivider(),
+        _menuItem(Icons.event_repeat, AppLocalizations.of(context)!.rescheduleRequestsTitle, 'reschedule_requests'),
         _menuItem(Icons.copy_all, 'Duplicate Week', 'duplicate_week'),
         _menuItem(Icons.checklist, 'Bulk Select', 'select'),
         _menuItem(

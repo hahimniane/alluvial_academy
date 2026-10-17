@@ -18428,4 +18428,103 @@ class AppLocalizationsEn extends AppLocalizations {
   String connectionOverviewClasses(int count) {
     return '$count classes';
   }
+
+  @override
+  String get requestMakeupClass => 'Request Makeup Class';
+
+  @override
+  String get requestMakeupClassTitle => 'Request Makeup Class';
+
+  @override
+  String get requestMakeupClassSubtitle =>
+      'Propose a date and time for this missed class.';
+
+  @override
+  String get proposedDate => 'Proposed Date';
+
+  @override
+  String get proposedStartTime => 'Proposed Start Time';
+
+  @override
+  String proposedDuration(int minutes) {
+    return 'Duration: $minutes min';
+  }
+
+  @override
+  String get reasonForReschedule => 'Reason for Makeup';
+
+  @override
+  String get reasonPowerOutage => 'Power Outage';
+
+  @override
+  String get reasonInternet => 'Internet / Connection Issue';
+
+  @override
+  String get reasonIllness => 'Illness / Medical';
+
+  @override
+  String get reasonStudentAbsent => 'Student Absent / Unavailable';
+
+  @override
+  String get reasonPersonal => 'Personal / Family Emergency';
+
+  @override
+  String get reasonOther => 'Other';
+
+  @override
+  String get notesOptional => 'Additional Notes (Optional)';
+
+  @override
+  String get notesHint => 'Add any notes for the admin...';
+
+  @override
+  String get rescheduleConflictWarning =>
+      'You already have another class scheduled at this time.';
+
+  @override
+  String get submitRequest => 'Submit Request';
+
+  @override
+  String get makeupRequestSubmitted =>
+      'Makeup class requested! Admin will review and schedule it.';
+
+  @override
+  String get rescheduleRequestsTitle => 'Makeup Requests';
+
+  @override
+  String get rescheduleRequestApproved =>
+      'Makeup class approved and scheduled!';
+
+  @override
+  String get rescheduleRequestDeclined => 'Makeup request declined.';
+
+  @override
+  String get approveAndSchedule => 'Approve & Schedule';
+
+  @override
+  String get adjustTimeAndApprove => 'Edit Time & Approve';
+
+  @override
+  String get declineRequest => 'Decline';
+
+  @override
+  String get declineReason => 'Decline Reason';
+
+  @override
+  String get declineReasonHint => 'Explain why this request is declined...';
+
+  @override
+  String get auditStrictClockNotice =>
+      'Strict Timesheet Policy is active for this period. Forms do not modify worked hours or compensation.';
+
+  @override
+  String get missedShiftNeedsMakeupNotice =>
+      'This class was missed. To teach and be paid for this session, request a makeup class.';
+
+  @override
+  String get makeupRequestPending => 'Makeup request pending admin review';
+
+  @override
+  String get makeupRequestApprovedStatus =>
+      'Makeup class approved and scheduled';
 }

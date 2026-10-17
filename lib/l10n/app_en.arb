@@ -8391,5 +8391,42 @@
         "type": "int"
       }
     }
-  }
+  },
+  "requestMakeupClass": "Request Makeup Class",
+  "requestMakeupClassTitle": "Request Makeup Class",
+  "requestMakeupClassSubtitle": "Propose a date and time for this missed class.",
+  "proposedDate": "Proposed Date",
+  "proposedStartTime": "Proposed Start Time",
+  "proposedDuration": "Duration: {minutes} min",
+  "@proposedDuration": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reasonForReschedule": "Reason for Makeup",
+  "reasonPowerOutage": "Power Outage",
+  "reasonInternet": "Internet / Connection Issue",
+  "reasonIllness": "Illness / Medical",
+  "reasonStudentAbsent": "Student Absent / Unavailable",
+  "reasonPersonal": "Personal / Family Emergency",
+  "reasonOther": "Other",
+  "notesOptional": "Additional Notes (Optional)",
+  "notesHint": "Add any notes for the admin...",
+  "rescheduleConflictWarning": "You already have another class scheduled at this time.",
+  "submitRequest": "Submit Request",
+  "makeupRequestSubmitted": "Makeup class requested! Admin will review and schedule it.",
+  "rescheduleRequestsTitle": "Makeup Requests",
+  "rescheduleRequestApproved": "Makeup class approved and scheduled!",
+  "rescheduleRequestDeclined": "Makeup request declined.",
+  "approveAndSchedule": "Approve & Schedule",
+  "adjustTimeAndApprove": "Edit Time & Approve",
+  "declineRequest": "Decline",
+  "declineReason": "Decline Reason",
+  "declineReasonHint": "Explain why this request is declined...",
+  "auditStrictClockNotice": "Strict Timesheet Policy is active for this period. Forms do not modify worked hours or compensation.",
+  "missedShiftNeedsMakeupNotice": "This class was missed. To teach and be paid for this session, request a makeup class.",
+  "makeupRequestPending": "Makeup request pending admin review",
+  "makeupRequestApprovedStatus": "Makeup class approved and scheduled"
 }
