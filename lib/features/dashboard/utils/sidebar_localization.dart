@@ -28,8 +28,6 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.debug;
       case 'Form Builder':
         return AppLocalizations.of(context)!.sidebarFormbuilder;
-      case 'Form Responses':
-        return AppLocalizations.of(context)!.formResponsesTitle;
       case 'Forms':
         return AppLocalizations.of(context)!.navForms;
       case 'Learning':

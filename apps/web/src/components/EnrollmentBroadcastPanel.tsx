@@ -270,6 +270,8 @@ function describeAction(entry: ActionEntry): string {
       return "Discount removed";
     case "job_board_reopened_after_full_availability":
       return "Reopened for teachers";
+    case "republished":
+      return entry.teacherName ? `Back on the job board after ${entry.teacherName}` : "Back on the job board";
     default:
       // Unknown actions still have to say something true.
       return entry.action.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());

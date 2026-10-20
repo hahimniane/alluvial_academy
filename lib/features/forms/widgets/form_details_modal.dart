@@ -6,6 +6,7 @@ import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/features/forms/utils/form_answer_order.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'form_review_panel.dart';
 
 /// In-memory shift cache so repeat opens (modal / review) avoid extra reads.
 /// Entries expire after 5 minutes. Max 100 entries.
@@ -42,6 +43,7 @@ class FormDetailsModal {
     required String formId,
     required String shiftId,
     required Map<String, dynamic> responses,
+    bool showReview = false,
   }) {
     showDialog(
       context: context,
@@ -91,6 +93,7 @@ class FormDetailsModal {
                   formId: formId,
                   shiftId: shiftId,
                   responses: responses,
+                  showReview: showReview,
                 ),
               ),
             ],
@@ -114,6 +117,10 @@ class FormSubmissionDetailsView extends StatefulWidget {
   /// Optional scroll controller (e.g. [DraggableScrollableSheet] in review mode).
   final ScrollController? scrollController;
 
+  /// Admins see the decision, note and teacher notification under the answers.
+  /// [formId] is the form response's id, which is what the panel writes to.
+  final bool showReview;
+
   const FormSubmissionDetailsView({
     super.key,
     required this.formId,
@@ -121,6 +128,7 @@ class FormSubmissionDetailsView extends StatefulWidget {
     required this.responses,
     this.initialShift,
     this.scrollController,
+    this.showReview = false,
   });
 
   @override
@@ -465,6 +473,8 @@ class _FormSubmissionDetailsViewState extends State<FormSubmissionDetailsView> {
                 ),
               );
             }),
+          if (widget.showReview && widget.formId.isNotEmpty)
+            FormReviewPanel(responseId: widget.formId),
         ],
       ),
     );

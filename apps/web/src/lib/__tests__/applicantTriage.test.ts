@@ -5,6 +5,7 @@ import {
   countByStage,
   daysWaiting,
   groupByTeacher,
+  hasScheduleFor,
   isStale,
   matchesSearch,
   setupFor,
@@ -13,6 +14,7 @@ import {
   buildPeriodOptions,
   matchesPeriod,
   startOfWeek,
+  type ScheduleIndex,
   type TriageApplicant,
 } from "../applicantTriage.ts";
 
@@ -228,4 +230,39 @@ test("setup steps open one at a time, in order", () => {
 test("a parent linked at application time does not unlock the schedule early", () => {
   const steps = setupSteps({ hasAccount: false, hasSchedule: false, hasParent: true });
   assert.deepEqual(steps.map((s) => s.status), ["active", "locked", "done"]);
+});
+
+/* ---------------------------------------------- republished, then re-matched -- */
+
+const index: ScheduleIndex = new Map([
+  ["uid-1", new Set(["old-teacher"])],
+  ["uid-2", new Set(["new-teacher", "old-teacher"])],
+]);
+
+test("hasScheduleFor: any class counts for a first match", () => {
+  assert.equal(hasScheduleFor({ studentUserId: "uid-1", matchedTeacherId: "new-teacher", rematched: false }, index), true);
+  assert.equal(hasScheduleFor({ studentUserId: "uid-9", matchedTeacherId: "new-teacher", rematched: false }, index), false);
+});
+
+test("hasScheduleFor: after a republish only the new teacher's classes count", () => {
+  assert.equal(hasScheduleFor({ studentUserId: "uid-1", matchedTeacherId: "new-teacher", rematched: true }, index), false);
+  assert.equal(hasScheduleFor({ studentUserId: "uid-2", matchedTeacherId: "new-teacher", rematched: true }, index), true);
+  // With no teacher on the match there is nothing narrower to check.
+  assert.equal(hasScheduleFor({ studentUserId: "uid-1", matchedTeacherId: "", rematched: true }, index), true);
+});
+
+test("a re-matched application with its account and parent lands on Needs schedule", () => {
+  const rematched = applicant({ studentUserId: "uid-1", parentLinked: true });
+  const scheduled = hasScheduleFor({ studentUserId: "uid-1", matchedTeacherId: "new-teacher", rematched: true }, index);
+  const setup = setupFor(rematched, scheduled);
+  assert.equal(setup.hasAccount, true);
+  assert.equal(setup.hasParent, true);
+  assert.equal(setup.stage, "needs-schedule");
+  assert.deepEqual(setupSteps(setup).map((step) => step.status), ["done", "active", "done"]);
+});
+
+test("once the new teacher's classes exist the re-match is ready to teach", () => {
+  const rematched = applicant({ studentUserId: "uid-2", parentLinked: true });
+  const scheduled = hasScheduleFor({ studentUserId: "uid-2", matchedTeacherId: "new-teacher", rematched: true }, index);
+  assert.equal(setupFor(rematched, scheduled).stage, "ready");
 });

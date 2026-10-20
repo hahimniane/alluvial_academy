@@ -1227,4 +1227,15 @@ export const FR: Record<string, string> = {
   "You dropped out {drops} times across {affected} of {classes} classes, losing {lost} of lesson time.": "Vous avez \u00e9t\u00e9 d\u00e9connect\u00e9 {drops} fois sur {affected} de vos {classes} cours, perdant {lost} de temps de cours.",
   "{n} class(es) ended without you getting back in.": "{n} cours se sont termin\u00e9s sans que vous puissiez y revenir.",
   "A further {n} interruption(s) came from the classroom system itself. Those are ours, and are not counted above.": "{n} interruption(s) suppl\u00e9mentaire(s) proviennent du syst\u00e8me de classe lui-m\u00eame. Elles sont de notre fait et ne sont pas comptabilis\u00e9es ci-dessus.",
+  // --- Class contacts (phone numbers) ---
+  Contacts: "Contacts",
+  "Your teachers": "Vos enseignants",
+  "Call a parent if a student hasn't joined.": "Appelez un parent si un élève n'a pas rejoint le cours.",
+  "Call your teacher if you can't reach them in the app.": "Appelez votre enseignant si vous ne parvenez pas à le joindre dans l'application.",
+  "Could not load phone numbers.": "Impossible de charger les numéros de téléphone.",
+  Parent: "Parent",
+  "No phone number on file": "Aucun numéro de téléphone enregistré",
+  "Call {name}": "Appeler {name}",
+  Copied: "Copié",
+  "Copy number": "Copier le numéro",
 };

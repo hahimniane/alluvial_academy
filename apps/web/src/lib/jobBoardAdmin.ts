@@ -24,7 +24,8 @@ import {
   where,
   deleteDoc,
 } from "firebase/firestore";
-import { auth, db } from "./firebase";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "./firebase";
 
 /** Set on a job auto-closed because a teacher said they were fully available. */
 export const CLOSED_REASON_TEACHER_FULLY_AVAILABLE = "teacher_fully_available";
@@ -285,6 +286,30 @@ export async function unbroadcastEnrollment(enrollmentId: string): Promise<numbe
     }),
   });
   return jobs.size;
+}
+
+/**
+ * Puts a matched student back on the job board for another teacher.
+ *
+ * Server-side (`republishEnrollmentJob`), so the new posting, the closed old
+ * one and the application's history are written together. The student's
+ * account, parent link and classes are left exactly as they are.
+ */
+export async function republishEnrollment(
+  enrollmentId: string,
+  classmateIds: string[],
+  reason: string,
+): Promise<{ jobId: string; enrollmentIds: string[] }> {
+  const callable = httpsCallable<
+    { enrollmentId: string; classmateIds: string[]; reason: string },
+    { success: boolean; jobId: string; enrollmentIds: string[] }
+  >(functions, "republishEnrollmentJob");
+  const result = await callable({
+    enrollmentId,
+    classmateIds: classmateIds.filter((id) => id && id !== enrollmentId),
+    reason: reason.trim(),
+  });
+  return { jobId: result.data.jobId, enrollmentIds: result.data.enrollmentIds ?? [enrollmentId] };
 }
 
 /* ------------------------------------------------------------ responses -- */

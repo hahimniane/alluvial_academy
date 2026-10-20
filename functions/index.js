@@ -12,6 +12,7 @@ const shiftArchiveHandlers = require('./handlers/shift_archive');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
+const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -44,6 +45,7 @@ const quizReviewHandlers = require('./handlers/quiz_review');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
 const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
+const classContactHandlers = require('./handlers/class_contacts');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -291,6 +293,7 @@ exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =
   attendanceHandlers.generateMonthlyStudentAttendanceReports;
+exports.getClassContacts = classContactHandlers.getClassContacts;
 exports.getStudentAttendanceReport =
   attendanceHandlers.getStudentAttendanceReport;
 exports.getAdminStudentAttendanceOverview =
@@ -327,6 +330,12 @@ exports.unlinkGuardianFromStudent = functions.https.onCall(
 );
 exports.lookupParentByEmail = functions.https.onCall(
   enrollmentHandlers.lookupParentByEmail
+);
+// Puts a matched student back on the teacher job board; admin-only, gated in
+// the handler. Leaves the account, parent link and classes untouched.
+exports.republishEnrollmentJob = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => enrollmentRepublishHandlers.republishEnrollmentJob(request)
 );
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {

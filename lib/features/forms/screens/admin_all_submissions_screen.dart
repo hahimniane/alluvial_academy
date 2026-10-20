@@ -8,10 +8,12 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
+import '../utils/form_review_status.dart';
 import '../widgets/form_details_modal.dart';
+import '../widgets/form_review_status_badge.dart';
 import '../../audit/screens/admin_audit_screen.dart';
 import 'admin_submissions_review_screen.dart';
 
@@ -1155,8 +1157,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         if (ym != targetMonth) continue;
       }
       if (filterStatus) {
-        final status = (data['status'] ?? 'completed').toString().toLowerCase();
-        if (status != targetStatus) continue;
+        if (!_matchesStatusFilter(data, targetStatus)) continue;
       }
       if (filterForm) {
         final key = _formKeyForDoc(data);
@@ -1215,8 +1216,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
         if (ym != targetMonth) continue;
       }
       if (filterStatus) {
-        final status = (data['status'] ?? 'completed').toString().toLowerCase();
-        if (status != targetStatus) continue;
+        if (!_matchesStatusFilter(data, targetStatus)) continue;
       }
       if (filterSearch) {
         final userId = data['userId'] as String?;
@@ -2006,8 +2006,25 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     );
   }
 
+  /// The status filter covers both whether the form was finished and the
+  /// admin's decision on it; decisions are stored as `review:<status>`.
+  static const String _reviewFilterPrefix = 'review:';
+
+  static bool _matchesStatusFilter(Map<String, dynamic> data, String target) {
+    if (target.startsWith(_reviewFilterPrefix)) {
+      return FormReviewStatus.normalize(data['reviewStatus']) ==
+          target.substring(_reviewFilterPrefix.length);
+    }
+    return (data['status'] ?? 'completed').toString().toLowerCase() == target;
+  }
+
   String get _selectedStatusLabel {
     final l10n = AppLocalizations.of(context)!;
+    final selected = _selectedStatus;
+    if (selected != null && selected.startsWith(_reviewFilterPrefix)) {
+      return FormReviewStatusBadge.labelFor(
+          context, selected.substring(_reviewFilterPrefix.length));
+    }
     switch (_selectedStatus) {
       case 'completed':
         return l10n.adminSubmissionsCompleted;
@@ -2382,6 +2399,9 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       _StatusOption(l10n.adminSubmissionsCompleted, 'completed'),
       _StatusOption(l10n.adminSubmissionsPending, 'pending'),
       _StatusOption(l10n.formDraft, 'draft'),
+      for (final review in FormReviewStatus.options)
+        _StatusOption(FormReviewStatusBadge.labelFor(context, review),
+            '$_reviewFilterPrefix$review'),
     ];
     showDialog(
       context: context,
@@ -3488,6 +3508,7 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
           formId: doc.id,
           shiftId: (data['shiftId'] ?? data['shift_id'] ?? '').toString(),
           responses: (data['responses'] as Map<String, dynamic>?) ?? {},
+          showReview: true,
         );
       },
       child: Padding(
@@ -3527,6 +3548,10 @@ class _MinimalistSubmissionListState extends State<_MinimalistSubmissionList> {
                 ),
               ),
             ),
+            if (FormReviewStatus.normalize(data['reviewStatus']).isNotEmpty) ...[
+              const SizedBox(width: 8),
+              FormReviewStatusBadge(status: data['reviewStatus'], compact: true),
+            ],
             const SizedBox(width: 8),
             SizedBox(
               width: 24,
@@ -3845,6 +3870,7 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                   formId: doc.id,
                   shiftId: shiftId,
                   responses: responses,
+                  showReview: true,
                 ),
                 child: Container(
                   height: 32,
@@ -3862,6 +3888,10 @@ class _AdminFormSheetState extends State<_AdminFormSheet> {
                             fontSize: 11, color: const Color(0xff475569)),
                       ),
                       const Spacer(),
+                      if (FormReviewStatus.normalize(data['reviewStatus'])
+                          .isNotEmpty)
+                        FormReviewStatusBadge(
+                            status: data['reviewStatus'], compact: true),
                       const SizedBox(
                         width: 24,
                         child: Align(
@@ -3990,6 +4020,7 @@ class _TeacherSheetBody extends StatelessWidget {
                               formId: doc.id,
                               shiftId: shiftId,
                               responses: responses,
+                              showReview: true,
                             );
                           },
                           child: Container(
@@ -4014,6 +4045,14 @@ class _TeacherSheetBody extends StatelessWidget {
                                   ),
                                 ),
                                 const Spacer(),
+                                if (FormReviewStatus.normalize(
+                                        data['reviewStatus'])
+                                    .isNotEmpty) ...[
+                                  FormReviewStatusBadge(
+                                      status: data['reviewStatus'],
+                                      compact: true),
+                                  const SizedBox(width: 8),
+                                ],
                                 SizedBox(
                                   width: 80,
                                   child: Container(

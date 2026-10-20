@@ -8489,5 +8489,94 @@
         "type": "int"
       }
     }
-  }
+  },
+  "formReviewSectionTitle": "Decision",
+  "formAdminNoteLabel": "Admin note",
+  "formAdminNoteHint": "What was done about this form, e.g. \"Issue resolved\"",
+  "formAdminNoteSave": "Save note",
+  "formAdminNoteBy": "Note by {name} · {date}",
+  "@formAdminNoteBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "formReviewedByOn": "{status} by {name} · {date}",
+  "@formReviewedByOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "classContactsTeacherTitle": "Contacts",
+  "classContactsTeacherHelper": "Call a parent if a student hasn't joined.",
+  "classContactsParentTitle": "Your children's teachers",
+  "classContactsParentHelper": "Call a teacher if you can't reach them in the app.",
+  "classContactsStudentTitle": "Your teachers",
+  "classContactsStudentHelper": "Call your teacher if you can't reach them in the app.",
+  "classContactsLoadError": "Could not load phone numbers.",
+  "classContactsNoPhone": "No phone number on file",
+  "classContactsRelationParent": "Parent",
+  "classContactsRelationStudent": "Student",
+  "classContactsRelationTeacher": "Teacher",
+  "classContactsCall": "Call {name}",
+  "@classContactsCall": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "classContactsCopy": "Copy number",
+  "classContactsCopied": "Number copied",
+  "enrollmentRepublishAction": "Republish to job board",
+  "enrollmentRepublishTitle": "Republish to job board?",
+  "enrollmentRepublishBody": "Teachers will see {student} on the job board again. Their account, parent and current classes stay as they are.",
+  "@enrollmentRepublishBody": {
+    "placeholders": {
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentRepublishReasonLabel": "Reason (optional)",
+  "enrollmentRepublishReasonHint": "Teacher left",
+  "enrollmentRepublishConfirm": "Republish",
+  "enrollmentRepublishBusy": "Republishing…",
+  "enrollmentRepublishDone": "{student} is on the job board again.",
+  "@enrollmentRepublishDone": {
+    "placeholders": {
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentRepublishFailed": "Could not put the student back on the job board: {error}",
+  "@enrollmentRepublishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentPreviouslyMatchedWith": "Previously matched with {teacher}",
+  "@enrollmentPreviouslyMatchedWith": {
+    "placeholders": {
+      "teacher": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentPreviouslyMatchedUnknownTeacher": "a teacher"
 }

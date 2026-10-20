@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart
 import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/widgets/class_contacts_card.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_invoices_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_history_screen.dart';
@@ -247,11 +248,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         final outstanding =
                             (data?['outstanding'] ?? 0).toDouble();
                         final overdue = (data?['overdue'] ?? 0).toDouble();
-                        final paid = (data?['paid'] ?? 0).toDouble();
                         return FinancialSummaryCard(
                           outstanding: outstanding,
                           overdue: overdue,
-                          paid: paid,
                           onPayNow: outstanding > 0
                               ? () {
                                   Navigator.of(context).push(
@@ -392,6 +391,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+                    const ClassContactsCard(
+                      variant: ClassContactsVariant.parent,
+                      margin: EdgeInsets.only(bottom: 20),
+                    ),
                     _sectionHeader(
                       title: AppLocalizations.of(context)!.recentInvoices,
                       actionLabel: 'See all',

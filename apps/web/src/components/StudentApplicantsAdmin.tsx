@@ -9,6 +9,7 @@ import {
   arrayUnion,
   deleteField,
   getDoc,
+  getCountFromServer,
   getDocs,
   limit,
   query,
@@ -42,6 +43,7 @@ import {
   Radio,
   School,
   Undo2,
+  RotateCcw,
   Search,
   StickyNote,
   Tag,
@@ -56,7 +58,14 @@ import {
   type ActionEntry,
   type BroadcastSnapshot,
 } from "@/components/EnrollmentBroadcastPanel";
-import { broadcastEnrollment, unbroadcastEnrollment, deleteEnrollment } from "@/lib/jobBoardAdmin";
+import { broadcastEnrollment, unbroadcastEnrollment, deleteEnrollment, republishEnrollment } from "@/lib/jobBoardAdmin";
+import {
+  REPUBLISH_REASON_MAX,
+  previousMatchLine,
+  readPreviousMatches,
+  republishConfirmBody,
+  type PreviousMatch,
+} from "@/lib/previousMatches";
 import { MatchedSetupActions } from "@/components/MatchedSetupActions";
 import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
@@ -105,9 +114,11 @@ import {
   matchesSearch,
   matchesPeriod,
   buildPeriodOptions,
+  hasScheduleFor,
   setupFor,
   sortApplicants,
   type PeriodId,
+  type ScheduleIndex,
   type SetupState,
   type SortId,
   type StageFilter,
@@ -188,6 +199,8 @@ type EnrollmentApplicant = {
   jobId: string;
   broadcastSnapshot: BroadcastSnapshot | null;
   actionHistory: ActionEntry[];
+  /** Teachers this student was matched with before being put back on the job board. */
+  previousMatches: PreviousMatch[];
 };
 
 const enrollmentStatuses: ApplicantStatus[] = ["pending", "contacted", "broadcasted", "archived", "matched"];
@@ -217,7 +230,8 @@ export function StudentApplicantsAdmin() {
   const [drafts, setDrafts] = useState<EnrollmentDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [scheduledStudents, setScheduledStudents] = useState<Set<string>>(new Set());
+  /** For each student, the teachers they already have classes with. */
+  const [scheduleIndex, setScheduleIndex] = useState<ScheduleIndex>(new Map());
   /** Student accounts that still exist, or null until the matched list has checked. */
   const [existingStudents, setExistingStudents] = useState<Set<string> | null>(null);
   const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
@@ -225,6 +239,7 @@ export function StudentApplicantsAdmin() {
   const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
   const [archiveFor, setArchiveFor] = useState<EnrollmentApplicant | null>(null);
   const [deleteFor, setDeleteFor] = useState<EnrollmentApplicant | null>(null);
+  const [republishFor, setRepublishFor] = useState<EnrollmentApplicant | null>(null);
   const [period, setPeriod] = useState<PeriodId>("all");
   const [embedded, setEmbedded] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -245,13 +260,16 @@ export function StudentApplicantsAdmin() {
         applicant.id,
         setupFor(
           applicant,
-          scheduledStudents.has(applicant.studentUserId),
+          hasScheduleFor(
+            { ...applicant, rematched: applicant.previousMatches.length > 0 },
+            scheduleIndex,
+          ),
           existingStudents === null || existingStudents.has(applicant.studentUserId),
         ),
       );
     }
     return map;
-  }, [applicants, scheduledStudents, existingStudents]);
+  }, [applicants, scheduleIndex, existingStudents]);
 
   const stageCounts = useMemo(
     () => countByStage(applicants.map((a) => setups.get(a.id)!.stage)),
@@ -310,7 +328,7 @@ export function StudentApplicantsAdmin() {
         sheets.push(
           studentSheet(
             visibleApplicants.map((a) => ({ ...a, teacherTimeZone: zones.get(a.matchedTeacherId) ?? "" })),
-            scheduledStudents,
+            new Set(scheduleIndex.keys()),
           ),
         );
       }
@@ -330,7 +348,7 @@ export function StudentApplicantsAdmin() {
               discount: discounts.get(a.studentUserId) ?? null,
               teacherTimeZone: zones.get(a.matchedTeacherId) ?? "",
             })),
-            scheduled,
+            new Set(scheduled.keys()),
           ),
         );
         sheets.push(draftSheet(everyDraft as ExportDraft[]));
@@ -370,6 +388,28 @@ export function StudentApplicantsAdmin() {
         : `Moved back to Ready. There was no open posting to close.`,
     );
     await refreshApplicants(activeTab);
+  }
+
+  /**
+   * A teacher stopped teaching this student: the student goes back on the job
+   * board for another teacher. A family class goes back as the one class it
+   * is. The account, the parent and the classes already on the calendar are
+   * left alone; the admin moves the timetable once a new teacher is matched.
+   */
+  async function republishApplicant(applicant: EnrollmentApplicant, reason: string) {
+    try {
+      const result = await republishEnrollment(applicant.id, idsForClass(applicant), reason);
+      setRepublishFor(null);
+      setMessage(
+        result.enrollmentIds.length > 1
+          ? `${applicant.studentName} and classmates are on the job board again.`
+          : `${applicant.studentName} is on the job board again.`,
+      );
+      await refreshApplicants(activeTab);
+    } catch (error) {
+      setRepublishFor(null);
+      setMessage(error instanceof Error ? error.message : "Could not put the student back on the job board.");
+    }
   }
 
   async function saveDiscount(applicant: EnrollmentApplicant, draft: DiscountDraft | null) {
@@ -464,6 +504,7 @@ export function StudentApplicantsAdmin() {
       onBroadcast={() => setBroadcastFor(applicant)}
       onDetails={() => setDetailsFor(applicant)}
       onUnbroadcast={() => takeOffJobBoard(applicant)}
+      onRepublish={() => setRepublishFor(applicant)}
       onChanged={() => void refreshApplicants(activeTab)}
       onMessage={setMessage}
       onMarkContacted={() => moveApplicant(applicant, "contacted")}
@@ -534,12 +575,12 @@ export function StudentApplicantsAdmin() {
         setApplicants(nextApplicants);
         setCounts(nextCounts);
         const [scheduled, existing, discounts, familyDiscounts] = await Promise.all([
-          status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Set<string>()),
+          status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Map<string, Set<string>>()),
           status === "matched" ? loadExistingStudents(nextApplicants) : Promise.resolve(null),
           loadDiscounts(nextApplicants),
           loadFamilyDiscounts(nextApplicants),
         ]);
-        setScheduledStudents(scheduled);
+        setScheduleIndex(scheduled);
         setExistingStudents(existing);
         setApplicants(
           nextApplicants.map((applicant) => ({
@@ -812,6 +853,18 @@ export function StudentApplicantsAdmin() {
               await deleteApplicant(target);
             }}
             onClose={() => setDeleteFor(null)}
+          />
+        ) : null}
+
+        {republishFor ? (
+          <RepublishDialog
+            studentName={
+              idsForClass(republishFor).length > 1
+                ? listNames(applicants.filter((a) => idsForClass(republishFor).includes(a.id)).map((a) => a.studentName))
+                : republishFor.studentName
+            }
+            onConfirm={(reason) => republishApplicant(republishFor, reason)}
+            onClose={() => setRepublishFor(null)}
           />
         ) : null}
 
@@ -1334,6 +1387,48 @@ function ConfirmDialog({
   );
 }
 
+/**
+ * Puts a matched student back on the job board. The reason is optional and is
+ * kept with the earlier match ("Teacher left").
+ */
+function RepublishDialog({
+  studentName,
+  onConfirm,
+  onClose,
+}: {
+  studentName: string;
+  onConfirm: (reason: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Republish to job board">
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-base font-bold text-[#111827]">Republish to job board?</h2>
+        <p className="mt-1.5 text-sm leading-6 text-[#475569]">{republishConfirmBody(studentName)}</p>
+        <label className="mt-4 block text-xs font-semibold text-[#334155]" htmlFor="republish-reason">
+          Reason (optional)
+        </label>
+        <input
+          id="republish-reason"
+          type="text"
+          value={reason}
+          maxLength={REPUBLISH_REASON_MAX}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="Teacher left"
+          className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#0386FF]"
+        />
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <ActionButton label="Republish" busyLabel="Republishing…" onAction={() => onConfirm(reason)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoMatchesState({ onClear }: { onClear: () => void }) {
   return (
     <div className="grid min-h-[220px] place-items-center rounded-xl border border-dashed border-[#E5E7EB] bg-white">
@@ -1361,6 +1456,7 @@ function ApplicantCard({
   onBroadcast,
   onDetails,
   onUnbroadcast,
+  onRepublish,
   onChanged,
   onMessage,
   onMarkContacted,
@@ -1379,6 +1475,7 @@ function ApplicantCard({
   onBroadcast: () => void;
   onDetails: () => void;
   onUnbroadcast: () => Promise<void>;
+  onRepublish: () => void;
   onChanged: () => void;
   onMessage: (text: string) => void;
   onMarkContacted: () => void;
@@ -1454,6 +1551,16 @@ function ApplicantCard({
               </p>
             </div>
           </div>
+        ) : null}
+        {applicant.previousMatches.length > 0 ? (
+          <ul className="mt-3 grid gap-1" aria-label="Earlier teachers">
+            {applicant.previousMatches.map((match, index) => (
+              <li key={index} className="flex items-start gap-1.5 text-[11px] font-medium leading-5 text-[#64748B]">
+                <RotateCcw size={12} className="mt-1 shrink-0 text-[#94A3B8]" />
+                <span>{previousMatchLine(match)}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
         {applicant.status === "broadcasted" && applicant.jobId ? (
           <BroadcastPanel
@@ -1573,6 +1680,15 @@ function ApplicantCard({
                 onAction={() => onUnbroadcast()}
                 className="min-h-9 flex-1"
               />
+            ) : matched ? (
+              <button
+                type="button"
+                onClick={onRepublish}
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] px-3 text-xs font-semibold text-[#334155] hover:bg-[#F8FAFC]"
+              >
+                <RotateCcw size={16} />
+                Republish to job board
+              </button>
             ) : null}
           </div>
         </div>
@@ -1726,8 +1842,16 @@ function StudentApplicantsAccessPrompt({ access }: { access: AccessState }) {
   );
 }
 
+/**
+ * How many applications a tab loads. It used to be 80 with no order, so once a
+ * tab held more than 80 the rest never appeared at all — 18 matched
+ * applications, six of them waiting on an account, were unreachable in Oct
+ * 2026. The tabs are a few hundred at most; this is a ceiling, not a page.
+ */
+const TAB_LIMIT = 1000;
+
 async function loadApplicants(status: ApplicantStatus) {
-  const snap = await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", status), limit(80)));
+  const snap = await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", status), limit(TAB_LIMIT)));
   return snap.docs
     .map((docSnap) => normalizeApplicant(docSnap.id, docSnap.data() as Record<string, unknown>))
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
@@ -1755,7 +1879,7 @@ async function loadAllApplicants(): Promise<EnrollmentApplicant[]> {
 }
 
 async function loadDrafts() {
-  const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)));
+  const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(TAB_LIMIT)));
   return snap.docs
     .map((docSnap) => normalizeDraft(docSnap.id, docSnap.data() as Record<string, unknown>))
     .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
@@ -1765,11 +1889,12 @@ async function loadCounts() {
   const pairs = await Promise.all(
     tabs.map(async (tab) => {
       try {
-        const snap =
+        const snap = await getCountFromServer(
           tab.id === "incomplete"
-            ? await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)))
-            : await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", tab.id), limit(80)));
-        return [tab.id, snap.size] as const;
+            ? query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"))
+            : query(collection(db, "enrollments"), where("metadata.status", "==", tab.id)),
+        );
+        return [tab.id, snap.data().count] as const;
       } catch {
         return [tab.id, 0] as const;
       }
@@ -1818,9 +1943,9 @@ function timeAgo(date: Date) {
  * per 30 students answers the whole list; asking per card would be a query
  * per row.
  */
-async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise<Set<string>> {
+async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise<Map<string, Set<string>>> {
   const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
-  const scheduled = new Set<string>();
+  const scheduled = new Map<string, Set<string>>();
   if (uids.length === 0) return scheduled;
 
   for (let i = 0; i < uids.length; i += 30) {
@@ -1829,8 +1954,12 @@ async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise
       query(collection(db, "teaching_shifts"), where("student_ids", "array-contains-any", chunk)),
     );
     for (const shift of snapshot.docs) {
+      const teacherId = stringValue(shift.data().teacher_id);
       for (const uid of stringArray(shift.data().student_ids)) {
-        if (chunk.includes(uid)) scheduled.add(uid);
+        if (!chunk.includes(uid)) continue;
+        const teachers = scheduled.get(uid) ?? new Set<string>();
+        if (teacherId) teachers.add(teacherId);
+        scheduled.set(uid, teachers);
       }
     }
   }
@@ -1924,6 +2053,7 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     jobId: stringValue(metadata.jobId),
     broadcastSnapshot: readSnapshot(metadata.lastBroadcastSnapshot),
     actionHistory: readActionHistory(metadata.actionHistory),
+    previousMatches: readPreviousMatches(metadata.previousMatches),
   };
 }
 

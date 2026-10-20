@@ -3,10 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
+/// What a parent owes right now. It deliberately shows no running total of
+/// everything ever paid; individual receipts stay in the invoice history.
 class FinancialSummaryCard extends StatelessWidget {
   final double outstanding;
   final double overdue;
-  final double paid;
   final String currency;
   final VoidCallback? onPayNow;
 
@@ -14,7 +15,6 @@ class FinancialSummaryCard extends StatelessWidget {
     super.key,
     required this.outstanding,
     required this.overdue,
-    required this.paid,
     this.currency = 'USD',
     this.onPayNow,
   });
@@ -93,14 +93,6 @@ class FinancialSummaryCard extends StatelessWidget {
                   label: AppLocalizations.of(context)!.overdue,
                   value: formatter.format(overdue),
                   accent: overdue > 0 ? const Color(0xFFFCA5A5) : Colors.white,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _metric(
-                  label: AppLocalizations.of(context)!.parentInvoicesPaid,
-                  value: formatter.format(paid),
-                  accent: const Color(0xFF86EFAC),
                 ),
               ),
             ],

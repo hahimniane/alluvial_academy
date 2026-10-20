@@ -32,7 +32,7 @@ class MatchedEnrollmentCard extends StatefulWidget {
 class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   bool _isLoadingTeacher = false;
   bool _isCreatingStudent = false;
-  bool _isRevoking = false;
+  bool _isRepublishing = false;
   bool _isClosing = false;
   String? _teacherName;
   String? _teacherEmail;
@@ -40,6 +40,10 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
   String? _jobId;
   Map<String, String>? _teacherSelectedTimes;
   bool _tzInitialized = false;
+
+  /// Teachers this student was matched with before being put back on the job
+  /// board (metadata.previousMatches), oldest first.
+  List<Map<String, dynamic>> _previousMatches = const [];
 
   /// Auth UID of the student account (after Create Account) or loaded from
   /// metadata.studentUserId if a previous session already created it. Needed
@@ -97,6 +101,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       final contact = (data['contact'] as Map<String, dynamic>?) ?? {};
       final teacherId = metadata['matchedTeacherId'] as String?;
       _jobId = metadata['jobId'] as String?;
+      _previousMatches = _readPreviousMatches(metadata['previousMatches']);
 
       // Pick up a previously-created student UID (if any) so the Invite Parent
       // action is available on card re-renders.
@@ -137,12 +142,18 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
       // A teaching_shift names its students but not its enrollment, so the
       // student's uid is the only join.
       if (_hasAccount) {
-        final shifts = await FirebaseFirestore.instance
+        // A student put back on the job board keeps the classes of the teacher
+        // who left; only a class with the teacher matched now completes the
+        // schedule step for this match.
+        final rematched = _previousMatches.isNotEmpty && (teacherId ?? '').isNotEmpty;
+        var shiftsQuery = FirebaseFirestore.instance
             .collection('teaching_shifts')
-            .where('student_ids', arrayContains: _studentUid)
-            .limit(1)
-            .get();
-        _hasSchedule = shifts.docs.isNotEmpty;
+            .where('student_ids', arrayContains: _studentUid);
+        if (!rematched) shiftsQuery = shiftsQuery.limit(1);
+        final shifts = await shiftsQuery.get();
+        _hasSchedule = rematched
+            ? shifts.docs.any((d) => (d.data()['teacher_id'] ?? '').toString() == teacherId)
+            : shifts.docs.isNotEmpty;
       }
       if (mounted) setState(() {});
       if (_hasSchedule && _parentInviteStatus == null) {
@@ -378,6 +389,29 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
                         ),
                       ),
 
+                if (_previousMatches.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ..._previousMatches.map((match) => Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.replay, size: 12, color: Color(0xff94A3B8)),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _previousMatchLine(l, match),
+                                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+
                 const SizedBox(height: 12),
 
                 // Activity history (reuses EnrollmentCard's static parser)
@@ -405,16 +439,16 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: (_isRevoking || _isClosing) ? null : _revokeAcceptance,
-                        icon: _isRevoking
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
-                            : const Icon(Icons.undo, size: 16, color: Colors.red),
+                        onPressed: (_isRepublishing || _isClosing) ? null : _republish,
+                        icon: _isRepublishing
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.replay, size: 16, color: Color(0xff334155)),
                         label: Text(
-                          _isRevoking ? 'Revoking...' : 'Revoke & Re-broadcast',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.red, fontSize: 12),
+                          _isRepublishing ? l.enrollmentRepublishBusy : l.enrollmentRepublishAction,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xff334155), fontSize: 12),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
+                          side: const BorderSide(color: Color(0xffCBD5E1)),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
@@ -423,7 +457,7 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: (_isRevoking || _isClosing) ? null : _closeJob,
+                        onPressed: (_isRepublishing || _isClosing) ? null : _closeJob,
                         icon: _isClosing
                             ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.archive_outlined, size: 16, color: Color(0xff4B5563)),
@@ -884,47 +918,103 @@ class _MatchedEnrollmentCardState extends State<MatchedEnrollmentCard> {
     );
   }
 
-  Future<void> _revokeAcceptance() async {
-    if (_jobId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No job ID found for this enrollment.'), backgroundColor: Colors.red),
-      );
-      return;
+  static List<Map<String, dynamic>> _readPreviousMatches(dynamic raw) {
+    if (raw is! List) return const [];
+    final matches = raw
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .where((m) =>
+            (m['teacherId'] ?? '').toString().isNotEmpty ||
+            (m['teacherName'] ?? '').toString().isNotEmpty)
+        .toList();
+    DateTime? at(Map<String, dynamic> m) {
+      final v = m['unmatchedAt'];
+      return v is Timestamp ? v.toDate() : null;
     }
+    matches.sort((a, b) => (at(a) ?? DateTime(0)).compareTo(at(b) ?? DateTime(0)));
+    return matches;
+  }
+
+  /// "Previously matched with Mariama Bah · Oct 20, 2026 · Teacher left"
+  String _previousMatchLine(AppLocalizations l, Map<String, dynamic> match) {
+    final name = (match['teacherName'] ?? '').toString().trim();
+    final when = match['unmatchedAt'];
+    final reason = (match['reason'] ?? '').toString().trim();
+    return [
+      l.enrollmentPreviouslyMatchedWith(name.isEmpty ? l.enrollmentPreviouslyMatchedUnknownTeacher : name),
+      if (when is Timestamp) DateFormat.yMMMd().format(when.toDate()),
+      if (reason.isNotEmpty) reason,
+    ].join(' · ');
+  }
+
+  /// Puts the student back on the job board for another teacher, through the
+  /// same `republishEnrollmentJob` callable the web admin page uses. The
+  /// account, parent link and classes already on the calendar stay as they
+  /// are. A family class goes back as one class.
+  Future<void> _republish() async {
+    final e = widget.enrollment;
+    if (e.id == null) return;
+    final l = AppLocalizations.of(context)!;
+    final name = _family.length > 1 ? _familyNames : (e.studentName ?? 'Student');
+    final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Revoke acceptance?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-        content: Text(
-          'This will remove the match with ${_teacherName ?? "the teacher"} and make this opportunity available again.',
-          style: GoogleFonts.inter(),
+        title: Text(l.enrollmentRepublishTitle, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.enrollmentRepublishBody(name), style: GoogleFonts.inter()),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              maxLength: 300,
+              decoration: InputDecoration(
+                labelText: l.enrollmentRepublishReasonLabel,
+                hintText: l.enrollmentRepublishReasonHint,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.commonCancel)),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Revoke', style: TextStyle(color: Colors.white)),
+            child: Text(l.enrollmentRepublishConfirm),
           ),
         ],
       ),
     );
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
     if (confirmed != true || !mounted) return;
 
-    setState(() => _isRevoking = true);
+    setState(() => _isRepublishing = true);
     try {
-      await JobBoardService().adminRevokeAcceptance(_jobId!);
+      await FirebaseFunctions.instance.httpsCallable('republishEnrollmentJob').call({
+        'enrollmentId': e.id,
+        'classmateIds': _familyEnrollmentIds.where((id) => id != e.id).toList(),
+        'reason': reason,
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Acceptance revoked. Job re-broadcast for other teachers.'), backgroundColor: Colors.green),
+          SnackBar(content: Text(l.enrollmentRepublishDone(name)), backgroundColor: Colors.green),
         );
       }
-    } catch (e) {
+    } on FirebaseFunctionsException catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(l.enrollmentRepublishFailed(err.message ?? err.code)), backgroundColor: Colors.red));
+      }
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.enrollmentRepublishFailed('$err')), backgroundColor: Colors.red));
       }
     } finally {
-      if (mounted) setState(() => _isRevoking = false);
+      if (mounted) setState(() => _isRepublishing = false);
     }
   }
 

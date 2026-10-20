@@ -541,6 +541,7 @@ class _AdminSubmissionsReviewScreenState
                 formId: doc.id,
                 shiftId: _resolveShiftId(data),
                 responses: (data?['responses'] as Map<String, dynamic>?) ?? {},
+                showReview: true,
               );
             },
           );
@@ -574,6 +575,7 @@ class _AdminSubmissionsReviewScreenState
           formId: doc.id,
           shiftId: _resolveShiftId(data),
           responses: (data?['responses'] as Map<String, dynamic>?) ?? {},
+          showReview: true,
         );
       },
     );
@@ -632,6 +634,7 @@ class _SubmissionDetailScroll extends StatelessWidget {
             shiftId: shiftId,
             responses: responses,
             scrollController: scrollController,
+            showReview: true,
           ),
         ),
       ],

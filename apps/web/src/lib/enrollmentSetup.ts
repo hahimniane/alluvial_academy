@@ -8,9 +8,9 @@
  * Function callables the native app uses, so accounts are created one way only.
  */
 
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { db, functions } from "./firebase";
+import { auth, db, functions } from "./firebase";
 import { parentInviteProblem, splitStudentName, type ParentInvite } from "./enrollmentSetupRules";
 
 export { parentInviteProblem, splitStudentName };
@@ -87,6 +87,38 @@ export async function createStudentAccount(enrollmentId: string): Promise<Create
   }
 
   return { studentId, studentCode, existing };
+}
+
+/**
+ * Points the application at an account the student already has, instead of
+ * creating a second one. The schedule and parent steps then read that
+ * account's own classes and guardians.
+ */
+export async function linkExistingStudentAccount(enrollmentId: string, studentId: string): Promise<void> {
+  await setDoc(
+    doc(db, "enrollments", enrollmentId),
+    {
+      metadata: {
+        studentUserId: studentId,
+        studentUserIdLinkedAt: serverTimestamp(),
+        studentUserIdLinkedBy: auth.currentUser?.uid ?? "",
+      },
+    },
+    { merge: true },
+  );
+}
+
+/** Who already teaches this student, so the admin can tell two same-named children apart. */
+export async function teachersOfStudent(studentId: string): Promise<string[]> {
+  const snapshot = await getDocs(
+    query(collection(db, "teaching_shifts"), where("student_ids", "array-contains", studentId), limit(60)),
+  );
+  const names = new Set<string>();
+  for (const shift of snapshot.docs) {
+    const name = text(shift.data().teacher_name);
+    if (name) names.add(name);
+  }
+  return [...names].sort();
 }
 
 export type ParentInviteResult = { status: string; message: string };

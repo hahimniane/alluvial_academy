@@ -82,6 +82,30 @@ export const setupFor = (
   return { hasAccount, accountMissing, hasSchedule: scheduled, hasParent, stage, nextAction };
 };
 
+/**
+ * Which teachers each student already has classes with, from teaching_shifts
+ * (`student_ids` → `teacher_id`).
+ */
+export type ScheduleIndex = ReadonlyMap<string, ReadonlySet<string>>;
+
+/**
+ * Whether the schedule step is done for this match.
+ *
+ * Normally any class for the student counts. A student who was put back on
+ * the job board keeps the classes of the teacher who left — those must not
+ * mark the new teacher's schedule as done — so once there is an earlier match
+ * only a class with the teacher matched now counts.
+ */
+export const hasScheduleFor = (
+  applicant: { studentUserId: string; matchedTeacherId: string; rematched: boolean },
+  index: ScheduleIndex,
+): boolean => {
+  const teachers = index.get(applicant.studentUserId.trim());
+  if (!teachers) return false;
+  if (!applicant.rematched || !applicant.matchedTeacherId.trim()) return true;
+  return teachers.has(applicant.matchedTeacherId.trim());
+};
+
 /* ---------------------------------------------------------------- steps -- */
 
 export type SetupStepId = "account" | "schedule" | "parent";
