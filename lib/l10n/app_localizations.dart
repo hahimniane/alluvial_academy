@@ -64,7 +64,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ar'),
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -1563,7 +1563,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{program} · {hours} hrs/wk each · {each} per child · {total} household/mo'**
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total);
+    String program,
+    int hours,
+    String each,
+    String total,
+  );
 
   /// No description provided for @enrollmentCustomTimePickEndTitle.
   ///
@@ -3088,7 +3092,10 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{current} / {total} — {formName}'**
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName);
+    int current,
+    int total,
+    String formName,
+  );
 
   /// No description provided for @adminSubmissionsSelectToViewDetails.
   ///
@@ -18053,7 +18060,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Maximum payment for {subject} is \${amount} (max \${hourly}/hour)'**
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time);
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  );
 
   /// No description provided for @auditDayLabel.
   ///
@@ -18347,8 +18359,13 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Selected ({abbr}): {startDate}, {startTime} - {endDatePart}{endTime}'**
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime);
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  );
 
   /// No description provided for @shiftSelectedCount.
   ///
@@ -20149,7 +20166,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evaluate student progress and skills at enrollment or semester end'**
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
 
   /// No description provided for @formTemplateFeedbackforleaders.
   ///
@@ -23408,7 +23425,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × \${rate}/hr × {weeks} weeks ≈ \${monthly}/mo'**
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly);
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  );
 
   /// No description provided for @pricingSelectTrack.
   ///
@@ -25101,7 +25122,9 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.'**
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName);
+    String studentName,
+    String guardianName,
+  );
 
   /// No description provided for @unlinkGuardianAdultOverrideAction.
   ///
@@ -29548,7 +29571,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × {rate}/hr × {weeks} weeks ≈ {monthly}/mo'**
   String publicPricingFormula(
-      int hours, String rate, String weeks, String monthly);
+    int hours,
+    String rate,
+    String weeks,
+    String monthly,
+  );
 
   /// No description provided for @publicAboutTitle.
   ///
@@ -31337,7 +31364,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You compete only in your age division. Qualify with {questions} unique questions over {days} days and at least {accuracy}% accuracy. A division needs {participants} eligible students. Exact ties share the win.'**
   String quizCompetitionFairRules(
-      int questions, int days, int accuracy, int participants);
+    int questions,
+    int days,
+    int accuracy,
+    int participants,
+  );
 
   /// No description provided for @quizCompetitionCategoryProgress.
   ///
@@ -32490,7 +32521,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{done} of {total} ayahs of {scope} · {pct}%'**
   String quranScopeProgress(
-      String done, String total, String scope, String pct);
+    String done,
+    String total,
+    String scope,
+    String pct,
+  );
 
   /// No description provided for @quranPracticeToday.
   ///
@@ -33541,6 +33576,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{status} by {name} · {date}'**
   String formReviewedByOn(String status, String name, String date);
+
+  /// No description provided for @enrollmentRepublishAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Republish to job board'**
+  String get enrollmentRepublishAction;
+
+  /// No description provided for @enrollmentRepublishTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Republish to job board?'**
+  String get enrollmentRepublishTitle;
+
+  /// No description provided for @enrollmentRepublishBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers will see {student} on the job board again. Their account, parent and current classes stay as they are.'**
+  String enrollmentRepublishBody(String student);
+
+  /// No description provided for @enrollmentRepublishReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get enrollmentRepublishReasonLabel;
+
+  /// No description provided for @enrollmentRepublishReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher left'**
+  String get enrollmentRepublishReasonHint;
+
+  /// No description provided for @enrollmentRepublishConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Republish'**
+  String get enrollmentRepublishConfirm;
+
+  /// No description provided for @enrollmentRepublishBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Republishing…'**
+  String get enrollmentRepublishBusy;
+
+  /// No description provided for @enrollmentRepublishDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{student} is on the job board again.'**
+  String enrollmentRepublishDone(String student);
+
+  /// No description provided for @enrollmentRepublishFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not put the student back on the job board: {error}'**
+  String enrollmentRepublishFailed(String error);
+
+  /// No description provided for @enrollmentPreviouslyMatchedWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Previously matched with {teacher}'**
+  String enrollmentPreviouslyMatchedWith(String teacher);
+
+  /// No description provided for @enrollmentPreviouslyMatchedUnknownTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'a teacher'**
+  String get enrollmentPreviouslyMatchedUnknownTeacher;
 }
 
 class _AppLocalizationsDelegate
@@ -33572,8 +33673,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

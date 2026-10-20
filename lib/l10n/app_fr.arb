@@ -7365,5 +7365,16 @@
   "formAdminNoteHint": "Ce qui a été fait pour ce formulaire, ex. « Problème réglé »",
   "formAdminNoteSave": "Enregistrer la note",
   "formAdminNoteBy": "Note de {name} · {date}",
-  "formReviewedByOn": "{status} par {name} · {date}"
+  "formReviewedByOn": "{status} par {name} · {date}",
+  "enrollmentRepublishAction": "Republier sur le tableau des offres",
+  "enrollmentRepublishTitle": "Republier sur le tableau des offres ?",
+  "enrollmentRepublishBody": "Les enseignants verront de nouveau {student} sur le tableau des offres. Son compte, son parent et ses cours actuels restent tels quels.",
+  "enrollmentRepublishReasonLabel": "Raison (facultatif)",
+  "enrollmentRepublishReasonHint": "L'enseignant est parti",
+  "enrollmentRepublishConfirm": "Republier",
+  "enrollmentRepublishBusy": "Republication…",
+  "enrollmentRepublishDone": "{student} est de nouveau sur le tableau des offres.",
+  "enrollmentRepublishFailed": "Impossible de remettre l'élève sur le tableau des offres : {error}",
+  "enrollmentPreviouslyMatchedWith": "Précédemment associé à {teacher}",
+  "enrollmentPreviouslyMatchedUnknownTeacher": "un enseignant"
 }
