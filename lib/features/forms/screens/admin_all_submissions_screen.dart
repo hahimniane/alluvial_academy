@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
-import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import '../../shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import '../utils/form_submission_view_mode.dart';
 import '../utils/form_review_status.dart';
