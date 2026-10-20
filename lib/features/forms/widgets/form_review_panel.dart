@@ -196,9 +196,13 @@ class _FormReviewPanelState extends State<FormReviewPanel> {
                             ? FormReviewStatusBadge.colorFor(option)
                             : const Color(0xFF475569),
                       ),
-                      onSelected: _savingStatus || status == option
+                      // Kept enabled when selected so the chosen decision
+                      // shows in its colour rather than greyed out.
+                      onSelected: _savingStatus
                           ? null
-                          : (_) => _choose(option, data),
+                          : (_) {
+                              if (status != option) _choose(option, data);
+                            },
                     ),
                 ],
               ),
