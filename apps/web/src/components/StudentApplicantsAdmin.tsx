@@ -9,6 +9,7 @@ import {
   arrayUnion,
   deleteField,
   getDoc,
+  getCountFromServer,
   getDocs,
   limit,
   query,
@@ -1726,8 +1727,16 @@ function StudentApplicantsAccessPrompt({ access }: { access: AccessState }) {
   );
 }
 
+/**
+ * How many applications a tab loads. It used to be 80 with no order, so once a
+ * tab held more than 80 the rest never appeared at all — 18 matched
+ * applications, six of them waiting on an account, were unreachable in Oct
+ * 2026. The tabs are a few hundred at most; this is a ceiling, not a page.
+ */
+const TAB_LIMIT = 1000;
+
 async function loadApplicants(status: ApplicantStatus) {
-  const snap = await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", status), limit(80)));
+  const snap = await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", status), limit(TAB_LIMIT)));
   return snap.docs
     .map((docSnap) => normalizeApplicant(docSnap.id, docSnap.data() as Record<string, unknown>))
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
@@ -1755,7 +1764,7 @@ async function loadAllApplicants(): Promise<EnrollmentApplicant[]> {
 }
 
 async function loadDrafts() {
-  const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)));
+  const snap = await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(TAB_LIMIT)));
   return snap.docs
     .map((docSnap) => normalizeDraft(docSnap.id, docSnap.data() as Record<string, unknown>))
     .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
@@ -1765,11 +1774,12 @@ async function loadCounts() {
   const pairs = await Promise.all(
     tabs.map(async (tab) => {
       try {
-        const snap =
+        const snap = await getCountFromServer(
           tab.id === "incomplete"
-            ? await getDocs(query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"), limit(80)))
-            : await getDocs(query(collection(db, "enrollments"), where("metadata.status", "==", tab.id), limit(80)));
-        return [tab.id, snap.size] as const;
+            ? query(collection(db, "enrollment_drafts"), where("status", "==", "in_progress"))
+            : query(collection(db, "enrollments"), where("metadata.status", "==", tab.id)),
+        );
+        return [tab.id, snap.data().count] as const;
       } catch {
         return [tab.id, 0] as const;
       }
