@@ -64,7 +64,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ar'),
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -1563,11 +1563,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{program} · {hours} hrs/wk each · {each} per child · {total} household/mo'**
   String enrollmentSummarySameProgramHouseholdDetail(
-    String program,
-    int hours,
-    String each,
-    String total,
-  );
+      String program, int hours, String each, String total);
 
   /// No description provided for @enrollmentCustomTimePickEndTitle.
   ///
@@ -3092,10 +3088,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{current} / {total} — {formName}'**
   String adminSubmissionsExportFormSheetProgress(
-    int current,
-    int total,
-    String formName,
-  );
+      int current, int total, String formName);
 
   /// No description provided for @adminSubmissionsSelectToViewDetails.
   ///
@@ -18060,12 +18053,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Maximum payment for {subject} is \${amount} (max \${hourly}/hour)'**
   String auditMaxPayment(
-    Object subject,
-    Object amount,
-    Object hourly,
-    Object sujet,
-    Object time,
-  );
+      Object subject, Object amount, Object hourly, Object sujet, Object time);
 
   /// No description provided for @auditDayLabel.
   ///
@@ -18359,13 +18347,8 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Selected ({abbr}): {startDate}, {startTime} - {endDatePart}{endTime}'**
-  String shiftSelectedTimeRange(
-    Object abbr,
-    Object startDate,
-    Object startTime,
-    Object endDatePart,
-    Object endTime,
-  );
+  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
+      Object endDatePart, Object endTime);
 
   /// No description provided for @shiftSelectedCount.
   ///
@@ -20166,7 +20149,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evaluate student progress and skills at enrollment or semester end'**
   String
-  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
+      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
 
   /// No description provided for @formTemplateFeedbackforleaders.
   ///
@@ -23425,11 +23408,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × \${rate}/hr × {weeks} weeks ≈ \${monthly}/mo'**
   String pricingMonthlyBreakdown(
-    Object hours,
-    Object rate,
-    Object weeks,
-    Object monthly,
-  );
+      Object hours, Object rate, Object weeks, Object monthly);
 
   /// No description provided for @pricingSelectTrack.
   ///
@@ -25122,9 +25101,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.'**
   String unlinkGuardianAdultOverrideBody(
-    String studentName,
-    String guardianName,
-  );
+      String studentName, String guardianName);
 
   /// No description provided for @unlinkGuardianAdultOverrideAction.
   ///
@@ -29571,11 +29548,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × {rate}/hr × {weeks} weeks ≈ {monthly}/mo'**
   String publicPricingFormula(
-    int hours,
-    String rate,
-    String weeks,
-    String monthly,
-  );
+      int hours, String rate, String weeks, String monthly);
 
   /// No description provided for @publicAboutTitle.
   ///
@@ -31364,11 +31337,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You compete only in your age division. Qualify with {questions} unique questions over {days} days and at least {accuracy}% accuracy. A division needs {participants} eligible students. Exact ties share the win.'**
   String quizCompetitionFairRules(
-    int questions,
-    int days,
-    int accuracy,
-    int participants,
-  );
+      int questions, int days, int accuracy, int participants);
 
   /// No description provided for @quizCompetitionCategoryProgress.
   ///
@@ -32521,11 +32490,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{done} of {total} ayahs of {scope} · {pct}%'**
   String quranScopeProgress(
-    String done,
-    String total,
-    String scope,
-    String pct,
-  );
+      String done, String total, String scope, String pct);
 
   /// No description provided for @quranPracticeToday.
   ///
@@ -33577,6 +33542,90 @@ abstract class AppLocalizations {
   /// **'{status} by {name} · {date}'**
   String formReviewedByOn(String status, String name, String date);
 
+  /// No description provided for @classContactsTeacherTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get classContactsTeacherTitle;
+
+  /// No description provided for @classContactsTeacherHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Call a parent if a student hasn\'t joined.'**
+  String get classContactsTeacherHelper;
+
+  /// No description provided for @classContactsParentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your children\'s teachers'**
+  String get classContactsParentTitle;
+
+  /// No description provided for @classContactsParentHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Call a teacher if you can\'t reach them in the app.'**
+  String get classContactsParentHelper;
+
+  /// No description provided for @classContactsStudentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your teachers'**
+  String get classContactsStudentTitle;
+
+  /// No description provided for @classContactsStudentHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Call your teacher if you can\'t reach them in the app.'**
+  String get classContactsStudentHelper;
+
+  /// No description provided for @classContactsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load phone numbers.'**
+  String get classContactsLoadError;
+
+  /// No description provided for @classContactsNoPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'No phone number on file'**
+  String get classContactsNoPhone;
+
+  /// No description provided for @classContactsRelationParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent'**
+  String get classContactsRelationParent;
+
+  /// No description provided for @classContactsRelationStudent.
+  ///
+  /// In en, this message translates to:
+  /// **'Student'**
+  String get classContactsRelationStudent;
+
+  /// No description provided for @classContactsRelationTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get classContactsRelationTeacher;
+
+  /// No description provided for @classContactsCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call {name}'**
+  String classContactsCall(String name);
+
+  /// No description provided for @classContactsCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy number'**
+  String get classContactsCopy;
+
+  /// No description provided for @classContactsCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Number copied'**
+  String get classContactsCopied;
+
   /// No description provided for @enrollmentRepublishAction.
   ///
   /// In en, this message translates to:
@@ -33673,9 +33722,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

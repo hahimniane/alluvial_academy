@@ -787,11 +787,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String enrollmentSummarySameProgramHouseholdDetail(
-    String program,
-    int hours,
-    String each,
-    String total,
-  ) {
+      String program, int hours, String each, String total) {
     return '$program · $hours س/أسبوع لكل طفل · $each لكل طفل · $total إجمالي الأسرة/شهر';
   }
 
@@ -1634,10 +1630,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String adminSubmissionsExportFormSheetProgress(
-    int current,
-    int total,
-    String formName,
-  ) {
+      int current, int total, String formName) {
     return '$current / $total — $formName';
   }
 
@@ -9699,12 +9692,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String auditMaxPayment(
-    Object subject,
-    Object amount,
-    Object hourly,
-    Object sujet,
-    Object time,
-  ) {
+      Object subject, Object amount, Object hourly, Object sujet, Object time) {
     return 'Maximum payment for $subject is \$$amount (max \$$hourly/hour)';
   }
 
@@ -9943,13 +9931,8 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String shiftSelectedTimeRange(
-    Object abbr,
-    Object startDate,
-    Object startTime,
-    Object endDatePart,
-    Object endTime,
-  ) {
+  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
+      Object endDatePart, Object endTime) {
     return 'Selected ($abbr): $startDate, $startTime - $endDatePart$endTime';
   }
 
@@ -10944,8 +10927,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String
-  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
-      'Evaluate student progress and skills at enrollment or semester end';
+      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
+          'Evaluate student progress and skills at enrollment or semester end';
 
   @override
   String get formTemplateFeedbackforleaders => 'Feedback for Leaders';
@@ -10961,8 +10944,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String
-  get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
-      'Monthly evaluation of coach/supervisor performance (Admin only)';
+      get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
+          'Monthly evaluation of coach/supervisor performance (Admin only)';
 
   @override
   String get formTemplateMonthlyselfevaluationforadministratorsandcoaches =>
@@ -12813,11 +12796,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String pricingMonthlyBreakdown(
-    Object hours,
-    Object rate,
-    Object weeks,
-    Object monthly,
-  ) {
+      Object hours, Object rate, Object weeks, Object monthly) {
     return '$hours ساعة × \$$rate/ساعة × $weeks أسابيع ≈ \$$monthly/شهر';
   }
 
@@ -13730,9 +13709,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String unlinkGuardianAdultOverrideBody(
-    String studentName,
-    String guardianName,
-  ) {
+      String studentName, String guardianName) {
     return 'لا يوجد لدى $studentName ولي أمر صالح آخر مرتبط. تابع فقط إذا أكد المسؤول أن هذا الطالب يجب أن يدير حسابه كطالب بالغ بعد إزالة $guardianName.';
   }
 
@@ -16189,11 +16166,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String publicPricingFormula(
-    int hours,
-    String rate,
-    String weeks,
-    String monthly,
-  ) {
+      int hours, String rate, String weeks, String monthly) {
     return '$hours hrs × $rate/hr × $weeks weeks ≈ $monthly/mo';
   }
 
@@ -17211,11 +17184,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String quizCompetitionFairRules(
-    int questions,
-    int days,
-    int accuracy,
-    int participants,
-  ) {
+      int questions, int days, int accuracy, int participants) {
     return 'تتنافس داخل فئتك العمرية فقط. للتأهل، أجب عن $questions سؤالًا فريدًا خلال $days أيام وحقق دقة لا تقل عن $accuracy٪. تحتاج الفئة إلى $participants من الطلاب المؤهلين. عند التعادل التام يشترك الطلاب في الفوز.';
   }
 
@@ -17861,11 +17830,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String quranScopeProgress(
-    String done,
-    String total,
-    String scope,
-    String pct,
-  ) {
+      String done, String total, String scope, String pct) {
     return '$done of $total ayahs of $scope · $pct%';
   }
 
@@ -18478,6 +18443,53 @@ class AppLocalizationsAr extends AppLocalizations {
   String formReviewedByOn(String status, String name, String date) {
     return '$status بواسطة $name · $date';
   }
+
+  @override
+  String get classContactsTeacherTitle => 'جهات الاتصال';
+
+  @override
+  String get classContactsTeacherHelper =>
+      'اتصل بولي الأمر إذا لم ينضم الطالب.';
+
+  @override
+  String get classContactsParentTitle => 'معلمو أبنائك';
+
+  @override
+  String get classContactsParentHelper =>
+      'اتصل بالمعلم إذا تعذّر الوصول إليه عبر التطبيق.';
+
+  @override
+  String get classContactsStudentTitle => 'معلموك';
+
+  @override
+  String get classContactsStudentHelper =>
+      'اتصل بمعلمك إذا تعذّر الوصول إليه عبر التطبيق.';
+
+  @override
+  String get classContactsLoadError => 'تعذّر تحميل أرقام الهاتف.';
+
+  @override
+  String get classContactsNoPhone => 'لا يوجد رقم هاتف مسجّل';
+
+  @override
+  String get classContactsRelationParent => 'ولي الأمر';
+
+  @override
+  String get classContactsRelationStudent => 'طالب';
+
+  @override
+  String get classContactsRelationTeacher => 'معلم';
+
+  @override
+  String classContactsCall(String name) {
+    return 'اتصل بـ $name';
+  }
+
+  @override
+  String get classContactsCopy => 'نسخ الرقم';
+
+  @override
+  String get classContactsCopied => 'تم نسخ الرقم';
 
   @override
   String get enrollmentRepublishAction => 'إعادة النشر على لوحة الوظائف';

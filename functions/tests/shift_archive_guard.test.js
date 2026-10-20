@@ -20,6 +20,7 @@ const ALLOWED_LIVE_ONLY = new Set([
   'forms.js',
   'users.js',
   'shift_archive.js',     // the archiver itself
+  'class_contacts.js',    // who a caller has classes with now, not a period count
 ]);
 
 const rangePattern = /collection\('teaching_shifts'\)[\s\S]{0,400}?shift_start'\s*,\s*'>=?'/g;

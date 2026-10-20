@@ -33,6 +33,7 @@ import {
   X,
   Bot,
 } from "lucide-react";
+import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, clearStudentSession, resolveStudentSession } from "@/lib/studentSession";
 import { adoptRemoteLocale, dateLocale, setLocale, useLocale, useT } from "@/lib/i18n";
@@ -471,6 +472,8 @@ function StudentHomeContent({
           )}
         </Panel>
       </div>
+
+      <ClassContactsCard variant="student" />
     </div>
   );
 }

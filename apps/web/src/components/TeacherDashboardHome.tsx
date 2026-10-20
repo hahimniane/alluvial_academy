@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { resetTeacherCutoverCache } from "@/lib/teacherCutover";
+import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { auth, db } from "@/lib/firebase";
 import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher, rolesForUserRecord } from "@/lib/userRoles";
@@ -344,6 +345,8 @@ function TeacherHomeContent({
           {tr("View Full Schedule")}
         </Link>
       </section>
+
+      <ClassContactsCard variant="teacher" />
 
       <section className="mt-6">
         {recentTasks.length ? <div className="mb-6" aria-labelledby="teacher-recent-tasks"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-[#EF4444]"><CheckCircle2 size={20} /></span><h2 id="teacher-recent-tasks" className="text-xl font-black text-[#1F2937]">{tr("My Tasks")}</h2></div><Link href="/teacher/tasks/" className="text-sm font-bold text-[#0386FF]">{tr("See All")}</Link></div><div className="grid gap-3">{recentTasks.map((task) => <DashboardTaskCard key={task.id} task={task} />)}</div></div> : null}

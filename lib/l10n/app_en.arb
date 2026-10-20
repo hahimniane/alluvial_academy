@@ -8482,6 +8482,27 @@
       }
     }
   },
+  "classContactsTeacherTitle": "Contacts",
+  "classContactsTeacherHelper": "Call a parent if a student hasn't joined.",
+  "classContactsParentTitle": "Your children's teachers",
+  "classContactsParentHelper": "Call a teacher if you can't reach them in the app.",
+  "classContactsStudentTitle": "Your teachers",
+  "classContactsStudentHelper": "Call your teacher if you can't reach them in the app.",
+  "classContactsLoadError": "Could not load phone numbers.",
+  "classContactsNoPhone": "No phone number on file",
+  "classContactsRelationParent": "Parent",
+  "classContactsRelationStudent": "Student",
+  "classContactsRelationTeacher": "Teacher",
+  "classContactsCall": "Call {name}",
+  "@classContactsCall": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "classContactsCopy": "Copy number",
+  "classContactsCopied": "Number copied",
   "enrollmentRepublishAction": "Republish to job board",
   "enrollmentRepublishTitle": "Republish to job board?",
   "enrollmentRepublishBody": "Teachers will see {student} on the job board again. Their account, parent and current classes stay as they are.",

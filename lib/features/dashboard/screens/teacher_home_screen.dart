@@ -17,6 +17,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/widgets/class_contacts_card.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../shift_management/screens/available_shifts_screen.dart';
@@ -676,6 +677,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: ClassContactsCard(
+                variant: ClassContactsVariant.teacher,
+                margin: EdgeInsets.only(bottom: 24),
+              ),
+            ),
             if (_recentTasks.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
