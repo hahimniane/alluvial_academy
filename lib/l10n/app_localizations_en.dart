@@ -18472,4 +18472,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String formConditionIncomplete(int number) {
     return 'Question $number has a \"Show only if\" rule with no answer to compare. Pick one or choose \"Always show\".';
   }
+
+  @override
+  String get formReviewSectionTitle => 'Decision';
+
+  @override
+  String get formAdminNoteLabel => 'Admin note';
+
+  @override
+  String get formAdminNoteHint =>
+      'What was done about this form, e.g. \"Issue resolved\"';
+
+  @override
+  String get formAdminNoteSave => 'Save note';
+
+  @override
+  String formAdminNoteBy(String name, String date) {
+    return 'Note by $name · $date';
+  }
+
+  @override
+  String formReviewedByOn(String status, String name, String date) {
+    return '$status by $name · $date';
+  }
 }

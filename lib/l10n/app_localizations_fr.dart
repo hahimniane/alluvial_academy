@@ -18822,4 +18822,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String formConditionIncomplete(int number) {
     return 'La question $number a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher ».';
   }
+
+  @override
+  String get formReviewSectionTitle => 'Décision';
+
+  @override
+  String get formAdminNoteLabel => 'Note de l\'administration';
+
+  @override
+  String get formAdminNoteHint =>
+      'Ce qui a été fait pour ce formulaire, ex. « Problème réglé »';
+
+  @override
+  String get formAdminNoteSave => 'Enregistrer la note';
+
+  @override
+  String formAdminNoteBy(String name, String date) {
+    return 'Note de $name · $date';
+  }
+
+  @override
+  String formReviewedByOn(String status, String name, String date) {
+    return '$status par $name · $date';
+  }
 }

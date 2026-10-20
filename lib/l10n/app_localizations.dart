@@ -33505,6 +33505,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Question {number} has a \"Show only if\" rule with no answer to compare. Pick one or choose \"Always show\".'**
   String formConditionIncomplete(int number);
+
+  /// No description provided for @formReviewSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision'**
+  String get formReviewSectionTitle;
+
+  /// No description provided for @formAdminNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin note'**
+  String get formAdminNoteLabel;
+
+  /// No description provided for @formAdminNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What was done about this form, e.g. \"Issue resolved\"'**
+  String get formAdminNoteHint;
+
+  /// No description provided for @formAdminNoteSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save note'**
+  String get formAdminNoteSave;
+
+  /// No description provided for @formAdminNoteBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Note by {name} · {date}'**
+  String formAdminNoteBy(String name, String date);
+
+  /// No description provided for @formReviewedByOn.
+  ///
+  /// In en, this message translates to:
+  /// **'{status} by {name} · {date}'**
+  String formReviewedByOn(String status, String name, String date);
 }
 
 class _AppLocalizationsDelegate

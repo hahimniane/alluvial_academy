@@ -7359,5 +7359,11 @@
   "formConditionIsNotAnswered": "n'a pas de réponse",
   "formConditionValueHint": "Réponse",
   "formConditionPickAnswer": "Choisir une réponse",
-  "formConditionIncomplete": "La question {number} a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher »."
+  "formConditionIncomplete": "La question {number} a une règle « Afficher seulement si » sans réponse à comparer. Choisissez-en une ou « Toujours afficher ».",
+  "formReviewSectionTitle": "Décision",
+  "formAdminNoteLabel": "Note de l'administration",
+  "formAdminNoteHint": "Ce qui a été fait pour ce formulaire, ex. « Problème réglé »",
+  "formAdminNoteSave": "Enregistrer la note",
+  "formAdminNoteBy": "Note de {name} · {date}",
+  "formReviewedByOn": "{status} par {name} · {date}"
 }

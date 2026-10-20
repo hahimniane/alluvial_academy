@@ -6783,5 +6783,11 @@
   "formConditionIsNotAnswered": "لم تتم الإجابة عليه",
   "formConditionValueHint": "الإجابة",
   "formConditionPickAnswer": "اختر إجابة",
-  "formConditionIncomplete": "السؤال {number} يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا»."
+  "formConditionIncomplete": "السؤال {number} يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا».",
+  "formReviewSectionTitle": "القرار",
+  "formAdminNoteLabel": "ملاحظة الإدارة",
+  "formAdminNoteHint": "ما الذي تم بشأن هذا النموذج، مثل \"تم حل المشكلة\"",
+  "formAdminNoteSave": "حفظ الملاحظة",
+  "formAdminNoteBy": "ملاحظة من {name} · {date}",
+  "formReviewedByOn": "{status} بواسطة {name} · {date}"
 }
