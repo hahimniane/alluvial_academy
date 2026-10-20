@@ -12,6 +12,7 @@ const shiftArchiveHandlers = require('./handlers/shift_archive');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
+const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -327,6 +328,12 @@ exports.unlinkGuardianFromStudent = functions.https.onCall(
 );
 exports.lookupParentByEmail = functions.https.onCall(
   enrollmentHandlers.lookupParentByEmail
+);
+// Puts a matched student back on the teacher job board; admin-only, gated in
+// the handler. Leaves the account, parent link and classes untouched.
+exports.republishEnrollmentJob = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => enrollmentRepublishHandlers.republishEnrollmentJob(request)
 );
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {
