@@ -6789,5 +6789,19 @@
   "formAdminNoteHint": "ما الذي تم بشأن هذا النموذج، مثل \"تم حل المشكلة\"",
   "formAdminNoteSave": "حفظ الملاحظة",
   "formAdminNoteBy": "ملاحظة من {name} · {date}",
-  "formReviewedByOn": "{status} بواسطة {name} · {date}"
+  "formReviewedByOn": "{status} بواسطة {name} · {date}",
+  "classContactsTeacherTitle": "جهات الاتصال",
+  "classContactsTeacherHelper": "اتصل بولي الأمر إذا لم ينضم الطالب.",
+  "classContactsParentTitle": "معلمو أبنائك",
+  "classContactsParentHelper": "اتصل بالمعلم إذا تعذّر الوصول إليه عبر التطبيق.",
+  "classContactsStudentTitle": "معلموك",
+  "classContactsStudentHelper": "اتصل بمعلمك إذا تعذّر الوصول إليه عبر التطبيق.",
+  "classContactsLoadError": "تعذّر تحميل أرقام الهاتف.",
+  "classContactsNoPhone": "لا يوجد رقم هاتف مسجّل",
+  "classContactsRelationParent": "ولي الأمر",
+  "classContactsRelationStudent": "طالب",
+  "classContactsRelationTeacher": "معلم",
+  "classContactsCall": "اتصل بـ {name}",
+  "classContactsCopy": "نسخ الرقم",
+  "classContactsCopied": "تم نسخ الرقم"
 }
