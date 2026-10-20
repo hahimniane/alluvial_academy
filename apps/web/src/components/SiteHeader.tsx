@@ -88,12 +88,23 @@ export function SiteHeader() {
   return (
     <header className="site-header sticky top-0 z-50 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
       <div className="border-b border-[#F59E0B]/60 bg-[linear-gradient(90deg,#0B1B3A_0%,#16337F_55%,#1D4ED8_100%)] text-white">
-        <div className="flex items-center gap-3 px-3 py-[3px] md:px-5 md:py-[5px]">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 md:gap-3 md:px-5 md:py-2">
+          {/* The two ways in — joining a class and teaching one — sit side by
+              side on every page, phone included, rather than at the foot of
+              the home page. */}
           <Link
             href="/enroll/"
-            className="inline-flex min-h-0 items-center rounded-full border border-white/70 bg-white/12 px-2.5 py-0 text-[10.5px] font-bold leading-[1.45] tracking-[0.3px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur transition hover:bg-white/20 md:px-3.5 md:py-1 md:text-[11.5px]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11.5px] font-extrabold tracking-[0.2px] text-[#0B1B3A] shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-[#FEF3C7] md:px-4 md:py-1.5 md:text-[13px]"
           >
+            <BookOpen size={14} aria-hidden="true" />
             Sign Up For New Class
+          </Link>
+          <Link
+            href="/teacher-application/"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#F59E0B] bg-[#F59E0B]/15 px-3 py-1 text-[11.5px] font-extrabold tracking-[0.2px] text-white transition hover:bg-[#F59E0B]/30 md:px-4 md:py-1.5 md:text-[13px]"
+          >
+            <UsersRound size={14} aria-hidden="true" />
+            Apply to Teach
           </Link>
           <div className="ml-auto hidden text-right text-[10px] font-semibold leading-tight text-white/90 xl:block">
             <div>Live online learning for every family.</div>
