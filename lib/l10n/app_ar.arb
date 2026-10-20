@@ -6803,5 +6803,16 @@
   "classContactsRelationTeacher": "معلم",
   "classContactsCall": "اتصل بـ {name}",
   "classContactsCopy": "نسخ الرقم",
-  "classContactsCopied": "تم نسخ الرقم"
+  "classContactsCopied": "تم نسخ الرقم",
+  "enrollmentRepublishAction": "إعادة النشر على لوحة الوظائف",
+  "enrollmentRepublishTitle": "إعادة النشر على لوحة الوظائف؟",
+  "enrollmentRepublishBody": "سيرى المعلمون {student} على لوحة الوظائف مرة أخرى. يبقى حسابه وولي أمره وحصصه الحالية كما هي.",
+  "enrollmentRepublishReasonLabel": "السبب (اختياري)",
+  "enrollmentRepublishReasonHint": "غادر المعلم",
+  "enrollmentRepublishConfirm": "إعادة النشر",
+  "enrollmentRepublishBusy": "جارٍ إعادة النشر…",
+  "enrollmentRepublishDone": "{student} على لوحة الوظائف مرة أخرى.",
+  "enrollmentRepublishFailed": "تعذّر إعادة الطالب إلى لوحة الوظائف: {error}",
+  "enrollmentPreviouslyMatchedWith": "سبق ربطه بـ {teacher}",
+  "enrollmentPreviouslyMatchedUnknownTeacher": "معلم"
 }

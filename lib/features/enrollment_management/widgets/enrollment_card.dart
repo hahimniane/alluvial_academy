@@ -729,6 +729,15 @@ class EnrollmentCard extends StatelessWidget {
               'icon': Icons.undo,
               'color': Colors.red,
             });
+          } else if (actionType == 'republished') {
+            final teacher = (entry['teacherName'] ?? '').toString();
+            actions.add({
+              'action': teacher.isEmpty ? 'Back on the job board' : 'Back on the job board after $teacher',
+              'by': entry['adminName'] ?? entry['adminEmail'] ?? 'Admin',
+              'at': entry['timestamp'],
+              'icon': Icons.replay,
+              'color': const Color(0xff10B981),
+            });
           } else if (actionType == 'teacher_withdrawn') {
             actions.add({
               'action': 'Teacher Withdrew',

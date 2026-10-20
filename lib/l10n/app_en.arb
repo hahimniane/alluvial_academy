@@ -8502,5 +8502,44 @@
     }
   },
   "classContactsCopy": "Copy number",
-  "classContactsCopied": "Number copied"
+  "classContactsCopied": "Number copied",
+  "enrollmentRepublishAction": "Republish to job board",
+  "enrollmentRepublishTitle": "Republish to job board?",
+  "enrollmentRepublishBody": "Teachers will see {student} on the job board again. Their account, parent and current classes stay as they are.",
+  "@enrollmentRepublishBody": {
+    "placeholders": {
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentRepublishReasonLabel": "Reason (optional)",
+  "enrollmentRepublishReasonHint": "Teacher left",
+  "enrollmentRepublishConfirm": "Republish",
+  "enrollmentRepublishBusy": "Republishing…",
+  "enrollmentRepublishDone": "{student} is on the job board again.",
+  "@enrollmentRepublishDone": {
+    "placeholders": {
+      "student": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentRepublishFailed": "Could not put the student back on the job board: {error}",
+  "@enrollmentRepublishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentPreviouslyMatchedWith": "Previously matched with {teacher}",
+  "@enrollmentPreviouslyMatchedWith": {
+    "placeholders": {
+      "teacher": {
+        "type": "String"
+      }
+    }
+  },
+  "enrollmentPreviouslyMatchedUnknownTeacher": "a teacher"
 }
