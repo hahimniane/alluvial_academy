@@ -218,13 +218,6 @@ class SidebarConfig {
             colorValue: 0xffF97316,
           ),
           const SidebarItem(
-            id: 'form_responses',
-            label: 'Form Responses',
-            icon: Icons.fact_check_outlined,
-            screenIndex: 9,
-            colorValue: 0xff8B5CF6,
-          ),
-          const SidebarItem(
             id: 'all_submissions',
             label: 'All Submissions',
             icon: Icons.assignment_ind,

@@ -8452,5 +8452,34 @@
         "type": "int"
       }
     }
+  },
+  "formReviewSectionTitle": "Decision",
+  "formAdminNoteLabel": "Admin note",
+  "formAdminNoteHint": "What was done about this form, e.g. \"Issue resolved\"",
+  "formAdminNoteSave": "Save note",
+  "formAdminNoteBy": "Note by {name} · {date}",
+  "@formAdminNoteBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "formReviewedByOn": "{status} by {name} · {date}",
+  "@formReviewedByOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
   }
 }

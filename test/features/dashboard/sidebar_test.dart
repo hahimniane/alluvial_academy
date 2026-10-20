@@ -9,11 +9,19 @@ void main() {
       final sections = SidebarConfig.getStructureForRole('admin');
       expect(sections.any((s) => s.id == 'people'), isTrue);
       expect(sections.any((s) => s.id == 'system'), isTrue);
+      // Submitted forms are reviewed in one place: All Submissions carries
+      // the decision and admin note that Form Responses used to.
       expect(
         sections.expand((section) => section.items).any(
-              (item) => item.id == 'form_responses' && item.screenIndex == 9,
+              (item) => item.id == 'all_submissions' && item.screenIndex == 24,
             ),
         isTrue,
+      );
+      expect(
+        sections
+            .expand((section) => section.items)
+            .any((item) => item.id == 'form_responses'),
+        isFalse,
       );
       expect(
         sections.expand((section) => section.items).any(

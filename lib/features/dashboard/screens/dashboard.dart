@@ -2,7 +2,6 @@
 import 'admin_dashboard_screen.dart';
 import '../../chat/screens/chat_page.dart';
 import '../../forms/screens/form_screen.dart';
-import '../../forms/screens/form_responses_screen.dart';
 import '../../forms/screens/admin_all_submissions_screen.dart';
 import '../../shift_management/screens/job_scheduling.dart';
 import '../../time_clock/screens/time_clock_screen.dart';
@@ -319,7 +318,9 @@ class _DashboardPageState extends State<DashboardPage> {
       case 8:
         return const FormScreen();
       case 9:
-        return FormResponsesScreen(key: ValueKey(_refreshTrigger));
+        // Form Responses was merged into All Submissions, which now carries
+        // the decision, admin note and teacher notification for each form.
+        return AdminAllSubmissionsScreen(key: ValueKey(_refreshTrigger));
       case 10:
         return const FormsListScreen(); // Allows selecting and editing forms
       case 11:

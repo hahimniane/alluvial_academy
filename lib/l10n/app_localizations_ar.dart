@@ -18420,4 +18420,27 @@ class AppLocalizationsAr extends AppLocalizations {
   String formConditionIncomplete(int number) {
     return 'السؤال $number يحتوي على قاعدة «إظهار فقط إذا» بدون إجابة للمقارنة. اختر إجابة أو «إظهار دائمًا».';
   }
+
+  @override
+  String get formReviewSectionTitle => 'القرار';
+
+  @override
+  String get formAdminNoteLabel => 'ملاحظة الإدارة';
+
+  @override
+  String get formAdminNoteHint =>
+      'ما الذي تم بشأن هذا النموذج، مثل \"تم حل المشكلة\"';
+
+  @override
+  String get formAdminNoteSave => 'حفظ الملاحظة';
+
+  @override
+  String formAdminNoteBy(String name, String date) {
+    return 'ملاحظة من $name · $date';
+  }
+
+  @override
+  String formReviewedByOn(String status, String name, String date) {
+    return '$status بواسطة $name · $date';
+  }
 }
