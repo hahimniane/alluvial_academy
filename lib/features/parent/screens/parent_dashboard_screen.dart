@@ -247,11 +247,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         final outstanding =
                             (data?['outstanding'] ?? 0).toDouble();
                         final overdue = (data?['overdue'] ?? 0).toDouble();
-                        final paid = (data?['paid'] ?? 0).toDouble();
                         return FinancialSummaryCard(
                           outstanding: outstanding,
                           overdue: overdue,
-                          paid: paid,
                           onPayNow: outstanding > 0
                               ? () {
                                   Navigator.of(context).push(
