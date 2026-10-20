@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import '../../shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/parent/models/invoice.dart';
 import 'package:alluwalacademyadmin/features/parent/models/payment.dart';
 import 'package:alluwalacademyadmin/features/parent/services/invoice_service.dart';
