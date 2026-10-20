@@ -44,6 +44,7 @@ const quizReviewHandlers = require('./handlers/quiz_review');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
 const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
+const classContactHandlers = require('./handlers/class_contacts');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -291,6 +292,7 @@ exports.generateWeeklyStudentAttendanceReports =
   attendanceHandlers.generateWeeklyStudentAttendanceReports;
 exports.generateMonthlyStudentAttendanceReports =
   attendanceHandlers.generateMonthlyStudentAttendanceReports;
+exports.getClassContacts = classContactHandlers.getClassContacts;
 exports.getStudentAttendanceReport =
   attendanceHandlers.getStudentAttendanceReport;
 exports.getAdminStudentAttendanceOverview =

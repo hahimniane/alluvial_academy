@@ -7365,5 +7365,19 @@
   "formAdminNoteHint": "Ce qui a été fait pour ce formulaire, ex. « Problème réglé »",
   "formAdminNoteSave": "Enregistrer la note",
   "formAdminNoteBy": "Note de {name} · {date}",
-  "formReviewedByOn": "{status} par {name} · {date}"
+  "formReviewedByOn": "{status} par {name} · {date}",
+  "classContactsTeacherTitle": "Contacts",
+  "classContactsTeacherHelper": "Appelez un parent si un élève n'a pas rejoint le cours.",
+  "classContactsParentTitle": "Les enseignants de vos enfants",
+  "classContactsParentHelper": "Appelez un enseignant si vous ne parvenez pas à le joindre dans l'application.",
+  "classContactsStudentTitle": "Vos enseignants",
+  "classContactsStudentHelper": "Appelez votre enseignant si vous ne parvenez pas à le joindre dans l'application.",
+  "classContactsLoadError": "Impossible de charger les numéros de téléphone.",
+  "classContactsNoPhone": "Aucun numéro de téléphone enregistré",
+  "classContactsRelationParent": "Parent",
+  "classContactsRelationStudent": "Élève",
+  "classContactsRelationTeacher": "Enseignant",
+  "classContactsCall": "Appeler {name}",
+  "classContactsCopy": "Copier le numéro",
+  "classContactsCopied": "Numéro copié"
 }

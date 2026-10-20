@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart
 import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/widgets/class_contacts_card.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_invoices_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_history_screen.dart';
@@ -390,6 +391,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+                    const ClassContactsCard(
+                      variant: ClassContactsVariant.parent,
+                      margin: EdgeInsets.only(bottom: 20),
+                    ),
                     _sectionHeader(
                       title: AppLocalizations.of(context)!.recentInvoices,
                       actionLabel: 'See all',
