@@ -6847,5 +6847,8 @@
   "enrollmentRepublishDone": "{student} على لوحة الوظائف مرة أخرى.",
   "enrollmentRepublishFailed": "تعذّر إعادة الطالب إلى لوحة الوظائف: {error}",
   "enrollmentPreviouslyMatchedWith": "سبق ربطه بـ {teacher}",
-  "enrollmentPreviouslyMatchedUnknownTeacher": "معلم"
+  "enrollmentPreviouslyMatchedUnknownTeacher": "معلم",
+  "classReportNoClockInTitle": "لا يوجد تسجيل حضور لهذه الحصة",
+  "classReportNoClockInBody": "تُدفع الحصة بناءً على تسجيل الحضور، لذلك لا تُدفع هذه الحصة. لكي تُدفع، اطلب حصة تعويضية من هذه الحصة في حصصي. سيتم حفظ تقريرك.",
+  "classReportNoClockInSubmit": "إرسال التقرير"
 }

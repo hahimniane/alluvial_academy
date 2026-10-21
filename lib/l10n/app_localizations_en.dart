@@ -18695,4 +18695,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enrollmentPreviouslyMatchedUnknownTeacher => 'a teacher';
+
+  @override
+  String get classReportNoClockInTitle => 'This class has no clock-in';
+
+  @override
+  String get classReportNoClockInBody =>
+      'A class is paid from its clock-in, so this one isn\'t paid. To be paid for it, request a makeup class from this class in My Shifts. Your report is still saved.';
+
+  @override
+  String get classReportNoClockInSubmit => 'Submit report';
 }

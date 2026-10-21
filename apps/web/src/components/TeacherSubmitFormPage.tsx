@@ -39,6 +39,7 @@ import { buildFieldLayout, orderResponseEntries, storedOrder } from "@/lib/formA
 import { CLASS_REPORT_WINDOW_DAYS, chooseClassReportTemplate, isClassReportEligible } from "@/lib/classReport";
 import { missingRequiredFieldIds, visibleFieldIds } from "@/lib/formConditions";
 import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
+import { isShiftAfterStrictPolicy } from "@/lib/makeupRequests";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type Frequency = "perSession" | "weekly" | "monthly" | "onDemand";
@@ -857,6 +858,13 @@ function TeacherFormSheet({
         </div>
 
         <section className="mb-8 mt-2 rounded-2xl bg-white p-6 shadow-[0_4px_10px_rgba(15,23,42,0.08)] max-[700px]:p-4">
+          {/* A class is paid from its clock-in; a report alone doesn't pay it. */}
+          {selectedShift && !selectedShift.timesheetId && isShiftAfterStrictPolicy(selectedShift.start) ? (
+            <div className="mb-4 rounded-xl border border-[#F59E0B] bg-[#FEF3C7] px-4 py-3 text-sm text-[#92400E]">
+              <p className="font-bold">{tr("This class has no clock-in")}</p>
+              <p className="mt-1">{tr("A class is paid from its clock-in, so this one isn't paid. To be paid for it, request a makeup class from this class in My Shifts. Your report is still saved.")}</p>
+            </div>
+          ) : null}
           {notice ? <p className={`mb-4 rounded-xl px-4 py-3 text-sm font-semibold ${notice.includes("success") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{notice}</p> : null}
           <div className="flex flex-wrap justify-end gap-3 max-[700px]:grid max-[700px]:grid-cols-1">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#E5E7EB] px-5 py-3 text-sm font-bold text-[#6B7280] hover:bg-[#F8FAFC]">

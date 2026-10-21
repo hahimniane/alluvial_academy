@@ -8431,9 +8431,21 @@
   "makeupRequestApprovedStatus": "Makeup class approved and scheduled",
   "makeupRequestDeclinedStatus": "Your makeup request was declined.",
   "makeupRequestDeclinedReason": "Reason: {reason}",
-  "@makeupRequestDeclinedReason": {"placeholders": {"reason": {"type": "String"}}},
+  "@makeupRequestDeclinedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "makeupRequestScheduledFor": "Makeup class: {date}",
-  "@makeupRequestScheduledFor": {"placeholders": {"date": {"type": "String"}}},
+  "@makeupRequestScheduledFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "formConditionShowOnlyIf": "Show only if",
   "@formConditionShowOnlyIf": {
     "description": "Form builder: conditional question rule"
@@ -8583,5 +8595,8 @@
       }
     }
   },
-  "enrollmentPreviouslyMatchedUnknownTeacher": "a teacher"
+  "enrollmentPreviouslyMatchedUnknownTeacher": "a teacher",
+  "classReportNoClockInTitle": "This class has no clock-in",
+  "classReportNoClockInBody": "A class is paid from its clock-in, so this one isn't paid. To be paid for it, request a makeup class from this class in My Shifts. Your report is still saved.",
+  "classReportNoClockInSubmit": "Submit report"
 }

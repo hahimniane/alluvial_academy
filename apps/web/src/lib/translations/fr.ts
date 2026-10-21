@@ -1264,4 +1264,6 @@ export const FR: Record<string, string> = {
   "Your makeup request was declined.": "Votre demande de rattrapage a été refusée.",
   "Reason: {reason}": "Motif : {reason}",
   "Makeup class: {date}": "Cours de rattrapage : {date}",
+  "This class has no clock-in": "Ce cours n'a pas de pointage",
+  "A class is paid from its clock-in, so this one isn't paid. To be paid for it, request a makeup class from this class in My Shifts. Your report is still saved.": "Un cours est payé à partir de son pointage, donc celui-ci n'est pas payé. Pour être payé, demandez un cours de rattrapage depuis ce cours dans Mes créneaux. Votre rapport est quand même enregistré.",
 };

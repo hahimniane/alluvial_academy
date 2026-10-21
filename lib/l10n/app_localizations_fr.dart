@@ -19050,4 +19050,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get enrollmentPreviouslyMatchedUnknownTeacher => 'un enseignant';
+
+  @override
+  String get classReportNoClockInTitle => 'Ce cours n\'a pas de pointage';
+
+  @override
+  String get classReportNoClockInBody =>
+      'Un cours est payé à partir de son pointage, donc celui-ci n\'est pas payé. Pour être payé, demandez un cours de rattrapage depuis ce cours dans Mes créneaux. Votre rapport est quand même enregistré.';
+
+  @override
+  String get classReportNoClockInSubmit => 'Envoyer le rapport';
 }

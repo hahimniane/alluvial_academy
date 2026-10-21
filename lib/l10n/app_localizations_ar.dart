@@ -18643,4 +18643,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get enrollmentPreviouslyMatchedUnknownTeacher => 'معلم';
+
+  @override
+  String get classReportNoClockInTitle => 'لا يوجد تسجيل حضور لهذه الحصة';
+
+  @override
+  String get classReportNoClockInBody =>
+      'تُدفع الحصة بناءً على تسجيل الحضور، لذلك لا تُدفع هذه الحصة. لكي تُدفع، اطلب حصة تعويضية من هذه الحصة في حصصي. سيتم حفظ تقريرك.';
+
+  @override
+  String get classReportNoClockInSubmit => 'إرسال التقرير';
 }

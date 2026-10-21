@@ -33889,6 +33889,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'a teacher'**
   String get enrollmentPreviouslyMatchedUnknownTeacher;
+
+  /// No description provided for @classReportNoClockInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This class has no clock-in'**
+  String get classReportNoClockInTitle;
+
+  /// No description provided for @classReportNoClockInBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A class is paid from its clock-in, so this one isn\'t paid. To be paid for it, request a makeup class from this class in My Shifts. Your report is still saved.'**
+  String get classReportNoClockInBody;
+
+  /// No description provided for @classReportNoClockInSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit report'**
+  String get classReportNoClockInSubmit;
 }
 
 class _AppLocalizationsDelegate

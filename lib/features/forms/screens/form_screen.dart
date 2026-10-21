@@ -22,6 +22,7 @@ import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
 import 'package:alluwalacademyadmin/features/forms/services/form_template_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/makeup_class_attestation.dart';
+import 'package:alluwalacademyadmin/core/constants/audit_policy.dart';
 import 'package:alluwalacademyadmin/features/forms/widgets/makeup_class_attestation_dialog.dart';
 
 class FormScreen extends StatefulWidget {
@@ -4529,6 +4530,40 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return null;
   }
 
+  Future<DateTime?> _shiftStartFor(String shiftId) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(shiftId)
+          .get();
+      final raw = snap.data()?['shift_start'];
+      return raw is Timestamp ? raw.toDate() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool?> _confirmUnpaidWithoutClockIn() {
+    final loc = AppLocalizations.of(context)!;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(loc.classReportNoClockInTitle),
+        content: Text(loc.classReportNoClockInBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(loc.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(loc.classReportNoClockInSubmit),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<String> _resolveSubmissionYearMonth() async {
     final fallback = _yearMonthFromDate(DateTime.now());
 
@@ -4844,7 +4879,22 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           shiftId: widget.shiftId!,
           timesheetId: widget.timesheetId,
         );
-        if (need) {
+        // From the strict clock-in cutoff a class report no longer pays a
+        // class that has no clock-in, so the makeup details are not asked:
+        // the teacher is told the class isn't paid and pointed to a makeup
+        // request instead. The report itself is still saved.
+        final strict = need &&
+            AuditPolicyConstants.isShiftAfterStrictPolicy(
+                await _shiftStartFor(widget.shiftId!));
+        if (strict) {
+          if (!mounted) return;
+          final proceed = await _confirmUnpaidWithoutClockIn();
+          if (!mounted) return;
+          if (proceed != true) {
+            setState(() => _isSubmitting = false);
+            return;
+          }
+        } else if (need) {
           if (!mounted) {
             setState(() => _isSubmitting = false);
             return;
