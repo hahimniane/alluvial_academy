@@ -14482,6 +14482,29 @@ class AppLocalizationsFr extends AppLocalizations {
   String get financeCashFlowTable => 'Flux de trésorerie';
 
   @override
+  String get financeHealthTitle => 'Santé financière';
+
+  @override
+  String get financeHealthHealthy => 'Sain';
+
+  @override
+  String get financeHealthWatch => 'À surveiller';
+
+  @override
+  String get financeHealthNeedsAttention => 'À corriger';
+
+  @override
+  String get financeHealthNoData => 'Aucune donnée';
+
+  @override
+  String get financeHealthHint =>
+      'Sain : marge ≥ 15 % · À surveiller : 0–15 % · À corriger : perte';
+
+  @override
+  String get financeWeeklyTrend =>
+      'Tendance hebdomadaire (8 dernières semaines)';
+
+  @override
   String get financeSixMonthTrend => 'Flux de trésorerie sur 6 mois';
 
   @override

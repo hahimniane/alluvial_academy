@@ -72,7 +72,57 @@ class FinanceOverviewSnapshot {
     required this.overdueInvoices,
     required this.recentActivity,
     required this.warnings,
+    this.weeklyTrend = const [],
+    this.staffPayTrends = const [],
   });
+
+  // Phase 1 additions (finance analytics). Optional so existing tests that
+  // build snapshots directly keep working.
+  final List<FinanceWeeklyPoint> weeklyTrend;
+  final List<FinanceStaffPayTrend> staffPayTrends;
+
+  /// Financial-health bucket derived from profit margin.
+  /// Healthy: margin >= 15% · Watch: 0-15% · Needs Attention: losing money.
+  FinanceHealth get health {
+    if (revenue <= 0) return FinanceHealth.noData;
+    if (estimatedNet < 0) return FinanceHealth.needsAttention;
+    if (profitMargin >= 0.15) return FinanceHealth.healthy;
+    return FinanceHealth.watch;
+  }
+}
+
+enum FinanceHealth { healthy, watch, needsAttention, noData }
+
+/// One week of revenue vs. expenses for the weekly trend.
+class FinanceWeeklyPoint {
+  final DateTime weekStart;
+  final double revenue;
+  final double expenses;
+
+  const FinanceWeeklyPoint({
+    required this.weekStart,
+    required this.revenue,
+    required this.expenses,
+  });
+
+  double get net => revenue - expenses;
+}
+
+/// Per-staff-member pay history, driven by approved timesheet payroll (the P&L
+/// source of truth) so trend totals reconcile with net profit.
+class FinanceStaffPayTrend {
+  final String recipientKey;
+  final String recipientName;
+  final List<FinanceAmountPoint> monthlyPay;
+
+  const FinanceStaffPayTrend({
+    required this.recipientKey,
+    required this.recipientName,
+    required this.monthlyPay,
+  });
+
+  double get total =>
+      monthlyPay.fold<double>(0, (running, point) => running + point.amount);
 }
 
 class FinanceMonthlyPoint {
