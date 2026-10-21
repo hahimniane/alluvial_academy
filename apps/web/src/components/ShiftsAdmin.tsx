@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
   CalendarDays,
+  CalendarPlus,
   CalendarOff,
   CalendarSync,
   CheckCircle2,
@@ -36,6 +37,7 @@ import { ShiftEditOptionsDialog } from "@/components/ShiftEditOptionsDialog";
 import { ShiftEditorDialog } from "@/components/ShiftEditorDialog";
 import { ShiftSeriesEditDialog } from "@/components/ShiftSeriesEditDialog";
 import { FamilyPauseDialog } from "@/components/FamilyPauseDialog";
+import { MakeupRequestsDialog } from "@/components/MakeupRequestsDialog";
 import { TemplateManagerDialog } from "@/components/TemplateManagerDialog";
 import {
   type ShiftFilters,
@@ -164,6 +166,7 @@ export function ShiftsAdmin() {
   const [hydration, setHydration] = useState<{ loaded: number; done: boolean } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [familyPauseOpen, setFamilyPauseOpen] = useState(false);
+  const [makeupRequestsOpen, setMakeupRequestsOpen] = useState(false);
 
   const refreshShifts = useCallback(async (targetWeek: Date) => {
     setLoading(true);
@@ -401,6 +404,15 @@ export function ShiftsAdmin() {
             </button>
             <button
               type="button"
+              onClick={() => setMakeupRequestsOpen(true)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#BFDBFE] px-3 text-sm font-semibold text-[#0386FF] hover:bg-[#EFF6FF]"
+              title="Makeup requests"
+            >
+              <CalendarPlus size={16} />
+              <span className="hidden sm:inline">Makeup Requests</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setFamilyPauseOpen(true)}
               className="grid h-10 w-10 place-items-center rounded-full text-[#C2410C] hover:bg-[#FFF7ED]"
               title="Pause classes for a break"
@@ -562,6 +574,17 @@ export function ShiftsAdmin() {
             </>
           )}
         </section>
+
+        {makeupRequestsOpen ? (
+          <MakeupRequestsDialog
+            adminTimezone={adminTimezone}
+            onClose={() => setMakeupRequestsOpen(false)}
+            onChanged={() => {
+              void loadShiftCounts().then(setGlobalCounts).catch(() => {});
+              void refreshShifts(weekStart);
+            }}
+          />
+        ) : null}
 
         {familyPauseOpen ? (
           <FamilyPauseDialog

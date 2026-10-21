@@ -18,6 +18,7 @@ import {
   List,
   Menu,
   PanelTop,
+  RefreshCw,
   Settings,
   Shuffle,
   Timer,
@@ -29,6 +30,9 @@ import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
+import { TeacherMakeupRequestDialog } from "@/components/TeacherMakeupRequestDialog";
+import { canRequestMakeup, isShiftAfterStrictPolicy, latestRequestByShift, type MakeupRequest, type MakeupSourceShift } from "@/lib/makeupRequests";
+import { loadTeacherMakeupRequests } from "@/lib/makeupRequestsClient";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -43,10 +47,15 @@ type TeacherShift = {
   id: string;
   title: string;
   studentNames: string[];
+  studentIds: string[];
   start: Date | null;
   end: Date | null;
   status: string;
   subject: string;
+  subjectName: string;
+  subjectId: string;
+  subjectDisplayName: string;
+  teacherTimezone: string;
   category: string;
   leaderRole: string;
   teacherName: string;
@@ -72,6 +81,16 @@ export function TeacherShiftsPage() {
   const [timezoneOpen, setTimezoneOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [clockBusyShiftId, setClockBusyShiftId] = useState<string | null>(null);
+  const [makeupRequests, setMakeupRequests] = useState<Map<string, MakeupRequest>>(() => new Map());
+  const [makeupShift, setMakeupShift] = useState<TeacherShift | null>(null);
+
+  const refreshMakeupRequests = async (uid: string) => {
+    try {
+      setMakeupRequests(latestRequestByShift(await loadTeacherMakeupRequests(uid)));
+    } catch {
+      // Without requests the dialog still shows the class; a retry happens on the next load.
+    }
+  };
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -130,6 +149,7 @@ export function TeacherShiftsPage() {
         setAccess("allowed");
         const loaded = await loadTeacherShifts(nextUser.uid);
         if (mounted) setShifts(loaded);
+        if (mounted) void refreshMakeupRequests(nextUser.uid);
       } catch {
         if (mounted) setAccess("denied");
       } finally {
@@ -227,6 +247,19 @@ export function TeacherShiftsPage() {
             onReportIssue={() => {
               setIssueShift(selectedShift);
               setSelectedShift(null);
+            }}
+            makeupRequest={makeupRequests.get(selectedShift.id)}
+            onRequestMakeup={() => setMakeupShift(selectedShift)}
+          />
+        ) : null}
+        {makeupShift && currentUser ? (
+          <TeacherMakeupRequestDialog
+            shift={makeupSourceFor(makeupShift, currentUser.uid)}
+            teacherShifts={shifts}
+            onClose={() => setMakeupShift(null)}
+            onSubmitted={(message) => {
+              showNotice(message);
+              void refreshMakeupRequests(currentUser.uid);
             }}
           />
         ) : null}
@@ -680,19 +713,25 @@ function ShiftDetailsDialog({
   onClockAction,
   onClose,
   onReportIssue,
+  makeupRequest,
+  onRequestMakeup,
 }: {
   shift: TeacherShift;
   busy: boolean;
   onClockAction: (shift: TeacherShift) => void;
   onClose: () => void;
   onReportIssue: () => void;
+  makeupRequest: MakeupRequest | undefined;
+  onRequestMakeup: () => void;
 }) {
   const action = clockAction(shift);
   const canAct = action.kind !== "disabled";
   const now = new Date();
   const joinable = shift.category.toLowerCase() === "teaching" && Boolean(shift.start && shift.end && now >= new Date(shift.start.getTime() - 10 * 60_000) && now <= new Date(shift.end.getTime() + 10 * 60_000));
   const reportStatus = shift.status.toLowerCase().replace(/[_\s-]+/g, "");
-  const reportRequired = ["completed", "fullycompleted", "partiallycompleted", "missed"].includes(reportStatus) || Boolean(shift.end && shift.end < now);
+  // From the cutoff a missed class is made up through a request, not a report.
+  const makeupFlow = reportStatus === "missed" && isShiftAfterStrictPolicy(shift.start);
+  const reportRequired = !makeupFlow && (["completed", "fullycompleted", "partiallycompleted", "missed"].includes(reportStatus) || Boolean(shift.end && shift.end < now));
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[560px] rounded-2xl bg-white p-6 shadow-xl">
@@ -712,6 +751,13 @@ function ShiftDetailsDialog({
           <InfoRow label="Students" value={shift.studentNames.join(", ") || "No students listed"} />
           <InfoRow label="Status" value={shiftVisualConfig(shift).label} />
         </div>
+        {makeupFlow ? (
+          <MakeupStatusPanel
+            request={makeupRequest}
+            canRequest={canRequestMakeup(shift.status, shift.start, makeupRequest)}
+            onRequest={onRequestMakeup}
+          />
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           {joinable ? <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-[#0E72ED] px-4 py-2 text-sm font-bold text-white"><Video size={16} />{tr("Join Class")}</Link> : null}
           {reportRequired ? shift.formResponseId ? <Link href="/teacher/form-submissions/" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><FileCheck2 size={16} />{tr("View Class Report")}</Link> : <Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[#BFDBFE] px-4 py-2 text-sm font-bold text-[#0369F6] hover:bg-[#EFF6FF]"><FileCheck2 size={16} />{tr("Fill Class Report")}</Link> : null}
@@ -737,6 +783,75 @@ function ShiftDetailsDialog({
       </section>
     </div>
   );
+}
+
+function formatMakeupTime(date: Date) {
+  return date.toLocaleString(dateLocale(), { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** The makeup state the Flutter shift details shows for a missed class. */
+function MakeupStatusPanel({ request, canRequest, onRequest }: { request: MakeupRequest | undefined; canRequest: boolean; onRequest: () => void }) {
+  if (request?.status === "pending") {
+    return (
+      <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] p-4">
+        <Timer className="mt-0.5 shrink-0 text-[#D97706]" size={20} />
+        <div>
+          <p className="text-sm font-semibold text-[#92400E]">{tr("Makeup request pending admin review")}</p>
+          {request.proposedStart ? <p className="mt-1 text-[13px] text-[#B45309]">{formatMakeupTime(request.proposedStart)}</p> : null}
+        </div>
+      </div>
+    );
+  }
+  if (request?.status === "approved") {
+    return (
+      <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
+        <CalendarCheck className="mt-0.5 shrink-0 text-[#15803D]" size={20} />
+        <div>
+          <p className="text-sm font-semibold text-[#15803D]">{tr("Makeup class approved and scheduled")}</p>
+          {request.approvedStart ? <p className="mt-1 text-[13px] text-[#166534]">{tr("Makeup class: {date}", { date: formatMakeupTime(request.approvedStart) })}</p> : null}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4">
+      {request?.status === "declined" ? (
+        <div className="mb-3 rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-2.5">
+          <p className="text-[13px] font-semibold text-[#991B1B]">{tr("Your makeup request was declined.")}</p>
+          {request.declineReason ? <p className="mt-0.5 text-xs text-[#B91C1C]">{tr("Reason: {reason}", { reason: request.declineReason })}</p> : null}
+        </div>
+      ) : null}
+      <div className="flex items-start gap-3">
+        <Info className="mt-0.5 shrink-0 text-[#1D4ED8]" size={20} />
+        <div>
+          <p className="text-sm font-semibold text-[#1D4ED8]">{tr("Request Makeup Class")}</p>
+          <p className="mt-1 text-[13px] text-[#1E40AF]">{tr("This class was missed. To teach and be paid for this session, request a makeup class.")}</p>
+        </div>
+      </div>
+      {canRequest ? (
+        <button type="button" onClick={onRequest} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0386FF] py-2.5 text-sm font-bold text-white hover:bg-[#0271d6]">
+          <RefreshCw size={16} />
+          {tr("Request Makeup Class")}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function makeupSourceFor(shift: TeacherShift, uid: string): MakeupSourceShift {
+  return {
+    id: shift.id,
+    teacherId: uid,
+    teacherName: shift.teacherName,
+    subject: shift.subjectName,
+    subjectId: shift.subjectId,
+    subjectDisplayName: shift.subjectDisplayName,
+    studentIds: shift.studentIds,
+    studentNames: shift.studentNames,
+    teacherTimezone: shift.teacherTimezone,
+    start: shift.start,
+    end: shift.end,
+  };
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -891,10 +1006,15 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     id,
     title,
     studentNames,
+    studentIds: arrayOfStrings(data.student_ids ?? data.studentIds),
     start: dateValue(data.shift_start ?? data.shiftStart ?? data.start_time ?? data.startTime),
     end: dateValue(data.shift_end ?? data.shiftEnd ?? data.end_time ?? data.endTime),
     status: stringValue(data.status) || "scheduled",
     subject,
+    subjectName: stringValue(data.subject),
+    subjectId: stringValue(data.subject_id ?? data.subjectId),
+    subjectDisplayName: stringValue(data.subject_display_name ?? data.subjectDisplayName),
+    teacherTimezone: stringValue(data.teacher_timezone ?? data.teacherTimezone),
     category: stringValue(data.shift_category ?? data.shiftCategory) || "teaching",
     leaderRole: stringValue(data.leader_role ?? data.leaderRole),
     teacherName: stringValue(data.teacher_name ?? data.teacherName),

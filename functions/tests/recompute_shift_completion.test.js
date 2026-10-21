@@ -152,4 +152,32 @@ describe('recompute_shift_completion', () => {
     expect(typeof agg.payApprovedMinutes).toBe('number');
     expect(typeof agg.payPendingMinutes).toBe('number');
   });
+
+  test('post-cutoff shift with form but no punch stays missed with 0 payable minutes', () => {
+    const postStart = ts(new Date('2026-11-05T09:00:00.000Z'));
+    const postEnd = ts(new Date('2026-11-05T10:00:00.000Z'));
+    const formDocs = [
+      doc({
+        durationHours: 1.0,
+        makeupApprovalStatus: 'approved',
+      }),
+    ];
+    const agg = aggregateWorkedAndClockPresence({
+      shiftStart: postStart,
+      shiftEnd: postEnd,
+      timesheetDocs: [],
+      shiftData: {shift_start: postStart, shift_end: postEnd},
+      formDocs,
+    });
+    expect(agg.neverClockedIn).toBe(true);
+    expect(agg.workedMinutes).toBe(0);
+    expect(agg.payableMinutes).toBe(0);
+    const {newStatus, completionState} = deriveCompletionStatusFromAggregate({
+      workedMinutes: agg.workedMinutes,
+      scheduledMinutes: agg.scheduledMinutes,
+      neverClockedIn: agg.neverClockedIn,
+    });
+    expect(newStatus).toBe('missed');
+    expect(completionState).toBe('none');
+  });
 });

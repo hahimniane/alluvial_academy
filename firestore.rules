@@ -1246,6 +1246,38 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // Makeup requests for missed classes. A teacher files one for their own
+    // missed class; admins review them through reviewRescheduleRequest, which
+    // reads the class itself from the original shift.
+    match /reschedule_requests/{requestId} {
+      function ownMissedShift(shiftId) {
+        let shiftPath = /databases/$(database)/documents/teaching_shifts/$(shiftId);
+        return exists(shiftPath) &&
+          get(shiftPath).data.teacher_id == request.auth.uid &&
+          get(shiftPath).data.status == 'missed';
+      }
+
+      function isTeacherMakeupRequest(data) {
+        return data.keys().hasOnly([
+            'teacher_id', 'teacher_name', 'original_shift_id', 'subject',
+            'subject_id', 'subject_display_name', 'student_ids', 'student_names',
+            'proposed_start', 'proposed_end', 'proposed_timezone',
+            'reason_category', 'notes', 'status', 'created_at', 'updated_at'])
+          && data.teacher_id == request.auth.uid
+          && data.status == 'pending'
+          && data.original_shift_id is string
+          && data.proposed_start is timestamp
+          && data.proposed_end is timestamp
+          && ownMissedShift(data.original_shift_id);
+      }
+
+      allow read: if isSignedIn() &&
+        (isAdmin() || resource.data.teacher_id == request.auth.uid);
+      allow create: if isSignedIn() &&
+        (isAdmin() || isTeacherMakeupRequest(request.resource.data));
+      allow update, delete: if isAdmin();
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).

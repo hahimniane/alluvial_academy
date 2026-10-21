@@ -13,6 +13,7 @@ const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
+const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -336,6 +337,12 @@ exports.lookupParentByEmail = functions.https.onCall(
 exports.republishEnrollmentJob = onCall(
   { cors: true, invoker: 'public' },
   (request) => enrollmentRepublishHandlers.republishEnrollmentJob(request)
+);
+// Approves (schedules one makeup class) or declines a teacher's makeup
+// request for a missed class; admin-only, gated in the handler.
+exports.reviewRescheduleRequest = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => rescheduleRequestHandlers.reviewRescheduleRequest(request)
 );
 // Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
 exports.acceptJob = functions.https.onCall(async (data, context) => {

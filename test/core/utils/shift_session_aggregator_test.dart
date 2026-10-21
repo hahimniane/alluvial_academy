@@ -388,4 +388,49 @@ void main() {
       expect(r.workedHours, closeTo(1.0, 1e-6));
     });
   });
+
+  group('ShiftSessionAggregator post-cutoff strict clock policy', () {
+    test('post-cutoff shift with form-only yields ZERO hours and ZERO pay', () {
+      final shift = <String, dynamic>{
+        'shift_start': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 9, 0)),
+        'shift_end': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 10, 0)),
+        'hourly_rate': 60.0,
+      };
+      final form = <String, dynamic>{
+        'durationHours': 1.0,
+        'makeupApprovalStatus': 'approved',
+        'responses': <String, dynamic>{
+          'makeup_occurred_at': '2026-11-05',
+          'makeup_start_time': '09:00',
+          'makeup_end_time': '10:00',
+          'makeup_delivery_mode': 'zoom',
+          'makeup_zoom_host': 'teacher',
+          'makeup_students_present': 'Student A',
+        },
+      };
+      final r = ShiftSessionAggregator.computeSession(shift, [], [form]);
+      expect(r.workedHours, closeTo(0.0, 1e-6));
+      expect(r.realPay, closeTo(0.0, 1e-6));
+      expect(r.payPending, closeTo(0.0, 1e-6));
+      expect(r.hasForm, isTrue);
+      expect(r.hasPunchedTimesheets, isFalse);
+    });
+
+    test('post-cutoff shift with valid clock-in and clock-out pays normally', () {
+      final shift = <String, dynamic>{
+        'shift_start': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 9, 0)),
+        'shift_end': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 10, 0)),
+        'hourly_rate': 60.0,
+      };
+      final timesheet = <String, dynamic>{
+        'clock_in_timestamp': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 9, 0)),
+        'clock_out_timestamp': Timestamp.fromDate(DateTime.utc(2026, 11, 5, 10, 0)),
+        'status': 'approved',
+      };
+      final r = ShiftSessionAggregator.computeSession(shift, [timesheet], []);
+      expect(r.workedHours, closeTo(1.0, 1e-6));
+      expect(r.realPay, closeTo(60.0, 1e-6));
+      expect(r.hasPunchedTimesheets, isTrue);
+    });
+  });
 }

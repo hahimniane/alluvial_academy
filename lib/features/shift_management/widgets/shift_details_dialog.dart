@@ -22,6 +22,9 @@ import '../../forms/screens/form_screen.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
+import 'reschedule_request_dialog.dart';
+import '../services/reschedule_request_service.dart';
+import '../../../core/constants/audit_policy.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
 import '../../../core/services/class_video_service.dart';
@@ -55,6 +58,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   bool _useTeacherTimeZone = true; // Time zone toggle for display
   Map<String, dynamic>? _timesheetEntry;
   Map<String, dynamic>? _formResponse;
+  Map<String, dynamic>? _rescheduleRequest;
   Map<String, dynamic>? _modificationHistory;
   String _displayTimezone = 'UTC'; // For admin viewing modifications
   bool _isAdmin = false;
@@ -606,6 +610,19 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             }
           }
         }
+      }
+
+      // 4. Load any reschedule request associated with this shift
+      try {
+        final latest = await RescheduleRequestService.latestForShift(
+          shiftId: widget.shift.id,
+          teacherId: widget.shift.teacherId,
+        );
+        if (mounted) {
+          setState(() => _rescheduleRequest = latest);
+        }
+      } catch (e) {
+        debugPrint("Error loading reschedule request: $e");
       }
     } catch (e) {
       debugPrint("Error loading shift details: $e");
@@ -2924,7 +2941,221 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       final isMissed = shiftStatus == ShiftStatus.missed;
 
       if (isMissed) {
-        // Check if form already submitted for this missed shift
+        final isStrictPolicy =
+            AuditPolicyConstants.isShiftAfterStrictPolicy(
+                widget.shift.shiftStart);
+
+        if (isStrictPolicy) {
+          final reschedStatus = _rescheduleRequest?['status'] as String?;
+          if (reschedStatus == 'pending') {
+            final start =
+                (_rescheduleRequest!['proposed_start'] as Timestamp?)?.toDate();
+            final dateStr = start != null
+                ? DateFormat('EEE, MMM d, yyyy • h:mm a').format(start)
+                : '';
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_top,
+                      color: Color(0xFFD97706), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.makeupRequestPending,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF92400E),
+                          ),
+                        ),
+                        if (dateStr.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            dateStr,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFFB45309),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          } else if (reschedStatus == 'approved') {
+            final approvedStart =
+                (_rescheduleRequest!['approved_start'] as Timestamp?)?.toDate();
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      color: Color(0xFF15803D), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!
+                              .makeupRequestApprovedStatus,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF15803D),
+                          ),
+                        ),
+                        if (approvedStart != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            AppLocalizations.of(context)!
+                                .makeupRequestScheduledFor(
+                                    DateFormat('EEE, MMM d, yyyy • h:mm a')
+                                        .format(approvedStart)),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final declineReason = reschedStatus == 'declined'
+              ? (_rescheduleRequest!['decline_reason'] as String? ?? '').trim()
+              : '';
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Column(
+              children: [
+                if (reschedStatus == 'declined') ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!
+                              .makeupRequestDeclinedStatus,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF991B1B),
+                          ),
+                        ),
+                        if (declineReason.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLocalizations.of(context)!
+                                .makeupRequestDeclinedReason(declineReason),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFFB91C1C),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline,
+                        color: Color(0xFF1D4ED8), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!
+                                .requestMakeupClassTitle,
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1D4ED8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            AppLocalizations.of(context)!
+                                .missedShiftNeedsMakeupNotice,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF1E40AF),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (isTeacher)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => RescheduleRequestDialog(
+                            shift: _liveShift ?? widget.shift,
+                          ),
+                        );
+                        if (result == true) {
+                          _loadDetails();
+                          widget.onRefresh?.call();
+                        }
+                      },
+                      icon: const Icon(Icons.sync),
+                      label: Text(
+                          AppLocalizations.of(context)!.requestMakeupClass),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0386FF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }
+
+        // Check if form already submitted for this missed shift (legacy pre-cutoff)
         final hasForm = _formResponse != null;
 
         if (hasForm) {
@@ -2994,7 +3225,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ),
           );
         } else {
-          // No form submitted yet - show button to fill form
+
+          // Legacy pre-cutoff: show button to fill form
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

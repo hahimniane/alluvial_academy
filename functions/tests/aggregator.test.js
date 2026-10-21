@@ -8,6 +8,7 @@
  */
 
 const {computeSession, workedMinutesCeil} = require('../utils/shiftSessionAggregator');
+const {isShiftAfterStrictPolicy} = require('../utils/auditPolicyConstants');
 
 const ts = (d) => ({toDate: () => d});
 
@@ -270,5 +271,92 @@ describe('workedMinutesCeil', () => {
   });
   test('zero hours yields zero minutes', () => {
     expect(workedMinutesCeil({workedHours: 0})).toBe(0);
+  });
+});
+
+describe('shiftSessionAggregator post-cutoff strict clock policy', () => {
+  const postCutoffShift = () => ({
+    shift_start: ts(new Date('2026-11-05T09:00:00Z')),
+    shift_end: ts(new Date('2026-11-05T10:00:00Z')),
+    hourly_rate: 60.0,
+  });
+
+  test('post-cutoff shift with form-only yields ZERO hours and ZERO pay', () => {
+    const attestedForm = {
+      durationHours: 1.0,
+      makeupApprovalStatus: 'approved',
+      responses: {
+        makeup_occurred_at: '2026-11-05',
+        makeup_start_time: '09:00',
+        makeup_end_time: '10:00',
+        makeup_delivery_mode: 'zoom',
+        makeup_zoom_host: 'teacher',
+        makeup_students_present: 'Student A',
+      },
+    };
+    const r = computeSession(postCutoffShift(), [], [attestedForm]);
+    closeTo(r.workedHours, 0.0);
+    closeTo(r.realPay, 0.0);
+    closeTo(r.payPending, 0.0);
+    expect(r.hasForm).toBe(true);
+    expect(r.hasPunchedTimesheets).toBe(false);
+  });
+
+  // The cutoff is midnight New York time on 2026-11-01 (04:00Z, still EDT).
+  const attestedFormFor = (day) => ({
+    durationHours: 1.0,
+    makeupApprovalStatus: 'approved',
+    responses: {
+      makeup_occurred_at: day,
+      makeup_start_time: '09:00',
+      makeup_end_time: '10:00',
+      makeup_delivery_mode: 'zoom',
+      makeup_zoom_host: 'teacher',
+      makeup_students_present: 'Student A',
+    },
+  });
+
+  test('cutoff is midnight in New York, not midnight UTC', () => {
+    expect(isShiftAfterStrictPolicy(new Date('2026-11-01T00:00:00Z'))).toBe(false); // Oct 31 8 PM ET
+    expect(isShiftAfterStrictPolicy(new Date('2026-11-01T03:30:00Z'))).toBe(false); // Oct 31 11:30 PM ET
+    expect(isShiftAfterStrictPolicy(new Date('2026-11-01T03:59:59Z'))).toBe(false);
+    expect(isShiftAfterStrictPolicy(new Date('2026-11-01T04:00:00Z'))).toBe(true); // Nov 1 midnight ET
+    expect(isShiftAfterStrictPolicy(new Date('2026-11-01T04:30:00Z'))).toBe(true); // Nov 1 12:30 AM ET
+    expect(isShiftAfterStrictPolicy(ts(new Date('2026-11-01T04:30:00Z')))).toBe(true);
+  });
+
+  test('a class at Oct 31 11:30 PM ET keeps the form-only rules', () => {
+    const shift = {
+      shift_start: ts(new Date('2026-11-01T03:30:00Z')),
+      shift_end: ts(new Date('2026-11-01T04:30:00Z')),
+      hourly_rate: 60.0,
+    };
+    const r = computeSession(shift, [], [attestedFormFor('2026-10-31')]);
+    closeTo(r.workedHours, 1.0);
+  });
+
+  test('a class at Nov 1 12:30 AM ET pays nothing on a form alone', () => {
+    const shift = {
+      shift_start: ts(new Date('2026-11-01T04:30:00Z')),
+      shift_end: ts(new Date('2026-11-01T05:30:00Z')),
+      hourly_rate: 60.0,
+    };
+    const r = computeSession(shift, [], [attestedFormFor('2026-11-01')]);
+    closeTo(r.workedHours, 0.0);
+    closeTo(r.realPay, 0.0);
+    expect(r.hasForm).toBe(true);
+  });
+
+  test('post-cutoff shift with valid clock-in and clock-out pays normally', () => {
+    const r = computeSession(postCutoffShift(), [
+      {
+        clock_in_timestamp: ts(new Date('2026-11-05T09:00:00Z')),
+        clock_out_timestamp: ts(new Date('2026-11-05T10:00:00Z')),
+        status: 'approved',
+      },
+    ]);
+    closeTo(r.workedHours, 1.0);
+    closeTo(r.realPay, 60.0);
+    expect(r.hasPunchedTimesheets).toBe(true);
   });
 });
