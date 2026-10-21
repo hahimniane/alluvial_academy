@@ -23,6 +23,7 @@ import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
 import 'reschedule_request_dialog.dart';
+import '../services/reschedule_request_service.dart';
 import '../../../core/constants/audit_policy.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
@@ -613,17 +614,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
       // 4. Load any reschedule request associated with this shift
       try {
-        final reschedSnap = await FirebaseFirestore.instance
-            .collection('reschedule_requests')
-            .where('original_shift_id', isEqualTo: widget.shift.id)
-            .limit(1)
-            .get();
+        final latest = await RescheduleRequestService.latestForShift(
+          shiftId: widget.shift.id,
+          teacherId: widget.shift.teacherId,
+        );
         if (mounted) {
-          setState(() {
-            _rescheduleRequest = reschedSnap.docs.isNotEmpty
-                ? reschedSnap.docs.first.data()
-                : null;
-          });
+          setState(() => _rescheduleRequest = latest);
         }
       } catch (e) {
         debugPrint("Error loading reschedule request: $e");
@@ -2997,6 +2993,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               ),
             );
           } else if (reschedStatus == 'approved') {
+            final approvedStart =
+                (_rescheduleRequest!['approved_start'] as Timestamp?)?.toDate();
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -3010,18 +3008,41 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       color: Color(0xFF15803D), size: 24),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      AppLocalizations.of(context)!.makeupRequestApprovedStatus,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF15803D),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!
+                              .makeupRequestApprovedStatus,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF15803D),
+                          ),
+                        ),
+                        if (approvedStart != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            AppLocalizations.of(context)!
+                                .makeupRequestScheduledFor(
+                                    DateFormat('EEE, MMM d, yyyy • h:mm a')
+                                        .format(approvedStart)),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
             );
           }
+
+          final declineReason = reschedStatus == 'declined'
+              ? (_rescheduleRequest!['decline_reason'] as String? ?? '').trim()
+              : '';
 
           return Container(
             padding: const EdgeInsets.all(16),
@@ -3032,6 +3053,43 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ),
             child: Column(
               children: [
+                if (reschedStatus == 'declined') ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!
+                              .makeupRequestDeclinedStatus,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF991B1B),
+                          ),
+                        ),
+                        if (declineReason.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLocalizations.of(context)!
+                                .makeupRequestDeclinedReason(declineReason),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFFB91C1C),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   children: [
                     const Icon(Icons.info_outline,

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-import '../services/shift_service.dart';
-import '../enums/shift_enums.dart';
+import '../services/reschedule_request_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -20,20 +18,6 @@ class RescheduleRequestsScreen extends StatefulWidget {
 
 class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
   final Set<String> _processingIds = {};
-
-  IslamicSubject _parseSubject(String? name) {
-    if (name == null) return IslamicSubject.other;
-    final lower = name.toLowerCase().replaceAll(' ', '');
-    for (final s in IslamicSubject.values) {
-      if (s.name.toLowerCase() == lower) return s;
-    }
-    return IslamicSubject.other;
-  }
-
-  VideoProvider _parseVideoProvider(String? name) {
-    if (name == 'livekit') return VideoProvider.livekit;
-    return VideoProvider.zoom;
-  }
 
   String _reasonLabel(AppLocalizations loc, String key) {
     switch (key) {
@@ -56,62 +40,13 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
   Future<void> _approveRequest({
     required BuildContext context,
     required String requestId,
-    required Map<String, dynamic> data,
     DateTime? customStart,
-    DateTime? customEnd,
   }) async {
     final loc = AppLocalizations.of(context)!;
     setState(() => _processingIds.add(requestId));
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('Not authenticated');
-
-      final teacherId = data['teacher_id'] as String;
-      final studentIds =
-          (data['student_ids'] as List<dynamic>?)?.cast<String>() ?? [];
-      final studentNames =
-          (data['student_names'] as List<dynamic>?)?.cast<String>() ?? [];
-      final shiftStart = customStart ??
-          (data['proposed_start'] as Timestamp).toDate();
-      final shiftEnd = customEnd ??
-          (data['proposed_end'] as Timestamp).toDate();
-      final adminTz = data['proposed_timezone'] as String? ?? 'UTC';
-      final subjectName = data['subject'] as String? ?? 'Other';
-      final subjectId = data['subject_id'] as String?;
-      final subjectDisplayName = data['subject_display_name'] as String?;
-      final hourlyRate = (data['hourly_rate'] as num?)?.toDouble();
-      final videoProvider =
-          _parseVideoProvider(data['video_provider'] as String?);
-
-      // Create the shift through the standard ShiftService pipeline
-      final newShiftId = await ShiftService.createShift(
-        teacherId: teacherId,
-        studentIds: studentIds,
-        studentNames: studentNames,
-        shiftStart: shiftStart,
-        shiftEnd: shiftEnd,
-        adminTimezone: adminTz,
-        subject: _parseSubject(subjectName),
-        subjectId: subjectId,
-        subjectDisplayName: subjectDisplayName ?? subjectName,
-        hourlyRate: hourlyRate,
-        videoProvider: videoProvider,
-        notes: data['notes'] as String?,
-      );
-
-      // Update request doc
-      await FirebaseFirestore.instance
-          .collection('reschedule_requests')
-          .doc(requestId)
-          .update({
-        'status': 'approved',
-        'admin_id': user.uid,
-        'created_shift_id': newShiftId,
-        'approved_start': Timestamp.fromDate(shiftStart),
-        'approved_end': Timestamp.fromDate(shiftEnd),
-        'updated_at': FieldValue.serverTimestamp(),
-      });
+      await RescheduleRequestService.approve(requestId, startTime: customStart);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +61,7 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(RescheduleRequestService.errorMessage(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -144,8 +79,6 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
     required Map<String, dynamic> data,
   }) async {
     final originalStart = (data['proposed_start'] as Timestamp).toDate();
-    final originalEnd = (data['proposed_end'] as Timestamp).toDate();
-    final duration = originalEnd.difference(originalStart);
 
     final selectedDate = originalStart;
     final selectedTime = TimeOfDay.fromDateTime(originalStart);
@@ -176,14 +109,11 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
       pickedTime.hour,
       pickedTime.minute,
     );
-    final newEnd = newStart.add(duration);
 
     await _approveRequest(
       context: context,
       requestId: requestId,
-      data: data,
       customStart: newStart,
-      customEnd: newEnd,
     );
   }
 
@@ -227,16 +157,10 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
 
     setState(() => _processingIds.add(requestId));
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      await FirebaseFirestore.instance
-          .collection('reschedule_requests')
-          .doc(requestId)
-          .update({
-        'status': 'declined',
-        'admin_id': user?.uid,
-        'decline_reason': reasonController.text.trim(),
-        'updated_at': FieldValue.serverTimestamp(),
-      });
+      await RescheduleRequestService.decline(
+        requestId,
+        reason: reasonController.text.trim(),
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -248,6 +172,14 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
       }
     } catch (e) {
       AppLogger.error('Error declining reschedule request: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(RescheduleRequestService.errorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _processingIds.remove(requestId));
@@ -268,7 +200,7 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
-            .collection('reschedule_requests')
+            .collection(RescheduleRequestService.collection)
             .where('status', isEqualTo: 'pending')
             .snapshots(),
         builder: (context, snapshot) {
@@ -434,7 +366,6 @@ class _RescheduleRequestsScreenState extends State<RescheduleRequestsScreen> {
                               onPressed: () => _approveRequest(
                                 context: context,
                                 requestId: doc.id,
-                                data: data,
                               ),
                               icon: const Icon(Icons.check, size: 16),
                               label: Text(loc.approveAndSchedule),

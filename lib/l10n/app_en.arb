@@ -8425,10 +8425,15 @@
   "declineRequest": "Decline",
   "declineReason": "Decline Reason",
   "declineReasonHint": "Explain why this request is declined...",
-  "auditStrictClockNotice": "Strict Timesheet Policy is active for this period. Forms do not modify worked hours or compensation.",
+  "auditStrictClockNotice": "Hours and pay for this month come from clock-in and clock-out only. Forms do not change them.",
   "missedShiftNeedsMakeupNotice": "This class was missed. To teach and be paid for this session, request a makeup class.",
   "makeupRequestPending": "Makeup request pending admin review",
   "makeupRequestApprovedStatus": "Makeup class approved and scheduled",
+  "makeupRequestDeclinedStatus": "Your makeup request was declined.",
+  "makeupRequestDeclinedReason": "Reason: {reason}",
+  "@makeupRequestDeclinedReason": {"placeholders": {"reason": {"type": "String"}}},
+  "makeupRequestScheduledFor": "Makeup class: {date}",
+  "@makeupRequestScheduledFor": {"placeholders": {"date": {"type": "String"}}},
   "formConditionShowOnlyIf": "Show only if",
   "@formConditionShowOnlyIf": {
     "description": "Form builder: conditional question rule"

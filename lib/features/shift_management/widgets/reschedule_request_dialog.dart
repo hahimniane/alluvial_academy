@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 import '../models/teaching_shift.dart';
+import '../services/reschedule_request_service.dart';
 import '../services/shift_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../l10n/app_localizations.dart';
@@ -127,8 +128,6 @@ class _RescheduleRequestDialogState extends State<RescheduleRequestDialog> {
           'subject_display_name': widget.shift.subjectDisplayName,
         'student_ids': widget.shift.studentIds,
         'student_names': widget.shift.studentNames,
-        'hourly_rate': widget.shift.hourlyRate,
-        'video_provider': widget.shift.videoProvider.name,
         'proposed_start': Timestamp.fromDate(startUtc),
         'proposed_end': Timestamp.fromDate(endUtc),
         'proposed_timezone': widget.shift.teacherTimezone,
@@ -140,7 +139,7 @@ class _RescheduleRequestDialogState extends State<RescheduleRequestDialog> {
       };
 
       await FirebaseFirestore.instance
-          .collection('reschedule_requests')
+          .collection(RescheduleRequestService.collection)
           .add(requestData);
 
       if (mounted) {

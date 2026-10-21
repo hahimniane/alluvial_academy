@@ -36,8 +36,8 @@ void main() {
     test('yearMonth helper', () {
       expect(AuditPolicyConstants.isYearMonthAfterStrictPolicy('2026-10'),
           isFalse);
-      expect(AuditPolicyConstants.isYearMonthAfterStrictPolicy('2026-11'),
-          isTrue);
+      expect(
+          AuditPolicyConstants.isYearMonthAfterStrictPolicy('2026-11'), isTrue);
       expect(AuditPolicyConstants.isYearMonthAfterStrictPolicy(null), isFalse);
     });
   });
