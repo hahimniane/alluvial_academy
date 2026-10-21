@@ -1,5 +1,10 @@
-const {isShiftAfterStrictPolicy} = require('./auditPolicyConstants');
+/**
+ * Standardized aggregator for shift hours and pay.
+ * Implements the "Smart Detect" logic (Rules R1-R6) to resolve
+ * contradictions between multi-segment shifts and duplicate writes.
+ */
 
+const {isShiftAfterStrictPolicy} = require('./auditPolicyConstants');
 
 function toDate(v) {
   if (!v) return null;

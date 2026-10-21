@@ -6,7 +6,15 @@
 const STRICT_CLOCK_POLICY_EFFECTIVE_DATE = '2026-11-01';
 
 /**
- * Returns true if the shift start timestamp is on or after the strict clock policy cutoff (2026-11-01T00:00:00Z).
+ * The cutoff instant: midnight on the effective date in New York, where the
+ * school runs its calendar. 2026-11-01 is still on EDT (UTC-4) until 2 AM.
+ */
+const STRICT_CLOCK_POLICY_CUTOFF_ISO = '2026-11-01T00:00:00-04:00';
+const STRICT_CLOCK_POLICY_CUTOFF_MS = Date.parse(STRICT_CLOCK_POLICY_CUTOFF_ISO);
+
+/**
+ * Returns true if the shift start is on or after the strict clock policy
+ * cutoff (2026-11-01 00:00 America/New_York).
  * @param {Date|Object|string|number} shiftStart
  * @returns {boolean}
  */
@@ -21,8 +29,7 @@ function isShiftAfterStrictPolicy(shiftStart) {
     date = new Date(shiftStart);
   }
   if (Number.isNaN(date.getTime())) return false;
-  const cutoff = new Date('2026-11-01T00:00:00Z');
-  return date.getTime() >= cutoff.getTime();
+  return date.getTime() >= STRICT_CLOCK_POLICY_CUTOFF_MS;
 }
 
 /**
@@ -39,6 +46,7 @@ function isYearMonthAfterStrictPolicy(yearMonth) {
 
 module.exports = {
   STRICT_CLOCK_POLICY_EFFECTIVE_DATE,
+  STRICT_CLOCK_POLICY_CUTOFF_ISO,
   isShiftAfterStrictPolicy,
   isYearMonthAfterStrictPolicy,
 };
