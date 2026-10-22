@@ -1,0 +1,124 @@
+# Finance (Next.js) — build spec
+
+Agreed with the owner on 2026-10-21/22 after a design interview and a clickable
+prototype (https://claude.ai/artifact/783PKy7AjxoTYY3DVPfhbM — the reference for
+every screen, wording and flow). This file is the contract every finance branch
+builds against. Where this file and the prototype disagree, this file wins.
+
+## Who and where
+
+- Every admin (`isCurrentUserAdmin`) sees and does everything. No finance sub-roles.
+- Pages live under `apps/web/src/app/admin/finance/<page>/` and render inside
+  `FinanceShell` (`apps/web/src/components/finance/FinanceShell.tsx`), which wraps
+  `AdminDashboardShell`, shows the finance sub-menu and the month picker, and
+  supports `?embed=1` (Flutter web shows these pages in an iframe, like Shifts).
+- The old Flutter Invoices hub is replaced: Flutter web embeds `/admin/finance/`;
+  the native admin app shows a read-only summary (totals + overdue invoices).
+  Parent/adult-student invoice and payment screens in Flutter are unchanged.
+
+## Routes (one owner each)
+
+| Route | Screen |
+|---|---|
+| `/admin/finance/` | Overview: 1 / 3 / 5 / custom months, to-dos, 12-month chart, breakdown, period table, PDF |
+| `/admin/finance/bank/` | Bank deposits + WhatsApp payment proofs (inactive until connected) |
+| `/admin/finance/invoices/` | Invoice list, filters, detail, record payment, reminders, extend access, edit, cancel, monthly amount, new invoice |
+| `/admin/finance/staff/` | Staff pay: teachers from audits, administrators (fixed + optional %), mark paid, pause |
+| `/admin/finance/penalties/` | Penalties per teacher, filters |
+| `/admin/finance/expenses/` | Recurring costs (confirm), one-off/recurring add, soft delete + restore |
+| `/admin/finance/discounts/` | Discounts + family credits |
+| `/admin/finance/students/` | New students & first invoices |
+| `/admin/finance/close/` | Close / reopen month |
+| `/admin/finance/settings/` | Switches: auto billing, parent messages; bank/WhatsApp connection status |
+
+## Money rules (decided — do not change)
+
+1. **A month's profit** = tuition billed for that month (net of discounts, excluding
+   cancelled invoices) − that month's costs. Teacher pay counts in the month
+   TAUGHT even though it is paid the next month. "Collected" is shown beside it.
+2. **Teacher pay** comes from `teacher_audits/{uid}_{yyyy-MM}.paymentSummary`
+   (`totalNetPayment`, `totalPenalties`). It is an **estimate** until the audit
+   status is `ceoApproved` or `completed`, then **final**. Only final pay can be
+   marked paid. Teacher hours/pay must read live + archived shifts through the
+   existing shared readers if recomputed — never `teaching_shifts` alone.
+3. **Administrators**: fixed monthly pay + an OPTIONAL per-person %. The % is of
+   (billed − every other cost that month, before administrator pay), floored at
+   0 — a losing month pays the fixed part only. Terms have a start month and
+   history; changing them never rewrites a closed month. **Paused** pay (manual,
+   or automatic when the account is deactivated) = $0 and cannot be marked paid.
+4. **Expense categories**: `teacher_pay` and `admin_pay` (computed, never stored
+   as expenses), `software`, `marketing`, `transfer_fees`, `other`. Roll-ups:
+   Staff = teacher_pay + admin_pay; Administration = software + transfer_fees;
+   Other = marketing + other. Legacy `finance_expenses.category` values map:
+   `teacher_payment`→ignored for totals (pay comes from audits), `leadership_cost`→
+   `admin_pay` (ignored likewise), `marketing_cost`→`marketing`, `r_and_d`→`other`,
+   `other`→`other`.
+5. **Recurring costs** appear each month as "due" and count only when confirmed
+   with the real amount (unconfirmed ones count at their usual amount, flagged
+   estimate). Adding a recurring cost counts it as paid for the current month.
+6. **Transfer fees** are optional on staff payouts and are Alluwal's expense.
+7. **The monthly amount is set on a family's first invoice** and every later
+   monthly invoice uses it unchanged until staff change it (reason required,
+   applies from the next invoice, history kept). No automatic recalculation.
+8. **First invoice**: created when the student attends their first class,
+   pro-rated by classes left that month (`monthly × left ÷ classesInFullMonth`),
+   due 3 days later; staff are notified of the enrollment.
+9. **Monthly billing**: one invoice per family per month (doc id
+   `monthly_{parentId}_{yyyy-MM}` so a second one cannot exist), issued on the
+   25th, due on the 1st, discounts applied, open family credit applied. It is
+   **OFF** (`finance_settings/main.auto_billing_enabled == false`) until the owner
+   approves the preview; while off, the existing `recurring_billing_plans`
+   generator keeps running unchanged.
+10. **Overdue** is computed (balance > 0 and today > due date), never read from
+    `status == 'overdue'` alone.
+11. **Credits**: unused classes after a pause/leave, or an invoice lowered below
+    what was paid, become a family credit with no expiry, applied to the next
+    invoice for any child of that family; admins can refund or cancel.
+12. **Unpaid**: reminder 3 days before and on the due date (parent messages are
+    **OFF** behind `finance_settings/main.parent_messages_enabled`), access
+    suspended at the cutoff (existing `access_cutoff_date` flow), one-click extend.
+13. **Edits** to invoices require a reason, keep `edit_history`, notify the
+    parent (when messages are on), and a total below the paid amount creates a
+    credit. Cancel only when nothing is paid. **Closed months are locked**: no
+    edits, deletes, payouts or confirmations until an owner reopens with a reason.
+14. **Deleting** expenses is a soft delete with a required reason
+    (`deleted: true`, `deleted_at/by`, `delete_reason`), hidden from totals,
+    restorable from a "Deleted" list. Recurring costs are stopped (end month),
+    not deleted.
+15. Bank deposits / WhatsApp proofs: a screenshot never marks an invoice paid;
+    a bank deposit confirmed by an admin does. Everything is suggested, then
+    confirmed by a person.
+
+## Collections
+
+All admin-only (read/write) unless noted. Timestamps are Firestore Timestamps.
+Months are `yyyy-MM` strings in America/New_York.
+
+- `finance_settings/main` — `{auto_billing_enabled:false, parent_messages_enabled:false, issue_day:25, due_day:1, first_invoice_due_days:3, reminder_days_before:3, plaid:{connected:false}, whatsapp:{connected:false}}`
+- `finance_months/{yyyy-MM}` — `{status:'open'|'closed', closed_at, closed_by, closed_by_name, snapshot:{billed, collected, expenses, profit, ...}, log:[{action:'closed'|'reopened', at, by, by_name, reason}]}`
+- `finance_expenses/{id}` (existing) — add `month`, `kind:'one_time'|'recurring'`, `recurring_cost_id`, `name`, `deleted`, `deleted_at`, `deleted_by`, `delete_reason`, `restored_at/by`.
+- `finance_recurring_costs/{id}` — `{name, category, amount, day_of_month, start_month, end_month|null, created_at/by}`
+- `finance_recurring_confirmations/{yyyy-MM}_{costId}` — `{cost_id, month, amount, confirmed_at, confirmed_by, source:'manual'|'bank'|'created', bank_transaction_id?}`
+- `staff_payouts/{yyyy-MM}_{uid}` — `{user_id, name, role:'teacher'|'admin', month, amount_due, amount_paid, date_paid, method, transfer_fee, reference, receipt_path, note, recorded_at/by, voided, void_reason, history:[...]}`
+- `admin_pay_terms/{uid}` — `{name, role_title, terms:[{from_month, fixed, pct, note, set_at, set_by}], pauses:[{from_month, until_month|null, reason, auto:boolean, at, by}]}`
+- `family_billing/{parentId}` — `{monthly_amount, student_ids, set_on_invoice_id, set_at, history:[{from_month, old, new, reason, at, by}], active}`
+- `family_credits/{id}` — `{parent_id, student_id?, amount, reason, source:'pause'|'leave'|'invoice_edit'|'manual', status:'open'|'used'|'refunded'|'cancelled', used_on_invoice_id, created_at/by, closed_at/by}`
+- `invoices` (existing) — add `kind:'first_month'|'monthly'|'one_off'`, `billing_month`, `edit_history:[{at, by, by_name, reason, before:{total, due_date}, after:{...}}]`, `cancelled_at/by`, `cancel_reason` (status `'cancelled'`), `credit_lines`.
+- `bank_transactions/{id}` — Plaid. `{date, amount, direction:'in'|'out', description, memo, payer_name, account_mask, match:{status:'suggested'|'confirmed'|'manual'|'ignored'|'none', level, allocations:[{invoice_id, amount}], recurring_cost_id, decided_at/by}, proof_id?}`
+- `known_payers/{normalizedName}` — `{parent_id, name, learned_at/by}`
+- `payment_proofs/{id}` — WhatsApp. `{from_phone, parent_id?, image_path, extracted:{amount, date, sender, confirmation}, status:'waiting_bank'|'matched'|'confirmed'|'unknown_sender'|'duplicate'|'not_payment', bank_transaction_id?, invoice_id?, replies:[...]}`
+
+## Engineering rules
+
+- Read with bounded, month-filtered queries (the old overview pulled ~3,200
+  unfiltered docs). Aggregate on the server where a page would otherwise read
+  hundreds of docs; cache nothing across months in the client.
+- Money mutations that must be atomic (invoice edit/cancel, first invoice,
+  monthly amount change, payouts, close/reopen, credits) go through callables in
+  `functions/handlers/finance_*.js` using `verifyCallableCallerIsAdmin`, gen2
+  `onCall({cors:true, invoker:'public'}, …)`, exported in `functions/index.js`.
+  Every callable enforces the closed-month lock.
+- Copy is plain and present tense; French via `apps/web/src/lib/translations/fr.ts`
+  where pages use `t()`/`tr()`.
+- Tests: pure logic in `apps/web/src/lib/finance/*.ts` with `apps/web/src/lib/__tests__/finance*.test.ts`
+  (node --test style); callables in `functions/tests/finance_*.test.js` (jest, the repo's Firestore double).
