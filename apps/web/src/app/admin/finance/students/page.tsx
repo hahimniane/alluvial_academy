@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
-import { FinancePlaceholder, FinanceShell } from "@/components/finance/FinanceShell";
+import { FinanceShell } from "@/components/finance/FinanceShell";
+import { NewStudentsScreen } from "@/components/finance/invoices/NewStudentsScreen";
 
 export default function FinanceStudentsPage() {
   return (
     <Suspense fallback={null}>
       <FinanceShell>
-        <FinancePlaceholder title="New students & first invoices" />
+        <NewStudentsScreen />
       </FinanceShell>
     </Suspense>
   );

@@ -688,13 +688,35 @@ export function buildTimeline(
   return { entries: entries.map((e) => e.text), access };
 }
 
-/** The date "Extend access" moves the cutoff to: the end of the current month. */
+/**
+ * The date "Extend access" moves the cutoff to: the end of this month, or of
+ * next month when today is the last day.
+ */
 export function extendAccessTarget(now: Date = new Date()): { key: string; label: string } {
-  const today = dayKeyNY(now);
-  const [y, m] = today.split("-").map(Number);
+  const [y, m] = addDays(dayKeyNY(now), 1).split("-").map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const key = `${today.slice(0, 7)}-${String(last).padStart(2, "0")}`;
+  const key = `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
   return { key, label: formatDay(key) };
+}
+
+/**
+ * When the next monthly invoice goes out: this month's issue day if it has not
+ * passed, otherwise next month's; due on the due day of the month after that.
+ */
+export function nextMonthlyInvoice(now: Date, issueDay: number, dueDay: number): { issueKey: string; dueKey: string; month: string } {
+  const today = dayKeyNY(now);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  let [y, m] = today.split("-").map(Number);
+  if (Number(today.slice(8, 10)) > issueDay) {
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  const issueKey = `${y}-${pad(m)}-${pad(issueDay)}`;
+  const billedMonth = m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`;
+  return { issueKey, dueKey: `${billedMonth}-${pad(dueDay)}`, month: billedMonth };
 }
 
 /* ------------------------------------------------------------ first invoice -- */

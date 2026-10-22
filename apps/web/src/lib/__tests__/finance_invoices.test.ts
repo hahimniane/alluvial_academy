@@ -21,6 +21,7 @@ import {
   invoiceState,
   mergeNewStudents,
   newStudentStatus,
+  nextMonthlyInvoice,
   normalizeInvoice,
   notifyLine,
   previewLine,
@@ -413,6 +414,15 @@ test("timeline: issued, payments, recorded reminders, access", () => {
 test("extend access moves to the end of the month", () => {
   assert.deepEqual(extendAccessTarget(NOW), { key: "2026-10-31", label: "Oct 31" });
   assert.equal(extendAccessTarget(new Date("2026-02-10T15:00:00Z")).key, "2026-02-28");
+  // on the last day it moves on to the next month
+  assert.equal(extendAccessTarget(new Date("2026-10-31T15:00:00Z")).key, "2026-11-30");
+});
+
+test("next monthly invoice: issued on the issue day, due on the due day of the following month", () => {
+  assert.deepEqual(nextMonthlyInvoice(NOW, 25, 1), { issueKey: "2026-10-25", dueKey: "2026-11-01", month: "2026-11" });
+  assert.deepEqual(nextMonthlyInvoice(new Date("2026-10-26T15:00:00Z"), 25, 1), { issueKey: "2026-11-25", dueKey: "2026-12-01", month: "2026-12" });
+  assert.deepEqual(nextMonthlyInvoice(new Date("2026-12-28T15:00:00Z"), 25, 1), { issueKey: "2027-01-25", dueKey: "2027-02-01", month: "2027-02" });
+  assert.deepEqual(nextMonthlyInvoice(new Date("2026-12-10T15:00:00Z"), 25, 1), { issueKey: "2026-12-25", dueKey: "2027-01-01", month: "2027-01" });
 });
 
 /* ----------------------------------------------------------- first invoice -- */
