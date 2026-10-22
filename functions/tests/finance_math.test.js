@@ -115,6 +115,21 @@ describe('teacherRows', () => {
     expect(rows[0].final).toBe(false);
   });
 
+  test('penalties come from the penalty lines on the audit and are not taken off the pay again', () => {
+    const rows = m.teacherRows([audit({paymentSummary: {
+      totalNetPayment: 16.01, totalGrossPayment: 343.25, totalPenalties: 0,
+      coachAdjustmentLines: [
+        {type: 'penalty', amount: 300},
+        {type: 'penalty', amount: -27.24},
+        {type: 'bonus', amount: 50},
+      ],
+    }})]);
+    expect(rows[0]).toMatchObject({gross: 343.25, penalties: 327.24, net: 16.01});
+    // A total on the audit is added to the lines.
+    expect(m.auditPenalties({totalPenalties: 5, coachAdjustmentLines: [{type: 'penalty', amount: 10}]})).toBe(15);
+    expect(m.auditPenalties({})).toBe(0);
+  });
+
   test('completed counts as final; pending and disputed do not', () => {
     expect(m.isFinalAudit({status: 'completed'})).toBe(true);
     expect(m.isFinalAudit({status: 'pending'})).toBe(false);
@@ -385,6 +400,20 @@ describe('buildMonthSummary', () => {
     data.payouts = [{user_id: 't1', role: 'teacher', month: '2026-09', voided: true}];
     const s = m.buildMonthSummary(data);
     expect(s).toMatchObject({final: true, unpaid_teachers: 2, unpaid_admins: 1});
+  });
+
+  test('one person paid as a teacher is still unpaid as an administrator', () => {
+    const data = input();
+    data.audits = [data.audits[0]];
+    data.recurringCosts = [];
+    data.confirmations = [];
+    data.adminTerms[0].uid = 't1';
+    data.payouts = [{id: '2026-09_t1_teacher', user_id: 't1', role: 'teacher', month: '2026-09'}];
+    let s = m.buildMonthSummary(data);
+    expect(s).toMatchObject({final: true, unpaid_teachers: 0, unpaid_admins: 1});
+    data.payouts.push({id: '2026-09_t1_admin', user_id: 't1', role: 'admin', month: '2026-09'});
+    s = m.buildMonthSummary(data);
+    expect(s).toMatchObject({unpaid_teachers: 0, unpaid_admins: 0});
   });
 
   test('a paused administrator is never unpaid, and estimates are not payable', () => {

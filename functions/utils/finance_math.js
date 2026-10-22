@@ -175,6 +175,20 @@ const paidHours = (audit) => {
 };
 
 /**
+ * Penalties taken from a teacher: the penalty lines coaches add to the audit
+ * (`coachAdjustmentLines`, type "penalty"), plus the audit's own
+ * `totalPenalties` when it carries one. `totalNetPayment` already has them
+ * taken off, so they are shown, never subtracted again.
+ */
+const auditPenalties = (summary) => {
+  const lines = Array.isArray(summary.coachAdjustmentLines) ? summary.coachAdjustmentLines : [];
+  const fromLines = lines
+    .filter((line) => line && line.type === 'penalty')
+    .reduce((sum, line) => sum + Math.abs(num(line.amount)), 0);
+  return r2(fromLines + Math.abs(num(summary.totalPenalties)));
+};
+
+/**
  * One row per teacher audit that has a pay figure. An audit with no hours and
  * no pay is nobody's pay; it is left out.
  */
@@ -185,7 +199,7 @@ const teacherRows = (audits) => {
     if (!summary || typeof summary !== 'object') continue;
     const net = r2(num(summary.totalNetPayment));
     const gross = r2(num(summary.totalGrossPayment));
-    const penalties = r2(num(summary.totalPenalties));
+    const penalties = auditPenalties(summary);
     const hours = paidHours(audit);
     if (net === 0 && gross === 0 && penalties === 0 && hours === 0) continue;
     const uid = text(audit.userId) || text(audit.oderId) || text(audit.id).split('_')[0];
@@ -474,6 +488,7 @@ module.exports = {
   isFinalAudit,
   paidHours,
   teacherRows,
+  auditPenalties,
   auditsBlockingClose,
   expenseMonth,
   costTotals,
