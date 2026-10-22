@@ -46,6 +46,15 @@ const defaultDeps = () => ({
   globalsCache: sharedGlobals,
 });
 
+/**
+ * The audit fields finance reads. An audit document also carries every shift,
+ * form and timesheet detail (~70 KB each); asking for these fields alone keeps
+ * a month to a few KB instead of ~2 MB.
+ */
+const AUDIT_FIELDS = ['status', 'paymentSummary', 'totalHoursTaught', 'userId', 'oderId', 'teacherName', 'teacherEmail', 'yearMonth'];
+const PENALTY_AUDIT_FIELDS = ['paymentSummary', 'userId', 'oderId', 'teacherName', 'yearMonth'];
+const MAX_PENALTY_MONTHS = 24;
+
 const requireMonth = (data) => {
   const month = math.text(data && data.month);
   if (!math.isMonth(month)) {
@@ -68,7 +77,7 @@ const loadMonthDocs = async (db, month, Timestamp) => {
   const {start, end} = math.monthBounds(month);
   const [invoices, audits, byMonth, byDate, recurringCosts, confirmations, payouts, terms] = await Promise.all([
     loadInvoices(db, month),
-    db.collection('teacher_audits').where('yearMonth', '==', month).get(),
+    db.collection('teacher_audits').where('yearMonth', '==', month).select(...AUDIT_FIELDS).get(),
     db.collection('finance_expenses').where('month', '==', month).get(),
     db.collection('finance_expenses')
       .where('expense_date', '>=', Timestamp.fromDate(start))
@@ -185,8 +194,42 @@ const getFinanceMonthSummary = async (request, deps = defaultDeps()) => {
   return summaryForMonth(deps, month);
 };
 
+/** Timestamps (and anything else with toDate) become ISO strings so they survive the callable. */
+const plain = (value) => {
+  if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
+  if (Array.isArray(value)) return value.map(plain);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, plain(v)]));
+  }
+  return value;
+};
+
+/**
+ * Admin-only callable for the Penalties page: the pay summary of every
+ * teacher audit in `months`, without the rest of each audit.
+ *
+ * Accepts: { months: ['yyyy-MM', ...] } (at most 24)
+ * Returns: { audits: [{ id, data }] }
+ */
+const getFinancePenaltyAudits = async (request, deps = defaultDeps()) => {
+  await deps.verifyAdmin(request);
+  const raw = request && request.data && request.data.months;
+  const months = Array.isArray(raw) ? [...new Set(raw.map(math.text))] : [];
+  if (!months.length || months.length > MAX_PENALTY_MONTHS || !months.every(math.isMonth)) {
+    throw new functions.https.HttpsError('invalid-argument', `Between 1 and ${MAX_PENALTY_MONTHS} months (yyyy-MM) are required.`);
+  }
+  const chunks = [];
+  for (let i = 0; i < months.length; i += 10) chunks.push(months.slice(i, i + 10));
+  const snaps = await Promise.all(chunks.map((part) =>
+    deps.db.collection('teacher_audits').where('yearMonth', 'in', part).select(...PENALTY_AUDIT_FIELDS).get()
+  ));
+  return {audits: snaps.flatMap((snap) => snap.docs.map((doc) => ({id: doc.id, data: plain(doc.data() || {})})))};
+};
+
 module.exports = {
   getFinanceMonthSummary,
+  getFinancePenaltyAudits,
+  AUDIT_FIELDS,
   summaryForMonth,
   computeLiveMonth,
   defaultDeps,

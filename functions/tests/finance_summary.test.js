@@ -23,7 +23,7 @@ jest.mock('firebase-functions', () => {
   return {https: {HttpsError: MockHttpsError}};
 });
 
-const {getFinanceMonthSummary} = require('../handlers/finance_summary');
+const {getFinanceMonthSummary, getFinancePenaltyAudits} = require('../handlers/finance_summary');
 const {makeDb, FakeTimestamp} = require('./helpers/finance_overview_db');
 
 const NOW = new Date('2026-10-22T16:00:00Z');
@@ -214,5 +214,44 @@ describe('getFinanceMonthSummary', () => {
     const db = makeDb(data);
     const s = await call(db, {month: '2026-09'});
     expect(s).toMatchObject({status: 'open', billed: 300});
+  });
+});
+
+describe('getFinancePenaltyAudits', () => {
+  const audits = () => ({
+    teacher_audits: {
+      t1_2026_09: {
+        yearMonth: '2026-09', userId: 't1', teacherName: 'Amina',
+        detailedShifts: [{id: 's1'}], formsSummary: {count: 30},
+        paymentSummary: {totalGrossPayment: 400, totalPenalties: 10, coachAdjustmentLines: [
+          {type: 'penalty', amount: -10, penalty_reason: 'late_clock_in', createdAt: FakeTimestamp.fromDate(new Date('2026-09-15T14:00:00Z'))},
+        ]},
+      },
+      t2_2026_10: {yearMonth: '2026-10', userId: 't2', teacherName: 'Bilal', paymentSummary: {totalGrossPayment: 200}},
+      t3_2026_03: {yearMonth: '2026-03', userId: 't3', paymentSummary: {totalGrossPayment: 50}},
+    },
+  });
+  const penalties = (db, data, over) => getFinancePenaltyAudits({auth: {uid: 'admin_1'}, data}, deps(db, over));
+
+  test('returns only the pay fields of the asked months, dates as ISO strings', async () => {
+    const db = makeDb(audits());
+    const {audits: rows} = await penalties(db, {months: ['2026-09', '2026-10']});
+    expect(rows.map((r) => r.id).sort()).toEqual(['t1_2026_09', 't2_2026_10']);
+    const t1 = rows.find((r) => r.id === 't1_2026_09').data;
+    expect(t1.detailedShifts).toBeUndefined();
+    expect(t1.formsSummary).toBeUndefined();
+    expect(t1.paymentSummary.coachAdjustmentLines[0].createdAt).toBe('2026-09-15T14:00:00.000Z');
+    expect(t1).toMatchObject({yearMonth: '2026-09', userId: 't1', teacherName: 'Amina'});
+  });
+
+  test('refuses a bad or oversized month list and non-admins', async () => {
+    const db = makeDb(audits());
+    await expect(penalties(db, {})).rejects.toMatchObject({code: 'invalid-argument'});
+    await expect(penalties(db, {months: ['2026-9']})).rejects.toMatchObject({code: 'invalid-argument'});
+    const many = Array.from({length: 25}, (_, i) => `20${24 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`);
+    await expect(penalties(db, {months: many})).rejects.toMatchObject({code: 'invalid-argument'});
+    const refuse = async () => { const e = new Error('no'); e.code = 'permission-denied'; throw e; };
+    await expect(penalties(db, {months: ['2026-09']}, {verifyAdmin: refuse})).rejects.toMatchObject({code: 'permission-denied'});
+    expect(db.reads).toHaveLength(0);
   });
 });

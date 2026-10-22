@@ -656,6 +656,7 @@ const financeSummaryHandlers = require('./handlers/finance_summary');
 const financeMonthsHandlers = require('./handlers/finance_months');
 const financeSettingsHandlers = require('./handlers/finance_settings');
 exports.getFinanceMonthSummary = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinanceMonthSummary(request));
+exports.getFinancePenaltyAudits = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinancePenaltyAudits(request));
 exports.closeFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.closeFinanceMonth(request));
 exports.reopenFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.reopenFinanceMonth(request));
 exports.updateFinanceSettings = onCall({ cors: true, invoker: 'public' }, (request) => financeSettingsHandlers.updateFinanceSettings(request));
