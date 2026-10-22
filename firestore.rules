@@ -1278,12 +1278,27 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Finance switches and month status. Admins read them; every change goes
+    // through the finance callables (closing a month, finance settings), which
+    // is also what keeps a closed month locked. The fallback below leaves
+    // these two collections out so an admin session cannot write them
+    // directly (rules are OR'd).
+    match /finance_settings/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /finance_months/{month} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
     match /{collection}/{document=**} {
       allow read: if isAdmin();
-      allow write: if isAdmin() && collection != 'teaching_shifts';
+      allow write: if isAdmin() && !(collection in ['teaching_shifts', 'finance_settings', 'finance_months']);
     }
 
   }

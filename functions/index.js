@@ -647,3 +647,13 @@ exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
 exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
 exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
 exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;
+
+// Finance overview: month numbers for every finance page, closing a month,
+// and the finance switches. Admin-only, gated in the handlers.
+const financeSummaryHandlers = require('./handlers/finance_summary');
+const financeMonthsHandlers = require('./handlers/finance_months');
+const financeSettingsHandlers = require('./handlers/finance_settings');
+exports.getFinanceMonthSummary = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinanceMonthSummary(request));
+exports.closeFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.closeFinanceMonth(request));
+exports.reopenFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.reopenFinanceMonth(request));
+exports.updateFinanceSettings = onCall({ cors: true, invoker: 'public' }, (request) => financeSettingsHandlers.updateFinanceSettings(request));
