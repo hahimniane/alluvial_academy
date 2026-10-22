@@ -47,6 +47,7 @@ const publicSitePublicReadHandlers = require('./handlers/public_site_public_read
 const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
 const classContactHandlers = require('./handlers/class_contacts');
+const financeBankHandlers = require('./handlers/finance_bank');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -647,3 +648,27 @@ exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
 exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
 exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
 exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;
+
+// Finance: bank deposits (Plaid) and WhatsApp payment proofs. Inactive until
+// the owner sets the Plaid / WhatsApp secrets (docs/finance/BANK_AND_WHATSAPP_SETUP.md);
+// the callables are admin-gated in the handler. Plaid and WhatsApp secrets are
+// read at run time, not bound, so deploying without them never fails.
+exports.linkBankAccount = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBankHandlers.linkBankAccount(request)
+);
+exports.syncBankTransactions = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 300, memory: '512MiB' },
+  (request) => financeBankHandlers.syncBankTransactions(request)
+);
+exports.decideBankMatch = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 120 },
+  (request) => financeBankHandlers.decideBankMatch(request)
+);
+exports.decidePaymentProof = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 120 },
+  (request) => financeBankHandlers.decidePaymentProof(request)
+);
+exports.scheduledBankSync = financeBankHandlers.scheduledBankSync;
+exports.plaidWebhook = financeBankHandlers.plaidWebhook;
+exports.whatsappWebhook = financeBankHandlers.whatsappWebhook;

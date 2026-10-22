@@ -127,6 +127,14 @@ service firebase.storage {
                      isPublicSiteAssetAdmin();
     }
 
+    // Finance: WhatsApp payment-proof screenshots. Written only by the
+    // whatsappWebhook function (Admin SDK, which bypasses these rules); admins
+    // may read them, nobody writes from a client.
+    match /payment-proofs/{fileName} {
+      allow read: if isPublicSiteAssetAdmin();
+      allow write: if false;
+    }
+
     // Default rule - deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

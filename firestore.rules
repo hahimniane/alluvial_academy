@@ -1278,12 +1278,48 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Finance bank deposits and WhatsApp payment proofs. Only Cloud Functions
+    // write them (Plaid sync, the WhatsApp webhook, decideBankMatch /
+    // decidePaymentProof), so a client can never mark a deposit matched or a
+    // proof confirmed. Admins read them for the Bank deposits page.
+    match /bank_transactions/{transactionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /known_payers/{payerId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /payment_proofs/{proofId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Server-only: the Plaid access token and sync cursor (finance_private),
+    // and WhatsApp numbers saved to families (known_phones). No client reads
+    // or writes, admins included.
+    match /finance_private/{docId} {
+      allow read, write: if false;
+    }
+    match /known_phones/{phoneId} {
+      allow read, write: if false;
+    }
+
+    // Collections only Cloud Functions write (and, for the first two, nobody
+    // reads from a client). The fallback below is OR'd with every explicit
+    // block, so it has to leave them out or an admin could still write them.
+    function financeNoClientRead(collection) {
+      return collection in ['finance_private', 'known_phones'];
+    }
+    function financeServerWritten(collection) {
+      return collection in ['bank_transactions', 'known_payers', 'payment_proofs', 'finance_private', 'known_phones'];
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
     match /{collection}/{document=**} {
-      allow read: if isAdmin();
-      allow write: if isAdmin() && collection != 'teaching_shifts';
+      allow read: if isAdmin() && !financeNoClientRead(collection);
+      allow write: if isAdmin() && collection != 'teaching_shifts' && !financeServerWritten(collection);
     }
 
   }
