@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
-import { FinancePlaceholder, FinanceShell } from "@/components/finance/FinanceShell";
+import { FinanceShell } from "@/components/finance/FinanceShell";
+import { FinanceSettingsPage } from "@/components/finance/settings/SettingsPage";
 
-export default function FinanceSettingsPage() {
+export default function FinanceSettingsRoute() {
   return (
     <Suspense fallback={null}>
       <FinanceShell>
-        <FinancePlaceholder title="Finance settings" />
+        <FinanceSettingsPage />
       </FinanceShell>
     </Suspense>
   );

@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
-import { FinancePlaceholder, FinanceShell } from "@/components/finance/FinanceShell";
+import { FinanceShell } from "@/components/finance/FinanceShell";
+import { FinanceOverview } from "@/components/finance/overview/OverviewPage";
 
 export default function FinanceOverviewPage() {
   return (
     <Suspense fallback={null}>
       <FinanceShell>
-        <FinancePlaceholder title="Overview" />
+        <FinanceOverview />
       </FinanceShell>
     </Suspense>
   );
