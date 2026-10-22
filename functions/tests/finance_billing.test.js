@@ -836,3 +836,13 @@ describe('invoice reminders', () => {
     expect(deps.db.store.invoices.in3.reminders_sent).toMatchObject({before: expect.anything(), due: expect.anything()});
   });
 });
+
+describe('scheduled functions', () => {
+  test('the monthly generator and the reminders get the long (540 s) timeout', () => {
+    for (const name of ['generateMonthlyFamilyInvoices', 'sendInvoiceReminders']) {
+      const endpoint = finance[name].__endpoint;
+      expect(endpoint.timeoutSeconds).toBe(540);
+      expect(endpoint.scheduleTrigger).toBeTruthy();
+    }
+  });
+});

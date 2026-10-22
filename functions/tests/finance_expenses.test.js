@@ -90,6 +90,7 @@ function makeDb(seed = {}) {
       const tx = {
         get: async (r) => {
           if (wrote) throw new Error('reads must come before writes');
+          if (typeof r.where === 'function' && r.id === undefined) return r.get();
           return get(r);
         },
         set: (r, data) => {
@@ -216,6 +217,71 @@ describe('addFinanceExpense', () => {
       handlers.addFinanceExpense(req({month: '2026-10', kind: 'one_time', category: 'other', name: '', amount: 5}), deps)
     ).rejects.toMatchObject({code: 'invalid-argument'});
     expect(store.finance_expenses).toBeUndefined();
+  });
+
+  // Firestore serialises conflicting transactions; the in-memory db does not,
+  // so make it do the same for these double-click tests.
+  const serialise = (db) => {
+    const real = db.runTransaction;
+    let chain = Promise.resolve();
+    db.runTransaction = (fn) => {
+      const run = chain.then(() => real(fn));
+      chain = run.catch(() => {});
+      return run;
+    };
+  };
+  const oneTime = (over = {}) =>
+    req({month: '2026-10', kind: 'one_time', category: 'marketing', name: 'Flyers', amount: 25.5, date: '2026-10-12', ...over});
+
+  test('one-time: a double click adds one expense and returns the same id', async () => {
+    const {deps, store, db} = setup();
+    serialise(db);
+    const [a, b] = await Promise.all([handlers.addFinanceExpense(oneTime(), deps), handlers.addFinanceExpense(oneTime(), deps)]);
+    expect(a.id).toBe(b.id);
+    expect([a.duplicate, b.duplicate].filter(Boolean)).toEqual([true]);
+    expect(Object.keys(store.finance_expenses)).toEqual([a.id]);
+  });
+
+  test('one-time: the id ignores case and spacing of the name but not amount, date or category', async () => {
+    const {deps, store} = setup();
+    const first = await handlers.addFinanceExpense(oneTime(), deps);
+    const same = await handlers.addFinanceExpense(oneTime(), deps);
+    expect(same).toEqual({id: first.id, duplicate: true});
+    const sameName = await handlers.addFinanceExpense(req({month: '2026-10', kind: 'one_time', category: 'marketing', name: '  FLYERS ', amount: '25.50', date: '2026-10-12'}), deps);
+    expect(sameName).toEqual({id: first.id, duplicate: true});
+
+    const other = [
+      oneTime({amount: 26}),
+      oneTime({date: '2026-10-13'}),
+      oneTime({category: 'other'}),
+      oneTime({name: 'Posters'}),
+    ];
+    const ids = new Set([first.id]);
+    for (const r of other) ids.add((await handlers.addFinanceExpense(r, deps)).id);
+    expect(ids.size).toBe(5);
+    expect(Object.keys(store.finance_expenses)).toHaveLength(5);
+  });
+
+  test('one-time: after a delete, the same details can be added again', async () => {
+    const {deps, store} = setup();
+    const first = await handlers.addFinanceExpense(oneTime(), deps);
+    await handlers.deleteFinanceExpense(req({id: first.id, reason: 'typo'}), deps);
+    expect(store.finance_expenses[first.id].deleted).toBe(true);
+    const again = await handlers.addFinanceExpense(oneTime(), deps);
+    expect(again).toEqual({id: first.id});
+    expect(store.finance_expenses[first.id].deleted).toBe(false);
+  });
+
+  test('recurring: two simultaneous adds with the same name create one cost', async () => {
+    const {deps, store, db} = setup();
+    serialise(db);
+    const add = () =>
+      handlers.addFinanceExpense(req({month: '2026-10', kind: 'recurring', category: 'software', name: 'Zoom', amount: 150}), deps);
+    const results = await Promise.allSettled([add(), add()]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(results.find((r) => r.status === 'rejected').reason).toMatchObject({code: 'failed-precondition'});
+    expect(Object.keys(store.finance_recurring_costs)).toHaveLength(1);
+    expect(Object.keys(store.finance_recurring_confirmations)).toHaveLength(1);
   });
 
   test('a closed month refuses and writes nothing', async () => {

@@ -16,6 +16,7 @@
  * these collections; firestore.rules denies it.
  */
 
+const crypto = require('crypto');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
@@ -61,6 +62,18 @@ const loadActor = async (db, callerUid, email) => {
   return {uid: callerUid, name};
 };
 
+/** Same month, category, name (any case), amount and date -> same document. */
+const oneTimeExpenseId = (value) => {
+  const key = [
+    value.month,
+    value.category,
+    value.name.trim().toLowerCase(),
+    Math.round(value.amount * 100),
+    value.date,
+  ].join('|');
+  return `exp_${crypto.createHash('sha256').update(key).digest('hex').slice(0, 24)}`;
+};
+
 const startOfDayNoonUtc = (dateString) => new Date(`${dateString}T12:00:00.000Z`);
 
 /* ------------------------------------------------------------ add -- */
@@ -77,61 +90,72 @@ const addFinanceExpense = async (request, deps = defaultDeps()) => {
   const actor = await loadActor(db, callerUid, effectiveAdminEmail);
 
   if (value.kind === 'one_time') {
-    const ref = db.collection(EXPENSES).doc();
-    await ref.set({
-      month: value.month,
-      kind: 'one_time',
-      category: value.category,
+    // The document id comes from what was entered, so a double click (or a
+    // retried request) lands on the same document instead of adding a second.
+    // A deleted expense with the same details is written again as a new one.
+    const ref = db.collection(EXPENSES).doc(oneTimeExpenseId(value));
+    return db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists && record(snap.data()).deleted !== true) {
+        return {id: ref.id, duplicate: true};
+      }
+      tx.set(ref, {
+        month: value.month,
+        kind: 'one_time',
+        category: value.category,
+        name: value.name,
+        // `vendor` and `currency` keep the older summary readers working.
+        vendor: value.name,
+        currency: 'USD',
+        amount: value.amount,
+        expense_date: Timestamp.fromDate(startOfDayNoonUtc(value.date)),
+        deleted: false,
+        created_at: FieldValue.serverTimestamp(),
+        created_by: actor.uid,
+        created_by_name: actor.name,
+      });
+      return {id: ref.id};
+    });
+  }
+
+  // Recurring: refuse a second cost with the same name that is still running,
+  // so a double click or a repeat add cannot bill the same thing twice. The
+  // check and both writes are one transaction: two simultaneous adds cannot
+  // both pass the check.
+  const wanted = value.name.toLowerCase();
+  const costRef = db.collection(RECURRING_COSTS).doc();
+  const confirmationRef = db.collection(CONFIRMATIONS).doc(`${value.month}_${costRef.id}`);
+  return db.runTransaction(async (tx) => {
+    const existing = await tx.get(db.collection(RECURRING_COSTS));
+    const running = existing.docs.find((doc) => {
+      const data = record(doc.data());
+      if (text(data.name).toLowerCase() !== wanted) return false;
+      return !math.isMonth(data.end_month) || data.end_month >= value.month;
+    });
+    if (running) throw blocked(`${value.name} is already a monthly cost.`);
+
+    tx.set(costRef, {
       name: value.name,
-      // `vendor` and `currency` keep the older summary readers working.
-      vendor: value.name,
-      currency: 'USD',
+      category: value.category,
       amount: value.amount,
-      expense_date: Timestamp.fromDate(startOfDayNoonUtc(value.date)),
-      deleted: false,
+      day_of_month: value.day_of_month,
+      start_month: value.month,
+      end_month: null,
       created_at: FieldValue.serverTimestamp(),
       created_by: actor.uid,
       created_by_name: actor.name,
     });
-    return {id: ref.id};
-  }
-
-  // Recurring: refuse a second cost with the same name that is still running,
-  // so a double click or a repeat add cannot bill the same thing twice.
-  const wanted = value.name.toLowerCase();
-  const existing = await db.collection(RECURRING_COSTS).get();
-  const running = existing.docs.find((doc) => {
-    const data = record(doc.data());
-    if (text(data.name).toLowerCase() !== wanted) return false;
-    return !math.isMonth(data.end_month) || data.end_month >= value.month;
+    tx.set(confirmationRef, {
+      cost_id: costRef.id,
+      month: value.month,
+      amount: value.amount,
+      source: 'created',
+      confirmed_at: FieldValue.serverTimestamp(),
+      confirmed_by: actor.uid,
+      confirmed_by_name: actor.name,
+    });
+    return {id: costRef.id};
   });
-  if (running) throw blocked(`${value.name} is already a monthly cost.`);
-
-  const costRef = db.collection(RECURRING_COSTS).doc();
-  const confirmationRef = db.collection(CONFIRMATIONS).doc(`${value.month}_${costRef.id}`);
-  const batch = db.batch();
-  batch.set(costRef, {
-    name: value.name,
-    category: value.category,
-    amount: value.amount,
-    day_of_month: value.day_of_month,
-    start_month: value.month,
-    end_month: null,
-    created_at: FieldValue.serverTimestamp(),
-    created_by: actor.uid,
-    created_by_name: actor.name,
-  });
-  batch.set(confirmationRef, {
-    cost_id: costRef.id,
-    month: value.month,
-    amount: value.amount,
-    source: 'created',
-    confirmed_at: FieldValue.serverTimestamp(),
-    confirmed_by: actor.uid,
-    confirmed_by_name: actor.name,
-  });
-  await batch.commit();
-  return {id: costRef.id};
 };
 
 /* ------------------------------------------------- delete / restore -- */

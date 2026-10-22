@@ -1007,7 +1007,7 @@ const runInvoiceReminders = async (deps = defaultDeps()) => {
 // ---------------------------------------------------------------- exported functions
 
 const generateMonthlyFamilyInvoices = onSchedule(
-  {schedule: '0 6 * * *', timeZone: 'America/New_York'},
+  {schedule: '0 6 * * *', timeZone: 'America/New_York', timeoutSeconds: 540},
   async () => {
     const result = await runMonthlyGeneration();
     console.log('[finance_billing] monthly generation:', JSON.stringify(result));
@@ -1016,7 +1016,7 @@ const generateMonthlyFamilyInvoices = onSchedule(
 );
 
 const sendInvoiceReminders = onSchedule(
-  {schedule: '0 9 * * *', timeZone: 'America/New_York'},
+  {schedule: '0 9 * * *', timeZone: 'America/New_York', timeoutSeconds: 540},
   async () => {
     const result = await runInvoiceReminders();
     console.log('[finance_billing] invoice reminders:', JSON.stringify(result));
