@@ -114,6 +114,9 @@ export type HistoryEntry = {
   action: "edit" | "cancelled";
   beforeTotal: number | null;
   afterTotal: number | null;
+  /** Paid before and after the edit (older entries do not carry them). */
+  beforePaid: number | null;
+  afterPaid: number | null;
   beforeDue: string | null;
   afterDue: string | null;
   creditAmount: number;
@@ -132,6 +135,8 @@ export type Invoice = {
   dueKey: string | null;
   accessCutoff: Date | null;
   accessExtendedAt: Date | null;
+  /** notification_status: "sent" once the parent was messaged about it; empty when never recorded. */
+  notificationStatus: string;
   /** Stored status, lower case. Overdue is computed, never read from here. */
   status: string;
   total: number;
@@ -208,6 +213,8 @@ function readHistory(raw: unknown): HistoryEntry[] {
       action,
       beforeTotal: numOrNull(before.total_amount ?? before.total),
       afterTotal: numOrNull(after.total_amount ?? after.total),
+      beforePaid: numOrNull(before.paid_amount),
+      afterPaid: numOrNull(after.paid_amount),
       beforeDue: dueDayKey(before.due_date as Dateish),
       afterDue: dueDayKey(after.due_date as Dateish),
       creditAmount: num(e.credit_amount),
@@ -240,6 +247,7 @@ export function normalizeInvoice(id: string, data: Rec): Invoice {
     dueKey: dueDayKey((data.due_date ?? data.dueDate) as Dateish),
     accessCutoff: toDate((data.access_cutoff_date ?? data.accessCutoffDate) as Dateish),
     accessExtendedAt: toDate(data.access_extended_at as Dateish),
+    notificationStatus: str(data.notification_status).toLowerCase(),
     status: str(data.status).toLowerCase(),
     total: r2(num(data.total_amount ?? data.totalAmount)),
     paid: r2(num(data.paid_amount ?? data.paidAmount)),
@@ -442,6 +450,24 @@ export function chipCounts(base: readonly InvoiceRow[]): Record<StatusChip, numb
 
 const time = (d: Date | null) => (d ? d.getTime() : 0);
 
+/** A parent's name as [surname, first names]: the last word is the surname. */
+export function nameSortKey(name: string): [string, string] {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ["", ""];
+  return [words[words.length - 1], words.slice(0, -1).join(" ")];
+}
+
+const collate = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
+
+/** Family surname first, then first name. Rows with no known family go last. */
+function byFamilyName(a: InvoiceRow, b: InvoiceRow): number {
+  const unknown = (r: InvoiceRow) => r.familyName === "Unknown family";
+  if (unknown(a) !== unknown(b)) return unknown(a) ? 1 : -1;
+  const [aLast, aFirst] = nameSortKey(a.familyName);
+  const [bLast, bFirst] = nameSortKey(b.familyName);
+  return collate(aLast, bLast) || collate(aFirst, bFirst);
+}
+
 export function sortRows(rows: readonly InvoiceRow[], sort: SortKey): InvoiceRow[] {
   const copy = rows.slice();
   const byDue = (a: InvoiceRow, b: InvoiceRow) => (a.inv.dueKey ?? "9999-12-31").localeCompare(b.inv.dueKey ?? "9999-12-31");
@@ -453,7 +479,7 @@ export function sortRows(rows: readonly InvoiceRow[], sort: SortKey): InvoiceRow
     case "overdue":
       return copy.sort((a, b) => b.state.days - a.state.days || byDue(a, b));
     case "family":
-      return copy.sort((a, b) => a.familyName.localeCompare(b.familyName) || byDue(a, b));
+      return copy.sort((a, b) => byFamilyName(a, b) || byDue(a, b));
     case "newest":
       return copy.sort((a, b) => time(b.inv.issuedAt) - time(a.inv.issuedAt));
   }
@@ -638,6 +664,7 @@ export function historyText(h: HistoryEntry, money: (n: number) => string): stri
   if (h.action === "cancelled") return `${when} — cancelled ${who}${h.reason ? ` · “${h.reason}”` : ""}`;
   const parts: string[] = [];
   if (h.beforeTotal !== null && h.afterTotal !== null) parts.push(`total ${money(h.beforeTotal)} → ${money(h.afterTotal)}`);
+  if (h.beforePaid !== null && h.afterPaid !== null && h.beforePaid !== h.afterPaid) parts.push(`paid ${money(h.beforePaid)} → ${money(h.afterPaid)}`);
   if (h.beforeDue && h.afterDue && h.beforeDue !== h.afterDue) parts.push(`due ${formatDay(h.beforeDue)} → ${formatDay(h.afterDue)}`);
   if (h.creditAmount > 0) parts.push(`${money(h.creditAmount)} became family credit`);
   const detail = parts.length ? `: ${parts.join(", ")}` : "";
@@ -660,9 +687,14 @@ export function buildTimeline(
   parentName: string,
   money: (n: number) => string,
   now: Date = new Date(),
+  messagesOn = true,
 ): { entries: string[]; access: { text: string; tone: "bad" | "info" } | null } {
   const entries: TimelineEntry[] = [];
-  if (inv.issuedAt) entries.push({ at: inv.issuedAt.getTime(), text: `${formatMoment(inv.issuedAt)} — invoice sent to ${parentName}` });
+  if (inv.issuedAt) {
+    // "Sent" only when parent messages are on and the invoice records that the parent was told.
+    const sent = messagesOn && inv.notificationStatus === "sent";
+    entries.push({ at: inv.issuedAt.getTime(), text: `${formatMoment(inv.issuedAt)} — ${sent ? `invoice sent to ${parentName}` : "invoice created"}` });
+  }
   for (const p of payments) {
     const method = p.method ? ` by ${p.method}` : "";
     entries.push({ at: time(p.at), text: `${formatMoment(p.at)} — ${money(p.amount)} received${method}` });

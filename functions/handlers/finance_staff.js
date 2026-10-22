@@ -17,6 +17,10 @@
  * Rules enforced here, not in the page:
  *   - only FINAL teacher pay can be paid (audit ceoApproved | completed);
  *   - a paused administrator is never paid for a paused month;
+ *   - administrator pay is paid only once the month's summary is final (month
+ *     ended, every recurring cost confirmed, all teacher pay final), because
+ *     the profit share is an estimate until then; what is due is the summary's
+ *     figure, not whatever the page sends;
  *   - amount_paid may differ from amount_due (partial pay); a second payout for
  *     the same person and month adds to the first, history[] keeps every one;
  *   - a void keeps the document with voided:true and the reason.
@@ -54,11 +58,23 @@ const defaultAssertMonthOpen = (db, month) =>
   // eslint-disable-next-line global-require
   require('../utils/finance_lock').assertMonthOpen(db, month);
 
+// The month summary is the source of truth for administrator pay (same maths
+// as getFinanceMonthSummary and the close checklist).
+const defaultMonthSummary = async (db, Timestamp, month) => {
+  // eslint-disable-next-line global-require
+  const {computeLiveMonth} = require('./finance_summary');
+  const {summary} = await computeLiveMonth({db, Timestamp, now: () => new Date()}, month);
+  return summary;
+};
+
+const ADMIN_ESTIMATE_MESSAGE = 'Administrator pay is final once every cost for the month is confirmed.';
+
 const defaultDeps = () => ({
   db: admin.firestore(),
   Timestamp: admin.firestore.Timestamp,
   verifyAdmin: verifyCallableCallerIsAdmin,
   assertMonthOpen: defaultAssertMonthOpen,
+  monthSummary: defaultMonthSummary,
 });
 
 const fullName = (profile) => {
@@ -147,7 +163,7 @@ const parseEntry = (raw) => {
 };
 
 /** What is owed, from the source of truth for this kind of staff. */
-const resolveDue = async (tx, db, month, entry) => {
+const resolveDue = async (tx, db, month, entry, adminTotals) => {
   if (entry.role === 'teacher') {
     // Audit ids are {uid}_{yyyy-MM}; payout ids are {yyyy-MM}_{uid}.
     const ref = db.collection('teacher_audits').doc(`${entry.uid}_${month}`);
@@ -183,14 +199,18 @@ const resolveDue = async (tx, db, month, entry) => {
   if (!term) {
     throw HttpsError('failed-precondition', `${name || 'This administrator'} has no pay terms for that month.`);
   }
-  // The share needs the month's profit, which the overview computes; the page
-  // sends the total it shows as amount_due, otherwise only the fixed part is due.
-  const due = entry.amount_due_hint !== null ? entry.amount_due_hint : math.fixedPayFor(terms, month);
+  // What is due is the month summary's figure (fixed pay plus the share of the
+  // final profit base). The page's own number is only a fallback for a person
+  // the summary does not list.
+  let due;
+  if (adminTotals && adminTotals.has(entry.uid)) due = adminTotals.get(entry.uid);
+  else due = entry.amount_due_hint !== null ? entry.amount_due_hint : math.fixedPayFor(terms, month);
   return {name, amount_due: math.r2(due)};
 };
 
 const recordStaffPayouts = async (request, deps = defaultDeps()) => {
   const {db, Timestamp, verifyAdmin, assertMonthOpen} = deps;
+  const monthSummary = deps.monthSummary || defaultMonthSummary;
   const {callerUid, effectiveAdminEmail} = await verifyAdmin(request);
 
   const payload = record(request && request.data);
@@ -207,6 +227,15 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
   }
 
   await assertMonthOpen(db, month);
+
+  // Administrator pay is an estimate until the whole month is final.
+  let adminTotals = null;
+  if (entries.some((e) => e.role === 'admin')) {
+    const summary = await monthSummary(db, Timestamp, month);
+    if (!summary || summary.final !== true) throw HttpsError('failed-precondition', ADMIN_ESTIMATE_MESSAGE);
+    adminTotals = new Map((Array.isArray(summary.admins) ? summary.admins : []).map((a) => [a.uid, a.total]));
+  }
+
   const actor = await actorFor(db, callerUid, effectiveAdminEmail);
   const at = Timestamp.now();
 
@@ -217,7 +246,7 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
     await assertMonthOpenInTransaction(tx, db, month);
     const prepared = [];
     for (const entry of entries) {
-      const due = await resolveDue(tx, db, month, entry);
+      const due = await resolveDue(tx, db, month, entry, adminTotals);
       const ref = db.collection('staff_payouts').doc(docId(month, entry.uid, entry.role));
       const existingSnap = await tx.get(ref);
       const existing = existingSnap.exists ? existingSnap.data() : null;
@@ -519,6 +548,7 @@ module.exports = {
   pauseAdminPay,
   resumeAdminPay,
   autoPauseOnDeactivation,
+  ADMIN_ESTIMATE_MESSAGE,
   // Deployed
   recordStaffPayoutsCallable: callable(recordStaffPayouts),
   voidStaffPayoutCallable: callable(voidStaffPayout),

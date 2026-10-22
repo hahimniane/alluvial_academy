@@ -11,7 +11,9 @@ import {
   payLabel,
   payoutKey,
   payState,
+  pauseScheduledAfter,
   pausedLabel,
+  scheduledPauseLabel,
   staffCards,
   staffCsv,
   teacherRows,
@@ -26,7 +28,7 @@ type Dialog =
   | { kind: "pay"; rows: PayableRow[] }
   | { kind: "void"; row: PayableRow }
   | { kind: "admin"; uid: string | null }
-  | { kind: "pause"; mode: "pause" | "resume"; uid: string; name: string }
+  | { kind: "pause"; mode: "pause" | "resume"; uid: string; name: string; cancelFrom?: string }
   | null;
 
 const TH = "px-3 py-2.5 font-semibold";
@@ -101,7 +103,9 @@ export function StaffPayPage() {
     );
   };
 
-  const payButton = (row: PayableRow) => (
+  // A fully paid row has nothing left to pay; Void is in the Payment column.
+  const payButton = (row: PayableRow) =>
+    payState(row.due, row.payout) === "paid" ? null : (
     <button
       type="button"
       className={BTN_SM}
@@ -112,7 +116,7 @@ export function StaffPayPage() {
     >
       {payState(row.due, row.payout) === "partial" ? "Pay the rest" : "Pay"}
     </button>
-  );
+    );
 
   const checkbox = (row: PayableRow) => (
     <input
@@ -163,7 +167,7 @@ export function StaffPayPage() {
         <span className="text-xs text-slate-600">Only final pay can be marked paid. Estimates become final when the audit is approved.</span>
       </div>
 
-      <div className={`${CARD} overflow-x-auto`}>
+      <div className={`${CARD} relative overflow-x-auto`}>
         <table className="w-full min-w-[960px] border-collapse text-[13px]">
           <caption className="sr-only">Teacher pay for {monthLabel(month)}</caption>
           <thead>
@@ -225,7 +229,7 @@ export function StaffPayPage() {
         Fixed pay, plus a share of what is left after all other costs ({money(Math.max(0, summary.admin_base ?? 0))} for {monthLabel(month)}) for those who have one.
         {summary.final ? "" : " The share is an estimate until every cost for the month is confirmed."}
       </p>
-      <div className={`${CARD} overflow-x-auto`}>
+      <div className={`${CARD} relative overflow-x-auto`}>
         <table className="w-full min-w-[980px] border-collapse text-[13px]">
           <caption className="sr-only">Administrator pay for {monthLabel(month)}</caption>
           <thead>
@@ -258,6 +262,9 @@ export function StaffPayPage() {
               const t = terms.get(a.uid);
               const open = openPause(t?.pauses);
               const paused = Boolean(a.paused);
+              const scheduled = pauseScheduledAfter(open, month);
+              // A paused person with a payment on record (older data) still shows it, so it can be voided.
+              const hasLivePayout = Boolean(row.payout && !row.payout.voided && row.payout.amount_paid > 0);
               return (
                 <tr key={a.uid} className="border-t border-slate-200">
                   <td className={TD}>{checkbox(row)}</td>
@@ -269,7 +276,10 @@ export function StaffPayPage() {
                   <td className={TD}>{paused ? <Badge tone="mute">Paused</Badge> : <Badge tone={summary.final ? "info" : "warn"}>{summary.final ? "Final" : "Estimate"}</Badge>}</td>
                   <td className={TD}>
                     {paused ? (
-                      <span className="font-semibold text-slate-600">{open ? pausedLabel(open) : `Paused · ${a.paused?.reason ?? ""}`}</span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="font-semibold text-slate-600">{open ? pausedLabel(open) : `Paused · ${a.paused?.reason ?? ""}`}</span>
+                        {hasLivePayout ? paymentCell(row) : null}
+                      </div>
                     ) : (
                       paymentCell(row)
                     )}
@@ -280,7 +290,17 @@ export function StaffPayPage() {
                       <button type="button" className={BTN_SM} disabled={closed} onClick={() => setDialog({ kind: "admin", uid: a.uid })}>
                         Edit pay
                       </button>
-                      {open ? (
+                      {open && scheduled ? (
+                        <button
+                          type="button"
+                          className={BTN_SM}
+                          disabled={closed || closedMonths.has(open.from_month)}
+                          title={closedMonths.has(open.from_month) ? `${monthLabel(open.from_month)} is closed` : undefined}
+                          onClick={() => setDialog({ kind: "pause", mode: "resume", uid: a.uid, name: a.name, cancelFrom: open.from_month })}
+                        >
+                          Cancel pause
+                        </button>
+                      ) : open ? (
                         <button
                           type="button"
                           className="inline-flex min-h-9 items-center justify-center rounded-lg border border-green-700 bg-white px-3 text-sm font-bold text-green-700 hover:bg-green-50 disabled:opacity-50"
@@ -295,6 +315,7 @@ export function StaffPayPage() {
                         </button>
                       )}
                     </div>
+                    {open && scheduled ? <div className="mt-1 text-[11px] font-bold text-slate-600">{scheduledPauseLabel(open)}</div> : null}
                     {deactivated.has(a.uid) ? <div className="mt-1 text-[11px] font-bold text-red-700">Account deactivated</div> : null}
                   </td>
                 </tr>
@@ -318,7 +339,7 @@ export function StaffPayPage() {
         />
       ) : null}
       {dialog?.kind === "pause" ? (
-        <PauseDialog mode={dialog.mode} uid={dialog.uid} name={dialog.name} summaryMonth={month} closedMonths={closedMonths} onClose={() => setDialog(null)} onDone={done} />
+        <PauseDialog mode={dialog.mode} uid={dialog.uid} name={dialog.name} cancelFrom={dialog.cancelFrom} summaryMonth={month} closedMonths={closedMonths} onClose={() => setDialog(null)} onDone={done} />
       ) : null}
       <Toast message={toast} />
     </section>

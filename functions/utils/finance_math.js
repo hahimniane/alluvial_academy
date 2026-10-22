@@ -316,11 +316,15 @@ const termsInForce = (terms, month) => {
   return list.length ? list[list.length - 1] : null;
 };
 
-/** The pause that covers `month`, if any. `until_month` is the last paused month. */
+/**
+ * The pause that covers `month`, if any. `until_month` is the month pay
+ * RESUMES in (exclusive), the same rule as finance_staff_math.pauseForMonth:
+ * paused when from_month <= month and (no until_month or month < until_month).
+ */
 const pauseFor = (pauses, month) => {
   const match = (Array.isArray(pauses) ? pauses : []).filter((p) => {
     if (!p || !isMonth(text(p.from_month)) || text(p.from_month) > month) return false;
-    return !text(p.until_month) || text(p.until_month) >= month;
+    return !text(p.until_month) || month < text(p.until_month);
   });
   if (!match.length) return null;
   const latest = match.sort((a, b) => (a.from_month < b.from_month ? -1 : 1))[match.length - 1];
@@ -367,6 +371,27 @@ const adminRows = (adminDocs, month, base) => {
 /** Whether a payout record covers this person. A payout without a role covers whoever its user id names. */
 const hasPayout = (payouts, uid, role) =>
   payouts.some((p) => p.voided !== true && text(p.user_id) === uid && (!text(p.role) || text(p.role) === role));
+
+/** Money paid to this person for the month, from the payouts that were not voided. */
+const paidTo = (payouts, uid, role) =>
+  r2(payouts
+    .filter((p) => p.voided !== true && text(p.user_id) === uid && (!text(p.role) || text(p.role) === role))
+    .reduce((sum, p) => sum + num(p.amount_paid), 0));
+
+/** An administrator payout that differs from what is due by more than a cent is a mismatch. */
+const PAYOUT_TOLERANCE = 0.01;
+
+/**
+ * Administrators with a live payout that is not the amount due now. Only
+ * meaningful once pay is final (before that the due amount is an estimate).
+ * A paid-but-paused administrator counts: they are due nothing.
+ */
+const adminPayoutMismatches = (admins, payouts) =>
+  admins.filter((a) => {
+    if (!hasPayout(payouts, a.uid, 'admin')) return false;
+    const due = a.paused ? 0 : a.total;
+    return Math.abs(paidTo(payouts, a.uid, 'admin') - due) > PAYOUT_TOLERANCE + 1e-9;
+  }).length;
 
 /**
  * The month's numbers, without the figures that are not tied to a month
@@ -435,6 +460,7 @@ const buildMonthSummary = ({
     recurring_due: costs.recurring_due,
     unpaid_teachers: unpaidTeachers,
     unpaid_admins: unpaidAdmins,
+    admin_payout_mismatches: final ? adminPayoutMismatches(admins, payouts) : 0,
     teachers,
     admins,
   };
@@ -455,6 +481,8 @@ const closeBlockers = ({month, now, summary, unapprovedAudits}) => {
   }
   const unpaid = summary.unpaid_teachers + summary.unpaid_admins;
   if (unpaid > 0) out.push(`${unpaid} ${unpaid === 1 ? 'person is' : 'people are'} not paid`);
+  const mismatched = num(summary.admin_payout_mismatches);
+  if (mismatched > 0) out.push(`Adjust ${mismatched} administrator ${mismatched === 1 ? 'payment' : 'payments'}`);
   return out;
 };
 
@@ -491,6 +519,7 @@ module.exports = {
   pauseFor,
   adminPay,
   adminRows,
+  adminPayoutMismatches,
   buildMonthSummary,
   closeBlockers,
 };

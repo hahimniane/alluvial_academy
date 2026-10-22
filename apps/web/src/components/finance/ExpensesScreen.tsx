@@ -407,7 +407,7 @@ export function ExpensesScreen() {
           {closed ? <p className="m-0 text-xs text-slate-600">{name} is closed. Reopen it to change it.</p> : null}
         </fieldset>
 
-        <div className="min-w-0 flex-[2_1_420px] overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="min-w-0 flex-[2_1_420px] relative overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[520px] border-collapse text-[13px]">
             <caption className="sr-only">Expenses for {monthLabel(month)}</caption>
             <thead>

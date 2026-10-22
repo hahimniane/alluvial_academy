@@ -12,6 +12,16 @@ export function monthOf(date: Date, timeZone = "America/New_York"): string {
   return `${y}-${m}`;
 }
 
+/** A real finance month, yyyy-MM with a month from 01 to 12. */
+export function isFinanceMonth(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+/** The month asked for in the URL, or the current one when it is missing or not a month (the server answers a bad month with a 400). */
+export function monthFromParam(value: string | null | undefined, now: Date = new Date()): string {
+  return isFinanceMonth(value) ? value : currentMonth(now);
+}
+
 export function currentMonth(now: Date = new Date()): string {
   return monthOf(now);
 }

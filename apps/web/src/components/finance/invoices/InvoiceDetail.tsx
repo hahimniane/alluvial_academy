@@ -187,7 +187,7 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
   const cancelled = state.kind === "cancelled";
   const canEdit = !closed && !cancelled;
   const lockedNote = closed ? `${month ? monthLabel(month) : "This month"} is closed. Reopen it to edit this invoice.` : cancelled ? "This invoice was cancelled." : "";
-  const timeline = buildTimeline(inv, payments, parentName, money, now);
+  const timeline = buildTimeline(inv, payments, parentName, money, now, settings.parent_messages_enabled);
   const history = inv.editHistory.map((h) => historyText(h, money));
   const extendTarget = extendAccessTarget(now);
   const next = nextMonthlyInvoice(now, settings.issue_day, settings.due_day);
@@ -434,7 +434,7 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
       {/* Monthly amount */}
       {!editing ? (
         <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <div className="text-xs font-semibold text-slate-600">Monthly amount for this family</div>
               <div className="text-lg font-extrabold">{billing ? `${money(billing.monthlyAmount)} a month` : billingReady ? "Not set yet" : "…"}</div>
@@ -446,7 +446,7 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
               ) : null}
             </div>
             {!planOpen && billingReady ? (
-              <button type="button" className={outlineButton} onClick={openPlan}>
+              <button type="button" className={`${outlineButton} shrink-0`} onClick={openPlan}>
                 {billing ? "Change monthly amount" : "Set monthly amount"}
               </button>
             ) : null}

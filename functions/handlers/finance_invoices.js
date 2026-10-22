@@ -128,6 +128,7 @@ const monthLabel = (month) => {
 
 const snapshotOf = (invoice) => ({
   total_amount: math.invoiceTotal(invoice),
+  paid_amount: math.invoicePaid(invoice),
   due_date: invoice.due_date || null,
   items: Array.isArray(invoice.items) ? invoice.items : [],
   status: text(invoice.status),
@@ -251,19 +252,26 @@ const editInvoice = async (request, deps = defaultDeps()) => {
       throw httpsError('failed-precondition', 'Nothing has changed.');
     }
 
-    // Only the NEW shortfall becomes credit; a total that goes back up takes
-    // back what is still open of the credit an earlier edit created.
-    const creditDelta = math.creditDeltaOnEdit({oldTotal, newTotal, paid});
-    const credit = creditDelta > 0.004 ? creditDelta : 0;
+    // Money paid beyond the old total is already a family credit (older
+    // edits left it in paid_amount), so it is not paid on this invoice.
+    const paidNow = math.r2(Math.min(paid, oldTotal));
+    // Lowering below what was paid: the excess becomes a family credit and
+    // paid_amount follows the new total, so Collected is what really stays.
+    const credit = math.creditOnLower({total: newTotal, paid: paidNow});
+    // Raising: take back what is still open of the credit an earlier edit
+    // created, and put that money back on the invoice (never above the total).
+    const takeBack = newTotal > oldTotal ? math.r2(newTotal - paidNow) : 0;
     let reductions = [];
-    if (creditDelta < -0.004) {
+    if (takeBack > 0.004) {
       const openSnap = await tx.get(deps.db.collection('family_credits').where('invoice_id', '==', invoiceId));
       reductions = planCreditReductions(
         openSnap.docs.map((d) => ({id: d.id, ...(d.data() || {})})),
-        -creditDelta
+        takeBack
       );
     }
-    const status = math.statusAfterEdit({total: newTotal, paid});
+    const reducedTotal = math.r2(reductions.reduce((sum, r) => sum + r.reduceBy, 0));
+    const newPaid = newTotal === oldTotal ? paid : math.r2(Math.min(newTotal, paidNow + reducedTotal));
+    const status = math.statusAfterEdit({total: newTotal, paid: newPaid});
     const newDue = deps.Timestamp.fromDate(math.dueTimestampDate(edit.dueDate));
     const at = deps.Timestamp.fromDate(deps.now());
     const history = Array.isArray(invoice.edit_history) ? invoice.edit_history.slice() : [];
@@ -273,7 +281,7 @@ const editInvoice = async (request, deps = defaultDeps()) => {
       by_name: actor.name,
       reason: edit.reason,
       before: snapshotOf(invoice),
-      after: {total_amount: newTotal, due_date: newDue, items, status},
+      after: {total_amount: newTotal, paid_amount: newPaid, due_date: newDue, items, status},
       ...(credit > 0 ? {credit_id: creditRef.id, credit_amount: credit} : {}),
       ...(reductions.length
         ? {credit_reduced: reductions.map((r) => ({credit_id: r.id, amount: r.reduceBy, cancelled: r.cancel}))}
@@ -283,6 +291,7 @@ const editInvoice = async (request, deps = defaultDeps()) => {
     const patch = {
       items,
       total_amount: newTotal,
+      ...(newPaid !== paid ? {paid_amount: newPaid} : {}),
       due_date: newDue,
       status,
       edit_history: history,
@@ -347,8 +356,10 @@ const editInvoice = async (request, deps = defaultDeps()) => {
         reason: edit.reason,
         old_total: oldTotal,
         new_total: newTotal,
+        old_paid: paid,
+        new_paid: newPaid,
         credit_amount: credit,
-        credit_taken_back: math.r2(reductions.reduce((sum, r) => sum + r.reduceBy, 0)),
+        credit_taken_back: reducedTotal,
         parent_id: parentIdOf(invoice),
       },
       eventId: `invoice_edited_${invoiceId}_${history.length}`,
@@ -359,6 +370,7 @@ const editInvoice = async (request, deps = defaultDeps()) => {
         ...invoice,
         items,
         total_amount: newTotal,
+        paid_amount: newPaid,
         due_date: newDue,
         status,
       }),

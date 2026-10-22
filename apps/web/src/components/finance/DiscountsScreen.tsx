@@ -237,7 +237,7 @@ export function DiscountsScreen() {
       </div>
 
       <h3 className="mb-0 mt-1.5 text-base font-bold">Active discounts · {monthLabel(month)}</h3>
-      <div className={`${card} overflow-x-auto`}>
+      <div className={`${card} relative overflow-x-auto`}>
         <table className="w-full min-w-[620px] border-collapse text-[13px]">
           <caption className="sr-only">Active discounts in {monthLabel(month)}</caption>
           <thead>
@@ -274,7 +274,7 @@ export function DiscountsScreen() {
       <p className="m-0 text-[13px] text-slate-600">
         Unused classes from a pause or a student leaving. The credit has no end date and is taken off the family&apos;s next invoice, for this child or a sibling.
       </p>
-      <div className={`${card} overflow-x-auto`}>
+      <div className={`${card} relative overflow-x-auto`}>
         <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <caption className="sr-only">Family credits</caption>
           <thead>

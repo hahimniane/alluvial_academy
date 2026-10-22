@@ -19,7 +19,7 @@ export function YearChart({ points, loading }: { points: YearPoint[]; loading: b
       {points.length === 0 ? (
         <p className="m-0 py-10 text-center text-sm text-slate-600">{loading ? "Loading…" : "No months to show."}</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <ol className="m-0 grid list-none items-end gap-2 p-0" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(44px, 1fr))`, minWidth: points.length * 52 }}>
             {points.map((p) => (
               <li

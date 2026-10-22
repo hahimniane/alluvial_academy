@@ -6,7 +6,7 @@ import { monthName } from "./months.ts";
 import type { MonthSummary } from "./summary.ts";
 
 export type CloseCheck = {
-  id: "ended" | "audits" | "recurring" | "paid";
+  id: "ended" | "audits" | "recurring" | "paid" | "adjust";
   ok: boolean;
   text: string;
   /** Where to fix it; null when nothing can be done there. */
@@ -24,7 +24,10 @@ export function lastDay(month: string): number {
 export function closeChecklist(summary: MonthSummary, ended: boolean): CloseCheck[] {
   const name = monthName(summary.month);
   const people = summary.unpaid_teachers + summary.unpaid_admins;
-  return [
+  const staffHref = `/admin/finance/staff/?month=${summary.month}`;
+  const estimate = people === 0 && !summary.final && summary.status !== "closed";
+  const mismatched = summary.admin_payout_mismatches ?? 0;
+  const checks: CloseCheck[] = [
     {
       id: "ended",
       ok: ended,
@@ -48,11 +51,21 @@ export function closeChecklist(summary: MonthSummary, ended: boolean): CloseChec
     },
     {
       id: "paid",
-      ok: people === 0,
-      text: people === 0 ? "Everyone is paid" : `${people} staff still to pay`,
-      href: people === 0 ? null : `/admin/finance/staff/?month=${summary.month}`,
+      ok: people === 0 && !estimate,
+      // Nothing final to pay yet is not "everyone is paid": the pay is still an estimate.
+      text: people > 0 ? `${people} staff still to pay` : estimate ? "Pay is still an estimate" : "Everyone is paid",
+      href: people === 0 && !estimate ? null : staffHref,
     },
   ];
+  if (mismatched > 0) {
+    checks.push({
+      id: "adjust",
+      ok: false,
+      text: `Adjust ${plural(mismatched, "administrator payment", "administrator payments")}`,
+      href: staffHref,
+    });
+  }
+  return checks;
 }
 
 export function canClose(checks: CloseCheck[]): boolean {

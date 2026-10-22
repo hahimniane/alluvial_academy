@@ -261,14 +261,43 @@ describe('administrator pay', () => {
     expect(m.termsInForce(terms, '2025-12')).toBeNull();
   });
 
-  test('a pause covers its months, to the last one named', () => {
-    const pauses = [{from_month: '2026-09', until_month: '2026-10', reason: 'Leave', auto: false}];
+  test('a pause covers its months up to, not including, the month pay resumes in', () => {
+    const pauses = [{from_month: '2026-09', until_month: '2026-11', reason: 'Leave', auto: false}];
     expect(m.pauseFor(pauses, '2026-08')).toBeNull();
     expect(m.pauseFor(pauses, '2026-09')).toEqual({reason: 'Leave', auto: false});
     expect(m.pauseFor(pauses, '2026-10')).toEqual({reason: 'Leave', auto: false});
     expect(m.pauseFor(pauses, '2026-11')).toBeNull();
     expect(m.pauseFor([{from_month: '2026-09', until_month: null, reason: 'Deactivated', auto: true}], '2027-03'))
       .toEqual({reason: 'Deactivated', auto: true});
+  });
+});
+
+describe('pauses agree with the staff-pay rule (resume month is paid)', () => {
+  const staffMath = require('../utils/finance_staff_math');
+
+  test('paused from 2026-11 and resumed from 2026-11 is not paused in 2026-11', () => {
+    const pauses = [{from_month: '2026-11', until_month: '2026-11', reason: 'Leave', auto: false}];
+    expect(m.pauseFor(pauses, '2026-11')).toBeNull();
+    expect(staffMath.pauseForMonth(pauses, '2026-11')).toBeNull();
+  });
+
+  test('paused from 2026-11 and resumed from 2026-12 is paused in 2026-11 only', () => {
+    const pauses = [{from_month: '2026-11', until_month: '2026-12', reason: 'Leave', auto: false}];
+    for (const month of ['2026-10', '2026-11', '2026-12', '2027-01']) {
+      expect(Boolean(m.pauseFor(pauses, month))).toBe(Boolean(staffMath.pauseForMonth(pauses, month)));
+    }
+    expect(m.pauseFor(pauses, '2026-10')).toBeNull();
+    expect(m.pauseFor(pauses, '2026-11')).not.toBeNull();
+    expect(m.pauseFor(pauses, '2026-12')).toBeNull();
+  });
+
+  test('a summary pays the administrator in the month pay resumes', () => {
+    const terms = [{id: 'a1', uid: 'a1', name: 'A', terms: [{from_month: '2026-01', fixed: 100, pct: 0}],
+      pauses: [{from_month: '2026-11', until_month: '2026-12', reason: 'Leave', auto: false}]}];
+    const nov = m.buildMonthSummary({month: '2026-11', now: new Date('2026-12-05T16:00:00Z'), adminTerms: terms});
+    const dec = m.buildMonthSummary({month: '2026-12', now: new Date('2027-01-05T16:00:00Z'), adminTerms: terms});
+    expect(nov.admins[0]).toMatchObject({total: 0, paused: {reason: 'Leave'}});
+    expect(dec.admins[0]).toMatchObject({total: 100, paused: null});
   });
 });
 
@@ -427,6 +456,34 @@ describe('buildMonthSummary', () => {
     expect(s).toMatchObject({unpaid_teachers: 1, unpaid_admins: 0, final: false});
   });
 
+  test('an administrator payout that is not the amount due counts as a mismatch (more than a cent)', () => {
+    const data = input();
+    data.audits[1].status = 'completed';
+    data.recurringCosts = [];
+    data.confirmations = [];
+    data.payouts = [];
+    const due = m.buildMonthSummary(data).admins[0].total;
+    const withPaid = (paid, extra = {}) => m.buildMonthSummary({
+      ...data,
+      payouts: [{user_id: 'a1', role: 'admin', month: '2026-09', amount_paid: paid, ...extra}],
+    });
+    expect(withPaid(due).admin_payout_mismatches).toBe(0);
+    expect(withPaid(due + 0.01).admin_payout_mismatches).toBe(0);
+    expect(withPaid(due + 3.69).admin_payout_mismatches).toBe(1);
+    expect(withPaid(due - 5).admin_payout_mismatches).toBe(1);
+    expect(withPaid(due + 3.69, {voided: true}).admin_payout_mismatches).toBe(0);
+    // Teacher payouts are not administrator payments.
+    expect(withPaid(999, {role: 'teacher'}).admin_payout_mismatches).toBe(0);
+  });
+
+  test('no mismatch is reported while the month is still an estimate', () => {
+    const data = input();
+    data.payouts = [{user_id: 'a1', role: 'admin', month: '2026-09', amount_paid: 1}];
+    const s = m.buildMonthSummary(data);
+    expect(s.final).toBe(false);
+    expect(s.admin_payout_mismatches).toBe(0);
+  });
+
   test('a month still running is never final', () => {
     const s = m.buildMonthSummary({...input(), month: '2026-10', invoices: []});
     expect(s.final).toBe(false);
@@ -447,6 +504,13 @@ describe('closeBlockers', () => {
       '1 recurring cost is not confirmed',
       '3 people are not paid',
     ]);
+  });
+
+  test('asks to adjust administrator payments that differ from what is due', () => {
+    expect(m.closeBlockers({month: '2026-09', now: NOW, unapprovedAudits: 0, summary: summary({admin_payout_mismatches: 1})}))
+      .toEqual(['Adjust 1 administrator payment']);
+    expect(m.closeBlockers({month: '2026-09', now: NOW, unapprovedAudits: 0, summary: summary({admin_payout_mismatches: 3})}))
+      .toEqual(['Adjust 3 administrator payments']);
   });
 
   test('is empty when the month can be closed', () => {

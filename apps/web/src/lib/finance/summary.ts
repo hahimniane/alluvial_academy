@@ -50,6 +50,8 @@ export type MonthSummary = {
   recurring_due: number;
   unpaid_teachers: number;
   unpaid_admins: number;
+  /** Administrator payouts that differ from what is due by more than a cent (0 until pay is final). */
+  admin_payout_mismatches?: number;
   overdue_invoices: number;
   first_invoices_this_week: number;
   teachers: TeacherLine[];

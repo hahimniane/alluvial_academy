@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canClose, closeChecklist, lastDay } from "../finance/closeChecks.ts";
 import { financeHref } from "../finance/links.ts";
+import { isFinanceMonth, monthFromParam } from "../finance/months.ts";
 import { NUMERIC_SETTINGS, ordinal, parseNumericSetting } from "../finance/settings.ts";
 import type { MonthSummary } from "../finance/summary.ts";
 
@@ -42,6 +43,30 @@ test("what is left is named, with the page that fixes it", () => {
   ]);
 });
 
+test("nothing final to pay is not 'everyone is paid'", () => {
+  const unfinished = closeChecklist(summary({ final: false, teacher_pay_final: false }), true);
+  const paid = unfinished.find((c) => c.id === "paid")!;
+  assert.equal(paid.text, "Pay is still an estimate");
+  assert.equal(paid.ok, false);
+  assert.equal(paid.href, "/admin/finance/staff/?month=2026-09");
+  assert.equal(canClose(unfinished), false);
+  // A closed month shows its stored figures: it was final when closed.
+  assert.equal(closeChecklist(summary({ final: true, status: "closed" }), true).find((c) => c.id === "paid")!.text, "Everyone is paid");
+  // People still to pay take precedence over the estimate wording.
+  assert.equal(closeChecklist(summary({ final: false, unpaid_teachers: 1 }), true).find((c) => c.id === "paid")!.text, "1 staff still to pay");
+});
+
+test("an administrator paid a different amount than is due must be adjusted before closing", () => {
+  const checks = closeChecklist(summary({ admin_payout_mismatches: 2 }), true);
+  const adjust = checks.find((c) => c.id === "adjust")!;
+  assert.equal(adjust.text, "Adjust 2 administrator payments");
+  assert.equal(adjust.ok, false);
+  assert.equal(adjust.href, "/admin/finance/staff/?month=2026-09");
+  assert.equal(canClose(checks), false);
+  assert.equal(closeChecklist(summary({ admin_payout_mismatches: 1 }), true).find((c) => c.id === "adjust")!.text, "Adjust 1 administrator payment");
+  assert.equal(closeChecklist(summary(), true).some((c) => c.id === "adjust"), false);
+});
+
 test("a month that has not ended says when it does and cannot be closed", () => {
   const checks = closeChecklist(summary({ month: "2026-10" }), false);
   assert.equal(checks[0].ok, false);
@@ -77,4 +102,14 @@ test("ordinals", () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 25, 28].map(ordinal), [
     "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "25th", "28th",
   ]);
+});
+
+test("a month in the URL must be a real month, else the current one is used (the server answers anything else with a 400)", () => {
+  const now = new Date("2026-10-22T16:00:00Z");
+  assert.equal(monthFromParam("2026-09", now), "2026-09");
+  for (const bad of [null, undefined, "", "undefined", "2026-13", "2026-00", "2026-9", "26-09", "2026-09-01"]) {
+    assert.equal(monthFromParam(bad, now), "2026-10", String(bad));
+  }
+  assert.equal(isFinanceMonth("2026-12"), true);
+  assert.equal(isFinanceMonth("2026-1"), false);
 });

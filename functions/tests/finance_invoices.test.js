@@ -361,14 +361,14 @@ describe('editInvoice', () => {
     expect(db.store.invoices.inv_1.edit_history.map((h) => h.reason)).toEqual(['Schedule changed to 3 classes a week', 'Back to 90']);
   });
 
-  test('lowering below what was paid marks it paid and opens a family credit', async () => {
+  test('lowering below what was paid sets paid to the new total, marks it paid and opens a family credit', async () => {
     const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
     const deps = depsFor(db);
     const out = await call(editInvoice, deps, goodEdit({lines: [{description: 'Tuition - Amina', amount: 60, student_id: 'stu_1'}]}));
 
     const stored = db.store.invoices.inv_1;
     expect(stored.total_amount).toBe(60);
-    expect(stored.paid_amount).toBe(100);
+    expect(stored.paid_amount).toBe(60);
     expect(stored.status).toBe('paid');
     expect(out.credit_id).toBeTruthy();
     expect(db.store.family_credits[out.credit_id]).toMatchObject({
@@ -381,6 +381,21 @@ describe('editInvoice', () => {
       invoice_id: 'inv_1',
     });
     expect(stored.edit_history[0].credit_id).toBe(out.credit_id);
+    // The history keeps paid before and after.
+    expect(stored.edit_history[0].before).toMatchObject({total_amount: 100, paid_amount: 100});
+    expect(stored.edit_history[0].after).toMatchObject({total_amount: 60, paid_amount: 60});
+    expect(out.invoice).toMatchObject({total_amount: 60, paid_amount: 60});
+  });
+
+  test('Collected in the month summary follows the lowered paid amount', async () => {
+    const monthMath = require('../utils/finance_math');
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const month = '2026-10';
+    expect(monthMath.invoiceTotals([{id: 'inv_1', ...db.store.invoices.inv_1}], month)).toMatchObject({billed: 100, collected: 100});
+    await call(editInvoice, depsFor(db), goodEdit({lines: [{description: 'Tuition - Amina', amount: 60, student_id: 'stu_1'}]}));
+    expect(monthMath.invoiceTotals([{id: 'inv_1', ...db.store.invoices.inv_1}], month)).toMatchObject({billed: 60, collected: 60, owed: 0});
+    expect(monthMath.buildMonthSummary({month, now: new Date('2026-11-05T16:00:00Z'), invoices: [{id: 'inv_1', ...db.store.invoices.inv_1}]}))
+      .toMatchObject({billed: 60, collected: 60, owed: 0});
   });
 
   test('raising a paid invoice leaves it pending with the balance owed', async () => {
@@ -551,6 +566,38 @@ describe('editInvoice: credit follows the NEW shortfall only', () => {
     expect(second.credit_id).toBeUndefined();
     expect(db.store.family_credits[first.credit_id]).toMatchObject({status: 'open', amount: 20, original_amount: 40});
     expect(credits(db)).toHaveLength(1); // never a negative or extra credit
+    // The 20 given back to the invoice is paid again: 60 + 20.
+    expect(db.store.invoices.inv_1).toMatchObject({total_amount: 80, paid_amount: 80, status: 'paid'});
+    expect(db.store.invoices.inv_1.edit_history[1].before.paid_amount).toBe(60);
+    expect(db.store.invoices.inv_1.edit_history[1].after.paid_amount).toBe(80);
+  });
+
+  test('paid plus open credit always add up to the money received', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const deps = depsFor(db);
+    const openCredit = () => credits(db).filter(([, c]) => c.status === 'open').reduce((sum, [, c]) => sum + c.amount, 0);
+    for (const amount of [60, 80, 70, 100, 90]) {
+      await call(editInvoice, deps, goodEdit({lines: lines(amount), reason: `Set ${amount}`}));
+      expect(db.store.invoices.inv_1.paid_amount + openCredit()).toBe(100);
+      expect(db.store.invoices.inv_1.paid_amount).toBe(amount);
+    }
+  });
+
+  test('raising beyond the original total keeps what was paid and owes the rest', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const deps = depsFor(db);
+    await call(editInvoice, deps, goodEdit({lines: lines(60)}));
+    await call(editInvoice, deps, goodEdit({lines: lines(150), reason: 'Added a student'}));
+    expect(db.store.invoices.inv_1).toMatchObject({total_amount: 150, paid_amount: 100, status: 'pending'});
+    expect(credits(db).filter(([, c]) => c.status === 'open')).toHaveLength(0);
+  });
+
+  test('an older invoice left with paid above its total is brought back to the total', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, total_amount: 60, status: 'paid', items: [{description: 'Tuition - Amina', quantity: 1, unit_price: 60, total: 60, student_id: 'stu_1', shift_ids: []}]}}));
+    db.store.family_credits.old = {source: 'invoice_edit', status: 'open', amount: 40, invoice_id: 'inv_1'};
+    await call(editInvoice, depsFor(db), goodEdit({lines: lines(80)}));
+    expect(db.store.invoices.inv_1).toMatchObject({total_amount: 80, paid_amount: 80, status: 'paid'});
+    expect(db.store.family_credits.old).toMatchObject({status: 'open', amount: 20});
   });
 
   test('raising to or past the paid amount cancels the open credit', async () => {
@@ -570,6 +617,8 @@ describe('editInvoice: credit follows the NEW shortfall only', () => {
     await call(editInvoice, depsFor(db), goodEdit({lines: lines(100)}));
     expect(db.store.family_credits.used_1).toMatchObject({status: 'used', amount: 40});
     expect(credits(db)).toHaveLength(1);
+    // Those 40 were used elsewhere, so only 60 is paid here and 40 is owed.
+    expect(db.store.invoices.inv_1).toMatchObject({total_amount: 100, paid_amount: 60, status: 'pending'});
   });
 
   test('only credits of this invoice and source invoice_edit are touched', async () => {

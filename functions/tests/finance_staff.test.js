@@ -109,7 +109,17 @@ const seed = () => ({
   },
 });
 
-const makeDeps = (db, closed = false) => {
+// What the month summary says about administrators; `final` is what a test flips.
+const summaryFor = (over = {}) => ({
+  final: true,
+  admins: [
+    {uid: 'adm_2', total: 300},
+    {uid: 'adm_3', total: 200},
+  ],
+  ...over,
+});
+
+const makeDeps = (db, closed = false, summary = summaryFor()) => {
   const assertMonthOpen = jest.fn(async () => {
     if (closed) {
       const e = new Error('This month is closed.');
@@ -122,6 +132,7 @@ const makeDeps = (db, closed = false) => {
     Timestamp,
     verifyAdmin: async () => ({callerUid: 'admin_1', effectiveAdminEmail: 'hawa@example.com'}),
     assertMonthOpen,
+    monthSummary: jest.fn(async () => summary),
   };
 };
 
@@ -226,13 +237,40 @@ describe('recordStaffPayouts', () => {
     expect(db.store.staff_payouts['2026-07_adm_3_admin']).toMatchObject({role: 'admin', amount_due: 200, amount_paid: 200, name: 'Paused Person'});
   });
 
-  test('an administrator is due the total the page shows when it sends one, else the fixed pay', async () => {
+  test('an administrator is due the month summary total, not the number the page sends', async () => {
     const db = makeDb(seed());
-    const deps = makeDeps(db);
+    const deps = makeDeps(db, false, summaryFor({admins: [{uid: 'adm_2', total: 412.5}]}));
+    await recordStaffPayouts({data: {month: '2026-09', entries: [{...entry({uid: 'adm_2', role: 'admin', amount_paid: 412.5}), amount_due: 1}]}}, deps);
+    expect(db.store.staff_payouts['2026-09_adm_2_admin'].amount_due).toBe(412.5);
+    expect(deps.monthSummary).toHaveBeenCalledWith(db, Timestamp, '2026-09');
+  });
+
+  test('an administrator missing from the summary falls back to the page total, else the fixed pay', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db, false, summaryFor({admins: []}));
     await recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}}, deps);
     expect(db.store.staff_payouts['2026-09_adm_2_admin'].amount_due).toBe(300);
     await recordStaffPayouts({data: {month: '2026-08', entries: [{...entry({uid: 'adm_2', role: 'admin', amount_paid: 412.5}), amount_due: 412.5}]}}, deps);
     expect(db.store.staff_payouts['2026-08_adm_2_admin'].amount_due).toBe(412.5);
+  });
+
+  test('administrator pay is not payable while the month is an estimate', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db, false, summaryFor({final: false}));
+    await expect(
+      recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}}, deps)
+    ).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: 'Administrator pay is final once every cost for the month is confirmed.',
+    });
+    // A mixed batch writes nothing for anyone, and teachers alone never ask for the summary.
+    await expect(
+      recordStaffPayouts({data: {month: '2026-09', entries: [entry(), entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}}, deps)
+    ).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toEqual([]);
+    const teacherOnly = makeDeps(db, false, summaryFor({final: false}));
+    await recordStaffPayouts({data: {month: '2026-09', entries: [entry()]}}, teacherOnly);
+    expect(teacherOnly.monthSummary).not.toHaveBeenCalled();
   });
 
   test('validates the entry', async () => {
@@ -258,6 +296,52 @@ describe('recordStaffPayouts', () => {
     );
     expect(out.count).toBe(2);
     expect(Object.keys(db.store.staff_payouts).sort()).toEqual(['2026-09_t1_teacher', '2026-09_t3_teacher']);
+  });
+});
+
+describe('administrator pay uses the real month maths', () => {
+  const math = require('../utils/finance_math');
+  const month = '2026-09';
+  const base = (over = {}) => ({
+    month,
+    now: new Date('2026-10-22T16:00:00Z'),
+    invoices: [{id: 'i1', status: 'paid', total_amount: 1000, paid_amount: 1000, period: month}],
+    audits: [{id: 't1_2026-09', userId: 't1', teacherName: 'A', status: 'ceoApproved', totalHoursTaught: 10,
+      paymentSummary: {totalNetPayment: 400, totalGrossPayment: 400, totalPenalties: 0}}],
+    adminTerms: [{id: 'adm_2', uid: 'adm_2', name: 'Sajor Bah', terms: [{from_month: '2026-01', fixed: 100, pct: 10}], pauses: []}],
+    ...over,
+  });
+  const live = (data) => jest.fn(async () => math.buildMonthSummary(data));
+  const run = (data) => {
+    const db = makeDb(seed());
+    const deps = {...makeDeps(db), monthSummary: live(data)};
+    return {db, call: (paid) => recordStaffPayouts({data: {month, entries: [entry({uid: 'adm_2', role: 'admin', amount_paid: paid})]}}, deps)};
+  };
+
+  test('a finished, fully confirmed month pays fixed plus the share of the final base', async () => {
+    const {db, call} = run(base());
+    await call(160);
+    expect(db.store.staff_payouts['2026-09_adm_2_admin']).toMatchObject({amount_due: 160, amount_paid: 160});
+  });
+
+  test('a pending recurring cost keeps it an estimate', async () => {
+    const {db, call} = run(base({recurringCosts: [{id: 'r1', category: 'software', amount: 20, day_of_month: 5, start_month: '2026-01'}]}));
+    await expect(call(160)).rejects.toMatchObject({message: expect.stringContaining('final once every cost')});
+    expect(db.writes).toEqual([]);
+  });
+
+  test('a teacher audit that is not approved keeps it an estimate', async () => {
+    const data = base();
+    data.audits[0].status = 'coachSubmitted';
+    const {db, call} = run(data);
+    await expect(call(160)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toEqual([]);
+  });
+
+  test('a month that has not ended is an estimate', async () => {
+    const {db, call} = run(base({now: new Date('2026-09-20T16:00:00Z')}));
+    await expect(call(160)).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toEqual([]);
   });
 });
 

@@ -351,9 +351,9 @@ export function BankDeposits() {
           </div>
           {needSetup || status?.plaid_available === false ? (
             <div role="status" className="rounded-lg bg-amber-100 p-3 text-sm text-amber-900">
-              <p className="font-semibold">{t("Alluwal has to finish the bank setup first.")}</p>
+              <p className="font-semibold">{t("Alluwal needs to finish the bank setup (Plaid) first.")}</p>
               <p className="mt-1">
-                {t("Open a Plaid account, ask for Production access, and save the Plaid keys on the server. Then this button opens your bank’s sign-in. The step-by-step guide is docs/finance/BANK_AND_WHATSAPP_SETUP.md.")}
+                {t("Once the setup is done, this button opens your bank’s sign-in. The setup guide is with your developer.")}
               </p>
             </div>
           ) : null}
@@ -370,7 +370,7 @@ export function BankDeposits() {
               : t("Parent messages are off in Settings, so nothing is sent back to parents.")
             : status?.whatsapp_available
               ? t("The WhatsApp number is set up but Meta has not confirmed the webhook yet.")
-              : t("Parents will send their Zelle screenshot to the Alluwal WhatsApp number once it is connected. The guide is docs/finance/BANK_AND_WHATSAPP_SETUP.md.")}
+              : t("Parents will send their Zelle screenshot to the Alluwal WhatsApp number once it is connected. The setup guide is with your developer.")}
         </span>
       </div>
 
@@ -571,7 +571,7 @@ export function BankDeposits() {
 
       {showBank ? (
         <div className="flex flex-wrap items-start gap-4">
-          <div className={`${card} min-w-0 flex-[2_1_420px] overflow-x-auto`}>
+          <div className={`${card} min-w-0 flex-[2_1_420px] relative overflow-x-auto`}>
             <table className="w-full min-w-[560px] border-collapse text-[13px]">
               <caption className="sr-only">{t("Matched deposits and charges for {month}", { month: monthLabel(month) })}</caption>
               <thead>

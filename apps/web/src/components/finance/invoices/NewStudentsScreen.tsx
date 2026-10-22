@@ -137,7 +137,7 @@ export function NewStudentsScreen() {
         <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">No new students in the last 60 days.</p>
       ) : (
         <>
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+          <div className="relative hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[720px] border-collapse text-[13px]">
               <thead>
                 <tr className="bg-slate-50 text-left text-slate-700">

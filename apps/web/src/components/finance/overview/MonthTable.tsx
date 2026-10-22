@@ -32,7 +32,7 @@ export function MonthTable({ rows }: { rows: MonthSummary[] }) {
           </div>
         ))}
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[820px] border-collapse text-[13px]">
           <caption className="sr-only">Billed, costs and profit for each month</caption>
           <thead>

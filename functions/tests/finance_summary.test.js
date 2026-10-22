@@ -33,7 +33,7 @@ const SPEC_KEYS = [
   'month', 'status', 'final', 'billed', 'collected', 'owed', 'discounts', 'credit_open', 'penalties',
   'teacher_pay', 'teacher_pay_final', 'admin_pay', 'admin_base', 'software', 'marketing', 'transfer_fees',
   'other', 'expenses', 'profit', 'invoice_count', 'families_owing', 'recurring_pending', 'recurring_due',
-  'unpaid_teachers', 'unpaid_admins', 'overdue_invoices', 'first_invoices_this_week', 'teachers', 'admins',
+  'unpaid_teachers', 'unpaid_admins', 'admin_payout_mismatches', 'overdue_invoices', 'first_invoices_this_week', 'teachers', 'admins',
 ].sort();
 
 const seed = () => ({

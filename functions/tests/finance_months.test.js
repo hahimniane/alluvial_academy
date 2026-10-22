@@ -127,6 +127,22 @@ describe('closeFinanceMonth', () => {
     });
   });
 
+  test('an administrator paid a different amount than is due holds it up until it is adjusted', async () => {
+    const data = readySeed();
+    // Base 300 - (80 + 30 + 50) = 140; 100 fixed + 10% = 114.00 due.
+    data.admin_pay_terms = {adm_2: {name: 'Sajor Bah', terms: [{from_month: '2026-01', fixed: 100, pct: 10}], pauses: []}};
+    data.staff_payouts['2026-09_adm_2_admin'] = {user_id: 'adm_2', role: 'admin', month: '2026-09', amount_paid: 117.69};
+    const db = makeDb(data);
+    await expect(close(db, {month: '2026-09'})).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('Adjust 1 administrator payment'),
+    });
+    expect(db.store.finance_months).toBeUndefined();
+    // Void + re-pay at the right amount (within a cent) lets it close.
+    data.staff_payouts['2026-09_adm_2_admin'].amount_paid = 114.005;
+    await expect(close(makeDb(data), {month: '2026-09'})).resolves.toEqual({ok: true});
+  });
+
   test('a voided payout leaves the person unpaid', async () => {
     const data = readySeed();
     data.staff_payouts['2026-09_t1'].voided = true;

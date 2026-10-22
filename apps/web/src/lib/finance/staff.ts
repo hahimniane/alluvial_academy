@@ -40,6 +40,8 @@ export type StaffSummary = {
   admin_pay?: number;
   admin_base?: number;
   penalties?: number;
+  /** Administrator payouts that differ from what is due by more than a cent. */
+  admin_payout_mismatches?: number;
   teachers: SummaryTeacher[];
   admins: SummaryAdmin[];
 };
@@ -109,10 +111,20 @@ export function todayNy(now: Date = new Date()): string {
 
 export type PayState = "unpaid" | "partial" | "paid";
 
+/** A payout within a cent of what is due counts as the amount due (the server uses the same cent). */
+export const PAY_TOLERANCE = 0.01;
+
 /** What a person's payout looks like against what they are owed. A voided payout is unpaid. */
 export function payState(due: number, payout: Payout | null | undefined): PayState {
   if (!payout || payout.voided || !(payout.amount_paid > 0)) return "unpaid";
-  return payout.amount_paid + 0.004 >= due ? "paid" : "partial";
+  return payout.amount_paid + PAY_TOLERANCE + 1e-9 >= due ? "paid" : "partial";
+}
+
+/** How much more than is due has been paid (0 when it is not over by more than a cent). */
+export function overpaidBy(due: number, payout: Payout | null | undefined): number {
+  if (!payout || payout.voided) return 0;
+  const over = r2(payout.amount_paid - due);
+  return over > PAY_TOLERANCE + 1e-9 ? over : 0;
 }
 
 export function amountLeft(due: number, payout: Payout | null | undefined): number {
@@ -125,12 +137,15 @@ export function payLabel(due: number, payout: Payout | null | undefined): string
   const state = payState(due, payout);
   if (state === "unpaid" || !payout) return "Unpaid";
   const parts: string[] = [];
-  if (state === "partial") {
-    parts.push(`Paid ${money(payout.amount_paid)} of ${money(due)} · ${money(amountLeft(due, payout))} left`);
+  const over = overpaidBy(due, payout);
+  if (over > 0) {
+    // Paid before the figure was final: say plainly what was paid and what is due.
+    parts.push(`Paid ${money(payout.amount_paid)} · due ${money(due)} · overpaid ${money(over)}`, shortDate(payout.date_paid));
+  } else if (state === "partial") {
+    parts.push(`Paid ${money(payout.amount_paid)} of ${money(due)} · ${money(amountLeft(due, payout))} left`, shortDate(payout.date_paid));
   } else {
     parts.push(`Paid ${shortDate(payout.date_paid)}`);
   }
-  if (state === "partial") parts.push(shortDate(payout.date_paid));
   if (payout.method) parts.push(payout.method);
   if (payout.transfer_fee > 0) parts.push(`fee ${money(payout.transfer_fee)}`);
   if (payout.reference) parts.push(`ref ${payout.reference}`);
@@ -174,11 +189,22 @@ export function teacherRows(summary: StaffSummary, payouts: Map<string, Payout>)
   });
 }
 
+/** Why an administrator cannot be paid yet (the server refuses with the same words). */
+export const ADMIN_ESTIMATE = "Administrator pay is final once every cost for the month is confirmed.";
+
 export function adminRows(summary: StaffSummary, payouts: Map<string, Payout>): PayableRow[] {
   return summary.admins.map((a) => {
     const payout = payouts.get(payoutKey("admin", a.uid)) ?? null;
     const state = payState(a.total, payout);
-    const blocked = a.paused ? "Pay is paused" : state === "paid" ? "Already paid" : a.total <= 0 ? "Nothing to pay" : "";
+    const blocked = a.paused
+      ? "Pay is paused"
+      : state === "paid"
+        ? "Already paid"
+        : summary.final === false
+          ? ADMIN_ESTIMATE
+          : a.total <= 0
+            ? "Nothing to pay"
+            : "";
     return { uid: a.uid, name: a.name, role: "admin", due: a.total, payout, payable: !blocked, blocked };
   });
 }
@@ -216,6 +242,10 @@ export function termInForce(terms: PayTerm[] | undefined, month: string): PayTer
   return best;
 }
 
+/**
+ * The pause covering `month`: from_month <= month < until_month, where
+ * until_month is the month pay resumes in (it is paid), as on the server.
+ */
 export function pauseForMonth(pauses: PayPause[] | undefined, month: string): PayPause | null {
   for (const p of pauses ?? []) {
     if (p.from_month > month) continue;
@@ -228,6 +258,16 @@ export function pauseForMonth(pauses: PayPause[] | undefined, month: string): Pa
 export function openPause(pauses: PayPause[] | undefined): PayPause | null {
   const open = (pauses ?? []).filter((p) => !p.until_month);
   return open.length ? open[open.length - 1] : null;
+}
+
+/** The open pause starts after `month`: pay is not paused yet in that month. */
+export function pauseScheduledAfter(open: PayPause | null, month: string): boolean {
+  return Boolean(open && open.from_month > month);
+}
+
+/** "Pause scheduled from December" */
+export function scheduledPauseLabel(pause: PayPause): string {
+  return `Pause scheduled from ${monthName(pause.from_month)}`;
 }
 
 /** "Paused since Oct · Account deactivated Oct 22 (automatic)" */

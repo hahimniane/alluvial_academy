@@ -54,7 +54,10 @@ export function AdminPayDialog({
   const [note, setNote] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filter, setFilter] = useState("");
+  // The share is worked out from the admin_base of the month the terms start in,
+  // never from another month's figure: until it arrives the preview says so.
   const [bases, setBases] = useState<Record<string, number>>({ [summary.month]: summary.admin_base ?? 0 });
+  const [failedBases, setFailedBases] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const asked = useRef(new Set<string>([summary.month]));
@@ -70,9 +73,17 @@ export function AdminPayDialog({
   useEffect(() => {
     if (asked.current.has(from)) return;
     asked.current.add(from);
+    setFailedBases((f) => {
+      const next = new Set(f);
+      next.delete(from);
+      return next;
+    });
     callFinance<StaffSummary>("getFinanceMonthSummary", { month: from })
       .then((s) => setBases((b) => ({ ...b, [from]: s.admin_base ?? 0 })))
-      .catch(() => undefined);
+      .catch(() => {
+        asked.current.delete(from);
+        setFailedBases((f) => new Set(f).add(from));
+      });
   }, [from]);
 
   const fixedNum = Number(fixed);
@@ -157,7 +168,11 @@ export function AdminPayDialog({
         </Field>
       ) : null}
       <div aria-live="polite" className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-        {previewText(fixedNum, pctNum, bases[from] ?? 0, from)}
+        {bases[from] !== undefined
+          ? previewText(fixedNum, pctNum, bases[from], from)
+          : failedBases.has(from)
+            ? `The share for ${monthLabel(from)} could not be worked out. Choose the month again to retry.`
+            : `Working out the share for ${monthLabel(from)}…`}
       </div>
       <p className="text-xs text-slate-600">The share is a % of what is left after all other costs that month. A month that loses money pays the fixed amount only. Closed months keep the pay they had.</p>
       {hasHistory && terms ? (
@@ -188,6 +203,7 @@ export function PauseDialog({
   mode,
   uid,
   name,
+  cancelFrom,
   summaryMonth,
   closedMonths,
   onClose,
@@ -196,25 +212,27 @@ export function PauseDialog({
   mode: "pause" | "resume";
   uid: string;
   name: string;
+  /** Set to cancel a pause that has not started: pay "restarts" in the month the pause starts, so it never pauses. */
+  cancelFrom?: string;
   summaryMonth: string;
   closedMonths: Set<string>;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const options = useMemo(() => startOptions(closedMonths), [closedMonths]);
-  const [from, setFrom] = useState(options.includes(summaryMonth) ? summaryMonth : (options.find((m) => m >= summaryMonth) ?? options[0] ?? summaryMonth));
+  const [from, setFrom] = useState(cancelFrom ?? (options.includes(summaryMonth) ? summaryMonth : (options.find((m) => m >= summaryMonth) ?? options[0] ?? summaryMonth)));
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pause = mode === "pause";
-  const title = `${pause ? "Pause" : "Resume"} pay for ${name}`;
+  const title = cancelFrom ? `Cancel the pause of pay for ${name}` : `${pause ? "Pause" : "Resume"} pay for ${name}`;
 
   const submit = async () => {
     if (!reason.trim()) return setError(pause ? "Say why the pay is paused." : "Say why the pay restarts.");
     setBusy(true);
     try {
       await callFinance(pause ? "pauseAdminPay" : "resumeAdminPay", { uid, from_month: from, reason: reason.trim() });
-      onDone(pause ? `${name}’s pay paused from ${monthLabel(from)}` : `${name}’s pay resumes in ${monthLabel(from)}`);
+      onDone(cancelFrom ? `${name}’s pause from ${monthLabel(from)} is cancelled` : pause ? `${name}’s pay paused from ${monthLabel(from)}` : `${name}’s pay resumes in ${monthLabel(from)}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save.");
       setBusy(false);
@@ -223,9 +241,9 @@ export function PauseDialog({
 
   return (
     <Modal title={title} onClose={onClose}>
-      <Field label={pause ? "Starting" : "Pay restarts in"}>
-        <select className={INPUT} value={from} onChange={(e) => setFrom(e.target.value)}>
-          {options.map((m) => (
+      <Field label={cancelFrom ? "Pause starts in" : pause ? "Starting" : "Pay restarts in"}>
+        <select className={INPUT} value={from} disabled={Boolean(cancelFrom)} onChange={(e) => setFrom(e.target.value)}>
+          {(cancelFrom ? [cancelFrom] : options).map((m) => (
             <option key={m} value={m}>
               {monthLabel(m)}
             </option>
@@ -233,10 +251,12 @@ export function PauseDialog({
         </select>
       </Field>
       <Field label="Reason (required)">
-        <input className={INPUT} type="text" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={pause ? "e.g. On leave until January" : "e.g. Back from leave"} />
+        <input className={INPUT} type="text" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={pause ? "e.g. On leave until January" : cancelFrom ? "e.g. Leave was called off" : "e.g. Back from leave"} />
       </Field>
       <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-        {pause
+        {cancelFrom
+          ? `Their pay will not pause from ${monthLabel(cancelFrom)}. It continues at their saved terms.`
+          : pause
           ? `From ${monthLabel(from)} they get no fixed pay and no share, and they cannot be marked paid. Months before stay as they are.`
           : `Pay restarts in ${monthLabel(from)} at their saved terms.`}
       </div>

@@ -224,7 +224,10 @@ test("sorts: due, amount, days overdue, family, newest", () => {
   assert.deepEqual(ids("due"), ["6", "3", "4", "5", "2", "1"]);
   assert.deepEqual(ids("amount"), ["1", "2", "5", "3", "4", "6"]);
   assert.deepEqual(ids("overdue").slice(0, 3), ["6", "3", "2"]);
-  assert.deepEqual(ids("family").slice(0, 2), ["6", "3"]); // Hawa Jalloh first, earlier due first
+  // Surname first: Camara (p1), then Jalloh (p3), then Sow (p2); earlier due first inside a family.
+  const surnames = filterAndSort(set(), withF({ sort: "family" })).rows.map((r) => r.familyName.split(" ").pop());
+  assert.deepEqual(surnames, [...surnames].sort((a, b) => a!.localeCompare(b!)));
+  assert.equal(surnames[0], "Camara");
   const newer = rows([inv("old", { issued_date: new Date("2026-08-01T00:00:00Z") }), inv("new", { issued_date: new Date("2026-10-20T00:00:00Z") })]);
   assert.deepEqual(filterAndSort(newer, withF({ sort: "newest" })).rows.map((r) => r.inv.id), ["new", "old"]);
 });
@@ -396,7 +399,7 @@ test("timeline: issued, payments, recorded reminders, access", () => {
   });
   const t = buildTimeline(i, [{ amount: 30, at: new Date("2026-10-05T16:00:00Z"), method: "Zelle" }], "Mariama Camara", money, NOW);
   assert.deepEqual(t.entries, [
-    "Oct 1 — invoice sent to Mariama Camara",
+    "Oct 1 — invoice created",
     "Oct 5 — $30.00 received by Zelle",
     "Oct 9 — reminder sent (3 days before due)",
   ]);
@@ -409,6 +412,52 @@ test("timeline: issued, payments, recorded reminders, access", () => {
   });
   assert.deepEqual(buildTimeline(extended, [], "x", money, NOW).access, { text: "Class access extended to Oct 31", tone: "info" });
   assert.equal(buildTimeline(inv("c"), [], "x", money, NOW).access, null);
+});
+
+test("family sort is by surname, then first name, with unknown families last", () => {
+  const nm = new Map([
+    ["pa", "Zainab Bah"],
+    ["pb", "Aisha Bah"],
+    ["pc", "Mariama Camara"],
+    ["pd", "Omar Abdallah"],
+  ]);
+  const build = (invoices: ReturnType<typeof inv>[]) =>
+    invoices.map((i) => buildRow(i, { now: NOW, names: nm, teachersByStudent: new Map(), creditParents: new Set() }));
+  const list = build([
+    inv("1", { parent_id: "pc" }),
+    inv("2", { parent_id: "pa" }),
+    inv("3", { parent_id: "ghost" }),
+    inv("4", { parent_id: "pb" }),
+    inv("5", { parent_id: "pd" }),
+  ]);
+  const order = filterAndSort(list, withF({ sort: "family" })).rows.map((r) => r.familyName);
+  assert.deepEqual(order, ["Omar Abdallah", "Aisha Bah", "Zainab Bah", "Mariama Camara", "Unknown family"]);
+});
+
+test("timeline says created, not sent, unless the parent was messaged", () => {
+  const issued = new Date("2026-10-01T16:00:00Z");
+  const sent = inv("s", { issued_date: issued, notification_status: "sent" });
+  const pending = inv("p", { issued_date: issued, notification_status: "pending" });
+  assert.deepEqual(buildTimeline(sent, [], "Mariama Camara", money, NOW).entries, ["Oct 1 — invoice sent to Mariama Camara"]);
+  // Parent messages off: nobody was told, whatever the record says.
+  assert.deepEqual(buildTimeline(sent, [], "Mariama Camara", money, NOW, false).entries, ["Oct 1 — invoice created"]);
+  assert.deepEqual(buildTimeline(pending, [], "Mariama Camara", money, NOW).entries, ["Oct 1 — invoice created"]);
+});
+
+test("history shows paid before and after when an edit changed it", () => {
+  const i = normalizeInvoice("a", {
+    edit_history: [
+      {
+        at: new Date("2026-10-21T16:00:00Z"),
+        by_name: "Hawa Admin",
+        reason: "Fewer classes",
+        before: { total_amount: 100, paid_amount: 100 },
+        after: { total_amount: 60, paid_amount: 60 },
+        credit_amount: 40,
+      },
+    ],
+  });
+  assert.equal(historyText(i.editHistory[0], money), "Oct 21 — edited by Hawa Admin: total $100.00 → $60.00, paid $100.00 → $60.00, $40.00 became family credit · “Fewer classes”");
 });
 
 test("extend access moves to the end of the month", () => {

@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import {
   adminRows,
   amountLeft,
+  ADMIN_ESTIMATE,
   openPause,
+  overpaidBy,
   pauseForMonth,
+  pauseScheduledAfter,
+  scheduledPauseLabel,
   payLabel,
   payoutKey,
   payState,
@@ -66,6 +70,54 @@ test("pay state and labels", () => {
   assert.equal(payLabel(206, payout({ amount_paid: 150, transfer_fee: 0, reference: "" })), "Paid $150.00 of $206.00 · $56.00 left · Oct 3 · Mobile money");
   assert.equal(amountLeft(206, payout({ amount_paid: 150 })), 56);
   assert.equal(amountLeft(206, payout({ voided: true })), 206);
+});
+
+test("an administrator paid more than is due shows what was paid, what is due and the difference", () => {
+  const over = payout({ role: "admin", user_id: "a1", amount_paid: 141.65, transfer_fee: 0, reference: "", method: "" });
+  assert.equal(payState(137.96, over), "paid");
+  assert.equal(overpaidBy(137.96, over), 3.69);
+  assert.equal(payLabel(137.96, over), "Paid $141.65 · due $137.96 · overpaid $3.69 · Oct 3");
+  // A cent either way is still "paid".
+  assert.equal(overpaidBy(137.96, payout({ amount_paid: 137.97 })), 0);
+  assert.equal(payLabel(137.96, payout({ amount_paid: 137.97 })).startsWith("Paid Oct 3"), true);
+  assert.equal(payState(137.96, payout({ amount_paid: 137.95 })), "paid");
+  assert.equal(payState(137.96, payout({ amount_paid: 137.9 })), "partial");
+  assert.equal(overpaidBy(137.96, payout({ amount_paid: 200, voided: true })), 0);
+  assert.equal(payLabel(137.96, payout({ amount_paid: 130, transfer_fee: 0, reference: "", method: "" })), "Paid $130.00 of $137.96 · $7.96 left · Oct 3");
+});
+
+test("administrators are not payable while the month is an estimate", () => {
+  const s = summary();
+  s.final = false;
+  const none = new Map<string, Payout>();
+  const a = adminRows(s, none);
+  assert.equal(a[0].payable, false);
+  assert.equal(a[0].blocked, ADMIN_ESTIMATE);
+  assert.equal(a[0].blocked, "Administrator pay is final once every cost for the month is confirmed.");
+  // Teachers are decided by their own audits, not by the month.
+  assert.equal(teacherRows(s, none)[0].payable, true);
+  // Final again: payable.
+  s.final = true;
+  assert.equal(adminRows(s, none)[0].payable, true);
+});
+
+test("a pause that starts later is scheduled, not active", () => {
+  const open = { from_month: "2026-12", until_month: null, reason: "Leave" };
+  assert.equal(pauseScheduledAfter(open, "2026-10"), true);
+  assert.equal(pauseScheduledAfter(open, "2026-12"), false);
+  assert.equal(pauseScheduledAfter(open, "2027-01"), false);
+  assert.equal(pauseScheduledAfter(null, "2026-10"), false);
+  assert.equal(scheduledPauseLabel(open), "Pause scheduled from December");
+  assert.equal(pauseForMonth([open], "2026-11"), null);
+});
+
+test("a pause ends in the month pay resumes: that month is paid", () => {
+  const pauses = [{ from_month: "2026-11", until_month: "2026-11", reason: "x" }];
+  assert.equal(pauseForMonth(pauses, "2026-11"), null);
+  const later = [{ from_month: "2026-11", until_month: "2026-12", reason: "x" }];
+  assert.equal(pauseForMonth(later, "2026-10"), null);
+  assert.notEqual(pauseForMonth(later, "2026-11"), null);
+  assert.equal(pauseForMonth(later, "2026-12"), null);
 });
 
 test("a batch fee splits evenly to the cent", () => {

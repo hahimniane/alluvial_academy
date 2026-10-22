@@ -169,7 +169,7 @@ export function PenaltiesPage() {
         </div>
       </div>
 
-      <div className={`${CARD} overflow-x-auto`}>
+      <div className={`${CARD} relative overflow-x-auto`}>
         <table className="w-full min-w-[1040px] border-collapse text-[13px]">
           <caption className="sr-only">Penalties by teacher</caption>
           <thead>

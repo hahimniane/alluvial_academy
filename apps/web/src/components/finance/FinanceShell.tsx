@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { auth } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
-import { currentMonth, monthLabel, recentMonths } from "@/lib/finance/months";
+import { currentMonth, monthFromParam, monthLabel, recentMonths } from "@/lib/finance/months";
 
 /**
  * Frame for every finance page. Finance only renders inside the Flutter web
@@ -53,7 +53,7 @@ export function FinanceShell({ children, badges }: { children: ReactNode; badges
   const [access, setAccess] = useState<Access>("checking");
   const [user, setUser] = useState<User | null>(null);
 
-  const month = params?.get("month") || currentMonth();
+  const month = monthFromParam(params?.get("month"));
   const months = useMemo(() => recentMonths(13, currentMonth()), []);
 
   useEffect(() => {

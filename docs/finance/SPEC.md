@@ -137,7 +137,7 @@ with a plain message when the month is closed.
 
 | Callable | Owner branch | Input → output |
 |---|---|---|
-| `getFinanceMonthSummary` | overview | `{month}` → `{month, status, final:boolean, billed, collected, owed, discounts, credit_open, penalties, teacher_pay, teacher_pay_final:boolean, admin_pay, admin_base, software, marketing, transfer_fees, other, expenses, profit, invoice_count, families_owing, recurring_pending, recurring_due, unpaid_teachers, unpaid_admins, overdue_invoices, first_invoices_this_week, teachers:[{uid,name,hours,gross,penalties,net,final}], admins:[{uid,name,role_title,fixed,pct,share,total,paused:{reason,auto}|null}]}` |
+| `getFinanceMonthSummary` | overview | `{month}` → `{month, status, final:boolean, billed, collected, owed, discounts, credit_open, penalties, teacher_pay, teacher_pay_final:boolean, admin_pay, admin_base, software, marketing, transfer_fees, other, expenses, profit, invoice_count, families_owing, recurring_pending, recurring_due, unpaid_teachers, unpaid_admins, admin_payout_mismatches:number, overdue_invoices, first_invoices_this_week, teachers:[{uid,name,hours,gross,penalties,net,final}], admins:[{uid,name,role_title,fixed,pct,share,total,paused:{reason,auto}|null}]}` |
 | `closeFinanceMonth` / `reopenFinanceMonth` | overview | `{month}` / `{month, reason}` → `{ok}` |
 | `updateFinanceSettings` | overview | `{patch}` → `{settings}` |
 | `recordStaffPayouts` | staff | `{month, entries:[{uid, role, amount_paid, method, date_paid, transfer_fee?, reference?, note?}]}` → `{ok, count}` (only final pay; never paused admins) |
