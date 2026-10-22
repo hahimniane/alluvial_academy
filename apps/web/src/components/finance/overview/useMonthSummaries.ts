@@ -44,7 +44,6 @@ export function useMonthSummaries(months: string[]) {
       cancelled = true;
     };
     // `rows` is read only to skip months already loaded; adding it would refetch on every arrival.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wanted, token]);
 
   const reload = useCallback(() => {
