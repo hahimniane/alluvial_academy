@@ -517,3 +517,31 @@ describe('closeBlockers', () => {
     expect(m.closeBlockers({month: '2026-09', now: NOW, unapprovedAudits: 0, summary: summary({})})).toEqual([]);
   });
 });
+
+describe('administrator profit share ignores fees on administrator payouts', () => {
+  test('paying or voiding one administrator does not move the others by cents', () => {
+    const m2 = require('../utils/finance_math');
+    const base = {
+      month: '2026-09',
+      now: new Date('2026-10-05T16:00:00Z'),
+      invoices: [{id: 'a', parent_id: 'p1', status: 'paid', total_amount: 1000, paid_amount: 1000, period: '2026-09'}],
+      adminTerms: [
+        {id: 'A', name: 'A', terms: [{from_month: '2026-01', fixed: 100, pct: 10}]},
+        {id: 'B', name: 'B', terms: [{from_month: '2026-01', fixed: 50, pct: 5}]},
+      ],
+    };
+    const before = m2.buildMonthSummary({...base, payouts: []});
+    const after = m2.buildMonthSummary({...base, payouts: [
+      {user_id: 'A', role: 'admin', month: '2026-09', amount_paid: 200, transfer_fee: 7},
+    ]});
+    expect(after.admin_base).toBe(before.admin_base);
+    expect(after.admins.find((a) => a.uid === 'B').total).toBe(before.admins.find((a) => a.uid === 'B').total);
+    // the fee itself is still a cost
+    expect(after.transfer_fees).toBe(7);
+    // a teacher payout fee still lowers the base
+    const teacherFee = m2.buildMonthSummary({...base, payouts: [
+      {user_id: 'T', role: 'teacher', month: '2026-09', amount_paid: 50, transfer_fee: 5},
+    ]});
+    expect(teacherFee.admin_base).toBe(before.admin_base - 5);
+  });
+});

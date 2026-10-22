@@ -259,6 +259,8 @@ export function bannerText(row: MonthSummary): string {
   const people = row.unpaid_teachers + row.unpaid_admins;
   if (people > 0) bits.push(`${plural(people, "person", "people")} still to pay`);
   if (row.recurring_pending > 0) bits.push(`${plural(row.recurring_pending, "cost", "costs")} to confirm`);
+  const mismatched = row.admin_payout_mismatches ?? 0;
+  if (mismatched > 0) bits.push(`${plural(mismatched, "administrator payment", "administrator payments")} to adjust`);
   return bits.length > 0 ? `${bits.join(" · ")}.` : "Everything is done. It can be closed.";
 }
 

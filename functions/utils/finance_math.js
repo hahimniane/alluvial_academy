@@ -422,7 +422,13 @@ const buildMonthSummary = ({
   const transferFees = r2(costs.transfer_fees + payoutTransferFees(payouts));
 
   const otherCosts = r2(teacherPay + costs.software + costs.marketing + transferFees + costs.other);
-  const adminBase = r2(Math.max(0, inv.billed - otherCosts));
+  // The fee for sending an administrator their own pay is still Alluwal's
+  // expense, but it does not lower the profit share: otherwise paying (or
+  // voiding) one administrator would move the others' amounts by cents.
+  const adminPayoutFees = r2(payouts
+    .filter((p) => p.voided !== true && text(p.role) === 'admin')
+    .reduce((sum, p) => sum + num(p.transfer_fee), 0));
+  const adminBase = r2(Math.max(0, inv.billed - (otherCosts - adminPayoutFees)));
   const admins = adminRows(adminTerms, month, adminBase);
   const adminTotal = r2(admins.reduce((sum, a) => sum + a.total, 0));
 

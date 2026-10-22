@@ -22,7 +22,9 @@ const LOCKED_KEYS = [
   'unpaid_teachers', 'unpaid_admins', 'teachers', 'admins',
 ];
 
-const GLOBALS_TTL_MS = 30 * 1000;
+// Short: the overview asks for many months at once, but an edit (a credit,
+// a payment) should show on the next load.
+const GLOBALS_TTL_MS = 5 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const docsOf = (snap) => snap.docs.map((d) => ({id: d.id, ...d.data()}));
