@@ -1044,6 +1044,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Finance (invoices screens): admins read these; every change goes
+    // through a callable (editInvoice, setFamilyMonthlyAmount, ...). Other
+    // finance branches add their own blocks for the collections they own; rules
+    // from separate match blocks are OR'd.
+    match /finance_settings/{docId} {
+      allow read: if isAdmin();
+    }
+    match /finance_months/{monthId} {
+      allow read: if isAdmin();
+    }
+    match /family_billing/{parentId} {
+      allow read: if isAdmin();
+    }
+    match /family_credits/{creditId} {
+      allow read: if isAdmin();
+    }
+
     // Audit snapshots are written by the invoice deletion Cloud Function.
     match /invoice_deletion_audits/{auditId} {
       allow read: if isAdmin();
