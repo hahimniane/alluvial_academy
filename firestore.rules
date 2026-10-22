@@ -1289,12 +1289,12 @@ service cloud.firestore {
         'finance_settings', 'finance_months', 'staff_payouts', 'admin_pay_terms',
         'finance_expenses', 'finance_recurring_costs', 'finance_recurring_confirmations',
         'family_credits', 'family_billing', 'bank_transactions', 'known_payers',
-        'payment_proofs', 'finance_private'
+        'payment_proofs', 'finance_private', 'known_phones'
       ];
     }
 
     match /{financeCollection}/{docId} {
-      allow read: if isAdmin() && isFinanceCollection(financeCollection) && financeCollection != 'finance_private';
+      allow read: if isAdmin() && isFinanceCollection(financeCollection) && financeCollection != 'finance_private' && financeCollection != 'known_phones';
       allow write: if false;
     }
 

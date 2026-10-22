@@ -1531,13 +1531,55 @@ const recordManualPayment = async (request) => {
     );
   }
 
-  const db = admin.firestore();
+  return recordManualPaymentCore(admin.firestore(), {
+    invoiceId,
+    amount,
+    paymentMethod,
+    reference,
+    note,
+    receivedDate,
+    actorUid: request.auth.uid
+  });
+};
+
+/**
+ * Records one payment on one invoice and updates the invoice, in a transaction.
+ * `recordManualPayment` is the admin callable around it; the finance bank
+ * matcher calls it directly once an admin confirms a deposit.
+ *
+ * `paymentDocId` makes the call idempotent: when that payment document
+ * already exists nothing is written and `alreadyRecorded` is returned, so a
+ * retried confirmation never charges an invoice twice.
+ */
+const recordManualPaymentCore = async (
+  db,
+  {
+    invoiceId,
+    amount,
+    paymentMethod,
+    reference = '',
+    note = '',
+    receivedDate = new Date(),
+    actorUid,
+    paymentDocId = null,
+    paymentSource = 'manual',
+    extraPaymentFields = {}
+  }
+) => {
   const invoiceRef = db.collection('invoices').doc(invoiceId);
-  const paymentRef = db.collection('payments').doc();
-  const recorder = await resolveDecisionActor(db, request.auth.uid);
+  const paymentRef = paymentDocId
+    ? db.collection('payments').doc(paymentDocId)
+    : db.collection('payments').doc();
+  const recorder = await resolveDecisionActor(db, actorUid);
 
   const result = await db.runTransaction(async (tx) => {
     const invoiceSnap = await tx.get(invoiceRef);
+    if (paymentDocId) {
+      const existingPayment = await tx.get(paymentRef);
+      if (existingPayment.exists) {
+        return {updated: false, alreadyRecorded: true, paymentId: paymentRef.id};
+      }
+    }
     if (!invoiceSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Invoice not found');
     }
@@ -1586,17 +1628,18 @@ const recordManualPayment = async (request) => {
       applied_amount: amount,
       status: 'completed',
       payment_method: paymentMethod,
-      payment_source: 'manual',
+      payment_source: paymentSource,
+      ...extraPaymentFields,
       reference_number: reference || null,
       notes: note || null,
       received_at: receivedTimestamp,
       completed_at: receivedTimestamp,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      created_by: request.auth.uid,
+      created_by: actorUid,
       created_by_name: recorder.name,
       created_by_email: recorder.email,
-      recorded_by_uid: request.auth.uid,
+      recorded_by_uid: actorUid,
       recorded_by_name: recorder.name,
       recorded_by_email: recorder.email
     });
@@ -1607,7 +1650,7 @@ const recordManualPayment = async (request) => {
         paid_amount: newPaid,
         status: invoiceStatus,
         last_payment_at: receivedTimestamp,
-        last_payment_by_uid: request.auth.uid,
+        last_payment_by_uid: actorUid,
         last_payment_by_name: recorder.name,
         last_payment_by_email: recorder.email,
         updated_at: admin.firestore.FieldValue.serverTimestamp()
@@ -2679,6 +2722,7 @@ module.exports = {
   createPaymentSession,
   createPaymentIntent,
   recordManualPayment,
+  recordManualPaymentCore,
   deleteInvoice,
   handlePayoneerWebhook,
   handleStripeWebhook,
