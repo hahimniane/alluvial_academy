@@ -18653,4 +18653,44 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get classReportNoClockInSubmit => 'إرسال التقرير';
+
+  @override
+  String get financeSummaryMonth => 'الشهر';
+
+  @override
+  String get financeSummaryBilled => 'المفوتر';
+
+  @override
+  String get financeSummaryCollected => 'المحصّل';
+
+  @override
+  String get financeSummaryStillOwed => 'المتبقي';
+
+  @override
+  String get financeSummaryExpenses => 'المصروفات';
+
+  @override
+  String get financeSummaryProfit => 'الربح';
+
+  @override
+  String get financeSummaryProfitEstimate => 'الربح (تقديري)';
+
+  @override
+  String get financeSummaryUnpaidStaff => 'موظفون لم يُدفع لهم بعد';
+
+  @override
+  String get financeSummaryOverdueInvoices => 'فواتير متأخرة';
+
+  @override
+  String get financeSummaryRecurringToConfirm => 'تكاليف متكررة للتأكيد';
+
+  @override
+  String get financeSummaryMonthClosed => 'مغلق';
+
+  @override
+  String get financeSummaryOpenOnWeb =>
+      'افتح المالية على الويب لإجراء التغييرات.';
+
+  @override
+  String get financeSummaryLoadError => 'تعذّر تحميل المالية.';
 }

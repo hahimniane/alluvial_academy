@@ -1,7 +1,11 @@
 "use client";
 
-import { InvoicesAdmin } from "@/components/InvoicesAdmin";
+import { useEffect } from "react";
 
 export default function InvoicesPage() {
-  return <InvoicesAdmin />;
+  useEffect(() => {
+    window.location.replace("/admin/finance/invoices/?embed=1");
+  }, []);
+
+  return null;
 }

@@ -33907,6 +33907,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Submit report'**
   String get classReportNoClockInSubmit;
+
+  /// No description provided for @financeSummaryMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get financeSummaryMonth;
+
+  /// No description provided for @financeSummaryBilled.
+  ///
+  /// In en, this message translates to:
+  /// **'Billed'**
+  String get financeSummaryBilled;
+
+  /// No description provided for @financeSummaryCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Collected'**
+  String get financeSummaryCollected;
+
+  /// No description provided for @financeSummaryStillOwed.
+  ///
+  /// In en, this message translates to:
+  /// **'Still owed'**
+  String get financeSummaryStillOwed;
+
+  /// No description provided for @financeSummaryExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get financeSummaryExpenses;
+
+  /// No description provided for @financeSummaryProfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit'**
+  String get financeSummaryProfit;
+
+  /// No description provided for @financeSummaryProfitEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit (estimate)'**
+  String get financeSummaryProfitEstimate;
+
+  /// No description provided for @financeSummaryUnpaidStaff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff still to pay'**
+  String get financeSummaryUnpaidStaff;
+
+  /// No description provided for @financeSummaryOverdueInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue invoices'**
+  String get financeSummaryOverdueInvoices;
+
+  /// No description provided for @financeSummaryRecurringToConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring costs to confirm'**
+  String get financeSummaryRecurringToConfirm;
+
+  /// No description provided for @financeSummaryMonthClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get financeSummaryMonthClosed;
+
+  /// No description provided for @financeSummaryOpenOnWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Finance on the web to make changes.'**
+  String get financeSummaryOpenOnWeb;
+
+  /// No description provided for @financeSummaryLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance couldn\'t be loaded.'**
+  String get financeSummaryLoadError;
 }
 
 class _AppLocalizationsDelegate

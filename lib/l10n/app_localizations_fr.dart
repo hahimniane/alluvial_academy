@@ -19060,4 +19060,44 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get classReportNoClockInSubmit => 'Envoyer le rapport';
+
+  @override
+  String get financeSummaryMonth => 'Mois';
+
+  @override
+  String get financeSummaryBilled => 'Facturé';
+
+  @override
+  String get financeSummaryCollected => 'Encaissé';
+
+  @override
+  String get financeSummaryStillOwed => 'Reste dû';
+
+  @override
+  String get financeSummaryExpenses => 'Dépenses';
+
+  @override
+  String get financeSummaryProfit => 'Bénéfice';
+
+  @override
+  String get financeSummaryProfitEstimate => 'Bénéfice (estimation)';
+
+  @override
+  String get financeSummaryUnpaidStaff => 'Personnel restant à payer';
+
+  @override
+  String get financeSummaryOverdueInvoices => 'Factures en retard';
+
+  @override
+  String get financeSummaryRecurringToConfirm => 'Coûts récurrents à confirmer';
+
+  @override
+  String get financeSummaryMonthClosed => 'Clôturé';
+
+  @override
+  String get financeSummaryOpenOnWeb =>
+      'Ouvrez Finance sur le web pour faire des modifications.';
+
+  @override
+  String get financeSummaryLoadError => 'Impossible de charger Finance.';
 }

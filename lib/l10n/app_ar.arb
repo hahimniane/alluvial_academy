@@ -6850,5 +6850,18 @@
   "enrollmentPreviouslyMatchedUnknownTeacher": "معلم",
   "classReportNoClockInTitle": "لا يوجد تسجيل حضور لهذه الحصة",
   "classReportNoClockInBody": "تُدفع الحصة بناءً على تسجيل الحضور، لذلك لا تُدفع هذه الحصة. لكي تُدفع، اطلب حصة تعويضية من هذه الحصة في حصصي. سيتم حفظ تقريرك.",
-  "classReportNoClockInSubmit": "إرسال التقرير"
+  "classReportNoClockInSubmit": "إرسال التقرير",
+  "financeSummaryMonth": "الشهر",
+  "financeSummaryBilled": "المفوتر",
+  "financeSummaryCollected": "المحصّل",
+  "financeSummaryStillOwed": "المتبقي",
+  "financeSummaryExpenses": "المصروفات",
+  "financeSummaryProfit": "الربح",
+  "financeSummaryProfitEstimate": "الربح (تقديري)",
+  "financeSummaryUnpaidStaff": "موظفون لم يُدفع لهم بعد",
+  "financeSummaryOverdueInvoices": "فواتير متأخرة",
+  "financeSummaryRecurringToConfirm": "تكاليف متكررة للتأكيد",
+  "financeSummaryMonthClosed": "مغلق",
+  "financeSummaryOpenOnWeb": "افتح المالية على الويب لإجراء التغييرات.",
+  "financeSummaryLoadError": "تعذّر تحميل المالية."
 }

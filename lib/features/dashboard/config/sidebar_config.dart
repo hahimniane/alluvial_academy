@@ -237,10 +237,11 @@ class SidebarConfig {
         id: 'finance',
         title: 'Finance',
         items: [
+          // The id stays 'invoices' so items pinned as favorites keep working.
           const SidebarItem(
             id: 'invoices',
-            label: 'Invoices',
-            icon: Icons.receipt_long,
+            label: 'Finance',
+            icon: Icons.account_balance_wallet_rounded,
             screenIndex: 31,
             colorValue: 0xff10B981,
           ),

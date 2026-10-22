@@ -18705,4 +18705,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get classReportNoClockInSubmit => 'Submit report';
+
+  @override
+  String get financeSummaryMonth => 'Month';
+
+  @override
+  String get financeSummaryBilled => 'Billed';
+
+  @override
+  String get financeSummaryCollected => 'Collected';
+
+  @override
+  String get financeSummaryStillOwed => 'Still owed';
+
+  @override
+  String get financeSummaryExpenses => 'Expenses';
+
+  @override
+  String get financeSummaryProfit => 'Profit';
+
+  @override
+  String get financeSummaryProfitEstimate => 'Profit (estimate)';
+
+  @override
+  String get financeSummaryUnpaidStaff => 'Staff still to pay';
+
+  @override
+  String get financeSummaryOverdueInvoices => 'Overdue invoices';
+
+  @override
+  String get financeSummaryRecurringToConfirm => 'Recurring costs to confirm';
+
+  @override
+  String get financeSummaryMonthClosed => 'Closed';
+
+  @override
+  String get financeSummaryOpenOnWeb =>
+      'Open Finance on the web to make changes.';
+
+  @override
+  String get financeSummaryLoadError => 'Finance couldn\'t be loaded.';
 }

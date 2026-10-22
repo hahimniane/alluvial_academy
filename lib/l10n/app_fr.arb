@@ -7426,5 +7426,18 @@
   "enrollmentPreviouslyMatchedUnknownTeacher": "un enseignant",
   "classReportNoClockInTitle": "Ce cours n'a pas de pointage",
   "classReportNoClockInBody": "Un cours est payé à partir de son pointage, donc celui-ci n'est pas payé. Pour être payé, demandez un cours de rattrapage depuis ce cours dans Mes créneaux. Votre rapport est quand même enregistré.",
-  "classReportNoClockInSubmit": "Envoyer le rapport"
+  "classReportNoClockInSubmit": "Envoyer le rapport",
+  "financeSummaryMonth": "Mois",
+  "financeSummaryBilled": "Facturé",
+  "financeSummaryCollected": "Encaissé",
+  "financeSummaryStillOwed": "Reste dû",
+  "financeSummaryExpenses": "Dépenses",
+  "financeSummaryProfit": "Bénéfice",
+  "financeSummaryProfitEstimate": "Bénéfice (estimation)",
+  "financeSummaryUnpaidStaff": "Personnel restant à payer",
+  "financeSummaryOverdueInvoices": "Factures en retard",
+  "financeSummaryRecurringToConfirm": "Coûts récurrents à confirmer",
+  "financeSummaryMonthClosed": "Clôturé",
+  "financeSummaryOpenOnWeb": "Ouvrez Finance sur le web pour faire des modifications.",
+  "financeSummaryLoadError": "Impossible de charger Finance."
 }
