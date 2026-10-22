@@ -118,9 +118,10 @@ function makeDb(seed = {}) {
     },
   });
 
-  const query = (name, filters = [], max = Infinity) => ({
-    where: (field, op, value) => query(name, [...filters, {field, op, value}], max),
-    limit: (n) => query(name, filters, n),
+  const query = (name, filters = [], max = Infinity, fields = null) => ({
+    where: (field, op, value) => query(name, [...filters, {field, op, value}], max, fields),
+    limit: (n) => query(name, filters, n, fields),
+    select: (...names) => query(name, filters, max, names),
     get: async () => {
       const docs = Object.entries(store[name] || {})
         .filter(([, data]) =>
@@ -133,7 +134,11 @@ function makeDb(seed = {}) {
         .slice(0, max)
         .map(([id]) => {
           reads.push(`${name}/${id}`);
-          return snapOf(name, id);
+          const snap = snapOf(name, id);
+          if (!fields) return snap;
+          const full = snap.data();
+          const picked = Object.fromEntries(fields.filter((f) => full[f] !== undefined).map((f) => [f, full[f]]));
+          return {...snap, data: () => clone(picked)};
         });
       return {docs, size: docs.length, empty: docs.length === 0};
     },
@@ -146,6 +151,7 @@ function makeDb(seed = {}) {
       doc: (id) => docRef(name, id),
       where: (field, op, value) => query(name, [{field, op, value}]),
       limit: (n) => query(name, [], n),
+      select: (...names) => query(name, [], Infinity, names),
       get: () => query(name).get(),
     }),
     runTransaction: async (fn) => {

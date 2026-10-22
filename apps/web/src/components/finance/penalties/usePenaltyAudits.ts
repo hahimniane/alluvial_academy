@@ -1,13 +1,16 @@
 "use client";
 
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { auditMonthsToRead, chunk, summarizeAudit, type AuditSummary } from "@/lib/finance/penalties";
+import { functions } from "@/lib/firebase";
+import { auditMonthsToRead, summarizeAudit, type AuditSummary } from "@/lib/finance/penalties";
+
+type PenaltyAuditRows = { audits: Array<{ id: string; data: Record<string, unknown> }> };
 
 /**
  * Reads teacher audits for the selected year (and the months the trend needs).
- * Bounded: `yearMonth in [..]` in chunks, never the whole collection.
+ * The server sends only each audit's pay summary; a full audit is ~70 KB, so
+ * reading them whole took seconds for a year.
  */
 export function usePenaltyAudits(month: string) {
   const [audits, setAudits] = useState<AuditSummary[] | null>(null);
@@ -19,15 +22,12 @@ export function usePenaltyAudits(month: string) {
     setError("");
     (async () => {
       try {
-        const snaps = await Promise.all(
-          chunk(auditMonthsToRead(month), 10).map((months) => getDocs(query(collection(db, "teacher_audits"), where("yearMonth", "in", months))))
-        );
+        const call = httpsCallable<{ months: string[] }, PenaltyAuditRows>(functions, "getFinancePenaltyAudits");
+        const { data } = await call({ months: auditMonthsToRead(month) });
         const out: AuditSummary[] = [];
-        for (const snap of snaps) {
-          for (const d of snap.docs) {
-            const s = summarizeAudit({ id: d.id, data: d.data() });
-            if (s) out.push(s);
-          }
+        for (const row of data.audits) {
+          const s = summarizeAudit({ id: row.id, data: row.data });
+          if (s) out.push(s);
         }
         if (live) setAudits(out);
       } catch (e) {
