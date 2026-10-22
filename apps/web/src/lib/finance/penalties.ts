@@ -39,13 +39,18 @@ export const PENALTY_REASONS: Record<PenaltyReasonCode, string> = {
 
 export const PENALTY_REASON_CODES = Object.keys(PENALTY_REASONS) as PenaltyReasonCode[];
 
+/** Same list as an array, for pickers. */
+export const PENALTY_REASON_LIST = PENALTY_REASON_CODES.map((code) => ({ code, label: PENALTY_REASONS[code] }));
+
+export type PenaltyReason = PenaltyReasonCode;
+
 export function normalizeReasonCode(raw: unknown): PenaltyReasonCode {
   const code = typeof raw === "string" ? raw.trim() : "";
   return (PENALTY_REASON_CODES as string[]).includes(code) ? (code as PenaltyReasonCode) : "other";
 }
 
-export function penaltyReasonLabel(code: PenaltyReasonCode): string {
-  return PENALTY_REASONS[code];
+export function penaltyReasonLabel(code: PenaltyReasonCode | string | undefined): string {
+  return PENALTY_REASONS[normalizeReasonCode(code)];
 }
 
 export type PenaltyEntry = {
@@ -116,9 +121,20 @@ export function summarizeAudit(audit: AuditSlice): AuditSummary | null {
       enteredBy: str(line.createdByName),
     });
   }
-  const automatic = num(ps.totalPenalties);
-  if (automatic > 0) {
+  // Form penalties ("Apply Penalty" on the forms summary) are saved as
+  // formPenaltyTotal and also counted in totalPenalties; a negative admin
+  // adjustment is a deduction. Both carry a reason code when set in the audit.
+  const formTotal = num(ps.formPenaltyTotal);
+  if (formTotal > 0) {
+    entries.push({ uid, name, month, amount: formTotal, reason: normalizeReasonCode(ps.formPenaltyReason || "late_class_report"), note: str(ps.formPenaltyNote), enteredOn: "", enteredBy: "" });
+  }
+  const automatic = num(ps.totalPenalties) - formTotal;
+  if (automatic > 0.004) {
     entries.push({ uid, name, month, amount: automatic, reason: "other", note: "Automatic penalties", enteredOn: "", enteredBy: "" });
+  }
+  const adjustment = num(ps.adminAdjustment);
+  if (adjustment < 0) {
+    entries.push({ uid, name, month, amount: Math.abs(adjustment), reason: normalizeReasonCode(ps.adjustmentPenaltyReason), note: str(ps.adjustmentPenaltyNote) || str(ps.adjustmentReason), enteredOn: "", enteredBy: "" });
   }
   return { uid, name, month, gross: num(ps.totalGrossPayment), entries };
 }

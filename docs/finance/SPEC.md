@@ -159,3 +159,17 @@ with a plain message when the month is closed.
 Existing callables stay: `createInvoice` (one-off charges; add a duplicate
 guard for monthly tuition), `recordManualPayment`, `extendStudentAccessCutoff`,
 `getInvoicePaymentLink`.
+
+## Penalty reasons (structured)
+
+Every penalty/deduction an administrator adds in a teacher audit carries a
+required reason code and an optional note, so Finance can filter and total by
+reason. Codes (fixed list, labels in brackets):
+`late_clock_in` (Late clock-in), `missed_class` (Missed a class without notice),
+`late_class_report` (Late class report), `left_class_early` (Left class early),
+`no_camera_or_setup` (Camera/setup not as required), `conduct` (Conduct),
+`other` (Other — note required).
+Stored on each penalty entry as `penalty_reason` (code) and `penalty_note`
+(string). Penalties the system computes automatically get a code too.
+Older entries without a code are read as `other` with their existing text as
+the note.

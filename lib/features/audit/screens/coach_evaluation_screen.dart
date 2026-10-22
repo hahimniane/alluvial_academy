@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../services/teacher_audit_service.dart';
+import '../widgets/payment_line_dialog.dart';
+import '../../../core/constants/penalty_reasons.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors
@@ -681,7 +683,9 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  '${l.type} \$${l.amount.toStringAsFixed(2)} — ${l.reason}',
+                  l.isPenalty
+                      ? '${loc.auditPaymentLinePenalty} \$${l.amount.toStringAsFixed(2)} — ${PenaltyReasons.display(loc, l.penaltyValue.code, l.penaltyValue.note)}'
+                      : '${l.type} \$${l.amount.toStringAsFixed(2)} — ${l.reason}',
                   style: GoogleFonts.inter(fontSize: 12),
                 ),
                 trailing: IconButton(
@@ -700,71 +704,22 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
   }
 
   Future<void> _onAddCoachLine() async {
-    final loc = AppLocalizations.of(context)!;
-    var type = 'penalty';
-    final amountCtrl = TextEditingController();
-    final reasonCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setD) => AlertDialog(
-          title: Text(loc.auditAddPaymentLine),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: type,
-                decoration:
-                    InputDecoration(labelText: loc.auditPaymentLineTypeLabel),
-                items: [
-                  DropdownMenuItem(
-                      value: 'penalty',
-                      child: Text(loc.auditPaymentLinePenalty)),
-                  DropdownMenuItem(
-                      value: 'bonus', child: Text(loc.auditPaymentLineBonus)),
-                ],
-                onChanged: (v) => setD(() => type = v ?? 'penalty'),
-              ),
-              TextField(
-                controller: amountCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: loc.auditAmountLabel),
-              ),
-              TextField(
-                controller: reasonCtrl,
-                decoration: InputDecoration(labelText: loc.auditReasonLabel),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(loc.commonCancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(loc.commonOk),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true || !mounted) return;
+    final input = await showPaymentLineDialog(context);
+    if (input == null || !mounted) return;
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) return;
-    final amt = double.tryParse(amountCtrl.text.replaceAll(',', '.')) ?? 0;
-    if (amt <= 0) return;
     setState(() {
       _coachLines.add(PaymentAdjustmentLine(
         id: _uuid.v4(),
-        type: type,
-        amount: amt,
-        reason: reasonCtrl.text.trim().isEmpty ? '—' : reasonCtrl.text.trim(),
+        type: input.type,
+        amount: input.amount,
+        reason: input.reasonText,
         factorId: null,
         createdAt: DateTime.now(),
         createdById: u.uid,
         createdByName: u.displayName ?? u.email ?? u.uid,
+        penaltyReason: input.penaltyReason,
+        penaltyNote: input.penaltyNote,
       ));
     });
   }
