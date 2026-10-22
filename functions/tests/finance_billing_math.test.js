@@ -144,6 +144,12 @@ describe('old generator skip', () => {
     expect(math.shouldOldGeneratorSkip({autoBillingEnabled: undefined, familyBilling: {monthly_amount: 80}})).toBe(false);
   });
 
+  test('with a month, skips only when the family amount for that month is above zero', () => {
+    expect(math.shouldOldGeneratorSkip({autoBillingEnabled: true, familyBilling: {monthly_amount: 80}, month: '2026-11'})).toBe(true);
+    expect(math.shouldOldGeneratorSkip({autoBillingEnabled: true, familyBilling: {monthly_amount: 0}, month: '2026-11'})).toBe(false);
+    expect(math.shouldOldGeneratorSkip({autoBillingEnabled: true, familyBilling: {active: true}, month: '2026-11'})).toBe(false);
+  });
+
   test('does not skip a family without family_billing, or one switched off', () => {
     expect(math.shouldOldGeneratorSkip({autoBillingEnabled: true, familyBilling: null})).toBe(false);
     expect(math.shouldOldGeneratorSkip({autoBillingEnabled: true, familyBilling: {active: false}})).toBe(false);

@@ -2608,7 +2608,8 @@ const _runRecurringInvoiceGeneration = async ({
       await oldGeneratorShouldSkipFamily(
         db,
         planData.parent_id || planData.parentId,
-        billingSettings
+        billingSettings,
+        targetPeriod
       )
     ) {
       // Move the plan past this period too, so switching the new engine off

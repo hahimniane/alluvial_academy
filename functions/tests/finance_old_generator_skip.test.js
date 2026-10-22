@@ -100,6 +100,34 @@ describe('old recurring generator and family_billing', () => {
     expect(db.store.invoices['recurring_plan_a_2026-11']).toBeDefined();
   });
 
+  test('auto billing ON: a family_billing amount of zero for the month is still billed by the old plan', async () => {
+    const data = seed(true);
+    data.family_billing.parent_a.monthly_amount = 0;
+    const {db, result} = await run(data);
+    expect(db.store.invoices['recurring_plan_a_2026-11']).toMatchObject({parent_id: 'parent_a', total_amount: 80});
+    expect(result.invoicesCreated).toBe(2);
+    // billed the normal way, not "stood aside"
+    expect(db.store.recurring_billing_plans.plan_a.skipped_for_family_billing_at).toBeUndefined();
+    expect(db.store.recurring_billing_plans.plan_a.next_period).toBe('2026-12');
+  });
+
+  test('auto billing ON: the amount that applies to THAT month decides (history)', async () => {
+    const data = seed(true);
+    // today 0, but the amount in force for 2026-11 (before the change) was 80
+    data.family_billing.parent_a.monthly_amount = 0;
+    data.family_billing.parent_a.history = [{from_month: '2026-12', old: 80, new: 0, reason: 'x'}];
+    const {db} = await run(data);
+    expect(db.store.invoices && db.store.invoices['recurring_plan_a_2026-11']).toBeUndefined();
+    expect(db.store.recurring_billing_plans.plan_a.skipped_for_family_billing_at).toBeTruthy();
+  });
+
+  test('auto billing ON: a family_billing with no amount at all keeps its old plan billing and next_period untouched until billed', async () => {
+    const data = seed(true);
+    delete data.family_billing.parent_a.monthly_amount;
+    const {db} = await run(data);
+    expect(db.store.invoices['recurring_plan_a_2026-11']).toBeDefined();
+  });
+
   describe('onInvoiceCreated', () => {
     const attempt = async (settings, kind) => {
       const { onInvoiceCreated } = require('../handlers/payments');

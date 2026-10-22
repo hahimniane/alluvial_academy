@@ -155,8 +155,17 @@ const changeStartMonth = (now, existingMonths = new Set()) => {
  * The old recurring generator steps aside for a family once the new engine is
  * switched on and the family has family_billing, so nobody is billed twice.
  */
-const shouldOldGeneratorSkip = ({autoBillingEnabled, familyBilling}) =>
-  autoBillingEnabled === true && Boolean(familyBilling) && familyBilling.active !== false;
+const shouldOldGeneratorSkip = ({autoBillingEnabled, familyBilling, month = null}) => {
+  if (!(autoBillingEnabled === true && Boolean(familyBilling) && familyBilling.active !== false)) {
+    return false;
+  }
+  // The new engine bills nothing for a family whose amount for that month is
+  // zero (createMonthlyInvoice returns 'no_amount'), so stepping aside then
+  // would leave the family unbilled by BOTH systems. Only skip when the new
+  // engine will really bill `month`.
+  if (month != null) return amountForMonth(familyBilling, month) > 0;
+  return true;
+};
 
 // ---------------------------------------------------------------- invoice lines
 

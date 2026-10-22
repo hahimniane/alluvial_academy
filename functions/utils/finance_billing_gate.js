@@ -22,11 +22,12 @@ const loadBillingSettings = async (db) => {
 
 /**
  * True when the old `recurring_billing_plans` generator must NOT bill this
- * plan's family: the new engine is on and the family has `family_billing`.
+ * plan's family: the new engine is on and the family has `family_billing`
+ * with an amount above zero for `month` (when given).
  * With the switch off (the default) this is always false, so the old
  * generator behaves exactly as it always did.
  */
-const oldGeneratorShouldSkipFamily = async (db, parentId, settings) => {
+const oldGeneratorShouldSkipFamily = async (db, parentId, settings, month = null) => {
   if (!settings || settings.auto_billing_enabled !== true) return false;
   const id = String(parentId || '').trim();
   if (!id) return false;
@@ -34,6 +35,7 @@ const oldGeneratorShouldSkipFamily = async (db, parentId, settings) => {
   return shouldOldGeneratorSkip({
     autoBillingEnabled: true,
     familyBilling: snap && snap.exists ? snap.data() || {} : null,
+    month,
   });
 };
 
