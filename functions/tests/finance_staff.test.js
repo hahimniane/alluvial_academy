@@ -158,7 +158,7 @@ describe('recordStaffPayouts', () => {
     );
     expect(out).toEqual({ok: true, count: 1});
     expect(deps.assertMonthOpen).toHaveBeenCalledWith(db, '2026-09');
-    expect(db.store.staff_payouts['2026-09_t1']).toMatchObject({
+    expect(db.store.staff_payouts['2026-09_t1_teacher']).toMatchObject({
       user_id: 't1',
       name: 'Aisha Bah',
       role: 'teacher',
@@ -194,11 +194,11 @@ describe('recordStaffPayouts', () => {
     const db = makeDb(seed());
     const deps = makeDeps(db);
     await recordStaffPayouts({data: {month: '2026-09', entries: [entry({amount_paid: 150, transfer_fee: 2})]}}, deps);
-    let doc = db.store.staff_payouts['2026-09_t1'];
+    let doc = db.store.staff_payouts['2026-09_t1_teacher'];
     expect(doc.amount_due).toBe(206.4);
     expect(doc.amount_paid).toBe(150);
     await recordStaffPayouts({data: {month: '2026-09', entries: [entry({amount_paid: 56.4, date_paid: '2026-10-09', transfer_fee: 1})]}}, deps);
-    doc = db.store.staff_payouts['2026-09_t1'];
+    doc = db.store.staff_payouts['2026-09_t1_teacher'];
     expect(doc.amount_paid).toBe(206.4);
     expect(doc.transfer_fee).toBe(3);
     expect(doc.history.filter((h) => h.action === 'payment')).toHaveLength(2);
@@ -223,16 +223,16 @@ describe('recordStaffPayouts', () => {
   test('pays an administrator before the pause started', async () => {
     const db = makeDb(seed());
     await recordStaffPayouts({data: {month: '2026-07', entries: [entry({uid: 'adm_3', role: 'admin', amount_paid: 200})]}}, makeDeps(db));
-    expect(db.store.staff_payouts['2026-07_adm_3']).toMatchObject({role: 'admin', amount_due: 200, amount_paid: 200, name: 'Paused Person'});
+    expect(db.store.staff_payouts['2026-07_adm_3_admin']).toMatchObject({role: 'admin', amount_due: 200, amount_paid: 200, name: 'Paused Person'});
   });
 
   test('an administrator is due the total the page shows when it sends one, else the fixed pay', async () => {
     const db = makeDb(seed());
     const deps = makeDeps(db);
     await recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}}, deps);
-    expect(db.store.staff_payouts['2026-09_adm_2'].amount_due).toBe(300);
+    expect(db.store.staff_payouts['2026-09_adm_2_admin'].amount_due).toBe(300);
     await recordStaffPayouts({data: {month: '2026-08', entries: [{...entry({uid: 'adm_2', role: 'admin', amount_paid: 412.5}), amount_due: 412.5}]}}, deps);
-    expect(db.store.staff_payouts['2026-08_adm_2'].amount_due).toBe(412.5);
+    expect(db.store.staff_payouts['2026-08_adm_2_admin'].amount_due).toBe(412.5);
   });
 
   test('validates the entry', async () => {
@@ -257,7 +257,45 @@ describe('recordStaffPayouts', () => {
       makeDeps(db)
     );
     expect(out.count).toBe(2);
-    expect(Object.keys(db.store.staff_payouts).sort()).toEqual(['2026-09_t1', '2026-09_t3']);
+    expect(Object.keys(db.store.staff_payouts).sort()).toEqual(['2026-09_t1_teacher', '2026-09_t3_teacher']);
+  });
+});
+
+describe('a person who is both a teacher and an administrator', () => {
+  const dualSeed = () => {
+    const data = seed();
+    data.teacher_audits['adm_2_2026-09'] = audit('ceoApproved', 90, 'Sajor Bah');
+    return data;
+  };
+
+  test('is paid for each role separately, even in one batch', async () => {
+    const db = makeDb(dualSeed());
+    await recordStaffPayouts(
+      {data: {month: '2026-09', entries: [entry({uid: 'adm_2', role: 'teacher', amount_paid: 90}), entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}},
+      makeDeps(db)
+    );
+    expect(Object.keys(db.store.staff_payouts).sort()).toEqual(['2026-09_adm_2_admin', '2026-09_adm_2_teacher']);
+    expect(db.store.staff_payouts['2026-09_adm_2_teacher']).toMatchObject({role: 'teacher', amount_paid: 90});
+    expect(db.store.staff_payouts['2026-09_adm_2_admin']).toMatchObject({role: 'admin', amount_paid: 300});
+    await expect(
+      recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 't1'}), entry({uid: 't1'})]}}, makeDeps(db))
+    ).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
+  test('a void needs the role when both payouts are live, and only touches that one', async () => {
+    const db = makeDb(dualSeed());
+    const deps = makeDeps(db);
+    await recordStaffPayouts(
+      {data: {month: '2026-09', entries: [entry({uid: 'adm_2', role: 'teacher', amount_paid: 90}), entry({uid: 'adm_2', role: 'admin', amount_paid: 300})]}},
+      deps
+    );
+    await expect(voidStaffPayout({data: {month: '2026-09', uid: 'adm_2', reason: 'x'}}, deps)).rejects.toMatchObject({code: 'invalid-argument'});
+    await voidStaffPayout({data: {month: '2026-09', uid: 'adm_2', role: 'admin', reason: 'x'}}, deps);
+    expect(db.store.staff_payouts['2026-09_adm_2_admin'].voided).toBe(true);
+    expect(db.store.staff_payouts['2026-09_adm_2_teacher'].voided).toBe(false);
+    // With one live payout left, the role can be left out.
+    await voidStaffPayout({data: {month: '2026-09', uid: 'adm_2', reason: 'y'}}, deps);
+    expect(db.store.staff_payouts['2026-09_adm_2_teacher'].voided).toBe(true);
   });
 });
 
@@ -272,7 +310,7 @@ describe('voidStaffPayout', () => {
     const db = await paidSeed();
     const out = await voidStaffPayout({data: {month: '2026-09', uid: 't1', reason: 'Wrong number'}}, makeDeps(db));
     expect(out).toEqual({ok: true});
-    expect(db.store.staff_payouts['2026-09_t1']).toMatchObject({voided: true, void_reason: 'Wrong number', amount_paid: 0});
+    expect(db.store.staff_payouts['2026-09_t1_teacher']).toMatchObject({voided: true, void_reason: 'Wrong number', amount_paid: 0});
   });
 
   test('needs a reason, an existing payout, and an open month', async () => {
@@ -280,7 +318,7 @@ describe('voidStaffPayout', () => {
     await expect(voidStaffPayout({data: {month: '2026-09', uid: 't1', reason: ' '}}, makeDeps(db))).rejects.toMatchObject({code: 'invalid-argument'});
     await expect(voidStaffPayout({data: {month: '2026-09', uid: 'nobody', reason: 'x'}}, makeDeps(db))).rejects.toMatchObject({code: 'not-found'});
     await expect(voidStaffPayout({data: {month: '2026-09', uid: 't1', reason: 'x'}}, makeDeps(db, true))).rejects.toMatchObject({code: 'failed-precondition'});
-    expect(db.store.staff_payouts['2026-09_t1'].voided).toBe(false);
+    expect(db.store.staff_payouts['2026-09_t1_teacher'].voided).toBe(false);
   });
 
   test('cannot void twice, and the person can be paid again afterwards', async () => {
@@ -288,7 +326,7 @@ describe('voidStaffPayout', () => {
     await voidStaffPayout({data: {month: '2026-09', uid: 't1', reason: 'x'}}, makeDeps(db));
     await expect(voidStaffPayout({data: {month: '2026-09', uid: 't1', reason: 'y'}}, makeDeps(db))).rejects.toMatchObject({code: 'failed-precondition'});
     await recordStaffPayouts({data: {month: '2026-09', entries: [entry({amount_paid: 100})]}}, makeDeps(db));
-    expect(db.store.staff_payouts['2026-09_t1']).toMatchObject({voided: false, amount_paid: 100});
+    expect(db.store.staff_payouts['2026-09_t1_teacher']).toMatchObject({voided: false, amount_paid: 100});
   });
 });
 

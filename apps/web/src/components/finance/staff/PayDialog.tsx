@@ -139,7 +139,7 @@ export function VoidDialog({ month, row, onClose, onDone }: { month: string; row
     if (!reason.trim()) return setError("Say why this payment is being voided.");
     setBusy(true);
     try {
-      await callFinance("voidStaffPayout", { month, uid: row.uid, reason: reason.trim() });
+      await callFinance("voidStaffPayout", { month, uid: row.uid, role: row.role, reason: reason.trim() });
       onDone(`Payment to ${row.name} voided`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not void.");

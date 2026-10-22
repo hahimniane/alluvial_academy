@@ -4,12 +4,12 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { useCallback, useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { addMonths } from "@/lib/finance/months";
-import type { AdminTerms, Payout, StaffSummary } from "@/lib/finance/staff";
+import { payoutKey, type AdminTerms, type Payout, type StaffSummary } from "@/lib/finance/staff";
 import { callFinance } from "./staffUi";
 
 export type StaffData = {
   summary: StaffSummary;
-  /** This month's payouts by uid (voided ones included, so the page can show them). */
+  /** This month's payouts by role and uid (payoutKey) (voided ones included, so the page can show them). */
   payouts: Map<string, Payout>;
   /** Method used for each person last month, for "usual method". */
   usualMethod: Map<string, string>;
@@ -60,7 +60,7 @@ export function useStaffData(month: string) {
         previous.filter((p) => !p.voided && p.method).forEach((p) => usualMethod.set(p.user_id, p.method));
         setData({
           summary,
-          payouts: new Map(payouts.map((p) => [p.user_id, p])),
+          payouts: new Map(payouts.map((p) => [payoutKey(p.role, p.user_id), p])),
           usualMethod,
           terms,
           deactivated,

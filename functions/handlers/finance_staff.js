@@ -44,7 +44,9 @@ const text = (value, max = MAX_TEXT) =>
   (typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '').slice(0, max);
 const finite = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 
-const docId = (month, uid) => `${month}_${uid}`;
+// One payout per person, month and role, so someone who is both a teacher and
+// an administrator is paid (and voided) separately for each.
+const docId = (month, uid, role) => `${month}_${uid}_${role}`;
 
 const defaultAssertMonthOpen = (db, month) =>
   // eslint-disable-next-line global-require
@@ -197,8 +199,9 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
   const entries = rawEntries.map(parseEntry);
   const seen = new Set();
   for (const entry of entries) {
-    if (seen.has(entry.uid)) throw HttpsError('invalid-argument', 'Each person can appear once.');
-    seen.add(entry.uid);
+    const key = `${entry.uid}:${entry.role}`;
+    if (seen.has(key)) throw HttpsError('invalid-argument', 'Each person can appear once per role.');
+    seen.add(key);
   }
 
   await assertMonthOpen(db, month);
@@ -210,15 +213,9 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
     const prepared = [];
     for (const entry of entries) {
       const due = await resolveDue(tx, db, month, entry);
-      const ref = db.collection('staff_payouts').doc(docId(month, entry.uid));
+      const ref = db.collection('staff_payouts').doc(docId(month, entry.uid, entry.role));
       const existingSnap = await tx.get(ref);
       const existing = existingSnap.exists ? existingSnap.data() : null;
-      if (existing && !existing.voided && existing.role && existing.role !== entry.role) {
-        throw HttpsError(
-          'failed-precondition',
-          `${due.name || 'This person'} already has a ${existing.role} payout for that month.`
-        );
-      }
       prepared.push({entry, due, ref, existing});
     }
     for (const {entry, due, ref, existing} of prepared) {
@@ -251,17 +248,31 @@ const voidStaffPayout = async (request, deps = defaultDeps()) => {
   const month = requireMonth(payload.month);
   const uid = requireUid(payload.uid);
   const reason = requireReason(payload.reason, 'Say why this payment is being voided.');
+  const role = payload.role === undefined || payload.role === null ? null : payload.role;
+  if (role !== null && role !== 'teacher' && role !== 'admin') {
+    throw HttpsError('invalid-argument', 'role must be teacher or admin.');
+  }
 
   await assertMonthOpen(db, month);
   const actor = await actorFor(db, callerUid, effectiveAdminEmail);
   const at = Timestamp.now();
 
   await db.runTransaction(async (tx) => {
-    const ref = db.collection('staff_payouts').doc(docId(month, uid));
-    const snap = await tx.get(ref);
-    if (!snap.exists) throw HttpsError('not-found', 'There is no payment to void.');
-    const existing = snap.data() || {};
-    if (existing.voided) throw HttpsError('failed-precondition', 'This payment is already voided.');
+    // The page names the role; without it the one live payout for this person is used.
+    const roles = role ? [role] : ['teacher', 'admin'];
+    const found = [];
+    for (const r of roles) {
+      const ref = db.collection('staff_payouts').doc(docId(month, uid, r));
+      const snap = await tx.get(ref);
+      if (snap.exists) found.push({ref, existing: snap.data() || {} });
+    }
+    const live = found.filter((f) => !f.existing.voided);
+    if (found.length === 0) throw HttpsError('not-found', 'There is no payment to void.');
+    if (live.length === 0) throw HttpsError('failed-precondition', 'This payment is already voided.');
+    if (live.length > 1) {
+      throw HttpsError('invalid-argument', 'Say whether it is the teacher or the administrator payment.');
+    }
+    const {ref, existing} = live[0];
     tx.set(ref, math.applyVoid(existing, reason, {at, by: actor.uid, by_name: actor.name}));
   });
 
@@ -350,7 +361,7 @@ const pauseAdminPay = async (request, deps = defaultDeps()) => {
     if (math.openPause(existing.pauses)) {
       throw HttpsError('failed-precondition', 'Their pay is already paused.');
     }
-    const paid = await tx.get(db.collection('staff_payouts').doc(docId(fromMonth, uid)));
+    const paid = await tx.get(db.collection('staff_payouts').doc(docId(fromMonth, uid, 'admin')));
     if (paid.exists && !(paid.data() || {}).voided) {
       throw HttpsError('failed-precondition', 'They are already paid for that month. Void the payment first.');
     }

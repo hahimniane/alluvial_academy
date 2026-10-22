@@ -9,6 +9,7 @@ import {
   adminRows,
   openPause,
   payLabel,
+  payoutKey,
   payState,
   pausedLabel,
   staffCards,
@@ -57,7 +58,7 @@ export function StaffPayPage() {
   const teachers = useMemo(() => (data ? teacherRows(data.summary, data.payouts) : []), [data]);
   const admins = useMemo(() => (data ? adminRows(data.summary, data.payouts) : []), [data]);
   const payable = useMemo(() => [...teachers, ...admins].filter((r) => r.payable), [teachers, admins]);
-  const picked = payable.filter((r) => selected.has(r.uid));
+  const picked = payable.filter((r) => selected.has(payoutKey(r.role, r.uid)));
 
   if (loading && !data) return <p className="p-2 text-sm text-slate-600">Loading staff pay…</p>;
   if (error && !data) {
@@ -117,10 +118,10 @@ export function StaffPayPage() {
     <input
       type="checkbox"
       aria-label={`Select ${row.name}`}
-      checked={selected.has(row.uid) && row.payable}
+      checked={selected.has(payoutKey(row.role, row.uid)) && row.payable}
       disabled={!row.payable || closed}
       title={row.blocked || undefined}
-      onChange={() => toggle(row.uid)}
+      onChange={() => toggle(payoutKey(row.role, row.uid))}
       className="h-5 w-5"
     />
   );
@@ -153,7 +154,7 @@ export function StaffPayPage() {
       </div>
 
       <div className={`${CARD} flex flex-wrap items-center gap-2.5 p-3`}>
-        <button type="button" className={BTN} disabled={payable.length === 0 || closed} onClick={() => setSelected(new Set(payable.map((r) => r.uid)))}>
+        <button type="button" className={BTN} disabled={payable.length === 0 || closed} onClick={() => setSelected(new Set(payable.map((r) => payoutKey(r.role, r.uid))))}>
           Select everyone ready to pay ({payable.length})
         </button>
         <button type="button" className={BTN_PRIMARY} disabled={picked.length === 0 || closed} onClick={() => setDialog({ kind: "pay", rows: picked })}>

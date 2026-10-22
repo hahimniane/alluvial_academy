@@ -6,6 +6,7 @@ import {
   openPause,
   pauseForMonth,
   payLabel,
+  payoutKey,
   payState,
   pausedLabel,
   previewText,
@@ -84,15 +85,24 @@ test("only final, unpaid teachers are payable; paused admins never are", () => {
   const a = adminRows(s, none);
   assert.deepEqual(a.map((r) => r.payable), [true, false]);
   assert.match(a[1].blocked, /paused/);
-  const paid = teacherRows(s, new Map([["t1", payout()]]));
+  const paid = teacherRows(s, new Map([["teacher:t1", payout()]]));
   assert.equal(paid[0].payable, false);
-  const partial = teacherRows(s, new Map([["t1", payout({ amount_paid: 100 })]]));
+  const partial = teacherRows(s, new Map([["teacher:t1", payout({ amount_paid: 100 })]]));
   assert.equal(partial[0].payable, true);
+});
+
+test("a person who is both teacher and administrator has separate payouts", () => {
+  const s = summary();
+  s.admins[0].uid = "t1";
+  const payouts = new Map([["teacher:t1", payout()]]);
+  assert.equal(teacherRows(s, payouts)[0].payout?.amount_paid, 206);
+  assert.equal(adminRows(s, payouts)[0].payout, null);
+  assert.equal(payoutKey("admin", "t1"), "admin:t1");
 });
 
 test("summary cards", () => {
   const s = summary();
-  const payouts = new Map([["t1", payout()]]);
+  const payouts = new Map([["teacher:t1", payout()]]);
   const t = teacherRows(s, payouts);
   const a = adminRows(s, payouts);
   const cards = staffCards(s, t, a);
@@ -135,7 +145,7 @@ test("pay history lines, newest first", () => {
 
 test("staff CSV", () => {
   const s = summary();
-  const payouts = new Map([["t1", payout()]]);
+  const payouts = new Map([["teacher:t1", payout()]]);
   const csv = staffCsv("2026-09", teacherRows(s, payouts), adminRows(s, payouts), s).replace("﻿", "").trim().split("\r\n");
   assert.equal(csv[0], "Type,Name,Month,Owed,Paid,Left,Status,Date paid,Method,Transfer fee,Reference,Note");
   assert.equal(csv[1], "Teacher,Aisha,2026-09,206.00,206.00,0.00,paid,2026-10-03,Mobile money,3.00,TX9,");

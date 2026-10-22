@@ -162,9 +162,12 @@ export type PayableRow = {
   blocked: string;
 };
 
+/** Key for the payouts map: the same person can have a teacher and an administrator payout. */
+export const payoutKey = (role: "teacher" | "admin", uid: string): string => `${role}:${uid}`;
+
 export function teacherRows(summary: StaffSummary, payouts: Map<string, Payout>): PayableRow[] {
   return summary.teachers.map((t) => {
-    const payout = payouts.get(t.uid) ?? null;
+    const payout = payouts.get(payoutKey("teacher", t.uid)) ?? null;
     const state = payState(t.net, payout);
     const blocked = !t.final ? "Estimate until the audit is approved" : state === "paid" ? "Already paid" : "";
     return { uid: t.uid, name: t.name, role: "teacher", due: t.net, payout, payable: !blocked, blocked };
@@ -173,7 +176,7 @@ export function teacherRows(summary: StaffSummary, payouts: Map<string, Payout>)
 
 export function adminRows(summary: StaffSummary, payouts: Map<string, Payout>): PayableRow[] {
   return summary.admins.map((a) => {
-    const payout = payouts.get(a.uid) ?? null;
+    const payout = payouts.get(payoutKey("admin", a.uid)) ?? null;
     const state = payState(a.total, payout);
     const blocked = a.paused ? "Pay is paused" : state === "paid" ? "Already paid" : a.total <= 0 ? "Nothing to pay" : "";
     return { uid: a.uid, name: a.name, role: "admin", due: a.total, payout, payable: !blocked, blocked };
