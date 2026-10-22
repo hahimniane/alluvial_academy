@@ -58,6 +58,7 @@ await cp(nextOut, packageOut, { recursive: true, force: true });
 for (const embeddedRoute of [
   ["admin", "shifts"],
   ["admin", "student-applicants"],
+  ["admin", "finance"],
   ["teacher", "job-board"],
 ]) {
   await writeFile(
