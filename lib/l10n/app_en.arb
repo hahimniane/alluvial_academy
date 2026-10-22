@@ -8611,5 +8611,18 @@
   "penaltyNoteOptionalLabel": "Note (optional)",
   "penaltyNoteRequiredLabel": "Note (required)",
   "penaltyNoteRequiredError": "Add a note when the reason is Other.",
-  "penaltyDeductionReasonHint": "This amount is a deduction. Choose the reason."
+  "penaltyDeductionReasonHint": "This amount is a deduction. Choose the reason.",
+  "financeSummaryMonth": "Month",
+  "financeSummaryBilled": "Billed",
+  "financeSummaryCollected": "Collected",
+  "financeSummaryStillOwed": "Still owed",
+  "financeSummaryExpenses": "Expenses",
+  "financeSummaryProfit": "Profit",
+  "financeSummaryProfitEstimate": "Profit (estimate)",
+  "financeSummaryUnpaidStaff": "Staff still to pay",
+  "financeSummaryOverdueInvoices": "Overdue invoices",
+  "financeSummaryRecurringToConfirm": "Recurring costs to confirm",
+  "financeSummaryMonthClosed": "Closed",
+  "financeSummaryOpenOnWeb": "Open Finance on the web to make changes.",
+  "financeSummaryLoadError": "Finance couldn't be loaded."
 }

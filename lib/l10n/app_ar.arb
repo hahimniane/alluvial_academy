@@ -6863,5 +6863,18 @@
   "penaltyNoteOptionalLabel": "ملاحظة (اختياري)",
   "penaltyNoteRequiredLabel": "ملاحظة (مطلوبة)",
   "penaltyNoteRequiredError": "أضف ملاحظة عندما يكون السبب «أخرى».",
-  "penaltyDeductionReasonHint": "هذا المبلغ خصم. اختر السبب."
+  "penaltyDeductionReasonHint": "هذا المبلغ خصم. اختر السبب.",
+  "financeSummaryMonth": "الشهر",
+  "financeSummaryBilled": "المفوتر",
+  "financeSummaryCollected": "المحصّل",
+  "financeSummaryStillOwed": "المتبقي",
+  "financeSummaryExpenses": "المصروفات",
+  "financeSummaryProfit": "الربح",
+  "financeSummaryProfitEstimate": "الربح (تقديري)",
+  "financeSummaryUnpaidStaff": "موظفون لم يُدفع لهم بعد",
+  "financeSummaryOverdueInvoices": "فواتير متأخرة",
+  "financeSummaryRecurringToConfirm": "تكاليف متكررة للتأكيد",
+  "financeSummaryMonthClosed": "مغلق",
+  "financeSummaryOpenOnWeb": "افتح المالية على الويب لإجراء التغييرات.",
+  "financeSummaryLoadError": "تعذّر تحميل المالية."
 }

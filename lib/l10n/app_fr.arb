@@ -7439,5 +7439,18 @@
   "penaltyNoteOptionalLabel": "Note (facultative)",
   "penaltyNoteRequiredLabel": "Note (obligatoire)",
   "penaltyNoteRequiredError": "Ajoutez une note lorsque le motif est Autre.",
-  "penaltyDeductionReasonHint": "Ce montant est une déduction. Choisissez le motif."
+  "penaltyDeductionReasonHint": "Ce montant est une déduction. Choisissez le motif.",
+  "financeSummaryMonth": "Mois",
+  "financeSummaryBilled": "Facturé",
+  "financeSummaryCollected": "Encaissé",
+  "financeSummaryStillOwed": "Reste dû",
+  "financeSummaryExpenses": "Dépenses",
+  "financeSummaryProfit": "Bénéfice",
+  "financeSummaryProfitEstimate": "Bénéfice (estimation)",
+  "financeSummaryUnpaidStaff": "Personnel restant à payer",
+  "financeSummaryOverdueInvoices": "Factures en retard",
+  "financeSummaryRecurringToConfirm": "Coûts récurrents à confirmer",
+  "financeSummaryMonthClosed": "Clôturé",
+  "financeSummaryOpenOnWeb": "Ouvrez Finance sur le web pour faire des modifications.",
+  "financeSummaryLoadError": "Impossible de charger Finance."
 }
