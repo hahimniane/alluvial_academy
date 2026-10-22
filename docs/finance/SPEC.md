@@ -99,7 +99,7 @@ Months are `yyyy-MM` strings in America/New_York.
 - `finance_expenses/{id}` (existing) — add `month`, `kind:'one_time'|'recurring'`, `recurring_cost_id`, `name`, `deleted`, `deleted_at`, `deleted_by`, `delete_reason`, `restored_at/by`.
 - `finance_recurring_costs/{id}` — `{name, category, amount, day_of_month, start_month, end_month|null, created_at/by}`
 - `finance_recurring_confirmations/{yyyy-MM}_{costId}` — `{cost_id, month, amount, confirmed_at, confirmed_by, source:'manual'|'bank'|'created', bank_transaction_id?}`
-- `staff_payouts/{yyyy-MM}_{uid}` — `{user_id, name, role:'teacher'|'admin', month, amount_due, amount_paid, date_paid, method, transfer_fee, reference, receipt_path, note, recorded_at/by, voided, void_reason, history:[...]}`
+- `staff_payouts/{yyyy-MM}_{uid}_{role}` (role `teacher`|`admin`, so someone who is both is paid for each) — `{user_id, name, role:'teacher'|'admin', month, amount_due, amount_paid, date_paid, method, transfer_fee, reference, receipt_path, note, recorded_at/by, voided, void_reason, history:[...]}`
 - `admin_pay_terms/{uid}` — `{name, role_title, terms:[{from_month, fixed, pct, note, set_at, set_by}], pauses:[{from_month, until_month|null, reason, auto:boolean, at, by}]}`
 - `family_billing/{parentId}` — `{monthly_amount, student_ids, set_on_invoice_id, set_at, history:[{from_month, old, new, reason, at, by}], active}`
 - `family_credits/{id}` — `{parent_id, student_id?, amount, reason, source:'pause'|'leave'|'invoice_edit'|'manual', status:'open'|'used'|'refunded'|'cancelled', used_on_invoice_id, created_at/by, closed_at/by}`
@@ -134,7 +134,7 @@ with a plain message when the month is closed.
 | `closeFinanceMonth` / `reopenFinanceMonth` | overview | `{month}` / `{month, reason}` → `{ok}` |
 | `updateFinanceSettings` | overview | `{patch}` → `{settings}` |
 | `recordStaffPayouts` | staff | `{month, entries:[{uid, role, amount_paid, method, date_paid, transfer_fee?, reference?, note?}]}` → `{ok, count}` (only final pay; never paused admins) |
-| `voidStaffPayout` | staff | `{month, uid, reason}` → `{ok}` |
+| `voidStaffPayout` | staff | `{month, uid, role?, reason}` → `{ok}` (`role` needed only when the person has both a teacher and an administrator payout) |
 | `setAdminPayTerms` | staff | `{uid, name?, role_title?, from_month, fixed, pct, note}` → `{ok}` |
 | `pauseAdminPay` / `resumeAdminPay` | staff | `{uid, from_month, reason}` → `{ok}` |
 | `addFinanceExpense` | expenses | `{month, kind:'one_time'|'recurring', category, name, amount, date?, day_of_month?}` → `{id}` |
