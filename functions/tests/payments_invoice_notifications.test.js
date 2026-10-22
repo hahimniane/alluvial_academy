@@ -200,6 +200,14 @@ const buildRecurringDb = ({plans = {}, invoices = {}, counters = {}} = {}) => {
         };
       }
 
+      // The billing switches (auto billing, parent messages). None are set
+      // here, so the new monthly engine is off and this generator is unchanged.
+      if (name === 'finance_settings') {
+        return {
+          doc: () => ({get: async () => ({exists: false, data: () => undefined})}),
+        };
+      }
+
       throw new Error(`Unexpected collection: ${name}`);
     }),
     runTransaction: async (handler) => {

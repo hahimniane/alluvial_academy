@@ -9,6 +9,10 @@ const stripeCheckout = require('../services/stripe/checkout');
 const payLinks = require('../services/payment_links');
 const { generateInvoiceFromShifts } = require('../utils/invoice_generator');
 const {applyStudentDiscounts} = require('../utils/student_discounts');
+const {
+  loadBillingSettings,
+  oldGeneratorShouldSkipFamily
+} = require('../utils/finance_billing_gate');
 const { generateInvoicePdfBuffer } = require('../utils/invoice_pdf');
 const {
   sendInvoiceCreatedEmail,
@@ -1141,6 +1145,22 @@ const onInvoiceCreated = onDocumentCreated(
   async (event) => {
     const invoice = event.data?.data();
     if (!invoice) return;
+
+    // Invoices from the finance billing engine (first month / monthly) only
+    // reach parents once the owner has switched parent messages on.
+    if (invoice.kind === 'first_month' || invoice.kind === 'monthly') {
+      const settings = await loadBillingSettings(admin.firestore());
+      if (settings.parent_messages_enabled !== true) {
+        await event.data.ref.set(
+          {
+            notification_status: 'suppressed',
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+        return;
+      }
+    }
 
     const result = await _notifyInvoiceRecipient(
       admin.firestore(),
@@ -2479,8 +2499,50 @@ const _runRecurringInvoiceGeneration = async ({
     .limit(limit)
     .get();
   const results = [];
+  // finance_settings/main.auto_billing_enabled: while it is off (the default)
+  // nothing below changes. Once on, families that have family_billing are
+  // billed by the new monthly engine, so this generator steps aside for them.
+  const billingSettings = await loadBillingSettings(db);
 
   for (const planDoc of snap.docs) {
+    const planData = planDoc.data() || {};
+    if (
+      await oldGeneratorShouldSkipFamily(
+        db,
+        planData.parent_id || planData.parentId,
+        billingSettings
+      )
+    ) {
+      // Move the plan past this period too, so switching the new engine off
+      // later cannot make this generator bill every month it stood aside for.
+      const stepMonths = _normalizeBillingMonths(planData.billing_months);
+      let skipTo = _normalizePeriod(planData.next_period);
+      let steps = 0;
+      while (skipTo && _comparePeriods(skipTo, targetPeriod) <= 0 && steps < 24) {
+        skipTo = _addMonthsToPeriod(skipTo, stepMonths);
+        steps += 1;
+      }
+      if (skipTo && steps > 0) {
+        await db.collection('recurring_billing_plans').doc(planDoc.id).set(
+          {
+            next_period: skipTo,
+            skipped_for_family_billing_at:
+              admin.firestore.FieldValue.serverTimestamp(),
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
+      results.push({
+        success: true,
+        created: false,
+        skipped: true,
+        planId: planDoc.id,
+        reason: 'family_billing'
+      });
+      continue;
+    }
+
     let nextPeriod = _normalizePeriod(planDoc.data()?.next_period);
     if (!nextPeriod) {
       results.push({

@@ -697,3 +697,23 @@ exports.getFinanceDiscountTotals = onCall(
   { cors: true, invoker: 'public' },
   (request) => financeExpensesHandlers.getFinanceDiscountTotals(request)
 );
+// Finance billing engine (docs/finance/SPEC.md): first invoice, monthly amount,
+// monthly generator (OFF until finance_settings/main.auto_billing_enabled) and reminders.
+const financeBillingHandlers = require('./handlers/finance_billing');
+exports.createFirstInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.createFirstInvoice(request)
+);
+exports.setFamilyMonthlyAmount = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.setFamilyMonthlyAmount(request)
+);
+exports.previewMonthlyBilling = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.previewMonthlyBilling(request)
+);
+exports.generateMonthlyFamilyInvoices =
+  financeBillingHandlers.generateMonthlyFamilyInvoices;
+exports.sendInvoiceReminders = financeBillingHandlers.sendInvoiceReminders;
+exports.createFirstInvoiceOnFirstClass =
+  financeBillingHandlers.createFirstInvoiceOnFirstClass;
