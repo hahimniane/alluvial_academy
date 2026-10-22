@@ -13,6 +13,7 @@ const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
+const financeStaffHandlers = require('./handlers/finance_staff');
 const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
@@ -647,3 +648,12 @@ exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
 exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
 exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
 exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;
+
+// Finance: staff pay (admin-only, gated in the handler; closed months locked).
+exports.recordStaffPayouts = financeStaffHandlers.recordStaffPayoutsCallable;
+exports.voidStaffPayout = financeStaffHandlers.voidStaffPayoutCallable;
+exports.setAdminPayTerms = financeStaffHandlers.setAdminPayTermsCallable;
+exports.pauseAdminPay = financeStaffHandlers.pauseAdminPayCallable;
+exports.resumeAdminPay = financeStaffHandlers.resumeAdminPayCallable;
+// Pauses an administrator's pay when their account is deactivated.
+exports.onAdminUserDeactivated = financeStaffHandlers.onAdminUserDeactivated;

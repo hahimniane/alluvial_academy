@@ -1278,12 +1278,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Finance staff pay - admins read; every change goes through the staff pay
+    // callables (they enforce the month lock and the payout rules).
+    match /staff_payouts/{payoutId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /admin_pay_terms/{adminUid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
     match /{collection}/{document=**} {
       allow read: if isAdmin();
-      allow write: if isAdmin() && collection != 'teaching_shifts';
+      // staff_payouts and admin_pay_terms are written by callables only.
+      allow write: if isAdmin() && collection != 'teaching_shifts' &&
+        collection != 'staff_payouts' && collection != 'admin_pay_terms';
     }
 
   }
