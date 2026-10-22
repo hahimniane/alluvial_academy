@@ -717,3 +717,18 @@ exports.generateMonthlyFamilyInvoices =
 exports.sendInvoiceReminders = financeBillingHandlers.sendInvoiceReminders;
 exports.createFirstInvoiceOnFirstClass =
   financeBillingHandlers.createFirstInvoiceOnFirstClass;
+const financeInvoiceHandlers = require('./handlers/finance_invoices');
+// Finance: invoice edit / cancel / reminder (admin-only, closed months refused;
+// see docs/finance/SPEC.md). Money changes never go through client writes.
+exports.editInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.editInvoice(request)
+);
+exports.cancelInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.cancelInvoice(request)
+);
+exports.sendInvoiceReminder = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.sendInvoiceReminder(request)
+);

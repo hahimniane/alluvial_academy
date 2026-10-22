@@ -15,6 +15,10 @@ const {
 } = require('../utils/finance_billing_gate');
 const { generateInvoicePdfBuffer } = require('../utils/invoice_pdf');
 const {
+  findMonthlyInvoiceClash,
+  monthOfDate
+} = require('../utils/finance_invoice_math');
+const {
   sendInvoiceCreatedEmail,
   sendPaymentConfirmationEmail
 } = require('../services/email/senders');
@@ -831,6 +835,15 @@ const _nextInvoiceNumber = async (tx, year) => {
   return `INV-${year}-${padded}`;
 };
 
+// 'monthly' (tuition) or 'one_off' (books, exam fee...); anything else means
+// the caller did not say, which keeps the pre-finance behaviour.
+const _normalizeRequestedKind = (value) => {
+  const kind = (value || '').toString().trim().toLowerCase();
+  if (kind === 'monthly' || kind === 'monthly_tuition') return 'monthly';
+  if (kind === 'one_off' || kind === 'one-off' || kind === 'oneoff') return 'one_off';
+  return null;
+};
+
 const createInvoice = async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError(
@@ -990,6 +1003,26 @@ const createInvoice = async (request) => {
     );
   }
 
+  // Finance: a request may say what it bills. Monthly tuition is one invoice
+  // per family per month (checked inside the transaction below); a one-off
+  // charge just records the month it belongs to. Requests that say nothing
+  // behave exactly as before.
+  const requestedKind = _normalizeRequestedKind(data.kind);
+  let billingMonth = null;
+  if (requestedKind) {
+    billingMonth =
+      _normalizePeriod(data.billingMonth || data.billing_month) ||
+      _normalizePeriod(invoicePayload.period_start) ||
+      _normalizePeriod(invoicePayload.period);
+    if (requestedKind === 'monthly' && !billingMonth) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Monthly tuition needs a billing month (yyyy-MM).'
+      );
+    }
+    if (!billingMonth) billingMonth = monthOfDate(new Date());
+  }
+
   const db = admin.firestore();
   const creator = await resolveDecisionActor(db, uid);
   const invoiceRef = db.collection('invoices').doc();
@@ -1031,6 +1064,25 @@ const createInvoice = async (request) => {
           `An active recurring plan already exists for this family and student ` +
             `(${clash.total_amount} ${clash.currency || 'USD'} each ${clash.interval || 'month'}). ` +
             `Edit that plan instead of creating another, or set allowDuplicatePlan to create a second one on purpose.`
+        );
+      }
+    }
+
+    // One monthly tuition invoice per family per month. The query is read
+    // inside the transaction, so two simultaneous creates cannot both pass.
+    if (requestedKind === 'monthly') {
+      const sameFamily = await tx.get(
+        db.collection('invoices').where('parent_id', '==', invoicePayload.parent_id)
+      );
+      const clash = findMonthlyInvoiceClash({
+        invoices: sameFamily.docs.map((d) => ({ id: d.id, ...d.data() })),
+        month: billingMonth
+      });
+      if (clash) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `Already billed: ${clash.invoice_number || clash.id} is this family's ` +
+            `tuition invoice for ${billingMonth}. Open it instead of creating another.`
         );
       }
     }
@@ -1089,6 +1141,9 @@ const createInvoice = async (request) => {
       billing_months: invoicePayload.billing_months || 1,
       notification_status: 'pending',
       recurring_plan_id: recurringPlanRef ? recurringPlanRef.id : null,
+      ...(requestedKind
+        ? { kind: requestedKind, billing_month: billingMonth }
+        : {}),
       ...payLinks.newPayLinkFields(uid)
     };
 
