@@ -122,3 +122,33 @@ Months are `yyyy-MM` strings in America/New_York.
   where pages use `t()`/`tr()`.
 - Tests: pure logic in `apps/web/src/lib/finance/*.ts` with `apps/web/src/lib/__tests__/finance*.test.ts`
   (node --test style); callables in `functions/tests/finance_*.test.js` (jest, the repo's Firestore double).
+
+## Callable interfaces (names are fixed so branches can build in parallel)
+
+All take `request.data`, require an admin caller, and throw `failed-precondition`
+with a plain message when the month is closed.
+
+| Callable | Owner branch | Input → output |
+|---|---|---|
+| `getFinanceMonthSummary` | overview | `{month}` → `{month, status, final:boolean, billed, collected, owed, discounts, credit_open, penalties, teacher_pay, teacher_pay_final:boolean, admin_pay, admin_base, software, marketing, transfer_fees, other, expenses, profit, invoice_count, families_owing, recurring_pending, recurring_due, unpaid_teachers, unpaid_admins, overdue_invoices, first_invoices_this_week, teachers:[{uid,name,hours,gross,penalties,net,final}], admins:[{uid,name,role_title,fixed,pct,share,total,paused:{reason,auto}|null}]}` |
+| `closeFinanceMonth` / `reopenFinanceMonth` | overview | `{month}` / `{month, reason}` → `{ok}` |
+| `updateFinanceSettings` | overview | `{patch}` → `{settings}` |
+| `recordStaffPayouts` | staff | `{month, entries:[{uid, role, amount_paid, method, date_paid, transfer_fee?, reference?, note?}]}` → `{ok, count}` (only final pay; never paused admins) |
+| `voidStaffPayout` | staff | `{month, uid, reason}` → `{ok}` |
+| `setAdminPayTerms` | staff | `{uid, name?, role_title?, from_month, fixed, pct, note}` → `{ok}` |
+| `pauseAdminPay` / `resumeAdminPay` | staff | `{uid, from_month, reason}` → `{ok}` |
+| `addFinanceExpense` | expenses | `{month, kind:'one_time'|'recurring', category, name, amount, date?, day_of_month?}` → `{id}` |
+| `deleteFinanceExpense` / `restoreFinanceExpense` | expenses | `{id, reason}` / `{id}` → `{ok}` |
+| `confirmRecurringCost` / `stopRecurringCost` | expenses | `{month, cost_id, amount, source?}` / `{cost_id, last_month}` → `{ok}` |
+| `resolveFamilyCredit` | expenses | `{credit_id, action:'refund'|'cancel', reason}` → `{ok}` |
+| `editInvoice` | invoices | `{invoice_id, lines:[{description, amount, student_id?}], discount, due_date:'yyyy-MM-dd', reason}` → `{invoice, credit_id?}` |
+| `cancelInvoice` | invoices | `{invoice_id, reason}` → `{ok}` |
+| `createFirstInvoice` | billing | `{parent_id, student_id, monthly_amount, classes_in_month, classes_left, first_class_date:'yyyy-MM-dd'}` → `{invoice_id}` (also writes `family_billing`) |
+| `setFamilyMonthlyAmount` | billing | `{parent_id, monthly_amount, reason}` → `{ok}` (applies from the next invoice) |
+| `previewMonthlyBilling` | billing | `{month}` → `{rows:[{parent_id, parent_name, students, monthly_amount, discount, credit, total, existing_invoice_id?}], totals}` |
+| `linkBankAccount` / `syncBankTransactions` / `decideBankMatch` | bank | Plaid link token + exchange; sync; `{transaction_id, action:'confirm'|'reject'|'manual'|'ignore', allocations?, remember_payer?}` |
+| `decidePaymentProof` | bank | `{proof_id, action:'confirm'|'link_family', parent_id?}` → `{ok}` |
+
+Existing callables stay: `createInvoice` (one-off charges; add a duplicate
+guard for monthly tuition), `recordManualPayment`, `extendStudentAccessCutoff`,
+`getInvoicePaymentLink`.
