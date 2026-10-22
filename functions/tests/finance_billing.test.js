@@ -177,6 +177,30 @@ describe('createFirstInvoice', () => {
     expect(fb.history[0]).toMatchObject({from_month: '2026-11', old: 80, new: 140, by: 'admin_1'});
   });
 
+  test('a child already listed in student_ids still adds their price, once', async () => {
+    const seed = baseSeed();
+    seed.family_billing = {
+      // staff put stu_2 in student_ids at enrollment; the family amount so far is stu_1 only
+      parent_1: {monthly_amount: 80, student_ids: ['stu_1', 'stu_2'], history: [], active: true, student_amounts: {stu_1: 80}},
+    };
+    const deps = makeDeps(seed);
+    await callFirst(deps, firstInput({student_id: 'stu_2', monthly_amount: 60, classes_left: 4}));
+
+    const fb = deps.db.store.family_billing.parent_1;
+    expect(fb.monthly_amount).toBe(140);
+    expect(fb.student_ids).toEqual(['stu_1', 'stu_2']);
+    expect(fb.student_amounts).toEqual({stu_1: 80, stu_2: 60});
+    expect(fb.history).toHaveLength(1);
+    expect(fb.history[0]).toMatchObject({from_month: '2026-11', old: 80, new: 140, by: 'admin_1'});
+
+    // the same call again never adds a second time
+    await expect(callFirst(deps, firstInput({student_id: 'stu_2', monthly_amount: 60, classes_left: 4}))).rejects.toMatchObject({
+      code: 'already-exists',
+    });
+    expect(deps.db.store.family_billing.parent_1.monthly_amount).toBe(140);
+    expect(deps.db.store.family_billing.parent_1.history).toHaveLength(1);
+  });
+
   test.each([
     [{monthly_amount: 0}],
     [{classes_in_month: 0}],
@@ -673,6 +697,34 @@ describe('automatic first invoice when the first class completes', () => {
     expect(fb.pending_first_invoice).toBeUndefined();
     expect(fb.first_invoice_skipped).toMatchObject({reason: 'prior_invoice', student_id: 'stu_1'});
     expect(deps.db.store.admin_notifications).toBeUndefined();
+  });
+
+  test('a second child whose pending first invoice fires adds to the existing family amount, once', async () => {
+    const s = seed({family_billing: {parent_1: {
+      monthly_amount: 80,
+      student_ids: ['stu_1', 'stu_2'],
+      pending_first_invoice: {monthly_amount: 60, classes_in_month: 8, student_id: 'stu_2'},
+      history: [],
+      active: true,
+    }}});
+    const deps = makeDeps(s, '2026-10-20T23:00:00Z');
+    const shift = {
+      before: scheduled({student_ids: ['stu_2']}),
+      after: completed({student_ids: ['stu_2']}),
+    };
+    const first = await finance.handleShiftChange({deps, shiftId: 's_x', ...shift});
+    expect(first.outcomes[0]).toMatchObject({created: true, invoiceId: 'first_stu_2'});
+    let fb = deps.db.store.family_billing.parent_1;
+    expect(fb.monthly_amount).toBe(140);
+    expect(fb.history).toHaveLength(1);
+    expect(fb.history[0]).toMatchObject({old: 80, new: 140});
+    expect(fb.pending_first_invoice).toBeUndefined();
+
+    // a repeated event finds nothing pending and adds nothing
+    await finance.handleShiftChange({deps, shiftId: 's_x', ...shift});
+    fb = deps.db.store.family_billing.parent_1;
+    expect(fb.monthly_amount).toBe(140);
+    expect(fb.history).toHaveLength(1);
   });
 
   test('only the student the pending invoice names triggers it', async () => {

@@ -293,7 +293,8 @@ const invoiceInvolvesStudent = (invoice, studentId) =>
  *
  * `monthlyAmount` is the NEW STUDENT's own monthly price. A family with no
  * monthly amount yet gets it as the family amount; a family that already has
- * one gets it added from the next invoice (history entry kept).
+ * one gets it added from the next invoice (history entry kept), whether or not
+ * the student was already listed in the family's student_ids.
  *
  * @returns {{created:boolean, reason?:string, invoiceId?:string, ...}}
  */
@@ -389,7 +390,11 @@ const issueFirstInvoice = async ({
         set_at: FieldValue.serverTimestamp(),
         history: list(fb && fb.history),
       });
-    } else if (!knownStudents.includes(studentId)) {
+    } else {
+      // This is the student's first first-month invoice (the fixed id
+      // first_{studentId} and the exists-check above make this run once per
+      // student), so their price joins the family amount from the next invoice
+      // even if the student was already listed in student_ids.
       const fromMonth = math.nextBillingMonth(now);
       const newAmount = math.round2(existingAmount + monthlyAmount);
       familyUpdate.monthly_amount = newAmount;
@@ -408,7 +413,7 @@ const issueFirstInvoice = async ({
       const sum = Object.values(known).reduce((s, v) => s + math.toCents(v), 0);
       familyUpdate.student_amounts =
         sum === math.toCents(existingAmount) && sum > 0
-          ? {...known, [studentId]: math.round2(monthlyAmount)}
+          ? {...known, [studentId]: math.round2((Number(known[studentId]) || 0) + monthlyAmount)}
           : FieldValue.delete();
     }
     if (consumePending) familyUpdate.pending_first_invoice = FieldValue.delete();
