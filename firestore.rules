@@ -741,6 +741,13 @@ service cloud.firestore {
     }
 
     
+    // Finance billing engine: the monthly amount each family is billed. Only
+    // the server (callables, the generator) writes it; admins read it.
+    match /family_billing/{parentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Admin Notifications - admins can read/write, teachers can create when accepting jobs
 
     match /admin_notifications/{notificationId} {
