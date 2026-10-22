@@ -1278,12 +1278,43 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Finance expenses, recurring costs and family credits are written only
+    // by the finance callables (they enforce the closed-month lock and keep
+    // the soft-delete history). Admins read them; no client writes.
+    // The fallback below must exclude them, since rules are OR'd.
+    function isFinanceExpensesCollection(collection) {
+      return collection in [
+        'finance_expenses',
+        'finance_recurring_costs',
+        'finance_recurring_confirmations',
+        'family_credits'
+      ];
+    }
+
+    match /finance_expenses/{expenseId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /finance_recurring_costs/{costId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /finance_recurring_confirmations/{confirmationId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /family_credits/{creditId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
     match /{collection}/{document=**} {
       allow read: if isAdmin();
-      allow write: if isAdmin() && collection != 'teaching_shifts';
+      allow write: if isAdmin() && collection != 'teaching_shifts'
+        && !isFinanceExpensesCollection(collection);
     }
 
   }

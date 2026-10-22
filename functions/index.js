@@ -647,3 +647,35 @@ exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
 exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
 exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
 exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;
+
+// Finance: expenses, recurring costs, family credits, discount totals.
+// Admin-only, gated in the handler; every mutation checks the closed-month lock.
+const financeExpensesHandlers = require('./handlers/finance_expenses');
+exports.addFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.addFinanceExpense(request)
+);
+exports.deleteFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.deleteFinanceExpense(request)
+);
+exports.restoreFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.restoreFinanceExpense(request)
+);
+exports.confirmRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.confirmRecurringCost(request)
+);
+exports.stopRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.stopRecurringCost(request)
+);
+exports.resolveFamilyCredit = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.resolveFamilyCredit(request)
+);
+exports.getFinanceDiscountTotals = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.getFinanceDiscountTotals(request)
+);
