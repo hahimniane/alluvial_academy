@@ -67,6 +67,11 @@ PLAY_LOCALES = {"en-US": "en-US", "fr-FR": "fr-FR"}
 
 def release(aab_path, build, version_name, notes_path=None,
             track="production", fraction=None):
+    if notes_path:
+        with open(notes_path) as fh:
+            too_long = {k: len(v) for k, v in json.load(fh).items() if len(v) > 500}
+        if too_long:
+            raise SystemExit(f"Play release notes are capped at 500 characters: {too_long}")
     sess = session()
     edit = new_edit(sess)
     print(f"edit {edit}: uploading {os.path.basename(aab_path)}")
