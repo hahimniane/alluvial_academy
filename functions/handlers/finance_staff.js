@@ -31,6 +31,7 @@ const {onCall} = require('firebase-functions/v2/https');
 const {onDocumentUpdated} = require('firebase-functions/v2/firestore');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const math = require('../utils/finance_staff_math');
+const {assertMonthOpenInTransaction} = require('../utils/finance_lock');
 
 const FINAL_AUDIT_STATUSES = ['ceoApproved', 'completed'];
 const MAX_ENTRIES = 200;
@@ -42,6 +43,7 @@ const record = (value) =>
   value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const text = (value, max = MAX_TEXT) =>
   (typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '').slice(0, max);
+const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 const finite = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 
 // One payout per person, month and role, so someone who is both a teacher and
@@ -210,6 +212,9 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
 
   await db.runTransaction(async (tx) => {
     // Reads first (a Firestore transaction cannot read after it writes).
+    // The month is read here too: a close that lands after the early check
+    // conflicts with this transaction instead of being paid into.
+    await assertMonthOpenInTransaction(tx, db, month);
     const prepared = [];
     for (const entry of entries) {
       const due = await resolveDue(tx, db, month, entry);
@@ -217,6 +222,20 @@ const recordStaffPayouts = async (request, deps = defaultDeps()) => {
       const existingSnap = await tx.get(ref);
       const existing = existingSnap.exists ? existingSnap.data() : null;
       prepared.push({entry, due, ref, existing});
+    }
+    // Nothing is written unless every person in the request is accepted.
+    for (const {entry, due, existing} of prepared) {
+      const refusal = math.paymentRefusal(existing, entry, due.amount_due);
+      if (refusal) {
+        const who = due.name || 'This person';
+        throw HttpsError(
+          'failed-precondition',
+          refusal.kind === 'duplicate'
+            ? `${who} already has this exact payment recorded (same amount, date, method and reference).`
+            : `${who} has ${money(refusal.alreadyPaid)} recorded and ${money(due.amount_due)} due. ` +
+                `Adding ${money(entry.amount_paid)} would pay more than is owed.`
+        );
+      }
     }
     for (const {entry, due, ref, existing} of prepared) {
       const next = math.applyPayment(existing, entry, {
@@ -258,6 +277,7 @@ const voidStaffPayout = async (request, deps = defaultDeps()) => {
   const at = Timestamp.now();
 
   await db.runTransaction(async (tx) => {
+    await assertMonthOpenInTransaction(tx, db, month);
     // The page names the role; without it the one live payout for this person is used.
     const roles = role ? [role] : ['teacher', 'admin'];
     const found = [];

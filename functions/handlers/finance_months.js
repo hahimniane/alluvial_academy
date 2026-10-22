@@ -14,6 +14,27 @@ const {computeLiveMonth} = require('./finance_summary');
 
 const MAX_REASON_LENGTH = 300;
 
+/**
+ * What staff have been paid for a month, as one string. Read before the close
+ * blockers are worked out and again inside the closing transaction: if a
+ * payout was recorded or voided in between, the blockers are stale and the
+ * close is refused (the admin simply tries again).
+ */
+const payoutFingerprint = (docs) =>
+  docs
+    .map((d) => {
+      const p = (d.data && d.data()) || {};
+      return `${d.id}|${Number(p.amount_paid) || 0}|${p.voided ? 1 : 0}`;
+    })
+    .sort()
+    .join(';');
+
+const readPayoutFingerprint = async (reader, db, month) => {
+  const query = db.collection('staff_payouts').where('month', '==', month);
+  const snap = await (reader === db ? query.get() : reader.get(query));
+  return payoutFingerprint(snap.docs);
+};
+
 const defaultDeps = () => ({
   db: admin.firestore(),
   Timestamp: admin.firestore.Timestamp,
@@ -63,6 +84,7 @@ const closeFinanceMonth = async (request, deps = defaultDeps()) => {
     throw new functions.https.HttpsError('failed-precondition', `${label} is already closed.`);
   }
 
+  const payoutsBefore = await readPayoutFingerprint(db, db, month);
   const {summary, unapprovedAudits} = await computeLiveMonth(deps, month);
   const blockers = math.closeBlockers({month, now: deps.now(), summary, unapprovedAudits});
   if (blockers.length > 0) {
@@ -82,6 +104,12 @@ const closeFinanceMonth = async (request, deps = defaultDeps()) => {
     const current = await tx.get(ref);
     if (current.exists && (current.data() || {}).status === 'closed') {
       throw new functions.https.HttpsError('failed-precondition', `${label} is already closed.`);
+    }
+    if ((await readPayoutFingerprint(tx, db, month)) !== payoutsBefore) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Staff payments for ${label} changed while it was being closed. Check them and try again.`
+      );
     }
     tx.set(ref, {
       status: 'closed',

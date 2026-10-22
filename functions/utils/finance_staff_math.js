@@ -131,6 +131,36 @@ const payoutTotals = (history) => {
 /** Money still owed on a payout (never negative). */
 const amountLeft = (due, paid) => r2(Math.max(0, (Number(due) || 0) - (Number(paid) || 0)));
 
+/** The history entry that is the same payment (amount, date, method, reference). */
+const sameEntry = (entry, payment) =>
+  r2(entry.amount_paid) === r2(payment.amount_paid) &&
+  entry.date_paid === payment.date_paid &&
+  String(entry.method || '').toLowerCase() === String(payment.method || '').toLowerCase() &&
+  String(entry.reference || '').toLowerCase() === String(payment.reference || '').toLowerCase();
+
+/**
+ * Why a payment must not be added to this payout, or null when it is fine:
+ *  - {kind:'duplicate'} the same payment is already in the history (a double
+ *    click, a retried request);
+ *  - {kind:'overpay', alreadyPaid} what is already paid (voided payments do not
+ *    count) plus this payment is more than what is due.
+ */
+const paymentRefusal = (existing, payment, amountDue) => {
+  const history = existing && Array.isArray(existing.history) ? existing.history : [];
+  const live = history.filter((e) => e && e.action === 'payment' && !e.voided);
+  if (existing && !existing.voided && live.some((e) => sameEntry(e, payment))) {
+    return {kind: 'duplicate'};
+  }
+  const alreadyPaid =
+    existing && !existing.voided
+      ? Math.max(r2(Number(existing.amount_paid) || 0), payoutTotals(history).paid)
+      : 0;
+  if (r2(alreadyPaid + payment.amount_paid) > r2(amountDue) + 0.005) {
+    return {kind: 'overpay', alreadyPaid};
+  }
+  return null;
+};
+
 /**
  * The staff_payouts document after one more payment.
  *
@@ -212,6 +242,7 @@ module.exports = {
   closeOpenPause,
   payoutTotals,
   amountLeft,
+  paymentRefusal,
   applyPayment,
   applyVoid,
 };

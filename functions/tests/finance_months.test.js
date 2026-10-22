@@ -133,6 +133,31 @@ describe('closeFinanceMonth', () => {
     await expect(close(makeDb(data), {month: '2026-09'})).rejects.toMatchObject({code: 'failed-precondition'});
   });
 
+  test('a payout voided while the close is in flight stops the close', async () => {
+    const db = makeDb(readySeed());
+    const realTransaction = db.runTransaction;
+    // blockers were worked out with everyone paid; then someone voids a payout
+    db.runTransaction = async (fn) => {
+      db.store.staff_payouts['2026-09_t1'].voided = true;
+      return realTransaction(fn);
+    };
+    await expect(close(db, {month: '2026-09'})).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('changed while it was being closed'),
+    });
+    expect(db.store.finance_months).toBeUndefined();
+  });
+
+  test('a payout recorded while the close is in flight also stops the close (try again)', async () => {
+    const db = makeDb(readySeed());
+    const realTransaction = db.runTransaction;
+    db.runTransaction = async (fn) => {
+      db.store.staff_payouts['2026-09_late'] = {user_id: 'late', role: 'teacher', month: '2026-09', amount_paid: 10};
+      return realTransaction(fn);
+    };
+    await expect(close(db, {month: '2026-09'})).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
   test('refuses a month that is already closed', async () => {
     const db = makeDb(readySeed());
     await close(db, {month: '2026-09'});

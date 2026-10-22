@@ -299,6 +299,102 @@ describe('a person who is both a teacher and an administrator', () => {
   });
 });
 
+describe('recordStaffPayouts: no over-payment, no repeats', () => {
+  const pay = (db, entries, deps = makeDeps(db)) => recordStaffPayouts({data: {month: '2026-09', entries}}, deps);
+
+  test('one payment above what is due is refused and writes nothing', async () => {
+    const db = makeDb(seed());
+    await expect(pay(db, [entry({amount_paid: 300})])).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('more than is owed'),
+    });
+    expect(db.writes).toEqual([]);
+  });
+
+  test('a second payment that takes the total past what is due is refused', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db);
+    await pay(db, [entry({amount_paid: 150, transfer_fee: 2})], deps);
+    const before = JSON.stringify(db.store.staff_payouts);
+    await expect(pay(db, [entry({amount_paid: 60, date_paid: '2026-10-09', transfer_fee: 2})], deps)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('$150.00'),
+    });
+    expect(JSON.stringify(db.store.staff_payouts)).toBe(before);
+  });
+
+  test('paying exactly what is left (and a half cent of rounding) is accepted', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db);
+    await pay(db, [entry({amount_paid: 150})], deps);
+    await pay(db, [entry({amount_paid: 56.4, date_paid: '2026-10-09'})], deps);
+    expect(db.store.staff_payouts['2026-09_t1_teacher'].amount_paid).toBe(206.4);
+  });
+
+  test('an exact duplicate (same amount, date, method, reference) is refused', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db);
+    const e = entry({amount_paid: 50, reference: 'TX-1', transfer_fee: 1.5});
+    await pay(db, [e], deps);
+    await expect(pay(db, [e], deps)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('already has this exact payment'),
+    });
+    const doc = db.store.staff_payouts['2026-09_t1_teacher'];
+    expect(doc.history.filter((h) => h.action === 'payment')).toHaveLength(1);
+    expect(doc.amount_paid).toBe(50);
+    expect(doc.transfer_fee).toBe(1.5); // the fee was not added again
+  });
+
+  test('the same amount on another date or with another reference is a different payment', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db);
+    await pay(db, [entry({amount_paid: 50, reference: 'TX-1', transfer_fee: 1})], deps);
+    await pay(db, [entry({amount_paid: 50, reference: 'TX-2', transfer_fee: 1})], deps);
+    await pay(db, [entry({amount_paid: 50, reference: 'TX-2', date_paid: '2026-10-04', transfer_fee: 1})], deps);
+    const doc = db.store.staff_payouts['2026-09_t1_teacher'];
+    expect(doc.amount_paid).toBe(150);
+    expect(doc.transfer_fee).toBe(3); // once per accepted payment
+  });
+
+  test('a refused person stops the whole request: nobody else is paid either', async () => {
+    const db = makeDb(seed());
+    await expect(pay(db, [entry({amount_paid: 100}), entry({uid: 't3', amount_paid: 999, method: 'Bank'})])).rejects.toMatchObject({
+      code: 'failed-precondition',
+    });
+    expect(db.writes).toEqual([]);
+  });
+
+  test('after a void the payout starts again: the voided money no longer counts, nor blocks a repeat', async () => {
+    const db = makeDb(seed());
+    const deps = makeDeps(db);
+    await pay(db, [entry({amount_paid: 200, reference: 'R1'})], deps);
+    await voidStaffPayout({data: {month: '2026-09', uid: 't1', role: 'teacher', reason: 'wrong account'}}, deps);
+    await pay(db, [entry({amount_paid: 200, reference: 'R1'})], deps); // same entry, fine after the void
+    expect(db.store.staff_payouts['2026-09_t1_teacher']).toMatchObject({amount_paid: 200, voided: false});
+  });
+
+  test('a close that lands after the early check is refused inside the transaction', async () => {
+    const s = seed();
+    s.finance_months = {'2026-09': {status: 'closed'}};
+    const db = makeDb(s);
+    await expect(pay(db, [entry()])).rejects.toMatchObject({code: 'failed-precondition', message: expect.stringContaining('closed')});
+    expect(db.writes).toEqual([]);
+  });
+
+  test('a void after a close is refused too', async () => {
+    const s = seed();
+    const db = makeDb(s);
+    const deps = makeDeps(db);
+    await pay(db, [entry()], deps);
+    db.store.finance_months = {'2026-09': {status: 'closed'}};
+    await expect(
+      voidStaffPayout({data: {month: '2026-09', uid: 't1', role: 'teacher', reason: 'x'}}, deps)
+    ).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.store.staff_payouts['2026-09_t1_teacher'].voided).toBe(false);
+  });
+});
+
 describe('voidStaffPayout', () => {
   const paidSeed = async () => {
     const db = makeDb(seed());
