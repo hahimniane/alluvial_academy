@@ -118,3 +118,6 @@ functions/q_tmp.js
 # Downloaded ML model weights and service deps — fetched at deploy, not source
 services/quran-asr/model/
 services/zoom-hub-bot/node_modules/
+
+# A node_modules symlink (shared install) must never be committed.
+node_modules

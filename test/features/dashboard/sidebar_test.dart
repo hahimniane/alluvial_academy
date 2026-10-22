@@ -38,6 +38,15 @@ void main() {
       );
     });
 
+    test('admin Finance opens the finance area, not the old invoices hub', () {
+      final items = SidebarConfig.getStructureForRole('admin')
+          .firstWhere((section) => section.id == 'finance')
+          .items;
+      expect(items, hasLength(1));
+      expect(items.single.label, 'Finance');
+      expect(items.single.screenIndex, 31);
+    });
+
     test('getStructureForRole returns teacher structure for teacher role', () {
       final sections = SidebarConfig.getStructureForRole('teacher');
       expect(sections.any((s) => s.id == 'work'), isTrue);

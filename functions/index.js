@@ -13,6 +13,7 @@ const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
+const financeStaffHandlers = require('./handlers/finance_staff');
 const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
@@ -47,6 +48,7 @@ const publicSitePublicReadHandlers = require('./handlers/public_site_public_read
 const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
 const classContactHandlers = require('./handlers/class_contacts');
+const financeBankHandlers = require('./handlers/finance_bank');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -647,3 +649,110 @@ exports.aiTutorStartSession = aiTutorVoice.aiTutorStartSession;
 exports.aiTutorEndSession = aiTutorVoice.aiTutorEndSession;
 exports.aiTutorTurn = aiTutorVoice.aiTutorTurn;
 exports.aiTutorSweep = aiTutorVoice.aiTutorSweep;
+
+// Finance overview: month numbers for every finance page, closing a month,
+// and the finance switches. Admin-only, gated in the handlers.
+const financeSummaryHandlers = require('./handlers/finance_summary');
+const financeMonthsHandlers = require('./handlers/finance_months');
+const financeSettingsHandlers = require('./handlers/finance_settings');
+exports.getFinanceMonthSummary = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinanceMonthSummary(request));
+exports.closeFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.closeFinanceMonth(request));
+exports.reopenFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.reopenFinanceMonth(request));
+exports.updateFinanceSettings = onCall({ cors: true, invoker: 'public' }, (request) => financeSettingsHandlers.updateFinanceSettings(request));
+// Finance: staff pay (admin-only, gated in the handler; closed months locked).
+exports.recordStaffPayouts = financeStaffHandlers.recordStaffPayoutsCallable;
+exports.voidStaffPayout = financeStaffHandlers.voidStaffPayoutCallable;
+exports.setAdminPayTerms = financeStaffHandlers.setAdminPayTermsCallable;
+exports.pauseAdminPay = financeStaffHandlers.pauseAdminPayCallable;
+exports.resumeAdminPay = financeStaffHandlers.resumeAdminPayCallable;
+// Pauses an administrator's pay when their account is deactivated.
+exports.onAdminUserDeactivated = financeStaffHandlers.onAdminUserDeactivated;
+// Finance: expenses, recurring costs, family credits, discount totals.
+// Admin-only, gated in the handler; every mutation checks the closed-month lock.
+const financeExpensesHandlers = require('./handlers/finance_expenses');
+exports.addFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.addFinanceExpense(request)
+);
+exports.deleteFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.deleteFinanceExpense(request)
+);
+exports.restoreFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.restoreFinanceExpense(request)
+);
+exports.confirmRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.confirmRecurringCost(request)
+);
+exports.stopRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.stopRecurringCost(request)
+);
+exports.resolveFamilyCredit = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.resolveFamilyCredit(request)
+);
+exports.getFinanceDiscountTotals = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.getFinanceDiscountTotals(request)
+);
+// Finance billing engine (docs/finance/SPEC.md): first invoice, monthly amount,
+// monthly generator (OFF until finance_settings/main.auto_billing_enabled) and reminders.
+const financeBillingHandlers = require('./handlers/finance_billing');
+exports.createFirstInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.createFirstInvoice(request)
+);
+exports.setFamilyMonthlyAmount = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.setFamilyMonthlyAmount(request)
+);
+exports.previewMonthlyBilling = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.previewMonthlyBilling(request)
+);
+exports.generateMonthlyFamilyInvoices =
+  financeBillingHandlers.generateMonthlyFamilyInvoices;
+exports.sendInvoiceReminders = financeBillingHandlers.sendInvoiceReminders;
+exports.createFirstInvoiceOnFirstClass =
+  financeBillingHandlers.createFirstInvoiceOnFirstClass;
+const financeInvoiceHandlers = require('./handlers/finance_invoices');
+// Finance: invoice edit / cancel / reminder (admin-only, closed months refused;
+// see docs/finance/SPEC.md). Money changes never go through client writes.
+exports.editInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.editInvoice(request)
+);
+exports.cancelInvoice = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.cancelInvoice(request)
+);
+exports.sendInvoiceReminder = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeInvoiceHandlers.sendInvoiceReminder(request)
+);
+// Finance: bank deposits (Plaid) and WhatsApp payment proofs. Inactive until
+// the owner sets the Plaid / WhatsApp secrets (docs/finance/BANK_AND_WHATSAPP_SETUP.md);
+// the callables are admin-gated in the handler. Plaid and WhatsApp secrets are
+// read at run time, not bound, so deploying without them never fails.
+exports.linkBankAccount = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBankHandlers.linkBankAccount(request)
+);
+exports.syncBankTransactions = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 300, memory: '512MiB' },
+  (request) => financeBankHandlers.syncBankTransactions(request)
+);
+exports.decideBankMatch = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 120 },
+  (request) => financeBankHandlers.decideBankMatch(request)
+);
+exports.decidePaymentProof = onCall(
+  { cors: true, invoker: 'public', timeoutSeconds: 120 },
+  (request) => financeBankHandlers.decidePaymentProof(request)
+);
+exports.scheduledBankSync = financeBankHandlers.scheduledBankSync;
+exports.plaidWebhook = financeBankHandlers.plaidWebhook;
+exports.whatsappWebhook = financeBankHandlers.whatsappWebhook;

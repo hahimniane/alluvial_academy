@@ -54,7 +54,8 @@ import '../../recordings/screens/class_recordings_screen.dart';
 import '../../surah_podcast/screens/surah_podcast_screen.dart';
 import '../../quran_reader/screens/quran_reader_screen.dart';
 import '../../curriculum/screens/curriculum_books_screen.dart';
-import '../../parent/screens/admin_invoice_hub_screen.dart';
+import '../../finance/screens/admin_finance_summary_screen.dart';
+import '../../finance/screens/admin_finance_web_frame.dart';
 import '../../parent/screens/parent_invoices_screen.dart';
 import '../../parent/screens/payment_history_screen.dart';
 import '../../quiz/screens/admin_quiz_review_screen.dart';
@@ -374,7 +375,12 @@ class _DashboardPageState extends State<DashboardPage> {
       case 30:
         return const CurriculumBooksScreen();
       case 31:
-        return const AdminInvoiceHubScreen();
+        // On web Finance is the Next.js area embedded in this dashboard's
+        // content area. The native app shows a read-only summary.
+        if (kIsWeb) {
+          return const AdminFinanceWebFrame();
+        }
+        return const AdminFinanceSummaryScreen();
       case 39:
         return const QuranReaderScreen();
       case 29:

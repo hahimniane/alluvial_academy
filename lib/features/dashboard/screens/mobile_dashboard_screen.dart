@@ -14,7 +14,7 @@ import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../forms/screens/parent_forms_screen.dart';
-import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
+import '../../profile/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
 import '../../user_management/screens/mobile_user_management_screen.dart';
@@ -37,11 +37,11 @@ import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
 import '../../curriculum/screens/curriculum_books_screen.dart';
 import '../../tontine/screens/tontine_home_screen.dart';
 import '../../tontine/screens/circle_member_profile_setup_screen.dart';
-import 'package:alluwalacademyadmin/features/parent/screens/admin_invoice_hub_screen.dart';
-import 'package:alluwalacademyadmin/features/parent/screens/parent_invoices_screen.dart';
+import '../../finance/screens/admin_finance_summary_screen.dart';
+import '../../parent/screens/parent_invoices_screen.dart';
 
 // Onboarding imports
-import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
+import '../../onboarding/services/onboarding_service.dart';
 import '../../onboarding/screens/student_welcome_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 
@@ -1289,14 +1289,14 @@ class _AdminMoreScreen extends StatelessWidget {
 
     final items = <_MoreItem>[
       _MoreItem(
-        icon: Icons.receipt_long_rounded,
-        label: l10n.invoices,
+        icon: Icons.account_balance_wallet_rounded,
+        label: l10n.sidebarFinance,
         color: const Color(0xff10B981),
         screen: Scaffold(
           appBar: AppBar(
-            title: Text(l10n.invoices),
+            title: Text(l10n.sidebarFinance),
           ),
-          body: const AdminInvoiceHubScreen(),
+          body: const AdminFinanceSummaryScreen(),
         ),
       ),
       _MoreItem(

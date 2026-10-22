@@ -98,7 +98,7 @@ const sidebarSections: SidebarSection[] = [
   },
   {
     title: "Finance",
-    items: [{ label: "Invoices", icon: ReceiptText, href: "/admin/invoices/", color: "#10B981" }],
+    items: [{ label: "Finance", icon: ReceiptText, href: "/admin/finance/", color: "#10B981" }],
   },
   {
     title: "Website",

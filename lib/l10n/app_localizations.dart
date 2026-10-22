@@ -64,7 +64,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -87,17 +87,17 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ar'),
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -1563,7 +1563,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{program} · {hours} hrs/wk each · {each} per child · {total} household/mo'**
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total);
+    String program,
+    int hours,
+    String each,
+    String total,
+  );
 
   /// No description provided for @enrollmentCustomTimePickEndTitle.
   ///
@@ -3088,7 +3092,10 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{current} / {total} — {formName}'**
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName);
+    int current,
+    int total,
+    String formName,
+  );
 
   /// No description provided for @adminSubmissionsSelectToViewDetails.
   ///
@@ -18053,7 +18060,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Maximum payment for {subject} is \${amount} (max \${hourly}/hour)'**
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time);
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  );
 
   /// No description provided for @auditDayLabel.
   ///
@@ -18347,8 +18359,13 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Selected ({abbr}): {startDate}, {startTime} - {endDatePart}{endTime}'**
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime);
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  );
 
   /// No description provided for @shiftSelectedCount.
   ///
@@ -20149,7 +20166,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evaluate student progress and skills at enrollment or semester end'**
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend;
 
   /// No description provided for @formTemplateFeedbackforleaders.
   ///
@@ -23408,7 +23425,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × \${rate}/hr × {weeks} weeks ≈ \${monthly}/mo'**
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly);
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  );
 
   /// No description provided for @pricingSelectTrack.
   ///
@@ -25101,7 +25122,9 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{studentName} has no other valid linked parent. Only continue if an admin has confirmed this student should manage their own account as an adult after removing {guardianName}.'**
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName);
+    String studentName,
+    String guardianName,
+  );
 
   /// No description provided for @unlinkGuardianAdultOverrideAction.
   ///
@@ -29548,7 +29571,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hrs × {rate}/hr × {weeks} weeks ≈ {monthly}/mo'**
   String publicPricingFormula(
-      int hours, String rate, String weeks, String monthly);
+    int hours,
+    String rate,
+    String weeks,
+    String monthly,
+  );
 
   /// No description provided for @publicAboutTitle.
   ///
@@ -31337,7 +31364,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You compete only in your age division. Qualify with {questions} unique questions over {days} days and at least {accuracy}% accuracy. A division needs {participants} eligible students. Exact ties share the win.'**
   String quizCompetitionFairRules(
-      int questions, int days, int accuracy, int participants);
+    int questions,
+    int days,
+    int accuracy,
+    int participants,
+  );
 
   /// No description provided for @quizCompetitionCategoryProgress.
   ///
@@ -32490,7 +32521,11 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{done} of {total} ayahs of {scope} · {pct}%'**
   String quranScopeProgress(
-      String done, String total, String scope, String pct);
+    String done,
+    String total,
+    String scope,
+    String pct,
+  );
 
   /// No description provided for @quranPracticeToday.
   ///
@@ -33907,6 +33942,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Submit report'**
   String get classReportNoClockInSubmit;
+
+  /// No description provided for @penaltyReasonLateClockIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Late clock-in'**
+  String get penaltyReasonLateClockIn;
+
+  /// No description provided for @penaltyReasonMissedClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed a class without notice'**
+  String get penaltyReasonMissedClass;
+
+  /// No description provided for @penaltyReasonLateClassReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Late class report'**
+  String get penaltyReasonLateClassReport;
+
+  /// No description provided for @penaltyReasonLeftClassEarly.
+  ///
+  /// In en, this message translates to:
+  /// **'Left class early'**
+  String get penaltyReasonLeftClassEarly;
+
+  /// No description provided for @penaltyReasonNoCameraOrSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera/setup not as required'**
+  String get penaltyReasonNoCameraOrSetup;
+
+  /// No description provided for @penaltyReasonConduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Conduct'**
+  String get penaltyReasonConduct;
+
+  /// No description provided for @penaltyReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get penaltyReasonOther;
+
+  /// No description provided for @penaltyReasonSelectHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a reason'**
+  String get penaltyReasonSelectHint;
+
+  /// No description provided for @penaltyReasonRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a reason.'**
+  String get penaltyReasonRequiredError;
+
+  /// No description provided for @penaltyNoteOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get penaltyNoteOptionalLabel;
+
+  /// No description provided for @penaltyNoteRequiredLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (required)'**
+  String get penaltyNoteRequiredLabel;
+
+  /// No description provided for @penaltyNoteRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note when the reason is Other.'**
+  String get penaltyNoteRequiredError;
+
+  /// No description provided for @penaltyDeductionReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This amount is a deduction. Choose the reason.'**
+  String get penaltyDeductionReasonHint;
+
+  /// No description provided for @financeSummaryMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get financeSummaryMonth;
+
+  /// No description provided for @financeSummaryBilled.
+  ///
+  /// In en, this message translates to:
+  /// **'Billed'**
+  String get financeSummaryBilled;
+
+  /// No description provided for @financeSummaryCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Collected'**
+  String get financeSummaryCollected;
+
+  /// No description provided for @financeSummaryStillOwed.
+  ///
+  /// In en, this message translates to:
+  /// **'Still owed'**
+  String get financeSummaryStillOwed;
+
+  /// No description provided for @financeSummaryExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get financeSummaryExpenses;
+
+  /// No description provided for @financeSummaryProfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit'**
+  String get financeSummaryProfit;
+
+  /// No description provided for @financeSummaryProfitEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit (estimate)'**
+  String get financeSummaryProfitEstimate;
+
+  /// No description provided for @financeSummaryUnpaidStaff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff still to pay'**
+  String get financeSummaryUnpaidStaff;
+
+  /// No description provided for @financeSummaryOverdueInvoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue invoices'**
+  String get financeSummaryOverdueInvoices;
+
+  /// No description provided for @financeSummaryRecurringToConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring costs to confirm'**
+  String get financeSummaryRecurringToConfirm;
+
+  /// No description provided for @financeSummaryMonthClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get financeSummaryMonthClosed;
+
+  /// No description provided for @financeSummaryOpenOnWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Finance on the web to make changes.'**
+  String get financeSummaryOpenOnWeb;
+
+  /// No description provided for @financeSummaryLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance couldn\'t be loaded.'**
+  String get financeSummaryLoadError;
 }
 
 class _AppLocalizationsDelegate
@@ -33938,8 +34129,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

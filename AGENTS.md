@@ -114,6 +114,7 @@ that feature's folder, not in `core/`.**
 | `chat/`                  | In-app messaging, voice messages                            |
 | `dashboard/`             | Main dashboard, sidebar, role-based routing                 |
 | `enrollment_management/` | Student/teacher enrollment, applications                    |
+| `finance/`               | Admin finance: web frame and the native read-only summary   |
 | `forms/`                 | Form builder, submission, templates, drafts, responses      |
 | `livekit/`               | Video calls, LiveKit rooms, guest join, recordings playback |
 | `notifications/`         | Push notifications, preferences                             |

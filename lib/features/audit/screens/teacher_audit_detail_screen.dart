@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/teacher_audit_full.dart';
 import '../services/teacher_audit_service.dart';
+import '../../../core/constants/penalty_reasons.dart';
 import '../../chat/models/chat_user.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../chat/screens/chat_page.dart';
@@ -697,6 +698,16 @@ class _SummaryTab extends StatelessWidget {
                 value: '-\$${ps.totalPenalties.toStringAsFixed(2)}',
                 color: _red,
               ),
+            if (ps != null && ps.formPenaltyValue != null)
+              _PayRow(
+                label: PenaltyReasons.display(
+                  AppLocalizations.of(context)!,
+                  ps.formPenaltyValue!.code,
+                  ps.formPenaltyValue!.note,
+                ),
+                value: '-\$${(ps.formPenaltyTotal ?? 0).toStringAsFixed(2)}',
+                color: _red,
+              ),
             if (ps != null && ps.totalBonuses > 0)
               _PayRow(
                 label: AppLocalizations.of(context)!.teacherAuditBonuses,
@@ -711,6 +722,16 @@ class _SummaryTab extends StatelessWidget {
                     '${ps.adminAdjustment >= 0 ? '+' : ''}\$${ps.adminAdjustment.toStringAsFixed(2)}',
                 color: ps.adminAdjustment >= 0 ? _green : _red,
               ),
+              if (ps.adjustmentDeductionValue != null)
+                _PayRow(
+                  label: PenaltyReasons.display(
+                    AppLocalizations.of(context)!,
+                    ps.adjustmentDeductionValue!.code,
+                    ps.adjustmentDeductionValue!.note,
+                  ),
+                  value: '',
+                  color: _red,
+                ),
             ],
             if (ps != null && ps.coachAdjustmentLines.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -725,7 +746,13 @@ class _SummaryTab extends StatelessWidget {
               const SizedBox(height: 6),
               for (final l in ps.coachAdjustmentLines)
                 _PayRow(
-                  label: '${l.type} · ${l.reason}',
+                  label: l.isPenalty
+                      ? PenaltyReasons.display(
+                          AppLocalizations.of(context)!,
+                          l.penaltyValue.code,
+                          l.penaltyValue.note,
+                        )
+                      : '${l.type} · ${l.reason}',
                   value: l.type == 'bonus'
                       ? '+\$${l.amount.toStringAsFixed(2)}'
                       : '-\$${l.amount.toStringAsFixed(2)}',
@@ -1755,12 +1782,15 @@ class _PayRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: GoogleFonts.inter(
-                fontSize: fontSize,
-                fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
-                color: isBold ? const Color(0xff1E293B) : _slate,
-              )),
+          Flexible(
+            child: Text(label,
+                style: GoogleFonts.inter(
+                  fontSize: fontSize,
+                  fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
+                  color: isBold ? const Color(0xff1E293B) : _slate,
+                )),
+          ),
+          const SizedBox(width: 8),
           Text(value,
               style: GoogleFonts.inter(
                 fontSize: fontSize,

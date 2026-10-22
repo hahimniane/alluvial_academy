@@ -1,6 +1,7 @@
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import 'package:alluwalacademyadmin/features/audit/services/audit_class_log_row_builder.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../../../core/constants/penalty_reasons.dart';
 
 enum AuditMessageChannel {
   chatShort,
@@ -113,16 +114,20 @@ class AuditMessageComposer {
       '- ${l10n.auditMessagePayFromTimesheets}: \$${payFromTimesheet.toStringAsFixed(2)}',
       '- ${l10n.auditMessagePayFromForms}: \$${payFromForms.toStringAsFixed(2)}',
       '4) ${l10n.auditMessageAdjustments}:',
-      '- ${l10n.auditMessageAutoPenalties}: -\$${paymentSummary.totalPenalties.toStringAsFixed(2)}',
+      '- ${l10n.auditMessageAutoPenalties}: -\$${paymentSummary.totalPenalties.toStringAsFixed(2)}${_reasonSuffix(l10n, paymentSummary.formPenaltyValue)}',
       '- ${l10n.auditMessageAutoBonuses}: +\$${paymentSummary.totalBonuses.toStringAsFixed(2)}',
-      '- ${l10n.auditMessageAdminAdjustment}: ${_signedMoney(paymentSummary.adminAdjustment)}',
+      '- ${l10n.auditMessageAdminAdjustment}: ${_signedMoney(paymentSummary.adminAdjustment)}${_reasonSuffix(l10n, paymentSummary.adjustmentDeductionValue)}',
     ]);
 
     if (paymentSummary.coachAdjustmentLines.isNotEmpty) {
       lines.add('- ${l10n.auditMessageCoachLines}:');
       for (final line in paymentSummary.coachAdjustmentLines) {
         final amount = line.type == 'bonus' ? line.amount : -line.amount;
-        lines.add('  - ${_signedMoney(amount)} (${line.reason})');
+        final reason = line.isPenalty
+            ? PenaltyReasons.display(
+                l10n, line.penaltyValue.code, line.penaltyValue.note)
+            : line.reason;
+        lines.add('  - ${_signedMoney(amount)} ($reason)');
       }
     }
 
@@ -135,6 +140,9 @@ class AuditMessageComposer {
     ]);
     return lines.join('\n');
   }
+
+  static String _reasonSuffix(AppLocalizations l10n, PenaltyReasonValue? v) =>
+      v == null ? '' : ' (${PenaltyReasons.display(l10n, v.code, v.note)})';
 
   static String _rateBreakdown(
     Map<double, double> rateBuckets,

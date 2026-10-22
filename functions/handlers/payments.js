@@ -9,7 +9,20 @@ const stripeCheckout = require('../services/stripe/checkout');
 const payLinks = require('../services/payment_links');
 const { generateInvoiceFromShifts } = require('../utils/invoice_generator');
 const {applyStudentDiscounts} = require('../utils/student_discounts');
+const {
+  loadBillingSettings,
+  oldGeneratorShouldSkipFamily
+} = require('../utils/finance_billing_gate');
 const { generateInvoicePdfBuffer } = require('../utils/invoice_pdf');
+const {
+  findMonthlyInvoiceClash,
+  monthOfDate
+} = require('../utils/finance_invoice_math');
+const { invoiceMonthOf } = require('../utils/finance_invoice_month');
+const {
+  assertMonthOpen: assertFinanceMonthOpen,
+  assertMonthOpenInTransaction
+} = require('../utils/finance_lock');
 const {
   sendInvoiceCreatedEmail,
   sendPaymentConfirmationEmail
@@ -175,6 +188,10 @@ const _periodToDate = (period) => {
   const [year, month] = normalized.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, 1));
 };
+
+const _isCancelledInvoice = (invoice) =>
+  ((invoice && invoice.status) || '').toString().trim().toLowerCase() ===
+  'cancelled';
 
 const _formatPeriodDate = (date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -827,6 +844,15 @@ const _nextInvoiceNumber = async (tx, year) => {
   return `INV-${year}-${padded}`;
 };
 
+// 'monthly' (tuition) or 'one_off' (books, exam fee...); anything else means
+// the caller did not say, which keeps the pre-finance behaviour.
+const _normalizeRequestedKind = (value) => {
+  const kind = (value || '').toString().trim().toLowerCase();
+  if (kind === 'monthly' || kind === 'monthly_tuition') return 'monthly';
+  if (kind === 'one_off' || kind === 'one-off' || kind === 'oneoff') return 'one_off';
+  return null;
+};
+
 const createInvoice = async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError(
@@ -986,7 +1012,33 @@ const createInvoice = async (request) => {
     );
   }
 
+  // Finance: a request may say what it bills. Monthly tuition is one invoice
+  // per family per month (checked inside the transaction below); a one-off
+  // charge just records the month it belongs to. Requests that say nothing
+  // behave exactly as before.
+  const requestedKind = _normalizeRequestedKind(data.kind);
+  let billingMonth = null;
+  if (requestedKind) {
+    billingMonth =
+      _normalizePeriod(data.billingMonth || data.billing_month) ||
+      _normalizePeriod(invoicePayload.period_start) ||
+      _normalizePeriod(invoicePayload.period);
+    if (requestedKind === 'monthly' && !billingMonth) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Monthly tuition needs a billing month (yyyy-MM).'
+      );
+    }
+    if (!billingMonth) billingMonth = monthOfDate(new Date());
+  }
+
   const db = admin.firestore();
+  // A request that names the month it bills cannot add to a closed month.
+  const lockMonth =
+    billingMonth || _normalizePeriod(data.billingMonth || data.billing_month);
+  if (lockMonth) {
+    await assertFinanceMonthOpen(db, lockMonth);
+  }
   const creator = await resolveDecisionActor(db, uid);
   const invoiceRef = db.collection('invoices').doc();
   const recurringPlanRef = shouldCreateRecurringPlan
@@ -1027,6 +1079,25 @@ const createInvoice = async (request) => {
           `An active recurring plan already exists for this family and student ` +
             `(${clash.total_amount} ${clash.currency || 'USD'} each ${clash.interval || 'month'}). ` +
             `Edit that plan instead of creating another, or set allowDuplicatePlan to create a second one on purpose.`
+        );
+      }
+    }
+
+    // One monthly tuition invoice per family per month. The query is read
+    // inside the transaction, so two simultaneous creates cannot both pass.
+    if (requestedKind === 'monthly') {
+      const sameFamily = await tx.get(
+        db.collection('invoices').where('parent_id', '==', invoicePayload.parent_id)
+      );
+      const clash = findMonthlyInvoiceClash({
+        invoices: sameFamily.docs.map((d) => ({ id: d.id, ...d.data() })),
+        month: billingMonth
+      });
+      if (clash) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `Already billed: ${clash.invoice_number || clash.id} is this family's ` +
+            `tuition invoice for ${billingMonth}. Open it instead of creating another.`
         );
       }
     }
@@ -1085,6 +1156,9 @@ const createInvoice = async (request) => {
       billing_months: invoicePayload.billing_months || 1,
       notification_status: 'pending',
       recurring_plan_id: recurringPlanRef ? recurringPlanRef.id : null,
+      ...(requestedKind
+        ? { kind: requestedKind, billing_month: billingMonth }
+        : {}),
       ...payLinks.newPayLinkFields(uid)
     };
 
@@ -1141,6 +1215,22 @@ const onInvoiceCreated = onDocumentCreated(
   async (event) => {
     const invoice = event.data?.data();
     if (!invoice) return;
+
+    // Invoices from the finance billing engine (first month / monthly) only
+    // reach parents once the owner has switched parent messages on.
+    if (invoice.kind === 'first_month' || invoice.kind === 'monthly') {
+      const settings = await loadBillingSettings(admin.firestore());
+      if (settings.parent_messages_enabled !== true) {
+        await event.data.ref.set(
+          {
+            notification_status: 'suppressed',
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+        return;
+      }
+    }
 
     const result = await _notifyInvoiceRecipient(
       admin.firestore(),
@@ -1252,6 +1342,46 @@ const applyPaymentStatusInTransaction = async (
 
   if (currentPaymentStatus === 'completed' && normalized === 'completed') {
     return { alreadyProcessed: true };
+  }
+
+  if (normalized === 'completed' && _isCancelledInvoice(invoice)) {
+    // The card was charged after the invoice was cancelled (a session that was
+    // already open). The invoice must stay cancelled and unpaid: record the
+    // payment as received, apply none of it, and flag both documents so the
+    // money gets refunded.
+    console.warn(
+      `[payments] Payment ${paymentRef.id} completed on CANCELLED invoice ` +
+        `${invoiceId}. Nothing applied; flagged needs_refund.`
+    );
+    tx.set(
+      paymentRef,
+      {
+        status: 'completed',
+        ...extraPaymentFields,
+        applied_amount: 0,
+        needs_refund: true,
+        completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+    tx.set(
+      invoiceRef,
+      {
+        needs_refund: true,
+        refund_due_amount: admin.firestore.FieldValue.increment(amount),
+        pay_link_pending: admin.firestore.FieldValue.delete(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+    return {
+      updated: true,
+      cancelledInvoice: true,
+      needsRefund: true,
+      invoiceStatus: 'cancelled',
+      paymentId: paymentRef.id
+    };
   }
 
   if (normalized === 'completed') {
@@ -1456,13 +1586,58 @@ const recordManualPayment = async (request) => {
     );
   }
 
-  const db = admin.firestore();
+  return recordManualPaymentCore(admin.firestore(), {
+    invoiceId,
+    amount,
+    paymentMethod,
+    reference,
+    note,
+    receivedDate,
+    actorUid: request.auth.uid
+  });
+};
+
+/**
+ * Records one payment on one invoice and updates the invoice, in a transaction.
+ * `recordManualPayment` is the admin callable around it; the finance bank
+ * matcher calls it directly once an admin confirms a deposit.
+ *
+ * `paymentDocId` makes the call idempotent: when that payment document
+ * already exists nothing is written and `alreadyRecorded` is returned, so a
+ * retried confirmation never charges an invoice twice.
+ */
+const recordManualPaymentCore = async (
+  db,
+  {
+    invoiceId,
+    amount,
+    paymentMethod,
+    reference = '',
+    note = '',
+    receivedDate = new Date(),
+    actorUid,
+    paymentDocId = null,
+    paymentSource = 'manual',
+    extraPaymentFields = {},
+    // false: record the payment but send the parent no receipt (the bank
+    // confirmations pass the finance "parent messages" switch here).
+    notifyParent = true
+  }
+) => {
   const invoiceRef = db.collection('invoices').doc(invoiceId);
-  const paymentRef = db.collection('payments').doc();
-  const recorder = await resolveDecisionActor(db, request.auth.uid);
+  const paymentRef = paymentDocId
+    ? db.collection('payments').doc(paymentDocId)
+    : db.collection('payments').doc();
+  const recorder = await resolveDecisionActor(db, actorUid);
 
   const result = await db.runTransaction(async (tx) => {
     const invoiceSnap = await tx.get(invoiceRef);
+    if (paymentDocId) {
+      const existingPayment = await tx.get(paymentRef);
+      if (existingPayment.exists) {
+        return {updated: false, alreadyRecorded: true, paymentId: paymentRef.id};
+      }
+    }
     if (!invoiceSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Invoice not found');
     }
@@ -1511,17 +1686,18 @@ const recordManualPayment = async (request) => {
       applied_amount: amount,
       status: 'completed',
       payment_method: paymentMethod,
-      payment_source: 'manual',
+      payment_source: paymentSource,
+      ...extraPaymentFields,
       reference_number: reference || null,
       notes: note || null,
       received_at: receivedTimestamp,
       completed_at: receivedTimestamp,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      created_by: request.auth.uid,
+      created_by: actorUid,
       created_by_name: recorder.name,
       created_by_email: recorder.email,
-      recorded_by_uid: request.auth.uid,
+      recorded_by_uid: actorUid,
       recorded_by_name: recorder.name,
       recorded_by_email: recorder.email
     });
@@ -1532,7 +1708,7 @@ const recordManualPayment = async (request) => {
         paid_amount: newPaid,
         status: invoiceStatus,
         last_payment_at: receivedTimestamp,
-        last_payment_by_uid: request.auth.uid,
+        last_payment_by_uid: actorUid,
         last_payment_by_name: recorder.name,
         last_payment_by_email: recorder.email,
         updated_at: admin.firestore.FieldValue.serverTimestamp()
@@ -1562,6 +1738,7 @@ const recordManualPayment = async (request) => {
     };
   });
 
+  if (notifyParent === false) return { success: true, ...result };
   const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
   return { success: true, ...resultWithEmail };
 };
@@ -1641,6 +1818,14 @@ const deleteInvoice = async (request) => {
     const invoiceSnap = await tx.get(invoiceRef);
     if (!invoiceSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Invoice not found');
+    }
+
+    // The invoice's month must be open. Read inside the transaction so a
+    // close that lands now conflicts with this delete instead of losing to it.
+    // An invoice with no month at all has nothing to lock.
+    const deletedMonth = invoiceMonthOf(invoiceSnap.data());
+    if (deletedMonth) {
+      await assertMonthOpenInTransaction(tx, db, deletedMonth);
     }
 
     const paymentsSnap = await tx.get(paymentsQuery);
@@ -1771,6 +1956,13 @@ const createPaymentSession = async (request) => {
   const totalAmount = _toNumber(invoice.total_amount);
   const paidAmount = _toNumber(invoice.paid_amount);
   const remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (_isCancelledInvoice(invoice)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This invoice was cancelled.'
+    );
+  }
 
   if (remaining <= 0) {
     throw new functions.https.HttpsError(
@@ -1956,6 +2148,13 @@ const createPaymentIntent = async (request) => {
   const totalAmount = _toNumber(invoice.total_amount);
   const paidAmount = _toNumber(invoice.paid_amount);
   const remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (_isCancelledInvoice(invoice)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This invoice was cancelled.'
+    );
+  }
 
   if (remaining <= 0) {
     throw new functions.https.HttpsError(
@@ -2479,8 +2678,51 @@ const _runRecurringInvoiceGeneration = async ({
     .limit(limit)
     .get();
   const results = [];
+  // finance_settings/main.auto_billing_enabled: while it is off (the default)
+  // nothing below changes. Once on, families that have family_billing are
+  // billed by the new monthly engine, so this generator steps aside for them.
+  const billingSettings = await loadBillingSettings(db);
 
   for (const planDoc of snap.docs) {
+    const planData = planDoc.data() || {};
+    if (
+      await oldGeneratorShouldSkipFamily(
+        db,
+        planData.parent_id || planData.parentId,
+        billingSettings,
+        targetPeriod
+      )
+    ) {
+      // Move the plan past this period too, so switching the new engine off
+      // later cannot make this generator bill every month it stood aside for.
+      const stepMonths = _normalizeBillingMonths(planData.billing_months);
+      let skipTo = _normalizePeriod(planData.next_period);
+      let steps = 0;
+      while (skipTo && _comparePeriods(skipTo, targetPeriod) <= 0 && steps < 24) {
+        skipTo = _addMonthsToPeriod(skipTo, stepMonths);
+        steps += 1;
+      }
+      if (skipTo && steps > 0) {
+        await db.collection('recurring_billing_plans').doc(planDoc.id).set(
+          {
+            next_period: skipTo,
+            skipped_for_family_billing_at:
+              admin.firestore.FieldValue.serverTimestamp(),
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
+      results.push({
+        success: true,
+        created: false,
+        skipped: true,
+        planId: planDoc.id,
+        reason: 'family_billing'
+      });
+      continue;
+    }
+
     let nextPeriod = _normalizePeriod(planDoc.data()?.next_period);
     if (!nextPeriod) {
       results.push({
@@ -2562,6 +2804,7 @@ module.exports = {
   createPaymentSession,
   createPaymentIntent,
   recordManualPayment,
+  recordManualPaymentCore,
   deleteInvoice,
   handlePayoneerWebhook,
   handleStripeWebhook,
