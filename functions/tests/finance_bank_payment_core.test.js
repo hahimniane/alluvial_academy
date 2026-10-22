@@ -79,3 +79,16 @@ test('without a payment id it still works like before (a fresh document each tim
   expect(Object.keys(fake.all('payments'))).toHaveLength(2);
   expect(fake.peek('invoices', 'inv1').status).toBe('paid');
 });
+
+test('notifyParent:false records the payment but sends the parent nothing', async () => {
+  const out = await pay({notifyParent: false});
+  expect(out.success).toBe(true);
+  expect(fake.peek('invoices', 'inv1')).toMatchObject({paid_amount: 160, status: 'paid'});
+  expect(fake.peek('payments', 'bank_plaid_t1_inv1')).toMatchObject({status: 'completed'});
+  expect(sendPaymentConfirmationEmail).not.toHaveBeenCalled();
+});
+
+test('notifyParent defaults to true (the admin callable keeps sending receipts)', async () => {
+  await pay();
+  expect(sendPaymentConfirmationEmail).toHaveBeenCalledTimes(1);
+});

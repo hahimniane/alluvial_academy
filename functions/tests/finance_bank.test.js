@@ -402,6 +402,33 @@ describe('decideBankMatch', () => {
     expect(fake.peek('bank_transactions', 'plaid_t4').match.status).toBe('suggested');
   });
 
+  test('a transaction Plaid removed or reversed cannot be confirmed or matched by hand', async () => {
+    await fake.collection('bank_transactions').doc('plaid_t1').update({removed: true});
+    await expect(call(bank.decideBankMatch, {transaction_id: 'plaid_t1', action: 'confirm'})).rejects.toMatchObject({code: 'failed-precondition'});
+    await expect(
+      call(bank.decideBankMatch, {transaction_id: 'plaid_t1', action: 'manual', allocations: [{invoice_id: 'i_sow', amount: 160}]})
+    ).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(recordPayment).not.toHaveBeenCalled();
+    expect(fake.peek('invoices', 'i_sow').paid_amount).toBe(0);
+    // it can still be ignored to clear it off the list
+    await expect(call(bank.decideBankMatch, {transaction_id: 'plaid_t1', action: 'ignore'})).resolves.toEqual({ok: true});
+  });
+
+  test('the parent hears about the payment only when parent messages are on', async () => {
+    await call(bank.decideBankMatch, {transaction_id: 'plaid_t1', action: 'confirm'});
+    expect(recordPayment.mock.calls[0][1].notifyParent).toBe(false);
+
+    await fake.collection('finance_settings').doc('main').update({parent_messages_enabled: true});
+    await call(bank.decideBankMatch, {transaction_id: 'plaid_t2', action: 'confirm'});
+    expect(recordPayment.mock.calls[1][1].notifyParent).toBe(true);
+  });
+
+  test('the month checked is the invoice month (period), not the month of its due date', async () => {
+    await fake.collection('invoices').doc('i_sow').update({billing_month: null, period: '2026-09', due_date: new Date('2026-10-01T15:00:00Z')});
+    await call(bank.decideBankMatch, {transaction_id: 'plaid_t1', action: 'confirm'});
+    expect(assertMonthOpen.mock.calls.map((c) => c[1])).toEqual(['2026-09']);
+  });
+
   test('remember_payer saves the new payer to the family', async () => {
     await call(bank.decideBankMatch, {transaction_id: 'plaid_t2', action: 'confirm', remember_payer: true});
     expect(fake.peek('known_payers', 'hawa_jalloh')).toMatchObject({parent_id: 'p_jalloh', name: 'Hawa Jalloh', family_name: 'Ibrahima Jalloh', learned_by: 'admin1'});

@@ -17,7 +17,7 @@ const {
   _invoiceDeletionBlockReason,
 } = require('../handlers/payments');
 
-const buildDb = ({invoice, payments = []}) => {
+const buildDb = ({invoice, payments = [], closedMonths = []}) => {
   const writes = [];
   const invoiceRef = {kind: 'invoice', id: 'invoice_1'};
   const auditRef = {kind: 'audit', id: 'audit_1'};
@@ -39,6 +39,9 @@ const buildDb = ({invoice, payments = []}) => {
         return {
           doc: () => invoiceRef,
         };
+      }
+      if (name === 'finance_months') {
+        return {doc: (id) => ({kind: 'finance_month', id})};
       }
       if (name === 'payments') {
         return {
@@ -86,6 +89,10 @@ const buildDb = ({invoice, payments = []}) => {
             exists: invoice != null,
             data: () => invoice,
           };
+        }
+        if (ref.kind === 'finance_month') {
+          const closed = closedMonths.includes(ref.id);
+          return {exists: closed, data: () => (closed ? {status: 'closed'} : undefined)};
         }
         if (ref.kind === 'payments_query') {
           return {
@@ -218,5 +225,32 @@ describe('invoice deletion safeguards', () => {
       details: {reason: 'paid_invoice'},
     });
     expect(db.writes).toHaveLength(0);
+  });
+
+  test('refuses to delete an invoice of a closed month and writes nothing', async () => {
+    const db = buildDb({
+      invoice: {status: 'pending', paid_amount: 0, invoice_number: 'INV-2026-042', period: '2026-09'},
+      closedMonths: ['2026-09'],
+    });
+    admin.firestore.mockReturnValue(db);
+
+    await expect(deleteInvoice({
+      auth: {uid: 'admin_1'},
+      data: {invoiceId: 'invoice_1'},
+    })).rejects.toMatchObject({code: 'failed-precondition', message: expect.stringContaining('September 2026 is closed')});
+    expect(db.writes).toHaveLength(0);
+  });
+
+  test('deletes an invoice whose month is open', async () => {
+    const db = buildDb({
+      invoice: {status: 'pending', paid_amount: 0, invoice_number: 'INV-2026-043', billing_month: '2026-10'},
+      closedMonths: ['2026-09'],
+    });
+    admin.firestore.mockReturnValue(db);
+
+    await expect(deleteInvoice({
+      auth: {uid: 'admin_1'},
+      data: {invoiceId: 'invoice_1'},
+    })).resolves.toMatchObject({success: true});
   });
 });

@@ -25,7 +25,7 @@ jest.mock('../services/email/senders', () => ({
 const admin = require('firebase-admin');
 const {createInvoice} = require('../handlers/payments');
 
-const buildDb = ({existing = []}) => {
+const buildDb = ({existing = [], closedMonths = []}) => {
   const writes = [];
   const invoiceQueries = [];
   const invoiceRef = {kind: 'invoice', id: 'new_invoice'};
@@ -48,6 +48,13 @@ const buildDb = ({existing = []}) => {
             invoiceQueries.push([field, op, value]);
             return parentQuery;
           },
+        };
+      }
+      if (name === 'finance_months') {
+        return {
+          doc: (id) => ({
+            get: async () => ({exists: closedMonths.includes(id), data: () => (closedMonths.includes(id) ? {status: 'closed'} : undefined)}),
+          }),
         };
       }
       if (name === 'invoice_counters') return {doc: () => counterRef};
@@ -168,5 +175,30 @@ describe('createInvoice monthly duplicate guard', () => {
     const created = db.writes.find((w) => w.ref.kind === 'invoice').data;
     expect(created.kind).toBeUndefined();
     expect(created.billing_month).toBeUndefined();
+  });
+
+  test('a closed month refuses a new invoice that names it, and writes nothing', async () => {
+    const db = buildDb({existing: [], closedMonths: ['2026-11']});
+    admin.firestore.mockReturnValue(db);
+    await expect(createInvoice(monthlyRequest())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('November 2026 is closed'),
+    });
+    expect(db.writes).toHaveLength(0);
+  });
+
+  test('a one-off charge naming a closed billing month is refused too', async () => {
+    const db = buildDb({existing: [], closedMonths: ['2026-11']});
+    admin.firestore.mockReturnValue(db);
+    await expect(
+      createInvoice(monthlyRequest({kind: 'one_off', period: undefined, billingMonth: '2026-11'}))
+    ).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toHaveLength(0);
+  });
+
+  test('another open month is not blocked by a closed one', async () => {
+    const db = buildDb({existing: [], closedMonths: ['2026-10']});
+    admin.firestore.mockReturnValue(db);
+    await expect(createInvoice(monthlyRequest())).resolves.toMatchObject({success: true});
   });
 });

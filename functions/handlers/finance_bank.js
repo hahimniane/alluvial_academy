@@ -1050,6 +1050,13 @@ const cleanAllocations = (raw, txnAmount) => {
   return list;
 };
 
+/** Plaid took this transaction back (reversed or removed). It must never become a payment. */
+const refuseRemoved = (txn) => {
+  if (txn && txn.removed === true) {
+    throw HttpsError('failed-precondition', 'The bank removed or reversed this transaction, so it cannot be matched. Wait for the real one or ignore it.');
+  }
+};
+
 const confirmRecurringCharge = async (database, txnId, txn, callerUid) => {
   const costId = text(txn.match && txn.match.recurring_cost_id);
   if (!costId) throw HttpsError('failed-precondition', 'This charge has no recurring cost to confirm.');
@@ -1071,14 +1078,19 @@ const confirmRecurringCharge = async (database, txnId, txn, callerUid) => {
  * decidePaymentProof.
  */
 const confirmTransaction = async (database, txnRef, txn, allocations, {callerUid, status, rememberPayer}) => {
+  refuseRemoved(txn);
   const rows = await loadInvoices(database, allocations);
   for (const month of new Set(rows.map((r) => invoiceMonthOf(r.data)).filter(Boolean))) {
     await deps.assertMonthOpen(database, month);
   }
   const method = txn.channel === 'zelle' ? 'zelle' : 'bank_transfer';
   const received = new Date(`${txn.date}T12:00:00Z`);
+  // The receipt e-mail/push to the parent follows the same switch as every
+  // other parent message: nothing goes out until the owner turns it on.
+  const notifyParent = (await loadSettings(database)).parent_messages_enabled === true;
   for (const a of allocations) {
     await deps.recordPayment(database, {
+      notifyParent,
       invoiceId: a.invoice_id, amount: a.amount, paymentMethod: method, reference: txnRef.id,
       note: `${txn.date} ${match.money(a.amount)} ${method === 'zelle' ? 'Zelle' : 'bank deposit'}${txn.payer_name ? ` from ${txn.payer_name}` : ''} (bank deposit, confirmed by an admin)`,
       receivedDate: received, actorUid: callerUid, paymentDocId: `bank_${txnRef.id}_${a.invoice_id}`,
@@ -1155,6 +1167,7 @@ const decideBankMatch = async (request) => {
     return {ok: true};
   }
   if (decided) return {ok: true, already: true};
+  refuseRemoved(txn);
 
   if (txn.direction === 'out') {
     if (action !== 'confirm') throw HttpsError('invalid-argument', 'A charge can only be confirmed, rejected or ignored.');

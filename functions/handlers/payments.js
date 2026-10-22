@@ -18,6 +18,11 @@ const {
   findMonthlyInvoiceClash,
   monthOfDate
 } = require('../utils/finance_invoice_math');
+const { invoiceMonthOf } = require('../utils/finance_invoice_month');
+const {
+  assertMonthOpen: assertFinanceMonthOpen,
+  assertMonthOpenInTransaction
+} = require('../utils/finance_lock');
 const {
   sendInvoiceCreatedEmail,
   sendPaymentConfirmationEmail
@@ -183,6 +188,10 @@ const _periodToDate = (period) => {
   const [year, month] = normalized.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, 1));
 };
+
+const _isCancelledInvoice = (invoice) =>
+  ((invoice && invoice.status) || '').toString().trim().toLowerCase() ===
+  'cancelled';
 
 const _formatPeriodDate = (date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -1024,6 +1033,12 @@ const createInvoice = async (request) => {
   }
 
   const db = admin.firestore();
+  // A request that names the month it bills cannot add to a closed month.
+  const lockMonth =
+    billingMonth || _normalizePeriod(data.billingMonth || data.billing_month);
+  if (lockMonth) {
+    await assertFinanceMonthOpen(db, lockMonth);
+  }
   const creator = await resolveDecisionActor(db, uid);
   const invoiceRef = db.collection('invoices').doc();
   const recurringPlanRef = shouldCreateRecurringPlan
@@ -1329,6 +1344,46 @@ const applyPaymentStatusInTransaction = async (
     return { alreadyProcessed: true };
   }
 
+  if (normalized === 'completed' && _isCancelledInvoice(invoice)) {
+    // The card was charged after the invoice was cancelled (a session that was
+    // already open). The invoice must stay cancelled and unpaid: record the
+    // payment as received, apply none of it, and flag both documents so the
+    // money gets refunded.
+    console.warn(
+      `[payments] Payment ${paymentRef.id} completed on CANCELLED invoice ` +
+        `${invoiceId}. Nothing applied; flagged needs_refund.`
+    );
+    tx.set(
+      paymentRef,
+      {
+        status: 'completed',
+        ...extraPaymentFields,
+        applied_amount: 0,
+        needs_refund: true,
+        completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+    tx.set(
+      invoiceRef,
+      {
+        needs_refund: true,
+        refund_due_amount: admin.firestore.FieldValue.increment(amount),
+        pay_link_pending: admin.firestore.FieldValue.delete(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+    return {
+      updated: true,
+      cancelledInvoice: true,
+      needsRefund: true,
+      invoiceStatus: 'cancelled',
+      paymentId: paymentRef.id
+    };
+  }
+
   if (normalized === 'completed') {
     // Clamp to what is actually outstanding. Two checkout sessions can be open
     // at once (two tabs, or a manual payment recorded while a session is live),
@@ -1563,7 +1618,10 @@ const recordManualPaymentCore = async (
     actorUid,
     paymentDocId = null,
     paymentSource = 'manual',
-    extraPaymentFields = {}
+    extraPaymentFields = {},
+    // false: record the payment but send the parent no receipt (the bank
+    // confirmations pass the finance "parent messages" switch here).
+    notifyParent = true
   }
 ) => {
   const invoiceRef = db.collection('invoices').doc(invoiceId);
@@ -1680,6 +1738,7 @@ const recordManualPaymentCore = async (
     };
   });
 
+  if (notifyParent === false) return { success: true, ...result };
   const resultWithEmail = await _sendPaymentCompletedEmailIfNeeded(db, result);
   return { success: true, ...resultWithEmail };
 };
@@ -1759,6 +1818,14 @@ const deleteInvoice = async (request) => {
     const invoiceSnap = await tx.get(invoiceRef);
     if (!invoiceSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Invoice not found');
+    }
+
+    // The invoice's month must be open. Read inside the transaction so a
+    // close that lands now conflicts with this delete instead of losing to it.
+    // An invoice with no month at all has nothing to lock.
+    const deletedMonth = invoiceMonthOf(invoiceSnap.data());
+    if (deletedMonth) {
+      await assertMonthOpenInTransaction(tx, db, deletedMonth);
     }
 
     const paymentsSnap = await tx.get(paymentsQuery);
@@ -1889,6 +1956,13 @@ const createPaymentSession = async (request) => {
   const totalAmount = _toNumber(invoice.total_amount);
   const paidAmount = _toNumber(invoice.paid_amount);
   const remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (_isCancelledInvoice(invoice)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This invoice was cancelled.'
+    );
+  }
 
   if (remaining <= 0) {
     throw new functions.https.HttpsError(
@@ -2074,6 +2148,13 @@ const createPaymentIntent = async (request) => {
   const totalAmount = _toNumber(invoice.total_amount);
   const paidAmount = _toNumber(invoice.paid_amount);
   const remaining = Number((totalAmount - paidAmount).toFixed(2));
+
+  if (_isCancelledInvoice(invoice)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This invoice was cancelled.'
+    );
+  }
 
   if (remaining <= 0) {
     throw new functions.https.HttpsError(
