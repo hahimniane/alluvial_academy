@@ -1298,11 +1298,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // TEMPORARY, for older app versions: the phone app that is already in the
+    // stores writes finance_expenses straight from the client until users
+    // update. Admins may CREATE only; updates and deletes stay callable-only.
+    // Remove this block after the next store release.
+    match /finance_expenses/{id} {
+      allow create: if isAdmin();
+    }
+
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
+    // finance_private (the bank link token) and known_phones (parents' phone
+    // numbers) are server-only: the read here must not reach them either.
     match /{collection}/{document=**} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() && collection != 'finance_private' && collection != 'known_phones';
       allow write: if isAdmin() && collection != 'teaching_shifts' && !isFinanceCollection(collection);
     }
 
