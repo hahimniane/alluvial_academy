@@ -27,6 +27,8 @@ const {
 } = require('../services/decision_audit');
 const payLinks = require('../services/payment_links');
 const math = require('../utils/finance_invoice_math');
+const {invoiceMonthOf} = require('../utils/finance_invoice_month');
+const {assertMonthOpenInTransaction} = require('../utils/finance_lock');
 
 const httpsError = (code, message) => new functions.https.HttpsError(code, message);
 
@@ -144,15 +146,58 @@ const summaryOf = (id, invoice) => {
   };
 };
 
-/** Loads the invoice and refuses a closed month before anything is written. */
+/**
+ * Loads the invoice and refuses a closed month before anything is written.
+ * An invoice whose month cannot be worked out fails closed: the month lock
+ * cannot be checked, so nothing is changed.
+ */
 const loadOpenInvoice = async (deps, invoiceId) => {
   const ref = deps.db.collection('invoices').doc(invoiceId);
   const snap = await ref.get();
   if (!snap.exists) throw httpsError('not-found', 'Invoice not found.');
   const invoice = snap.data() || {};
-  const month = math.invoiceBillingMonth(invoice);
-  if (month) await deps.assertMonthOpen(deps.db, month);
+  const month = invoiceMonthOf(invoice);
+  if (!month) throw noMonthError();
+  await deps.assertMonthOpen(deps.db, month);
   return {ref, invoice, month};
+};
+
+const noMonthError = () =>
+  httpsError('failed-precondition', 'This invoice has no billing month, so it cannot be changed here.');
+
+/** Inside the transaction: the month, from the invoice as it is now, must be open. */
+const assertOpenInTx = async (tx, deps, invoice) => {
+  const month = invoiceMonthOf(invoice);
+  if (!month) throw noMonthError();
+  await assertMonthOpenInTransaction(tx, deps.db, month);
+  return month;
+};
+
+/**
+ * Which open `invoice_edit` credits of this invoice give back `need` dollars,
+ * newest first. A credit that is used, refunded or cancelled is left alone
+ * (the family already had that money). Returns
+ * [{id, amount, reduceBy, left, cancel}].
+ */
+const planCreditReductions = (credits, need) => {
+  let remaining = math.r2(need);
+  const open = credits
+    .filter((c) => c.source === 'invoice_edit' && c.status === 'open' && Number(c.amount) > 0)
+    .sort((a, b) => {
+      const am = (a.created_at && typeof a.created_at.toMillis === 'function' ? a.created_at.toMillis() : 0);
+      const bm = (b.created_at && typeof b.created_at.toMillis === 'function' ? b.created_at.toMillis() : 0);
+      return bm - am || (a.id < b.id ? 1 : -1);
+    });
+  const out = [];
+  for (const c of open) {
+    if (remaining <= 0.004) break;
+    const amount = math.r2(c.amount);
+    const reduceBy = math.r2(Math.min(amount, remaining));
+    const left = math.r2(amount - reduceBy);
+    out.push({id: c.id, amount, reduceBy, left, cancel: left <= 0.004});
+    remaining = math.r2(remaining - reduceBy);
+  }
+  return out;
 };
 
 /**
@@ -186,6 +231,7 @@ const editInvoice = async (request, deps = defaultDeps()) => {
     if (math.isCancelled(invoice)) {
       throw httpsError('failed-precondition', 'This invoice was cancelled and cannot be edited.');
     }
+    await assertOpenInTx(tx, deps, invoice);
 
     const paid = math.invoicePaid(invoice);
     const oldTotal = math.invoiceTotal(invoice);
@@ -205,7 +251,18 @@ const editInvoice = async (request, deps = defaultDeps()) => {
       throw httpsError('failed-precondition', 'Nothing has changed.');
     }
 
-    const credit = math.creditOnLower({total: newTotal, paid});
+    // Only the NEW shortfall becomes credit; a total that goes back up takes
+    // back what is still open of the credit an earlier edit created.
+    const creditDelta = math.creditDeltaOnEdit({oldTotal, newTotal, paid});
+    const credit = creditDelta > 0.004 ? creditDelta : 0;
+    let reductions = [];
+    if (creditDelta < -0.004) {
+      const openSnap = await tx.get(deps.db.collection('family_credits').where('invoice_id', '==', invoiceId));
+      reductions = planCreditReductions(
+        openSnap.docs.map((d) => ({id: d.id, ...(d.data() || {})})),
+        -creditDelta
+      );
+    }
     const status = math.statusAfterEdit({total: newTotal, paid});
     const newDue = deps.Timestamp.fromDate(math.dueTimestampDate(edit.dueDate));
     const at = deps.Timestamp.fromDate(deps.now());
@@ -218,6 +275,9 @@ const editInvoice = async (request, deps = defaultDeps()) => {
       before: snapshotOf(invoice),
       after: {total_amount: newTotal, due_date: newDue, items, status},
       ...(credit > 0 ? {credit_id: creditRef.id, credit_amount: credit} : {}),
+      ...(reductions.length
+        ? {credit_reduced: reductions.map((r) => ({credit_id: r.id, amount: r.reduceBy, cancelled: r.cancel}))}
+        : {}),
     });
 
     const patch = {
@@ -256,6 +316,25 @@ const editInvoice = async (request, deps = defaultDeps()) => {
       });
     }
 
+    for (const r of reductions) {
+      const creditDoc = deps.db.collection('family_credits').doc(r.id);
+      if (r.cancel) {
+        tx.update(creditDoc, {
+          status: 'cancelled',
+          closed_at: deps.FieldValue.serverTimestamp(),
+          closed_by: callerUid,
+          cancel_reason: `${numberOf(invoice, invoiceId)} total raised again: ${edit.reason}`,
+        });
+      } else {
+        tx.update(creditDoc, {
+          amount: r.left,
+          original_amount: r.amount,
+          reduced_at: deps.FieldValue.serverTimestamp(),
+          reduced_by: callerUid,
+        });
+      }
+    }
+
     deps.audit(tx, {
       db: deps.db,
       entityType: 'invoice',
@@ -269,6 +348,7 @@ const editInvoice = async (request, deps = defaultDeps()) => {
         old_total: oldTotal,
         new_total: newTotal,
         credit_amount: credit,
+        credit_taken_back: math.r2(reductions.reduce((sum, r) => sum + r.reduceBy, 0)),
         parent_id: parentIdOf(invoice),
       },
       eventId: `invoice_edited_${invoiceId}_${history.length}`,
@@ -338,6 +418,17 @@ const cancelInvoice = async (request, deps = defaultDeps()) => {
         'Only an invoice with nothing paid can be cancelled. Edit it to lower the total instead.'
       );
     }
+    await assertOpenInTx(tx, deps, invoice);
+
+    // Family credits this invoice used go back to the family. A credit used in
+    // full is reopened as it was. A credit used in part was split when it was
+    // applied: the used piece (amount = what this invoice took) is reopened
+    // here and the remainder, a separate open credit, is left as it is, so the
+    // family ends up with exactly the original amount in two open credits.
+    const usedSnap = await tx.get(
+      deps.db.collection('family_credits').where('used_on_invoice_id', '==', invoiceId)
+    );
+    const toReopen = usedSnap.docs.filter((d) => (d.data() || {}).status === 'used');
 
     const at = deps.Timestamp.fromDate(deps.now());
     const history = Array.isArray(invoice.edit_history) ? invoice.edit_history.slice() : [];
@@ -366,7 +457,19 @@ const cancelInvoice = async (request, deps = defaultDeps()) => {
       patch.pay_link_cancelled_by = callerUid;
       patch.pay_link_pending = deps.FieldValue.delete();
     }
+    if (toReopen.length) patch.credits_reopened = toReopen.map((d) => d.id);
     tx.update(ref, patch);
+    for (const doc of toReopen) {
+      tx.update(deps.db.collection('family_credits').doc(doc.id), {
+        status: 'open',
+        used_on_invoice_id: null,
+        closed_at: deps.FieldValue.delete(),
+        closed_by: deps.FieldValue.delete(),
+        reopened_at: deps.FieldValue.serverTimestamp(),
+        reopened_by: callerUid,
+        reopened_because: `Invoice ${numberOf(invoice, invoiceId)} was cancelled`,
+      });
+    }
 
     deps.audit(tx, {
       db: deps.db,
@@ -376,7 +479,7 @@ const cancelInvoice = async (request, deps = defaultDeps()) => {
       action: 'invoice.cancelled',
       actor,
       source: 'cancelInvoice',
-      metadata: {reason, parent_id: parentIdOf(invoice)},
+      metadata: {reason, parent_id: parentIdOf(invoice), credits_reopened: toReopen.length},
       eventId: `invoice_cancelled_${invoiceId}`,
     });
     return {parentId: parentIdOf(invoice), number: numberOf(invoice, invoiceId)};

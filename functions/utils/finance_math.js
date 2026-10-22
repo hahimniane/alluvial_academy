@@ -10,6 +10,7 @@
  */
 
 const {normalizeLegacyCategory} = require('./finance_categories');
+const {invoiceMonthOf} = require('./finance_invoice_month');
 
 const NEW_YORK = 'America/New_York';
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -103,14 +104,7 @@ const newYorkDay = (now) => newYorkParts(now).day;
 // -------------------------------------------------------------- invoices ----
 
 /** The month an invoice is for: `billing_month`, else `period`, else the month of `period_start`. */
-const invoiceMonth = (invoice) => {
-  if (isMonth(text(invoice.billing_month))) return text(invoice.billing_month);
-  if (isMonth(text(invoice.period))) return text(invoice.period);
-  const start = invoice.period_start;
-  if (isMonth(text(start))) return text(start);
-  const date = toDate(start);
-  return date ? monthOf(date) : null;
-};
+const invoiceMonth = (invoice) => invoiceMonthOf(invoice || {});
 
 const isCancelled = (invoice) => text(invoice.status) === 'cancelled';
 const invoiceBalance = (invoice) => Math.max(0, r2(num(invoice.total_amount) - num(invoice.paid_amount)));

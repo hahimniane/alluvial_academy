@@ -6,6 +6,8 @@
  * Months are `yyyy-MM` strings in America/New_York time.
  */
 
+const {invoiceMonthOf} = require('./finance_invoice_month');
+
 const BOOKS_TIME_ZONE = 'America/New_York';
 
 /** Categories an admin can enter. Teacher and administrator pay are computed. */
@@ -286,16 +288,7 @@ const toDate = (value) => {
  * `period` that starts with `yyyy-MM` (older ones: "2026-09", "2026-07..2026-08"
  * count for their first month), else the month it was issued.
  */
-const invoiceBillingMonth = (invoice) => {
-  if (!invoice) return null;
-  if (isMonth(invoice.billing_month)) return invoice.billing_month;
-  const period = typeof invoice.period === 'string' ? invoice.period.trim() : '';
-  if (isMonth(period.slice(0, 7)) && (period.length === 7 || /^\d{4}-\d{2}(\s|\.|$)/.test(period))) {
-    return period.slice(0, 7);
-  }
-  const issued = toDate(invoice.issued_date) || toDate(invoice.created_at);
-  return issued ? monthOfDate(issued) : null;
-};
+const invoiceBillingMonth = (invoice) => invoiceMonthOf(invoice);
 
 /** Dollars of discount lines on an invoice; cancelled invoices give none. */
 const invoiceDiscountTotal = (invoice) => {

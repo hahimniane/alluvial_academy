@@ -24,6 +24,7 @@ const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const secrets = require('../utils/finance_secrets');
 const match = require('../utils/finance_bank_match');
+const {invoiceMonthOf: sharedInvoiceMonthOf} = require('../utils/finance_invoice_month');
 const {displayName} = require('../utils/parent_link');
 const {normalizePhone} = require('./class_contacts');
 
@@ -113,12 +114,8 @@ const nyDate = (date) => {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const monthName = (month) => MONTH_NAMES[Number(String(month).split('-')[1]) - 1] || String(month);
 
-const invoiceMonthOf = (data) => {
-  const billing = text(data.billing_month);
-  if (/^\d{4}-\d{2}$/.test(billing)) return billing;
-  const d = toDate(data.due_date) || toDate(data.issued_date) || toDate(data.created_at);
-  return d ? nyDate(d).slice(0, 7) : '';
-};
+/** Shared month rule (utils/finance_invoice_month.js); '' when unknown. */
+const invoiceMonthOf = (data) => sharedInvoiceMonthOf(data) || '';
 
 const safeId = (value) => String(value).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
 

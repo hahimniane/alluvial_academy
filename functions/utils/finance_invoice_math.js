@@ -10,6 +10,8 @@
  * apps/web/src/lib/finance/invoices.ts; keep the two in step.
  */
 
+const {invoiceMonthOf} = require('./finance_invoice_month');
+
 const BOOKS_TIME_ZONE = 'America/New_York';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MONTH_RE = /^(\d{4})-(\d{2})/;
@@ -103,15 +105,7 @@ const isDayKey = (value) => {
  * The month an invoice bills for: `billing_month`, else the `period`
  * (yyyy-MM, or the first month of a range), else the month it was issued.
  */
-const invoiceBillingMonth = (invoice = {}) => {
-  const direct = String(invoice.billing_month || '').trim();
-  if (MONTH_RE.test(direct)) return direct.slice(0, 7);
-  const period = String(invoice.period || invoice.period_start || '').trim();
-  const match = period.match(MONTH_RE);
-  if (match) return `${match[1]}-${match[2]}`;
-  const issued = toDate(invoice.issued_date || invoice.created_at);
-  return issued ? monthOfDate(issued) : null;
-};
+const invoiceBillingMonth = (invoice = {}) => invoiceMonthOf(invoice);
 
 const isCancelled = (invoice = {}) =>
   String(invoice.status || '').trim().toLowerCase() === 'cancelled';
@@ -173,6 +167,15 @@ const creditOnLower = ({total, paid}) => {
   const over = r2(r2(paid) - r2(total));
   return over > 0.004 ? over : 0;
 };
+
+/**
+ * The credit an edit adds (positive) or takes back (negative): only the NEW
+ * shortfall counts. Lowering 100 -> 60 with 100 paid is +40; lowering again to
+ * 50 is +10 (not +50); raising back to 80 is -20 (the open credit shrinks).
+ * Never mixes with creditOnLower, which is the credit for one total.
+ */
+const creditDeltaOnEdit = ({oldTotal, newTotal, paid}) =>
+  r2(creditOnLower({total: newTotal, paid}) - creditOnLower({total: oldTotal, paid}));
 
 /**
  * Validates an `editInvoice` request. Returns {ok:true, value} with normalised
@@ -325,6 +328,7 @@ module.exports = {
   linesSubtotal,
   totalFor,
   creditOnLower,
+  creditDeltaOnEdit,
   validateEdit,
   buildItems,
   shiftedCutoff,

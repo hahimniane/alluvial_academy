@@ -37,4 +37,28 @@ async function assertMonthOpen(db, month) {
   }
 }
 
-module.exports = {assertMonthOpen};
+/**
+ * The same check, read INSIDE a transaction. A close that commits while a
+ * money change is in flight conflicts with it (both touch finance_months/{month}),
+ * so the change is retried and sees "closed" instead of slipping into a month
+ * that was just locked. Callers keep the early `assertMonthOpen` as well, for
+ * the quick plain-language message before any work is done.
+ *
+ * @param {FirebaseFirestore.Transaction} tx
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string} month yyyy-MM
+ */
+async function assertMonthOpenInTransaction(tx, db, month) {
+  if (typeof month !== 'string' || !MONTH_PATTERN.test(month)) {
+    throw new functions.https.HttpsError('invalid-argument', 'A month (yyyy-MM) is required.');
+  }
+  const snap = await tx.get(db.collection('finance_months').doc(month));
+  if (snap.exists && snap.data() && snap.data().status === 'closed') {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `${labelOf(month)} is closed. Reopen it to change it.`
+    );
+  }
+}
+
+module.exports = {assertMonthOpen, assertMonthOpenInTransaction};

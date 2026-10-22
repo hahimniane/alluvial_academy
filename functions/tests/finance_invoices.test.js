@@ -189,12 +189,23 @@ function makeDb(seed) {
     }
     writes.push({op, path: `${collection}/${id}`, data});
   };
+  const query = (collection, filters) => ({
+    __isQuery: true,
+    where: (field, op, value) => query(collection, [...filters, {field, op, value}]),
+    run: () => {
+      const docs = Object.keys(store[collection] || {})
+        .filter((id) => filters.every((f) => (store[collection][id] || {})[f.field] === f.value))
+        .map((id) => snap(collection, id));
+      return {docs, empty: docs.length === 0, size: docs.length};
+    },
+  });
   return {
     store,
     writes,
     collection: (name) => ({
       doc: (id) => ref(name, id || `auto_${++auto}`),
       add: async (data) => apply('set', name, `added_${++auto}`, data),
+      where: (field, op, value) => query(name, [{field, op, value}]),
     }),
     runTransaction: async (fn) => {
       let wrote = false;
@@ -202,6 +213,7 @@ function makeDb(seed) {
       const tx = {
         get: async (r) => {
           if (wrote) throw new Error('reads must come before writes');
+          if (r.__isQuery) return r.run();
           return snap(r.collection, r.id);
         },
         update: (r, data) => {
@@ -503,5 +515,145 @@ describe('sendInvoiceReminder', () => {
   test('nothing to remind about on a paid invoice', async () => {
     const db = makeDb(seed({messages: true, invoice: {paid_amount: 100}}));
     await expect(call(sendInvoiceReminder, depsFor(db), {invoice_id: 'inv_1'})).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+});
+
+/* ----------------------------------------------- review fixes (finance) -- */
+
+describe('editInvoice: credit follows the NEW shortfall only', () => {
+  const lines = (amount) => [{description: 'Tuition - Amina', amount, student_id: 'stu_1'}];
+  const credits = (db) => Object.entries(db.store.family_credits);
+
+  test('lowering twice below what was paid credits only the extra each time', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const deps = depsFor(db);
+    await call(editInvoice, deps, goodEdit({lines: lines(60)}));
+    await call(editInvoice, deps, goodEdit({lines: lines(50), reason: 'Lower again'}));
+    const amounts = credits(db).map(([, c]) => c.amount).sort((a, b) => a - b);
+    // 40 for the first edit, 10 for the second: 50 in all, never 40 + 50
+    expect(amounts).toEqual([10, 40]);
+    expect(amounts.reduce((a, b) => a + b, 0)).toBe(50);
+  });
+
+  test('an invoice already below what was paid gets credit only for the further drop', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, total_amount: 80, status: 'paid', items: [{description: 'Tuition - Amina', quantity: 1, unit_price: 80, total: 80, student_id: 'stu_1', shift_ids: []}]}}));
+    await call(editInvoice, depsFor(db), goodEdit({lines: lines(70)}));
+    expect(credits(db).map(([, c]) => c.amount)).toEqual([10]);
+  });
+
+  test('raising the total again takes back the open credit by the difference', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const deps = depsFor(db);
+    const first = await call(editInvoice, deps, goodEdit({lines: lines(60)}));
+    expect(db.store.family_credits[first.credit_id].amount).toBe(40);
+
+    const second = await call(editInvoice, deps, goodEdit({lines: lines(80), reason: 'Back up'}));
+    expect(second.credit_id).toBeUndefined();
+    expect(db.store.family_credits[first.credit_id]).toMatchObject({status: 'open', amount: 20, original_amount: 40});
+    expect(credits(db)).toHaveLength(1); // never a negative or extra credit
+  });
+
+  test('raising to or past the paid amount cancels the open credit', async () => {
+    const db = makeDb(seed({invoice: {paid_amount: 100, status: 'paid'}}));
+    const deps = depsFor(db);
+    const first = await call(editInvoice, deps, goodEdit({lines: lines(60)}));
+    await call(editInvoice, deps, goodEdit({lines: lines(130), reason: 'Back up past paid'}));
+    expect(db.store.family_credits[first.credit_id]).toMatchObject({status: 'cancelled'});
+    expect(db.store.invoices.inv_1.status).toBe('pending');
+    expect(credits(db)).toHaveLength(1);
+  });
+
+  test('a credit that was already used is left alone when the total goes back up', async () => {
+    const s = seed({invoice: {paid_amount: 100, total_amount: 60, status: 'paid', items: [{description: 'Tuition - Amina', quantity: 1, unit_price: 60, total: 60, student_id: 'stu_1', shift_ids: []}]}});
+    s.family_credits.used_1 = {source: 'invoice_edit', status: 'used', amount: 40, invoice_id: 'inv_1', used_on_invoice_id: 'inv_9'};
+    const db = makeDb(s);
+    await call(editInvoice, depsFor(db), goodEdit({lines: lines(100)}));
+    expect(db.store.family_credits.used_1).toMatchObject({status: 'used', amount: 40});
+    expect(credits(db)).toHaveLength(1);
+  });
+
+  test('only credits of this invoice and source invoice_edit are touched', async () => {
+    const s = seed({invoice: {paid_amount: 100, status: 'paid'}});
+    s.family_credits.other = {source: 'invoice_edit', status: 'open', amount: 25, invoice_id: 'inv_other'};
+    s.family_credits.manual = {source: 'manual', status: 'open', amount: 25, invoice_id: 'inv_1'};
+    const db = makeDb(s);
+    const deps = depsFor(db);
+    await call(editInvoice, deps, goodEdit({lines: lines(60)}));
+    await call(editInvoice, deps, goodEdit({lines: lines(100), reason: 'Back'}));
+    expect(db.store.family_credits.other.amount).toBe(25);
+    expect(db.store.family_credits.manual.amount).toBe(25);
+  });
+});
+
+describe('cancelInvoice: family credits used on the invoice come back', () => {
+  test('a credit used in full is reopened', async () => {
+    const s = seed({invoice: {credit_applied: 30, credit_lines: [{credit_id: 'c1', amount: 30}]}});
+    s.family_credits.c1 = {parent_id: 'parent_1', amount: 30, status: 'used', used_on_invoice_id: 'inv_1', closed_at: SERVER_TS, closed_by: 'system'};
+    s.family_credits.unrelated = {parent_id: 'parent_1', amount: 5, status: 'used', used_on_invoice_id: 'inv_2'};
+    const db = makeDb(s);
+    await call(cancelInvoice, depsFor(db), {invoice_id: 'inv_1', reason: 'Enrolled twice'});
+    expect(db.store.family_credits.c1).toMatchObject({status: 'open', used_on_invoice_id: null, amount: 30});
+    expect(db.store.family_credits.c1.closed_at).toBeUndefined();
+    expect(db.store.family_credits.unrelated).toMatchObject({status: 'used', used_on_invoice_id: 'inv_2'});
+    expect(db.store.invoices.inv_1.status).toBe('cancelled');
+  });
+
+  test('a credit used in part: the used piece reopens next to the remainder (original amount restored in total)', async () => {
+    const s = seed();
+    s.family_credits.c2 = {parent_id: 'parent_1', amount: 30, original_amount: 50, status: 'used', used_on_invoice_id: 'inv_1'};
+    s.family_credits['c2__rest_inv_1'] = {parent_id: 'parent_1', amount: 20, status: 'open', split_from: 'c2', used_on_invoice_id: null};
+    const db = makeDb(s);
+    await call(cancelInvoice, depsFor(db), {invoice_id: 'inv_1', reason: 'x'});
+    const open = Object.values(db.store.family_credits).filter((c) => c.status === 'open');
+    expect(open.reduce((sum, c) => sum + c.amount, 0)).toBe(50);
+    expect(db.store.family_credits.c2).toMatchObject({status: 'open', used_on_invoice_id: null, amount: 30});
+  });
+
+  test('credits are not touched when the cancel is refused', async () => {
+    const s = seed({invoice: {paid_amount: 10}});
+    s.family_credits.c1 = {amount: 30, status: 'used', used_on_invoice_id: 'inv_1'};
+    const db = makeDb(s);
+    await expect(call(cancelInvoice, depsFor(db), {invoice_id: 'inv_1', reason: 'x'})).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.store.family_credits.c1.status).toBe('used');
+  });
+});
+
+describe('edit and cancel: month lock', () => {
+  const closedSeed = (over) => {
+    const s = seed(over);
+    s.finance_months = {'2026-10': {status: 'closed'}};
+    return s;
+  };
+
+  test('a month closed after the early check is still refused inside the transaction (edit)', async () => {
+    const db = makeDb(closedSeed());
+    // the early check passes (as if it ran just before the close)
+    await expect(call(editInvoice, depsFor(db), goodEdit())).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toHaveLength(0);
+  });
+
+  test('a month closed after the early check is still refused inside the transaction (cancel)', async () => {
+    const s = closedSeed();
+    const db = makeDb(s);
+    await expect(call(cancelInvoice, depsFor(db), {invoice_id: 'inv_1', reason: 'x'})).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toHaveLength(0);
+    expect(db.store.invoices.inv_1.status).toBe('pending');
+  });
+
+  test('an open month record does not block', async () => {
+    const s = seed();
+    s.finance_months = {'2026-10': {status: 'open'}};
+    const db = makeDb(s);
+    await expect(call(cancelInvoice, depsFor(db), {invoice_id: 'inv_1', reason: 'x'})).resolves.toEqual({ok: true});
+  });
+
+  test('an invoice with no month at all fails closed (edit and cancel)', async () => {
+    const noMonth = {period: undefined, period_start: undefined, billing_month: undefined, issued_date: undefined, created_at: undefined};
+    const db = makeDb(seed({invoice: noMonth}));
+    const deps = depsFor(db);
+    await expect(call(editInvoice, deps, goodEdit())).rejects.toMatchObject({code: 'failed-precondition'});
+    await expect(call(cancelInvoice, deps, {invoice_id: 'inv_1', reason: 'x'})).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(deps.assertMonthOpen).not.toHaveBeenCalled();
+    expect(db.writes).toHaveLength(0);
   });
 });
