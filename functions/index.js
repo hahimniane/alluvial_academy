@@ -666,3 +666,34 @@ exports.pauseAdminPay = financeStaffHandlers.pauseAdminPayCallable;
 exports.resumeAdminPay = financeStaffHandlers.resumeAdminPayCallable;
 // Pauses an administrator's pay when their account is deactivated.
 exports.onAdminUserDeactivated = financeStaffHandlers.onAdminUserDeactivated;
+// Finance: expenses, recurring costs, family credits, discount totals.
+// Admin-only, gated in the handler; every mutation checks the closed-month lock.
+const financeExpensesHandlers = require('./handlers/finance_expenses');
+exports.addFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.addFinanceExpense(request)
+);
+exports.deleteFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.deleteFinanceExpense(request)
+);
+exports.restoreFinanceExpense = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.restoreFinanceExpense(request)
+);
+exports.confirmRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.confirmRecurringCost(request)
+);
+exports.stopRecurringCost = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.stopRecurringCost(request)
+);
+exports.resolveFamilyCredit = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.resolveFamilyCredit(request)
+);
+exports.getFinanceDiscountTotals = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeExpensesHandlers.getFinanceDiscountTotals(request)
+);

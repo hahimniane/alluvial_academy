@@ -1278,40 +1278,32 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Finance switches and month status. Admins read them; every change goes
-    // through the finance callables (closing a month, finance settings), which
-    // is also what keeps a closed month locked. The fallback below leaves
-    // these two collections out so an admin session cannot write them
-    // directly (rules are OR'd).
-    match /finance_settings/{docId} {
-      allow read: if isAdmin();
-      allow write: if false;
+    // Finance (docs/finance/SPEC.md). Admins read every finance collection;
+    // every change goes through the finance callables, which enforce the
+    // closed-month lock and keep the audit history. The fallback below leaves
+    // these collections out so an admin session cannot write them directly
+    // (rules are OR'd). finance_private holds the bank link token: no client
+    // access at all.
+    function isFinanceCollection(collection) {
+      return collection in [
+        'finance_settings', 'finance_months', 'staff_payouts', 'admin_pay_terms',
+        'finance_expenses', 'finance_recurring_costs', 'finance_recurring_confirmations',
+        'family_credits', 'family_billing', 'bank_transactions', 'known_payers',
+        'payment_proofs', 'finance_private'
+      ];
     }
 
-    match /finance_months/{month} {
-      allow read: if isAdmin();
+    match /{financeCollection}/{docId} {
+      allow read: if isAdmin() && isFinanceCollection(financeCollection) && financeCollection != 'finance_private';
       allow write: if false;
     }
-
-    // Finance staff pay - admins read; every change goes through the staff pay
-    // callables (they enforce the month lock and the payout rules).
-    match /staff_payouts/{payoutId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /admin_pay_terms/{adminUid} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
 
     // All other collections - admin only (fallback rule)
     // teaching_shifts has its own block above; the fallback must not let an
     // admin write there and bypass its subject requirement (rules are OR'd).
     match /{collection}/{document=**} {
       allow read: if isAdmin();
-      allow write: if isAdmin() && !(collection in ['teaching_shifts', 'finance_settings', 'finance_months', 'staff_payouts', 'admin_pay_terms', 'finance_expenses', 'finance_recurring_costs', 'finance_recurring_confirmations', 'family_credits', 'family_billing', 'bank_transactions', 'known_payers', 'payment_proofs', 'finance_private']);
+      allow write: if isAdmin() && collection != 'teaching_shifts' && !isFinanceCollection(collection);
     }
 
   }
