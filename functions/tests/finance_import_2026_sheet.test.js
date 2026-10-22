@@ -30,7 +30,7 @@ describe('finance 2026 sheet import helpers', () => {
   });
 
   test('excelDateToIso reads serial numbers and dd/mm/yyyy', () => {
-    expect(excelDateToIso(46086)).toBe('2026-03-01');
+    expect(excelDateToIso(46023)).toBe('2026-01-01');
     expect(excelDateToIso('14/02/2026')).toBe('2026-02-14');
     expect(excelDateToIso('soon')).toBeNull();
   });
