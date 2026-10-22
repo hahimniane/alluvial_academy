@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 
+import '../../../core/constants/penalty_reasons.dart';
+
 /// Single audit factor (one of 16 mandatory factors from Excel model)
 class AuditFactor {
   final String id;
@@ -883,6 +885,12 @@ class PaymentAdjustmentLine {
   final String createdById;
   final String createdByName;
 
+  /// Structured reason for a penalty line (a code from [PenaltyReasons]) and
+  /// its note. Null on lines saved before reasons were structured; use
+  /// [penaltyValue] to read them.
+  final String? penaltyReason;
+  final String? penaltyNote;
+
   const PaymentAdjustmentLine({
     required this.id,
     required this.type,
@@ -892,7 +900,19 @@ class PaymentAdjustmentLine {
     required this.createdAt,
     required this.createdById,
     required this.createdByName,
+    this.penaltyReason,
+    this.penaltyNote,
   });
+
+  bool get isPenalty => type != 'bonus';
+
+  /// Reason code and note for a penalty line. Lines without a code read as
+  /// "other" with their old free text as the note.
+  PenaltyReasonValue get penaltyValue => PenaltyReasonValue.fromStored(
+        code: penaltyReason,
+        note: penaltyNote,
+        legacyReason: reason,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -903,6 +923,8 @@ class PaymentAdjustmentLine {
         'createdAt': Timestamp.fromDate(createdAt),
         'createdById': createdById,
         'createdByName': createdByName,
+        if (penaltyReason != null) 'penalty_reason': penaltyReason,
+        if (penaltyReason != null) 'penalty_note': penaltyNote ?? '',
       };
 
   factory PaymentAdjustmentLine.fromMap(Map<String, dynamic> map) {
@@ -915,6 +937,8 @@ class PaymentAdjustmentLine {
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdById: map['createdById']?.toString() ?? '',
       createdByName: map['createdByName']?.toString() ?? '',
+      penaltyReason: map['penalty_reason']?.toString(),
+      penaltyNote: map['penalty_note']?.toString(),
     );
   }
 }
@@ -939,6 +963,18 @@ class PaymentSummary {
   /// Confirmed advance payments (deducted after coach lines for displayed net).
   final List<AdvancePayment> advancePayments;
 
+  /// Penalty for missing forms (applied from the audit's forms summary) and
+  /// the reason it was given.
+  final double? formPenaltyPerMissing;
+  final double? formPenaltyTotal;
+  final String? formPenaltyReason;
+  final String? formPenaltyNote;
+
+  /// Reason for a negative [adminAdjustment] (a deduction). Null for
+  /// adjustments that add money or were saved before reasons were structured.
+  final String? adjustmentPenaltyReason;
+  final String? adjustmentPenaltyNote;
+
   const PaymentSummary({
     required this.paymentsBySubject,
     required this.totalGrossPayment,
@@ -952,7 +988,32 @@ class PaymentSummary {
     this.shiftPaymentAdjustments = const {},
     this.coachAdjustmentLines = const [],
     this.advancePayments = const [],
+    this.formPenaltyPerMissing,
+    this.formPenaltyTotal,
+    this.formPenaltyReason,
+    this.formPenaltyNote,
+    this.adjustmentPenaltyReason,
+    this.adjustmentPenaltyNote,
   });
+
+  /// Reason of the form penalty, when one was applied.
+  PenaltyReasonValue? get formPenaltyValue =>
+      (formPenaltyTotal ?? 0) > 0 || formPenaltyReason != null
+          ? PenaltyReasonValue.fromStored(
+              code: formPenaltyReason,
+              note: formPenaltyNote,
+            )
+          : null;
+
+  /// Reason of a negative admin adjustment (a deduction). Adjustments saved
+  /// before reasons were structured read as "other" with their text as note.
+  PenaltyReasonValue? get adjustmentDeductionValue => adminAdjustment < 0
+      ? PenaltyReasonValue.fromStored(
+          code: adjustmentPenaltyReason,
+          note: adjustmentPenaltyNote,
+          legacyReason: adjustmentReason,
+        )
+      : null;
 
   /// Automated subtotal before coach lines (same basis used when first computing pay).
   double get automatedNetBase =>
@@ -993,6 +1054,16 @@ class PaymentSummary {
         'coachAdjustmentLines':
             coachAdjustmentLines.map((e) => e.toMap()).toList(),
         'advancePayments': advancePayments.map((e) => e.toMap()).toList(),
+        if (formPenaltyPerMissing != null)
+          'formPenaltyPerMissing': formPenaltyPerMissing,
+        if (formPenaltyTotal != null) 'formPenaltyTotal': formPenaltyTotal,
+        if (formPenaltyReason != null) 'formPenaltyReason': formPenaltyReason,
+        if (formPenaltyReason != null)
+          'formPenaltyNote': formPenaltyNote ?? '',
+        if (adjustmentPenaltyReason != null)
+          'adjustmentPenaltyReason': adjustmentPenaltyReason,
+        if (adjustmentPenaltyReason != null)
+          'adjustmentPenaltyNote': adjustmentPenaltyNote ?? '',
       };
 
   factory PaymentSummary.fromMap(Map<String, dynamic> map) {
@@ -1035,6 +1106,12 @@ class PaymentSummary {
       ),
       coachAdjustmentLines: lines,
       advancePayments: advances,
+      formPenaltyPerMissing: (map['formPenaltyPerMissing'] as num?)?.toDouble(),
+      formPenaltyTotal: (map['formPenaltyTotal'] as num?)?.toDouble(),
+      formPenaltyReason: map['formPenaltyReason']?.toString(),
+      formPenaltyNote: map['formPenaltyNote']?.toString(),
+      adjustmentPenaltyReason: map['adjustmentPenaltyReason']?.toString(),
+      adjustmentPenaltyNote: map['adjustmentPenaltyNote']?.toString(),
     );
   }
 
@@ -1051,6 +1128,13 @@ class PaymentSummary {
     Map<String, double>? shiftPaymentAdjustments,
     List<PaymentAdjustmentLine>? coachAdjustmentLines,
     List<AdvancePayment>? advancePayments,
+    double? formPenaltyPerMissing,
+    double? formPenaltyTotal,
+    String? formPenaltyReason,
+    String? formPenaltyNote,
+    String? adjustmentPenaltyReason,
+    String? adjustmentPenaltyNote,
+    bool clearAdjustmentPenalty = false,
   }) {
     return PaymentSummary(
       paymentsBySubject: paymentsBySubject ?? this.paymentsBySubject,
@@ -1066,6 +1150,17 @@ class PaymentSummary {
           shiftPaymentAdjustments ?? this.shiftPaymentAdjustments,
       coachAdjustmentLines: coachAdjustmentLines ?? this.coachAdjustmentLines,
       advancePayments: advancePayments ?? this.advancePayments,
+      formPenaltyPerMissing:
+          formPenaltyPerMissing ?? this.formPenaltyPerMissing,
+      formPenaltyTotal: formPenaltyTotal ?? this.formPenaltyTotal,
+      formPenaltyReason: formPenaltyReason ?? this.formPenaltyReason,
+      formPenaltyNote: formPenaltyNote ?? this.formPenaltyNote,
+      adjustmentPenaltyReason: clearAdjustmentPenalty
+          ? null
+          : (adjustmentPenaltyReason ?? this.adjustmentPenaltyReason),
+      adjustmentPenaltyNote: clearAdjustmentPenalty
+          ? null
+          : (adjustmentPenaltyNote ?? this.adjustmentPenaltyNote),
     );
   }
 
@@ -1326,6 +1421,10 @@ class AuditIssue {
   final String? shiftId;
   final double? penaltyAmount;
 
+  /// Penalty reason code for the penalty this issue can carry; set for the
+  /// issue types the system turns into penalties.
+  final String? penaltyReason;
+
   const AuditIssue({
     required this.type,
     required this.description,
@@ -1333,7 +1432,13 @@ class AuditIssue {
     this.date,
     this.shiftId,
     this.penaltyAmount,
+    this.penaltyReason,
   });
+
+  /// The stored code, or the one the issue type maps to (issues saved before
+  /// codes existed).
+  String? get effectivePenaltyReason =>
+      penaltyReason ?? PenaltyReasons.forIssueType(type);
 
   Map<String, dynamic> toMap() => {
         'type': type,
@@ -1342,6 +1447,7 @@ class AuditIssue {
         'date': date?.toIso8601String(),
         'shiftId': shiftId,
         'penaltyAmount': penaltyAmount,
+        if (penaltyReason != null) 'penalty_reason': penaltyReason,
       };
 
   factory AuditIssue.fromMap(Map<String, dynamic> map) {
@@ -1352,6 +1458,7 @@ class AuditIssue {
       date: map['date'] != null ? DateTime.parse(map['date']) : null,
       shiftId: map['shiftId'],
       penaltyAmount: (map['penaltyAmount'] as num?)?.toDouble(),
+      penaltyReason: map['penalty_reason']?.toString(),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../../chat/services/chat_service.dart';
 import '../../../core/audit/audit_assignment_metrics.dart';
+import '../../../core/constants/penalty_reasons.dart';
 import '../models/teacher_audit_full.dart';
 import 'audit_message_composer.dart';
 import '../../../core/utils/app_logger.dart';
@@ -2192,6 +2193,8 @@ class TeacherAuditService {
       adjustmentReason: previous.adjustmentReason,
       adminId: previous.adminId,
       adjustedAt: previous.adjustedAt,
+      adjustmentPenaltyReason: previous.adjustmentPenaltyReason,
+      adjustmentPenaltyNote: previous.adjustmentPenaltyNote,
       coachAdjustmentLines: previous.coachAdjustmentLines,
       advancePayments: previous.advancePayments,
     );
@@ -2288,6 +2291,7 @@ class TeacherAuditService {
     if (shifts.missed > 0) {
       issues.add(AuditIssue(
         type: 'missed_classes',
+        penaltyReason: PenaltyReasons.byIssueType['missed_classes'],
         description: '${shifts.missed} missed',
         severity: shifts.missed >= 3 ? 'high' : 'medium',
       ));
@@ -2296,6 +2300,7 @@ class TeacherAuditService {
     if (timesheets.late > 0) {
       issues.add(AuditIssue(
         type: 'late_clock_ins',
+        penaltyReason: PenaltyReasons.byIssueType['late_clock_ins'],
         description: '${timesheets.late} late',
         severity: timesheets.late >= 5 ? 'high' : 'low',
       ));
@@ -2305,6 +2310,7 @@ class TeacherAuditService {
     if (missingForms > 0) {
       issues.add(AuditIssue(
         type: 'missing_forms',
+        penaltyReason: PenaltyReasons.byIssueType['missing_forms'],
         description: '$missingForms missing forms',
         severity: missingForms >= 3 ? 'high' : 'medium',
       ));
@@ -3371,14 +3377,23 @@ class TeacherAuditService {
     }
   }
 
+  /// Sets the admin adjustment. A negative adjustment is a deduction and needs
+  /// [penaltyReason] (a code from [PenaltyReasons]); "other" needs a note.
   static Future<bool> updatePaymentAdjustment({
     required String auditId,
     required double adjustment,
     required String reason,
+    String? penaltyReason,
+    String? penaltyNote,
   }) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
+      final isDeduction = adjustment < 0;
+      if (isDeduction &&
+          PenaltyReasons.validate(penaltyReason, penaltyNote) != null) {
+        return false;
+      }
 
       final doc =
           await _firestore.collection(_auditCollection).doc(auditId).get();
@@ -3390,9 +3405,14 @@ class TeacherAuditService {
       final ps = PaymentSummary.fromMap(Map<String, dynamic>.from(paymentData));
       final next = ps.copyWith(
         adminAdjustment: adjustment,
-        adjustmentReason: reason,
+        adjustmentReason: isDeduction
+            ? PenaltyReasons.composeReasonText(penaltyReason, penaltyNote)
+            : reason,
         adminId: user.uid,
         adjustedAt: DateTime.now(),
+        adjustmentPenaltyReason: isDeduction ? penaltyReason : null,
+        adjustmentPenaltyNote: isDeduction ? (penaltyNote ?? '').trim() : null,
+        clearAdjustmentPenalty: !isDeduction,
       );
       final withNet = next.copyWith(totalNetPayment: next.netAfterAdvances());
 
@@ -4487,13 +4507,19 @@ class TeacherAuditService {
     }
   }
 
-  /// Apply penalty for missing forms
+  /// Apply penalty for missing forms. [penaltyReason] is a code from
+  /// [PenaltyReasons] (missing forms default to a late class report).
   static Future<bool> applyFormPenalty({
     required String auditId,
     required double penaltyPerMissing,
     required int missingFormsCount,
+    String penaltyReason = PenaltyReasons.lateClassReport,
+    String? penaltyNote,
   }) async {
     try {
+      if (PenaltyReasons.validate(penaltyReason, penaltyNote) != null) {
+        return false;
+      }
       final doc =
           await _firestore.collection(_auditCollection).doc(auditId).get();
       if (!doc.exists) return false;
@@ -4515,6 +4541,8 @@ class TeacherAuditService {
         'paymentSummary.totalNetPayment': newNet,
         'paymentSummary.formPenaltyPerMissing': penaltyPerMissing,
         'paymentSummary.formPenaltyTotal': formPenalty,
+        'paymentSummary.formPenaltyReason': penaltyReason,
+        'paymentSummary.formPenaltyNote': (penaltyNote ?? '').trim(),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
 

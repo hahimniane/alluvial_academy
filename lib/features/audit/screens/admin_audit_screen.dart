@@ -20,6 +20,8 @@ import '../../forms/widgets/form_details_modal.dart';
 import 'admin_audit_review_screen.dart';
 import 'coach_evaluation_screen.dart';
 import '../widgets/audit_detail_panel.dart';
+import '../widgets/penalty_reason_fields.dart';
+import '../../../core/constants/penalty_reasons.dart';
 import '../widgets/teacher_dispute_resolution_dialog.dart';
 import '../../forms/screens/admin_all_submissions_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -4225,13 +4227,22 @@ class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
   void _showPaymentAdjustmentDialog(TeacherAuditFull audit) {
     final adjustmentController = TextEditingController();
     final reasonController = TextEditingController();
+    final penaltyNoteController = TextEditingController();
+    String? penaltyCode;
+    PenaltyReasonError? penaltyError;
+    StateSetter? refreshDialog;
+    adjustmentController.addListener(() => refreshDialog?.call(() {}));
     bool isSubmitting = false;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) {
+          refreshDialog = setDialogState;
+          final typedAmount = double.tryParse(adjustmentController.text);
+          final isDeduction = typedAmount != null && typedAmount < 0;
+          return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
@@ -4294,16 +4305,35 @@ class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: reasonController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.reasonRequired,
-                      hintText: AppLocalizations.of(context)!
-                          .roundingAdjustmentPenaltyBonusEtc,
-                      border: OutlineInputBorder(),
+                  if (isDeduction) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        AppLocalizations.of(context)!.penaltyDeductionReasonHint,
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: Colors.grey.shade700),
+                      ),
                     ),
-                  ),
+                    PenaltyReasonFields(
+                      code: penaltyCode,
+                      noteController: penaltyNoteController,
+                      error: penaltyError,
+                      onCodeChanged: (v) => setDialogState(() {
+                        penaltyCode = v;
+                        penaltyError = null;
+                      }),
+                    ),
+                  ] else
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.reasonRequired,
+                        hintText: AppLocalizations.of(context)!
+                            .roundingAdjustmentPenaltyBonusEtc,
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -4328,7 +4358,15 @@ class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
                         );
                         return;
                       }
-                      if (reasonController.text.trim().isEmpty) {
+                      final deduction = adjustment < 0;
+                      if (deduction) {
+                        final problem = PenaltyReasons.validate(
+                            penaltyCode, penaltyNoteController.text);
+                        if (problem != null) {
+                          setDialogState(() => penaltyError = problem);
+                          return;
+                        }
+                      } else if (reasonController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                               content: Text(AppLocalizations.of(context)!
@@ -4344,6 +4382,9 @@ class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
                           auditId: audit.id,
                           adjustment: adjustment,
                           reason: reasonController.text.trim(),
+                          penaltyReason: deduction ? penaltyCode : null,
+                          penaltyNote:
+                              deduction ? penaltyNoteController.text : null,
                         );
 
                         if (mounted) {
@@ -4383,7 +4424,8 @@ class _AdminAuditDetailPanelState extends State<_AdminAuditDetailPanel> {
                   : Text(AppLocalizations.of(context)!.applyAdjustment),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
   }
@@ -6530,7 +6572,8 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     });
   }
 
-  Future<void> _applyFormPenalty(double penaltyPerMissing) async {
+  Future<void> _applyFormPenalty(
+      double penaltyPerMissing, String penaltyReason, String penaltyNote) async {
     if (penaltyPerMissing <= 0) return;
 
     final missingForms = widget.audit.readinessFormsRequired -
@@ -6542,6 +6585,8 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
         auditId: widget.audit.id,
         penaltyPerMissing: penaltyPerMissing,
         missingFormsCount: missingForms,
+        penaltyReason: penaltyReason,
+        penaltyNote: penaltyNote,
       );
 
       if (success && mounted) {
@@ -6608,7 +6653,7 @@ class _FormsComplianceSummary extends StatefulWidget {
   final TeacherAuditFull audit;
   final List<_ShiftItem> orphanShifts;
   final List<_FormItem> unlinkedForms;
-  final Function(double) onApplyPenalty;
+  final Future<void> Function(double, String, String) onApplyPenalty;
 
   const _FormsComplianceSummary({
     required this.audit,
@@ -6624,11 +6669,15 @@ class _FormsComplianceSummary extends StatefulWidget {
 
 class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
   final TextEditingController _penaltyController = TextEditingController();
+  final TextEditingController _penaltyNoteController = TextEditingController();
+  String? _penaltyCode = PenaltyReasons.lateClassReport;
+  PenaltyReasonError? _penaltyError;
   bool _isApplying = false;
 
   @override
   void dispose() {
     _penaltyController.dispose();
+    _penaltyNoteController.dispose();
     super.dispose();
   }
 
@@ -6783,17 +6832,35 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
               ],
             ),
             const SizedBox(height: 12),
+            PenaltyReasonFields(
+              code: _penaltyCode,
+              noteController: _penaltyNoteController,
+              error: _penaltyError,
+              onCodeChanged: (v) => setState(() {
+                _penaltyCode = v;
+                _penaltyError = null;
+              }),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _isApplying || penaltyPerMissing <= 0
                     ? null
                     : () async {
+                        final problem = PenaltyReasons.validate(
+                            _penaltyCode, _penaltyNoteController.text);
+                        if (problem != null) {
+                          setState(() => _penaltyError = problem);
+                          return;
+                        }
                         setState(() => _isApplying = true);
-                        await widget.onApplyPenalty(penaltyPerMissing);
+                        await widget.onApplyPenalty(penaltyPerMissing,
+                            _penaltyCode!, _penaltyNoteController.text.trim());
                         if (mounted) {
                           setState(() => _isApplying = false);
                           _penaltyController.clear();
+                          _penaltyNoteController.clear();
                         }
                       },
                 icon: _isApplying

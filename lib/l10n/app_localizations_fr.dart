@@ -806,7 +806,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String enrollmentSummarySameProgramHouseholdDetail(
-      String program, int hours, String each, String total) {
+    String program,
+    int hours,
+    String each,
+    String total,
+  ) {
     return '$program · $hours h/s chacun · $each par enfant · $total foyer/mois';
   }
 
@@ -1678,7 +1682,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String adminSubmissionsExportFormSheetProgress(
-      int current, int total, String formName) {
+    int current,
+    int total,
+    String formName,
+  ) {
     return '$current / $total — $formName';
   }
 
@@ -9976,7 +9983,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String auditMaxPayment(
-      Object subject, Object amount, Object hourly, Object sujet, Object time) {
+    Object subject,
+    Object amount,
+    Object hourly,
+    Object sujet,
+    Object time,
+  ) {
     return 'Le paiement maximal pour $sujet est \$$amount (maximum \$$time/heure)';
   }
 
@@ -10217,8 +10229,13 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String shiftSelectedTimeRange(Object abbr, Object startDate, Object startTime,
-      Object endDatePart, Object endTime) {
+  String shiftSelectedTimeRange(
+    Object abbr,
+    Object startDate,
+    Object startTime,
+    Object endDatePart,
+    Object endTime,
+  ) {
     return 'Sélectionné ($abbr): $startDate, $startTime - $endDatePart $endTime';
   }
 
@@ -11216,8 +11233,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String
-      get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
-          'Evaluate student progress and skills at enrollment or semester end';
+  get formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend =>
+      'Evaluate student progress and skills at enrollment or semester end';
 
   @override
   String get formTemplateFeedbackforleaders => 'Feedback for Leaders';
@@ -11233,8 +11250,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String
-      get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
-          'Monthly evaluation of coach/supervisor performance (Admin only)';
+  get formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly =>
+      'Monthly evaluation of coach/supervisor performance (Admin only)';
 
   @override
   String get formTemplateMonthlyselfevaluationforadministratorsandcoaches =>
@@ -13109,7 +13126,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String pricingMonthlyBreakdown(
-      Object hours, Object rate, Object weeks, Object monthly) {
+    Object hours,
+    Object rate,
+    Object weeks,
+    Object monthly,
+  ) {
     return '$hours h × \$$rate/h × $weeks semaines ≈ \$$monthly/mois';
   }
 
@@ -14027,7 +14048,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String unlinkGuardianAdultOverrideBody(
-      String studentName, String guardianName) {
+    String studentName,
+    String guardianName,
+  ) {
     return '$studentName n\'a aucun autre parent valide lié. Continuez seulement si un administrateur a confirmé que cet élève doit gérer son propre compte comme adulte après le retrait de $guardianName.';
   }
 
@@ -16534,7 +16557,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String publicPricingFormula(
-      int hours, String rate, String weeks, String monthly) {
+    int hours,
+    String rate,
+    String weeks,
+    String monthly,
+  ) {
     return '$hours h × $rate/h × $weeks semaines ≈ $monthly/mois';
   }
 
@@ -17574,7 +17601,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String quizCompetitionFairRules(
-      int questions, int days, int accuracy, int participants) {
+    int questions,
+    int days,
+    int accuracy,
+    int participants,
+  ) {
     return 'Tu concoures uniquement dans ta tranche d\'âge. Pour te qualifier : $questions questions uniques sur $days jours et au moins $accuracy % de bonnes réponses. Il faut $participants élèves admissibles par tranche. Une égalité exacte donne des co-gagnants.';
   }
 
@@ -18228,7 +18259,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String quranScopeProgress(
-      String done, String total, String scope, String pct) {
+    String done,
+    String total,
+    String scope,
+    String pct,
+  ) {
     return '$done versets sur $total de $scope · $pct%';
   }
 
@@ -19060,4 +19095,46 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get classReportNoClockInSubmit => 'Envoyer le rapport';
+
+  @override
+  String get penaltyReasonLateClockIn => 'Retard au pointage';
+
+  @override
+  String get penaltyReasonMissedClass => 'Cours manqué sans préavis';
+
+  @override
+  String get penaltyReasonLateClassReport => 'Rapport de cours en retard';
+
+  @override
+  String get penaltyReasonLeftClassEarly => 'Cours quitté trop tôt';
+
+  @override
+  String get penaltyReasonNoCameraOrSetup =>
+      'Caméra ou installation non conforme';
+
+  @override
+  String get penaltyReasonConduct => 'Comportement';
+
+  @override
+  String get penaltyReasonOther => 'Autre';
+
+  @override
+  String get penaltyReasonSelectHint => 'Choisissez un motif';
+
+  @override
+  String get penaltyReasonRequiredError => 'Choisissez un motif.';
+
+  @override
+  String get penaltyNoteOptionalLabel => 'Note (facultative)';
+
+  @override
+  String get penaltyNoteRequiredLabel => 'Note (obligatoire)';
+
+  @override
+  String get penaltyNoteRequiredError =>
+      'Ajoutez une note lorsque le motif est Autre.';
+
+  @override
+  String get penaltyDeductionReasonHint =>
+      'Ce montant est une déduction. Choisissez le motif.';
 }
