@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canClose, closeChecklist, lastDay } from "../finance/closeChecks.ts";
 import { financeHref } from "../finance/links.ts";
-import { isFinanceMonth, monthFromParam } from "../finance/months.ts";
+import { financeMonthBounds, isFinanceMonth, monthFromParam } from "../finance/months.ts";
 import { NUMERIC_SETTINGS, ordinal, parseNumericSetting } from "../finance/settings.ts";
 import type { MonthSummary } from "../finance/summary.ts";
 
@@ -112,4 +112,13 @@ test("a month in the URL must be a real month, else the current one is used (the
   }
   assert.equal(isFinanceMonth("2026-12"), true);
   assert.equal(isFinanceMonth("2026-1"), false);
+});
+
+test("finance month bounds are New York midnights across daylight saving time", () => {
+  const summer = financeMonthBounds("2026-08");
+  assert.equal(summer.start.toISOString(), "2026-08-01T04:00:00.000Z");
+  assert.equal(summer.end.toISOString(), "2026-09-01T04:00:00.000Z");
+  const fallBack = financeMonthBounds("2026-11");
+  assert.equal(fallBack.start.toISOString(), "2026-11-01T04:00:00.000Z");
+  assert.equal(fallBack.end.toISOString(), "2026-12-01T05:00:00.000Z");
 });

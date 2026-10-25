@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useFinance } from "@/components/finance/FinanceShell";
 import { DEFAULT_SETTINGS, money } from "@/lib/finance/model";
+import { monthLabel } from "@/lib/finance/months";
 import {
   formatDay,
   formatMoment,
   mergeNewStudents,
+  newStudentsForMonth,
   newStudentStatus,
   nextMonthlyInvoice,
   workedExample,
@@ -15,12 +17,12 @@ import {
 } from "@/lib/finance/invoices";
 import {
   errorMessage,
+  loadEnrollmentsForMonth,
   loadFinanceSettings,
-  loadFirstInvoices,
   loadGuardians,
+  loadInvoicesForMonth,
   loadMonthlyAmounts,
   loadNames,
-  loadRecentEnrollments,
   loadTeachersForStudents,
   type FinanceSettingsView,
 } from "./data";
@@ -40,7 +42,8 @@ export function NewStudentsScreen() {
     let alive = true;
     (async () => {
       try {
-        const [first, enrollments, s] = await Promise.all([loadFirstInvoices(), loadRecentEnrollments(now), loadFinanceSettings()]);
+        const [invoiceResult, enrollments, s] = await Promise.all([loadInvoicesForMonth(month), loadEnrollmentsForMonth(month), loadFinanceSettings()]);
+        const first = invoiceResult.invoices.filter((invoice) => invoice.kind === "first_month");
         // Enrollments that carry no parent id: use the student's guardian.
         const needParent = enrollments.filter((e) => !e.parentId).map((e) => e.studentId);
         const guardians = needParent.length ? await loadGuardians(needParent) : new Map<string, string>();
@@ -51,7 +54,7 @@ export function NewStudentsScreen() {
         const teacherByStudent = new Map<string, string>();
         teacherMap.byStudent.forEach((ids, student) => teacherByStudent.set(student, teacherMap.teacherNames.get(ids[0]) ?? ""));
 
-        const merged = mergeNewStudents(first, withParents, teacherByStudent).slice(0, 40);
+        const merged = newStudentsForMonth(mergeNewStudents(first, withParents, teacherByStudent), month).slice(0, 40);
         const ids = merged.flatMap((r) => [r.parentId, ...r.studentIds]);
         const [resolved, amounts] = await Promise.all([loadNames(ids, new Map()), loadMonthlyAmounts(merged.map((r) => r.parentId)).catch(() => new Map<string, number>())]);
         if (!alive) return;
@@ -68,7 +71,7 @@ export function NewStudentsScreen() {
     return () => {
       alive = false;
     };
-  }, [now]);
+  }, [month, now]);
 
   const link = (invoiceId: string) => `/admin/finance/invoices/?invoice=${encodeURIComponent(invoiceId)}&month=${month}&embed=1`;
   const studentLabel = (r: NewStudentRow) => r.studentIds.map((s) => names.get(s)).filter(Boolean).join(", ") || "Student";
@@ -130,11 +133,11 @@ export function NewStudentsScreen() {
         </div>
       ) : null}
 
-      <h3 className="mt-1.5 text-base font-bold">Recently enrolled and attending</h3>
+      <h3 className="mt-1.5 text-base font-bold">Matched or first billed in {monthLabel(month)}</h3>
       {loading ? (
         <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">No new students in the last 60 days.</p>
+        <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">No students were matched or first billed in {monthLabel(month)}.</p>
       ) : (
         <>
           <div className="relative hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
@@ -143,7 +146,7 @@ export function NewStudentsScreen() {
                 <tr className="bg-slate-50 text-left text-slate-700">
                   <th className="px-3 py-2.5">Student</th>
                   <th className="px-3 py-2.5">Family</th>
-                  <th className="px-3 py-2.5">First class</th>
+                  <th className="px-3 py-2.5">Milestone</th>
                   <th className="px-3 py-2.5">Teacher</th>
                   <th className="px-3 py-2.5">First invoice</th>
                   <th className="px-3 py-2.5">Monthly</th>
@@ -157,7 +160,7 @@ export function NewStudentsScreen() {
                     <tr key={r.key} className="border-t border-slate-200">
                       <td className="px-3 py-2.5 font-semibold">{studentLabel(r)}</td>
                       <td className="px-3 py-2.5">{familyLabel(r)}</td>
-                      <td className="px-3 py-2.5">{r.startKey ? formatDay(r.startKey) : ""}</td>
+                      <td className="px-3 py-2.5">{milestone(r)}</td>
                       <td className="px-3 py-2.5">{r.teacherName || "To be matched"}</td>
                       <td className="px-3 py-2.5">
                         {r.invoice ? (
@@ -191,7 +194,7 @@ export function NewStudentsScreen() {
                     <Badge tone={st.tone}>{st.label}</Badge>
                   </div>
                   <div className="text-slate-700">
-                    {r.startKey ? `First class ${formatDay(r.startKey)}` : ""}
+                    {milestone(r)}
                     {r.teacherName ? ` · ${r.teacherName}` : ""}
                     {monthly.has(r.parentId) ? ` · ${money(monthly.get(r.parentId) ?? 0)} a month` : ""}
                   </div>
@@ -208,6 +211,12 @@ export function NewStudentsScreen() {
       )}
     </section>
   );
+}
+
+function milestone(row: NewStudentRow): string {
+  if (!row.startKey) return "";
+  const label = row.startKind === "first_class" ? "First class" : row.startKind === "matched" ? "Matched" : "Invoice created";
+  return `${label} ${formatDay(row.startKey)}`;
 }
 
 function monthName(dayKey: string): string {

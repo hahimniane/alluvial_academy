@@ -9,6 +9,7 @@ import {
   DEFAULT_FILTERS,
   STATUS_CHIPS,
   buildRow,
+  extendAccessTarget,
   filterAndSort,
   formatDay,
   teacherOptions,
@@ -24,13 +25,14 @@ import {
   MONTH_QUERY_LIMIT,
   RECENT_MONTHS,
   RECENT_QUERY_LIMIT,
+  callExtendAccess,
   errorMessage,
   loadFinanceSettings,
   loadInvoicesForMonth,
-  loadNames,
   loadOpenCreditParents,
   loadRecentInvoices,
   loadTeachersForStudents,
+  loadUserDirectory,
   type FinanceSettingsView,
 } from "./data";
 import { InvoiceDetail } from "./InvoiceDetail";
@@ -55,6 +57,7 @@ export function InvoicesScreen() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [phones, setPhones] = useState<Map<string, string>>(new Map());
   const [creditParents, setCreditParents] = useState<Set<string>>(new Set());
   const [teachersByStudent, setTeachersByStudent] = useState<Map<string, string[]>>(new Map());
   const [teacherNames, setTeacherNames] = useState<Map<string, string>>(new Map());
@@ -64,6 +67,8 @@ export function InvoicesScreen() {
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [extendingParent, setExtendingParent] = useState("");
+  const [actionMessage, setActionMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   const navigate = useCallback(
@@ -100,12 +105,13 @@ export function InvoicesScreen() {
         const at = new Date();
         const result = forAll ? await loadRecentInvoices(at) : await loadInvoicesForMonth(month);
         const ids = result.invoices.flatMap((i) => [i.parentId, ...i.studentIds]);
-        const resolved = await loadNames(ids, new Map());
+        const directory = await loadUserDirectory(ids);
         if (!alive) return;
         setNow(at);
         setInvoices(result.invoices);
         setTruncated(result.truncated);
-        setNames(resolved);
+        setNames(directory.names);
+        setPhones(directory.phones);
         setLoading(false);
 
         const students = result.invoices.flatMap((i) => i.studentIds);
@@ -129,8 +135,8 @@ export function InvoicesScreen() {
   }, [month, forAll, reloadKey]);
 
   const rows: InvoiceRow[] = useMemo(
-    () => invoices.map((inv) => buildRow(inv, { now, names, teachersByStudent, creditParents })),
-    [invoices, now, names, teachersByStudent, creditParents],
+    () => invoices.map((inv) => buildRow(inv, { now, names, phones, teachersByStudent, creditParents })),
+    [invoices, now, names, phones, teachersByStudent, creditParents],
   );
 
   const effective: InvoiceFilters = useMemo(() => ({ ...filters, month: forAll ? "all" : month }), [filters, forAll, month]);
@@ -145,6 +151,23 @@ export function InvoicesScreen() {
 
   const open = (id: string) => navigate({ invoice: id });
   const close = () => navigate({ invoice: null });
+  const extendTarget = extendAccessTarget(now);
+  const extendFamily = async (row: InvoiceRow) => {
+    setExtendingParent(row.inv.parentId);
+    setActionMessage(null);
+    try {
+      const result = await callExtendAccess({ parentId: row.inv.parentId, scope: "parent", extendTo: `${extendTarget.key}T12:00:00.000Z` });
+      setActionMessage({
+        tone: "ok",
+        text: `${row.familyName}'s class access is extended to ${extendTarget.label}${result.updatedInvoices > 1 ? ` on ${result.updatedInvoices} invoices` : ""}.`,
+      });
+      setReloadKey((key) => key + 1);
+    } catch (e) {
+      setActionMessage({ tone: "error", text: errorMessage(e, "Could not extend class access.") });
+    } finally {
+      setExtendingParent("");
+    }
+  };
 
   const months = useMemo(() => recentMonths(13, currentMonth()).reverse(), []);
   const monthValue = forAll ? "all" : month;
@@ -204,7 +227,7 @@ export function InvoicesScreen() {
           </div>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Search">
-              <input className={inputClass} type="text" value={filters.q} placeholder="Family, student or invoice #" onChange={(e) => setFilter("q", e.target.value)} />
+              <input className={inputClass} type="text" value={filters.q} placeholder="Family, student, WhatsApp or invoice #" onChange={(e) => setFilter("q", e.target.value)} />
             </Field>
             <Field label="Invoice for">
               <select className={inputClass} value={monthValue} onChange={(e) => onMonth(e.target.value)}>
@@ -266,6 +289,7 @@ export function InvoicesScreen() {
 
         {scopeNote ? <p className="text-xs text-slate-600">{scopeNote}</p> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
+        {actionMessage ? <Notice tone={actionMessage.tone}>{actionMessage.text}</Notice> : null}
 
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {totals.map((t) => (
@@ -283,7 +307,7 @@ export function InvoicesScreen() {
         ) : (
           <>
             <div className="relative hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-              <table className="w-full min-w-[900px] border-collapse text-[13px]">
+              <table className="w-full min-w-[1080px] border-collapse text-[13px]">
                 <thead>
                   <tr className="bg-slate-50 text-left text-slate-700">
                     <th className="px-3 py-2.5">Invoice</th>
@@ -295,6 +319,7 @@ export function InvoicesScreen() {
                     <th className="px-3 py-2.5 text-right">Owed</th>
                     <th className="px-3 py-2.5">Status</th>
                     <th className="px-3 py-2.5">Due</th>
+                    <th className="px-3 py-2.5">Class access</th>
                     <th className="px-3 py-2.5">
                       <span className="sr-only">Open</span>
                     </th>
@@ -307,7 +332,10 @@ export function InvoicesScreen() {
                         {r.inv.number}
                         {r.inv.kind === "first_month" ? <div className="text-[11px] font-bold text-violet-700">FIRST MONTH</div> : null}
                       </td>
-                      <td className="px-3 py-2.5">{r.familyName}</td>
+                      <td className="px-3 py-2.5">
+                        <div>{r.familyName}</div>
+                        {r.parentPhone ? <div className="text-[11px] text-slate-500">WhatsApp {r.parentPhone}</div> : null}
+                      </td>
                       <td className="px-3 py-2.5 text-slate-700">{r.studentNames.map((n) => n.split(" ")[0]).join(", ")}</td>
                       <td className="whitespace-nowrap px-3 py-2.5">{r.inv.billingMonth ? forLabel(r.inv.billingMonth) : ""}</td>
                       <td className="px-3 py-2.5 text-right">{money(r.inv.total)}</td>
@@ -317,6 +345,23 @@ export function InvoicesScreen() {
                         <Badge tone={toneFor(r.state)}>{r.state.label}</Badge>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5">{formatDay(r.inv.dueKey)}</td>
+                      <td className="px-3 py-2.5">
+                        {r.access ? (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={`font-semibold ${r.access.tone === "bad" ? "text-red-700" : "text-blue-800"}`}>{r.access.text}</span>
+                            <button
+                              type="button"
+                              className={`${outlineButton} !min-h-8 !px-2.5`}
+                              disabled={extendingParent !== ""}
+                              onClick={() => void extendFamily(r)}
+                            >
+                              {extendingParent === r.inv.parentId ? "Extending…" : `Extend to ${extendTarget.label}`}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5">
                         <button type="button" className={`${outlineButton} !min-h-9`} aria-label={`Open ${r.inv.number}`} onClick={() => open(r.inv.id)}>
                           Open
@@ -334,6 +379,7 @@ export function InvoicesScreen() {
                     <div className="min-w-0 flex-1">
                       <div className="font-bold">{r.inv.number}</div>
                       <div>{r.familyName}</div>
+                      {r.parentPhone ? <div className="text-slate-500">WhatsApp {r.parentPhone}</div> : null}
                       <div className="text-slate-600">{r.studentNames.map((n) => n.split(" ")[0]).join(", ")}</div>
                     </div>
                     <Badge tone={toneFor(r.state)}>{r.state.label}</Badge>
@@ -346,6 +392,14 @@ export function InvoicesScreen() {
                     <span>Due {formatDay(r.inv.dueKey)}</span>
                     {r.inv.kind === "first_month" ? <span className="font-bold text-violet-700">First month</span> : null}
                   </div>
+                  {r.access ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`font-semibold ${r.access.tone === "bad" ? "text-red-700" : "text-blue-800"}`}>{r.access.text}</span>
+                      <button type="button" className={`${outlineButton} !min-h-8`} disabled={extendingParent !== ""} onClick={() => void extendFamily(r)}>
+                        {extendingParent === r.inv.parentId ? "Extending…" : `Extend to ${extendTarget.label}`}
+                      </button>
+                    </div>
+                  ) : null}
                   <button type="button" className={outlineButton} aria-label={`Open ${r.inv.number}`} onClick={() => open(r.inv.id)}>
                     Open
                   </button>

@@ -18,8 +18,10 @@ import {
   firstInvoicePreview,
   formatDay,
   historyText,
+  invoiceAccessState,
   invoiceState,
   mergeNewStudents,
+  newStudentsForMonth,
   newStudentStatus,
   nextMonthlyInvoice,
   normalizeInvoice,
@@ -68,9 +70,14 @@ const teachers = new Map<string, readonly string[]>([
   ["s2", ["t2"]],
   ["s3", ["t1", "t2"]],
 ]);
+const phones = new Map([
+  ["p1", "+1 (207) 555-0101"],
+  ["p2", "+224 622 12 34 56"],
+  ["p3", "+33 6 12 34 56 78"],
+]);
 
 function rows(invoices: Invoice[], credit: string[] = []): InvoiceRow[] {
-  return invoices.map((i) => buildRow(i, { now: NOW, names, teachersByStudent: teachers, creditParents: new Set(credit) }));
+  return invoices.map((i) => buildRow(i, { now: NOW, names, phones, teachersByStudent: teachers, creditParents: new Set(credit) }));
 }
 
 /* ----------------------------------------------------------------- dates -- */
@@ -143,6 +150,18 @@ test("a stored status of overdue proves nothing, and due today is not overdue", 
   assert.equal(invoiceState(inv("c", { status: "pending", due_date: utc("2026-10-21") }), NOW).late, true);
 });
 
+test("overdue access is visible, including a future manual extension", () => {
+  assert.deepEqual(invoiceAccessState(inv("a", { due_date: utc("2026-10-20") }), NOW), { text: "Suspended since Oct 21", tone: "bad" });
+  assert.deepEqual(
+    invoiceAccessState(
+      inv("b", { due_date: utc("2026-10-20"), access_cutoff_date: utc("2026-10-31"), access_extended_at: utc("2026-10-22") }),
+      NOW,
+    ),
+    { text: "Extended to Oct 31", tone: "info" },
+  );
+  assert.equal(invoiceAccessState(inv("c", { due_date: utc("2026-10-25") }), NOW), null);
+});
+
 test("badge tones", () => {
   assert.equal(toneFor(invoiceState(inv("a", { paid_amount: 100 }), NOW)), "ok");
   assert.equal(toneFor(invoiceState(inv("b"), NOW)), "warn");
@@ -193,10 +212,12 @@ test("month filter uses the billing month", () => {
   assert.equal(filterAndSort(set(), withF({ month: "2026-10" })).rows.length, 5);
 });
 
-test("search matches family, student and invoice number", () => {
+test("search matches family, student, invoice number and formatted parent phone", () => {
   assert.deepEqual(filterAndSort(set(), withF({ q: "sow" })).rows.map((r) => r.inv.id).sort(), ["2", "5"]);
   assert.deepEqual(filterAndSort(set(), withF({ q: "fatou" })).rows.map((r) => r.inv.id).sort(), ["3", "6"]);
   assert.deepEqual(filterAndSort(set(), withF({ q: "inv-4" })).rows.map((r) => r.inv.id), ["4"]);
+  assert.deepEqual(filterAndSort(set(), withF({ q: "622123456" })).rows.map((r) => r.inv.id).sort(), ["2", "5"]);
+  assert.deepEqual(filterAndSort(set(), withF({ q: "+224 622" })).rows.map((r) => r.inv.id).sort(), ["2", "5"]);
   assert.equal(filterAndSort(set(), withF({ q: "nobody" })).rows.length, 0);
 });
 
@@ -516,16 +537,20 @@ test("new students: first invoices newest first, then enrollments without one", 
   const out = mergeNewStudents([first2, monthly, first1, cancelled], enrollments, new Map([["s1", "Ms Diallo"]]));
   assert.deepEqual(out.map((r) => r.key), ["f1", "enrollment_e2", "f2"]);
   assert.equal(out[0].startKey, "2026-10-20");
+  assert.equal(out[0].startKind, "first_class");
   assert.equal(out[0].teacherName, "Ms Diallo");
   assert.equal(out[1].invoice, null);
+  assert.equal(out[1].startKind, "matched");
   assert.equal(out[1].teacherName, "Mr Bah");
+  assert.deepEqual(newStudentsForMonth(out, "2026-10").map((r) => r.key), ["f1", "enrollment_e2"]);
+  assert.deepEqual(newStudentsForMonth(out, "2026-09").map((r) => r.key), ["f2"]);
 });
 
 test("new student status and worked example", () => {
   const paid = inv("a", { kind: "first_month", paid_amount: 100, status: "paid" });
   const late = inv("b", { kind: "first_month", due_date: utc("2026-10-10") });
   const waiting = inv("c", { kind: "first_month" });
-  const row = (i: Invoice | null) => ({ key: "k", studentIds: [], parentId: "", startKey: null, teacherName: "", invoice: i, sortAt: 0 });
+  const row = (i: Invoice | null) => ({ key: "k", studentIds: [], parentId: "", startKey: null, startKind: "matched" as const, teacherName: "", invoice: i, sortAt: 0 });
   assert.equal(newStudentStatus(row(paid), NOW).label, "Paid");
   assert.equal(newStudentStatus(row(late), NOW).label, "Overdue");
   assert.equal(newStudentStatus(row(waiting), NOW).label, "Waiting for payment");

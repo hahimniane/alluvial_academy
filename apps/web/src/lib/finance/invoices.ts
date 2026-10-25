@@ -320,7 +320,9 @@ export function toneFor(state: InvoiceState): BadgeTone {
 export type InvoiceRow = {
   inv: Invoice;
   state: InvoiceState;
+  access: InvoiceAccessState | null;
   familyName: string;
+  parentPhone: string;
   studentNames: string[];
   teacherIds: string[];
   familyHasCredit: boolean;
@@ -328,14 +330,22 @@ export type InvoiceRow = {
 
 export function buildRow(
   inv: Invoice,
-  ctx: { now: Date; names: ReadonlyMap<string, string>; teachersByStudent: ReadonlyMap<string, readonly string[]>; creditParents: ReadonlySet<string> },
+  ctx: {
+    now: Date;
+    names: ReadonlyMap<string, string>;
+    phones?: ReadonlyMap<string, string>;
+    teachersByStudent: ReadonlyMap<string, readonly string[]>;
+    creditParents: ReadonlySet<string>;
+  },
 ): InvoiceRow {
   const teacherIds = new Set<string>();
   for (const s of inv.studentIds) for (const t of ctx.teachersByStudent.get(s) ?? []) teacherIds.add(t);
   return {
     inv,
     state: invoiceState(inv, ctx.now),
+    access: invoiceAccessState(inv, ctx.now),
     familyName: ctx.names.get(inv.parentId) || "Unknown family",
+    parentPhone: ctx.phones?.get(inv.parentId) || "",
     studentNames: inv.studentIds.map((s) => ctx.names.get(s) || "").filter(Boolean),
     teacherIds: [...teacherIds],
     familyHasCredit: ctx.creditParents.has(inv.parentId),
@@ -422,6 +432,7 @@ function parseAmount(v: string): number | null {
 /** Every filter except the status chip (the chip counts are taken on this set). */
 export function applyBaseFilters(rows: readonly InvoiceRow[], f: InvoiceFilters): InvoiceRow[] {
   const q = f.q.trim().toLowerCase();
+  const phoneQuery = /^[\d\s()+.\-]+$/.test(q) ? q.replace(/\D/g, "") : "";
   const min = parseAmount(f.min);
   const max = parseAmount(f.max);
   return rows.filter((r) => {
@@ -429,7 +440,8 @@ export function applyBaseFilters(rows: readonly InvoiceRow[], f: InvoiceFilters)
     if (f.month !== "all" && inv.billingMonth !== f.month) return false;
     if (q) {
       const hay = `${inv.number} ${r.familyName} ${r.studentNames.join(" ")}`.toLowerCase();
-      if (!hay.includes(q)) return false;
+      const phoneMatch = phoneQuery.length > 0 && r.parentPhone.replace(/\D/g, "").includes(phoneQuery);
+      if (!hay.includes(q) && !phoneMatch) return false;
     }
     if (f.teacher !== "all" && !r.teacherIds.includes(f.teacher)) return false;
     if (!inOverdueBucket(r, f.overdue)) return false;
@@ -677,6 +689,21 @@ export type TimelineEntry = { at: number; text: string };
 
 export type PaymentLite = { amount: number; at: Date | null; method: string };
 
+export type InvoiceAccessState = { text: string; tone: "bad" | "info" };
+
+/** The access consequence finance staff need to see for an overdue invoice. */
+export function invoiceAccessState(inv: Invoice, now: Date = new Date()): InvoiceAccessState | null {
+  const state = invoiceState(inv, now);
+  if (!state.late) return null;
+  const cutoff = inv.accessCutoff;
+  if (inv.accessExtendedAt && cutoff && cutoff.getTime() > now.getTime()) {
+    return { text: `Extended to ${formatDay(dueDayKey(cutoff))}`, tone: "info" };
+  }
+  if (cutoff) return { text: `Suspended since ${formatDay(dueDayKey(cutoff))}`, tone: "bad" };
+  if (inv.dueKey) return { text: `Suspended since ${formatDay(addDays(inv.dueKey, 1))}`, tone: "bad" };
+  return null;
+}
+
 /**
  * Issued, payments, reminders and access, oldest first. Reminders are shown
  * only when they were recorded on the invoice.
@@ -705,18 +732,8 @@ export function buildTimeline(
   }
   entries.sort((a, b) => a.at - b.at);
 
-  let access: { text: string; tone: "bad" | "info" } | null = null;
-  const state = invoiceState(inv, now);
-  if (state.late) {
-    const cutoff = inv.accessCutoff;
-    if (inv.accessExtendedAt && cutoff && cutoff.getTime() > now.getTime()) {
-      access = { text: `Class access extended to ${formatDay(dueDayKey(cutoff))}`, tone: "info" };
-    } else if (cutoff) {
-      access = { text: `Class access suspended since ${formatDay(dueDayKey(cutoff))}`, tone: "bad" };
-    } else if (inv.dueKey) {
-      access = { text: `Class access suspended since ${formatDay(addDays(inv.dueKey, 1))}`, tone: "bad" };
-    }
-  }
+  const accessState = invoiceAccessState(inv, now);
+  const access = accessState ? { ...accessState, text: `Class access ${accessState.text[0].toLowerCase()}${accessState.text.slice(1)}` } : null;
   return { entries: entries.map((e) => e.text), access };
 }
 
@@ -821,8 +838,9 @@ export type NewStudentRow = {
   key: string;
   studentIds: string[];
   parentId: string;
-  /** yyyy-MM-dd of the first class (or the day the first invoice went out). */
+  /** yyyy-MM-dd of the milestone represented by `startKind`. */
   startKey: string | null;
+  startKind: "first_class" | "invoice_created" | "matched";
   teacherName: string;
   invoice: Invoice | null;
   sortAt: number;
@@ -843,6 +861,7 @@ export function mergeNewStudents(firstInvoices: readonly Invoice[], enrollments:
       studentIds: inv.studentIds,
       parentId: inv.parentId,
       startKey: inv.firstClassKey ?? (inv.issuedAt ? dayKeyNY(inv.issuedAt) : null),
+      startKind: inv.firstClassKey ? "first_class" : "invoice_created",
       teacherName: inv.studentIds.map((s) => teachersByStudent.get(s) || "").find(Boolean) || "",
       invoice: inv,
       sortAt: time(inv.issuedAt),
@@ -856,12 +875,18 @@ export function mergeNewStudents(firstInvoices: readonly Invoice[], enrollments:
       studentIds: [e.studentId],
       parentId: e.parentId,
       startKey: e.matchedAt ? dayKeyNY(e.matchedAt) : null,
+      startKind: "matched",
       teacherName: e.teacherName,
       invoice: null,
       sortAt: time(e.matchedAt),
     });
   }
   return rows.sort((a, b) => b.sortAt - a.sortAt);
+}
+
+/** The New students page follows the finance month selector. */
+export function newStudentsForMonth(rows: readonly NewStudentRow[], month: string): NewStudentRow[] {
+  return rows.filter((row) => row.startKey?.slice(0, 7) === month);
 }
 
 export type WorkedExample = {
