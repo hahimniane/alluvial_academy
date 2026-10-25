@@ -17,6 +17,7 @@ import '../../../core/audit/readiness_form_kpi.dart';
 import '../../../core/audit/teaching_form_acceptance_for_month.dart';
 import '../../../core/services/shift_archive_reader.dart';
 import '../../../core/services/teacher_metrics_service.dart';
+import '../../../core/services/settings_service.dart';
 import '../../../l10n/app_localizations_en.dart';
 
 
@@ -4078,6 +4079,26 @@ class TeacherAuditService {
 
   /// Create a shift from an unlinked form (admin regularization)
   /// Creates a completed shift with the form's data and links the form to it
+  /// The `defaultWage` of the subject named [subject], or null when none matches.
+  static Future<double?> _subjectDefaultWage(String subject) async {
+    final wanted = subject.trim().toLowerCase();
+    if (wanted.isEmpty) return null;
+    try {
+      final snap = await _firestore.collection('subjects').get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final names = [data['name'], data['displayName'], data['display_name']]
+            .whereType<String>()
+            .map((n) => n.trim().toLowerCase());
+        final wage = (data['defaultWage'] as num?)?.toDouble() ?? 0;
+        if (wage > 0 && names.contains(wanted)) return wage;
+      }
+    } catch (e) {
+      AppLogger.error('Subject wage lookup failed for "$subject": $e');
+    }
+    return null;
+  }
+
   static Future<bool> createShiftFromUnlinkedForm({
     required String formId,
     required String teacherId,
@@ -4117,7 +4138,12 @@ class TeacherAuditService {
         }
       }
 
-      final hourlyRate = subjectRate?.hourlyRate ?? 15.0; // Default rate
+      // No audit rate for the subject: use the subject's own wage, then the
+      // global teacher rate, so the class pays what its subject pays.
+      final hourlyRate = (subjectRate != null && subjectRate.hourlyRate > 0)
+          ? subjectRate.hourlyRate
+          : await _subjectDefaultWage(subject) ??
+              await SettingsService.getGlobalTeacherHourlyRate();
 
       // Calculate shift times (1 hour default if duration not specified)
       final shiftStart = DateTime(date.year, date.month, date.day, 9, 0);

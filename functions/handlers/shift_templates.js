@@ -1,3 +1,4 @@
+const subjectRate = require('../utils/subject_rate');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {onCall} = require('firebase-functions/v2/https');
@@ -380,8 +381,29 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
 
 // Rolling window materialization (dev only):
 // Generates upcoming shifts for templates, capped by max_days_ahead.
-const _generateShiftsForTemplate = async ({templateId, template}) => {
+const _generateShiftsForTemplate = async ({templateId, template: rawTemplate}) => {
   const db = admin.firestore();
+
+  // No class is created without a subject: a subject-less template is skipped
+  // (and says why) until an admin picks one.
+  let template = rawTemplate;
+  if (_isTeachingCategory(template.category || template.shift_category)) {
+    if (!subjectRate.hasSubject(template)) {
+      console.warn(`[shift_templates] ${templateId} has no subject; not generating classes`);
+      await db.collection('shift_templates').doc(templateId)
+        .set({generation_blocked_reason: 'no_subject', generation_blocked_at: admin.firestore.FieldValue.serverTimestamp()}, {merge: true})
+        .catch((e) => console.error(`[shift_templates] could not flag ${templateId}`, e));
+      return {created: 0, skippedNoSubject: true};
+    }
+    if (template.generation_blocked_reason) {
+      await db.collection('shift_templates').doc(templateId)
+        .set({generation_blocked_reason: admin.firestore.FieldValue.delete(), generation_blocked_at: admin.firestore.FieldValue.delete()}, {merge: true})
+        .catch((e) => console.error(`[shift_templates] could not unflag ${templateId}`, e));
+    }
+    if (!(Number(template.hourly_rate) > 0)) {
+      template = {...template, hourly_rate: (await subjectRate.resolveSubjectRate(db, template)).rate};
+    }
+  }
 
   const adminTimezone = _normalizeTimezone(template.admin_timezone || 'UTC');
   const {hour: startHour, minute: startMinute} = _parseHHmm(template.start_time);
@@ -731,6 +753,12 @@ const createShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
     throw new functions.https.HttpsError('invalid-argument', 'duration_minutes must be a positive number');
   }
 
+  // A class pays its subject's rate unless one was set; a class with no rate
+  // pays $0 for every hour taught.
+  if (_isTeachingCategory(templateDoc.category) && !(Number(templateDoc.hourly_rate) > 0)) {
+    templateDoc.hourly_rate = (await subjectRate.resolveSubjectRate(admin.firestore(), templateDoc)).rate;
+  }
+
   await templateRef.set(templateDoc, {merge: true});
 
   // Best-effort cleanup of any legacy materialized shifts for this template.
@@ -1041,6 +1069,20 @@ const updateShiftTemplate = onCall({memory: '512MiB'}, async (request) => {
       merged.type = 'weekly';
     }
     updates.enhanced_recurrence = merged;
+  }
+
+  // The rate follows the subject: a new subject brings its rate unless this
+  // same edit sets one, and a teaching class is never left at $0.
+  {
+    const current = templateSnap.data() || {};
+    const merged = {...current, ...updates};
+    if (_isTeachingCategory(merged.category || merged.shift_category)) {
+      const subjectChanged = subjectRate.subjectKey(merged) !== subjectRate.subjectKey(current);
+      const rateGiven = Number(data.hourly_rate) > 0;
+      if ((subjectChanged && !rateGiven) || !(Number(merged.hourly_rate) > 0)) {
+        updates.hourly_rate = (await subjectRate.resolveSubjectRate(admin.firestore(), merged)).rate;
+      }
+    }
   }
 
   updates.last_modified = admin.firestore.FieldValue.serverTimestamp();
