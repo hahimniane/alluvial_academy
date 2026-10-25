@@ -34,6 +34,32 @@ export function addMonths(month: string, delta: number): string {
   return `${ny}-${String(nm).padStart(2, "0")}`;
 }
 
+/** Exact start/end instants for a finance month in the books' New York zone. */
+export function financeMonthBounds(month: string): { start: Date; end: Date } {
+  const atStartInNewYork = (value: string): Date => {
+    const [year, monthNumber] = value.split("-").map(Number);
+    const target = Date.UTC(year, monthNumber - 1, 1);
+    let instant = new Date(target);
+    for (let i = 0; i < 3; i += 1) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(instant);
+      const pick = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+      const represented = Date.UTC(pick("year"), pick("month") - 1, pick("day"), pick("hour"), pick("minute"), pick("second"));
+      instant = new Date(instant.getTime() + target - represented);
+    }
+    return instant;
+  };
+  return { start: atStartInNewYork(month), end: atStartInNewYork(addMonths(month, 1)) };
+}
+
 /** The `count` months ending with `end`, oldest first. */
 export function recentMonths(count: number, end: string): string[] {
   const out: string[] = [];

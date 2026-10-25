@@ -12,6 +12,7 @@ import { collection, documentId, doc, getDoc, getDocs, limit, orderBy, query, Ti
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase";
 import { DEFAULT_SETTINGS, FIN, type FinanceSettings } from "@/lib/finance/model";
+import { financeMonthBounds } from "@/lib/finance/months";
 import { normalizeInvoice, toDate, type EnrollmentLite, type Invoice, type PaymentLite } from "@/lib/finance/invoices";
 
 export const MONTH_QUERY_LIMIT = 500;
@@ -67,6 +68,34 @@ export function displayName(data: DocumentData): string {
   if (full) return full;
   const email = str(data["e-mail"] ?? data.email);
   return email ? email.split("@")[0] : "";
+}
+
+export function displayPhone(data: DocumentData): string {
+  return str(data.phone_number ?? data.phoneNumber ?? data.phone);
+}
+
+export type UserDirectory = {
+  names: Map<string, string>;
+  phones: Map<string, string>;
+};
+
+/** User names and phone numbers, fetched together in `in` chunks of 30. */
+export async function loadUserDirectory(
+  ids: readonly string[],
+  into: UserDirectory = { names: new Map(), phones: new Map() },
+): Promise<UserDirectory> {
+  const missing = [...new Set(ids.filter(Boolean))].filter((id) => !into.names.has(id) || !into.phones.has(id));
+  await Promise.all(
+    chunk(missing, 30).map(async (part) => {
+      const snap = await getDocs(query(collection(db, "users"), where(documentId(), "in", part)));
+      for (const d of snap.docs) {
+        const data = d.data();
+        into.names.set(d.id, displayName(data));
+        into.phones.set(d.id, displayPhone(data));
+      }
+    }),
+  );
+  return into;
 }
 
 /** id -> display name, in `in` chunks of 30 (never one read per row). */
@@ -275,6 +304,38 @@ export async function loadFirstInvoices(): Promise<Invoice[]> {
 export async function loadRecentEnrollments(now: Date = new Date()): Promise<EnrollmentLite[]> {
   const since = Timestamp.fromDate(new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000));
   const snap = await getDocs(query(collection(db, "enrollments"), where("metadata.matchedAt", ">=", since), orderBy("metadata.matchedAt", "desc"), limit(200)));
+  const out: EnrollmentLite[] = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    const meta = (data.metadata ?? {}) as Record<string, unknown>;
+    if (str(meta.status) !== "matched") continue;
+    const studentId = str(meta.studentUserId);
+    if (!studentId) continue;
+    const student = (data.student ?? {}) as Record<string, unknown>;
+    out.push({
+      id: d.id,
+      studentId,
+      parentId: str(meta.parentUserId),
+      studentName: str(data.studentName) || str(student.name),
+      teacherName: str(meta.matchedTeacherName),
+      matchedAt: toDate(meta.matchedAt as never),
+    });
+  }
+  return out;
+}
+
+/** Matched enrollments in the selected finance month (New York boundaries). */
+export async function loadEnrollmentsForMonth(month: string): Promise<EnrollmentLite[]> {
+  const { start, end } = financeMonthBounds(month);
+  const snap = await getDocs(
+    query(
+      collection(db, "enrollments"),
+      where("metadata.matchedAt", ">=", Timestamp.fromDate(start)),
+      where("metadata.matchedAt", "<", Timestamp.fromDate(end)),
+      orderBy("metadata.matchedAt", "desc"),
+      limit(200),
+    ),
+  );
   const out: EnrollmentLite[] = [];
   for (const d of snap.docs) {
     const data = d.data();
