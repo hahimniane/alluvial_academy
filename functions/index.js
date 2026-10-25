@@ -15,6 +15,7 @@ const enrollmentHandlers = require('./handlers/enrollments');
 const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
 const financeStaffHandlers = require('./handlers/finance_staff');
 const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
+const shiftRateGuard = require('./handlers/shift_rate_guard');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -342,6 +343,8 @@ exports.republishEnrollmentJob = onCall(
 );
 // Approves (schedules one makeup class) or declines a teacher's makeup
 // request for a missed class; admin-only, gated in the handler.
+// Every upcoming class pays its subject's rate (no $0 classes; a subject change brings its rate).
+exports.enforceShiftSubjectRate = shiftRateGuard.enforceShiftSubjectRate;
 exports.reviewRescheduleRequest = onCall(
   { cors: true, invoker: 'public' },
   (request) => rescheduleRequestHandlers.reviewRescheduleRequest(request)

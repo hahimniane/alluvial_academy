@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { ChevronDown, Clock3, Globe2, MapPin, Settings2, Video, X } from "lucide-react";
 import { ActionButton, type ProgressReporter } from "@/components/ActionButton";
@@ -174,11 +174,16 @@ export function ShiftEditorDialog({
     return { start, end };
   }, [dateStr, startStr, endStr, timezone]);
 
-  // Prefill the rate from the subject's default wage until the admin types one.
+  // The rate follows the subject: a new class starts at its subject's wage,
+  // picking another subject brings that subject's wage, and a class with no
+  // rate gets one (a class saved at $0 pays nothing for the hours taught).
+  const loadedSubjectId = useRef(subjectId);
   useEffect(() => {
-    if (!isEdit && subject?.defaultWage != null) {
-      setHourlyRate((current) => (current === "" || Number(current) === 0 ? String(subject.defaultWage) : current));
-    }
+    if (!subject?.defaultWage) return;
+    const wage = String(subject.defaultWage);
+    const subjectChanged = isEdit && subject.id !== loadedSubjectId.current;
+    loadedSubjectId.current = subject.id;
+    setHourlyRate((current) => (subjectChanged || current === "" || Number(current) === 0 ? wage : current));
   }, [subject, isEdit]);
 
   const staffOptions: PersonOption[] = useMemo(
