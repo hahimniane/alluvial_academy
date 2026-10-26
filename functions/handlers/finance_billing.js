@@ -416,7 +416,15 @@ const issueFirstInvoice = async ({
           ? {...known, [studentId]: math.round2((Number(known[studentId]) || 0) + monthlyAmount)}
           : FieldValue.delete();
     }
-    if (consumePending) familyUpdate.pending_first_invoice = FieldValue.delete();
+    if (consumePending) {
+      const legacy = rec(fb && fb.pending_first_invoice);
+      if (fb && fb.pending_first_invoice && (!str(legacy.student_id) || str(legacy.student_id) === studentId)) {
+        familyUpdate.pending_first_invoice = FieldValue.delete();
+      }
+      if (rec(fb && fb.pending_first_invoices)[studentId]) {
+        familyUpdate.pending_first_invoices = {[studentId]: FieldValue.delete()};
+      }
+    }
     tx.set(fbRef, familyUpdate, {merge: true});
     writeCreditUses({tx, db, deps, uses: settle.credit_uses, credits, invoiceId, actor: actor.uid});
 
@@ -500,6 +508,73 @@ const createFirstInvoice = async (request, deps = defaultDeps()) => {
     );
   }
   return {invoice_id: result.invoiceId, invoice_number: result.invoiceNumber, total: result.total};
+};
+
+/**
+ * The monthly price staff enter while registering a student (Student
+ * Applicants). Saved as the student's waiting first invoice on the family
+ * that pays - the parent, or an adult student themselves - so the first class
+ * creates the pro-rated first invoice and monthly billing follows.
+ *
+ * `{enrollment_id, monthly_amount > 0, classes_in_month 1..62}` -> `{ok, payer_id, student_id}`
+ */
+const setEnrollmentMonthlyAmount = async (request, deps = defaultDeps()) => {
+  const {callerUid} = await deps.verifyAdmin(request);
+  const data = rec(request && request.data);
+  const enrollmentId = str(data.enrollment_id);
+  const amount = Number(data.monthly_amount);
+  const classesInMonth = Number(data.classes_in_month);
+  if (!enrollmentId) throw httpsError('invalid-argument', 'enrollment_id is required.');
+  if (!Number.isFinite(amount) || amount <= 0) throw httpsError('invalid-argument', 'Enter a monthly amount above $0.');
+  if (!Number.isInteger(classesInMonth) || classesInMonth < 1 || classesInMonth > 62) {
+    throw httpsError('invalid-argument', 'Enter how many classes a full month has (1 to 62).');
+  }
+  const {db, FieldValue} = deps;
+  const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
+  const enrollmentSnap = await enrollmentRef.get();
+  if (!enrollmentSnap.exists) throw httpsError('not-found', 'This application no longer exists.');
+  const enrollment = enrollmentSnap.data() || {};
+  const meta = rec(enrollment.metadata);
+  const studentId = str(meta.studentUserId);
+  if (!studentId) throw httpsError('failed-precondition', 'Create the student account first.');
+  const studentSnap = await db.collection('users').doc(studentId).get();
+  if (!studentSnap.exists) throw httpsError('failed-precondition', 'The student account no longer exists.');
+  const student = studentSnap.data() || {};
+  const isAdult = meta.isAdult === true || student.is_adult_student === true || Number.parseInt(str(rec(enrollment.student).age), 10) >= 18;
+  const payerId = str(list(student.guardian_ids)[0]) || str(rec(enrollment.contact).guardianId) || (isAdult ? studentId : '');
+  if (!payerId) throw httpsError('failed-precondition', 'Link the parent first, so the family that pays is known.');
+
+  const first = await db.collection('invoices').doc(math.firstInvoiceId(studentId)).get();
+  if (first.exists && str(first.data().status).toLowerCase() !== 'cancelled') {
+    throw httpsError('failed-precondition', 'This student already has a first invoice. Change the family\'s monthly amount in Finance.');
+  }
+
+  const actor = await actorProfile(db, callerUid);
+  const entry = {
+    monthly_amount: math.round2(amount),
+    classes_in_month: classesInMonth,
+    student_id: studentId,
+    enrollment_id: enrollmentId,
+    set_by: callerUid,
+    set_by_name: actor.name,
+    set_at: FieldValue.serverTimestamp(),
+  };
+  const batch = db.batch();
+  batch.set(db.collection('family_billing').doc(payerId), {
+    student_ids: FieldValue.arrayUnion(studentId),
+    pending_first_invoices: {[studentId]: entry},
+    updated_at: FieldValue.serverTimestamp(),
+  }, {merge: true});
+  batch.set(enrollmentRef, {metadata: {
+    monthlyAmount: math.round2(amount),
+    classesInMonth,
+    monthlyAmountPayerId: payerId,
+    monthlyAmountSetAt: FieldValue.serverTimestamp(),
+    monthlyAmountSetBy: callerUid,
+    monthlyAmountSetByName: actor.name,
+  }}, {merge: true});
+  await batch.commit();
+  return {ok: true, payer_id: payerId, student_id: studentId};
 };
 
 /** `{parent_id, monthly_amount > 0, reason}` -> `{ok}`; applies from the next invoice. */
@@ -789,11 +864,21 @@ const handleShiftChange = async ({deps, shiftId, before, after}) => {
 
   const settings = await loadBillingSettings(db);
   const outcomes = [];
+  const waitingEntries = (fb) => {
+    const out = Object.entries(rec(fb.pending_first_invoices)).map(([sid, p]) => ({...rec(p), student_id: str(rec(p).student_id) || sid}));
+    if (fb.pending_first_invoice) out.push(rec(fb.pending_first_invoice));
+    return out;
+  };
+  const pendingFor = [];
   for (const [parentId, fb] of families) {
-    const pending = rec(fb.pending_first_invoice);
-    if (!fb.pending_first_invoice || !(Number(pending.monthly_amount) > 0)) continue;
-    const studentId = str(pending.student_id) || list(fb.student_ids).map(str).find((id) => shiftStudents.includes(id));
-    if (!studentId || !shiftStudents.includes(studentId)) continue;
+    for (const pending of waitingEntries(fb)) {
+      if (!(Number(pending.monthly_amount) > 0)) continue;
+      const studentId = str(pending.student_id) || list(fb.student_ids).map(str).find((id) => shiftStudents.includes(id));
+      if (!studentId || !shiftStudents.includes(studentId)) continue;
+      pendingFor.push({parentId, pending, studentId});
+    }
+  }
+  for (const {parentId, pending, studentId} of pendingFor) {
 
     try {
       const classesInMonth = Number(pending.classes_in_month);
@@ -836,13 +921,14 @@ const handleShiftChange = async ({deps, shiftId, before, after}) => {
         });
       } else if (result.reason === 'prior_invoice' || result.reason === 'first_invoice_exists') {
         // Already billed some other way: stop waiting, so later classes do not retry.
-        await db.collection('family_billing').doc(parentId).set(
-          {
-            pending_first_invoice: deps.FieldValue.delete(),
-            first_invoice_skipped: {reason: result.reason, student_id: studentId, at: deps.FieldValue.serverTimestamp()},
-          },
-          {merge: true}
-        );
+        const skippedUpdate = {
+          first_invoice_skipped: {reason: result.reason, student_id: studentId, at: deps.FieldValue.serverTimestamp()},
+          pending_first_invoices: {[studentId]: deps.FieldValue.delete()},
+        };
+        if (!str(rec(families.get(parentId).pending_first_invoice).student_id) || str(rec(families.get(parentId).pending_first_invoice).student_id) === studentId) {
+          if (families.get(parentId).pending_first_invoice) skippedUpdate.pending_first_invoice = deps.FieldValue.delete();
+        }
+        await db.collection('family_billing').doc(parentId).set(skippedUpdate, {merge: true});
       }
       outcomes.push({parentId, studentId, ...result});
     } catch (error) {
@@ -1036,6 +1122,7 @@ const createFirstInvoiceOnFirstClass = onDocumentUpdated('teaching_shifts/{shift
 module.exports = {
   createFirstInvoice,
   setFamilyMonthlyAmount,
+  setEnrollmentMonthlyAmount,
   previewMonthlyBilling,
   generateMonthlyFamilyInvoices,
   sendInvoiceReminders,

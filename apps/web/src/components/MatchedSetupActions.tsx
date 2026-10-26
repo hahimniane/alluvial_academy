@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarPlus, Check, KeyRound, Link2, Lock, Search, UserPlus } from "lucide-react";
+import { CalendarPlus, Check, DollarSign, KeyRound, Link2, Lock, Search, UserPlus } from "lucide-react";
 import { ActionButton } from "@/components/ActionButton";
 import { ShiftEditorDialog } from "@/components/ShiftEditorDialog";
 import { auth } from "@/lib/firebase";
@@ -10,6 +10,7 @@ import {
   inviteParentForEnrollment,
   linkExistingStudentAccount,
   lookupParentByEmail,
+  setEnrollmentMonthlyAmount,
   teachersOfStudent,
   type ExistingParent,
 } from "@/lib/enrollmentSetup";
@@ -56,6 +57,9 @@ export function MatchedSetupActions({
   accountMissing = false,
   parentLinked,
   hasSchedule,
+  isAdult = false,
+  monthlyAmount = null,
+  classesInMonth = null,
   defaultParentEmail,
   defaultParentName,
   defaultParentPhone,
@@ -72,6 +76,12 @@ export function MatchedSetupActions({
   accountMissing?: boolean;
   parentLinked: boolean;
   hasSchedule: boolean;
+  /** An adult student pays for themselves, so the monthly amount does not wait for a parent. */
+  isAdult?: boolean;
+  /** The monthly price already entered for this application, if any. */
+  monthlyAmount?: number | null;
+  /** Classes in a full month: the saved value, or a suggestion from the weekly count. */
+  classesInMonth?: number | null;
   defaultParentEmail: string;
   defaultParentName: string;
   defaultParentPhone: string;
@@ -93,6 +103,7 @@ export function MatchedSetupActions({
   const [existingParent, setExistingParent] = useState<ExistingParent | null | undefined>(undefined);
   const [linking, setLinking] = useState(false);
   const [pickingAccount, setPickingAccount] = useState(false);
+  const [pricing, setPricing] = useState(false);
   const lookup = useRef<Promise<ExistingParent | null> | null>(null);
 
   const steps = setupSteps({ hasAccount: studentUserId.trim().length > 0, hasSchedule, hasParent: parentLinked });
@@ -186,6 +197,9 @@ export function MatchedSetupActions({
   const parentStatus = statusOf("parent");
   const parentPending = parentStatus === "active" && existingParent === undefined;
   const parentIsExisting = parentStatus === "active" && !!existingParent?.canLink;
+  // The price is set once the family that pays is known: the parent, or an adult student themselves.
+  const payerKnown = parentStatus === "done" || (isAdult && statusOf("schedule") === "done");
+  const priceStatus: SetupStepStatus = monthlyAmount ? "done" : payerKnown ? "active" : "locked";
 
   return (
     <div className="mb-3">
@@ -274,6 +288,21 @@ export function MatchedSetupActions({
             onAction={advanceToParent}
           />
         </Step>
+
+        <Step
+          number={4}
+          status={priceStatus}
+          doneLabel={monthlyAmount ? `${dollars(monthlyAmount)} a month` : "Monthly amount set"}
+          lockedHint={isAdult ? "After the schedule" : "After the parent"}
+          doneAction={monthlyAmount ? { label: "Change", onClick: () => setPricing(true) } : undefined}
+        >
+          <ActionButton
+            label="Set monthly amount"
+            busyLabel="Opening…"
+            icon={<DollarSign size={16} />}
+            onAction={async () => setPricing(true)}
+          />
+        </Step>
       </ol>
 
       {editor && user ? (
@@ -296,6 +325,22 @@ export function MatchedSetupActions({
             // link a parent who is already in the system, or open the invite.
             if (!parentLinked) void advanceToParent();
           }}
+        />
+      ) : null}
+
+      {pricing ? (
+        <MonthlyAmountDialog
+          studentName={studentName}
+          isFamilyClass={!!classmates}
+          initialAmount={monthlyAmount}
+          initialClasses={classesInMonth}
+          onSave={async (amount, classes) => {
+            await setEnrollmentMonthlyAmount(enrollmentId, amount, classes);
+            setPricing(false);
+            onMessage(`${dollars(amount)} a month saved for ${studentName}. The first invoice is created after the first class.`);
+            onChanged();
+          }}
+          onClose={() => setPricing(false)}
         />
       ) : null}
 
@@ -351,12 +396,15 @@ function Step({
   status,
   doneLabel,
   lockedHint,
+  doneAction,
   children,
 }: {
   number: number;
   status: SetupStepStatus;
   doneLabel: string;
   lockedHint?: string;
+  /** A small link on a done step, for a value that can still be changed. */
+  doneAction?: { label: string; onClick: () => void };
   children: React.ReactNode;
 }) {
   const badge =
@@ -380,7 +428,14 @@ function Step({
         {status === "done" ? <Check size={13} /> : number}
       </span>
       {status === "done" ? (
-        <span className="text-xs font-semibold text-[#065F46]">{doneLabel}</span>
+        <span className="flex min-w-0 flex-1 items-center justify-between gap-2 text-xs font-semibold text-[#065F46]">
+          {doneLabel}
+          {doneAction ? (
+            <button type="button" onClick={doneAction.onClick} className="text-[11px] font-semibold text-[#0386FF] hover:underline">
+              {doneAction.label}
+            </button>
+          ) : null}
+        </span>
       ) : status === "active" ? (
         <div className="min-w-0 flex-1 [&>button]:w-full [&>button]:px-3 [&>button]:py-2 [&>button]:text-xs">{children}</div>
       ) : (
@@ -590,5 +645,85 @@ function Field({
         className="h-10 rounded-lg border border-[#CBD5E1] px-3 text-sm text-[#111827] outline-none focus:border-[#3B82F6]"
       />
     </label>
+  );
+}
+
+const dollars = (n: number) => `$${n.toFixed(2).replace(/\.00$/, "")}`;
+
+/**
+ * The monthly price agreed with the family. It is billed from the first
+ * class: that month pays for the classes left in it, and every month after
+ * pays the full amount.
+ */
+function MonthlyAmountDialog({
+  studentName,
+  isFamilyClass,
+  initialAmount,
+  initialClasses,
+  onSave,
+  onClose,
+}: {
+  studentName: string;
+  isFamilyClass: boolean;
+  initialAmount: number | null;
+  initialClasses: number | null;
+  onSave: (amount: number, classesInMonth: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : "");
+  const [classes, setClasses] = useState(initialClasses ? String(initialClasses) : "");
+  const [error, setError] = useState("");
+  const amountValue = Number(amount);
+  const classesValue = Number(classes);
+  const problem =
+    !(amountValue > 0)
+      ? "Enter the monthly amount."
+      : !Number.isInteger(classesValue) || classesValue < 1 || classesValue > 62
+        ? "Enter how many classes a full month has."
+        : "";
+  const perClass = !problem ? amountValue / classesValue : null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Monthly amount">
+      <div className="w-full max-w-[440px] rounded-[20px] bg-white p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <h2 className="text-lg font-bold text-[#111827]">Monthly amount</h2>
+        <p className="mt-1 text-[13px] text-[#64748B]">
+          What {isFamilyClass ? "this family pays for the class" : `${studentName}'s family pays`} each month. The first invoice is
+          created after the first class and covers the classes left that month; from the next month the full amount is billed.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Field label="Monthly amount ($)" value={amount} onChange={setAmount} type="number" placeholder="80" />
+          <Field label="Classes in a full month" value={classes} onChange={setClasses} type="number" placeholder="8" />
+        </div>
+        {perClass !== null ? (
+          <p className="mt-2 text-xs text-[#475569]">
+            {dollars(Math.round(perClass * 100) / 100)} a class. A first month with 3 classes left would be {dollars(Math.round(perClass * 3 * 100) / 100)}.
+          </p>
+        ) : null}
+        {error ? <p role="alert" className="mt-3 text-xs font-semibold text-[#DC2626]">{error}</p> : null}
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold text-[#475569]">
+            Cancel
+          </button>
+          <ActionButton
+            label="Save"
+            busyLabel="Saving…"
+            icon={<DollarSign size={16} />}
+            onAction={async () => {
+              if (problem) {
+                setError(problem);
+                return;
+              }
+              setError("");
+              try {
+                await onSave(Math.round(amountValue * 100) / 100, classesValue);
+              } catch (err) {
+                setError(errorText(err, "Could not save the monthly amount."));
+              }
+            }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

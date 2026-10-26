@@ -219,3 +219,33 @@ export async function lookupParentByEmail(email: string): Promise<ExistingParent
     canLink: data.canLink === true,
   };
 }
+
+/**
+ * Saves the monthly price agreed while registering the student. The family
+ * that pays (the parent, or an adult student) gets it as the student's
+ * waiting first invoice: the first class creates the pro-rated first invoice
+ * and monthly billing follows.
+ */
+export async function setEnrollmentMonthlyAmount(
+  enrollmentId: string,
+  monthlyAmount: number,
+  classesInMonth: number,
+): Promise<{ payerId: string; studentId: string }> {
+  const callable = httpsCallable<Record<string, unknown>, { payer_id: string; student_id: string }>(
+    functions,
+    "setEnrollmentMonthlyAmount",
+  );
+  const result = await callable({ enrollment_id: enrollmentId, monthly_amount: monthlyAmount, classes_in_month: classesInMonth });
+  return { payerId: result.data.payer_id, studentId: result.data.student_id };
+}
+
+/** Classes in a full month from the weekly count the family asked for (four weeks a month). */
+export function suggestedClassesInMonth(sessionsPerWeek: number | null, hoursPerWeek: number | null, sessionMinutes: number | null): number | null {
+  const perWeek =
+    sessionsPerWeek && sessionsPerWeek > 0
+      ? sessionsPerWeek
+      : hoursPerWeek && sessionMinutes && sessionMinutes > 0
+        ? (hoursPerWeek * 60) / sessionMinutes
+        : 0;
+  return perWeek > 0 ? Math.round(perWeek * 4) : null;
+}

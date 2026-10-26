@@ -713,6 +713,10 @@ exports.setFamilyMonthlyAmount = onCall(
   { cors: true, invoker: 'public' },
   (request) => financeBillingHandlers.setFamilyMonthlyAmount(request)
 );
+exports.setEnrollmentMonthlyAmount = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.setEnrollmentMonthlyAmount(request)
+);
 exports.previewMonthlyBilling = onCall(
   { cors: true, invoker: 'public' },
   (request) => financeBillingHandlers.previewMonthlyBilling(request)

@@ -70,6 +70,7 @@ import { MatchedSetupActions } from "@/components/MatchedSetupActions";
 import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
+import { suggestedClassesInMonth } from "@/lib/enrollmentSetup";
 import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
 import { groupApplicants, groupIds, listNames, type ApplicantGroup } from "@/lib/familyGroups";
 import {
@@ -186,6 +187,9 @@ type EnrollmentApplicant = {
   sessionDuration: string;
   hoursPerWeek: number | null;
   sessionsPerWeek: number | null;
+  /** The monthly price entered while registering the student (waiting first invoice). */
+  monthlyAmount: number | null;
+  classesInMonth: number | null;
   block: string;
   preferredLanguage: string;
   matchedTeacherId: string;
@@ -1588,6 +1592,9 @@ function ApplicantCard({
               accountMissing={setup.accountMissing}
               parentLinked={applicant.parentLinked}
               hasSchedule={setup?.hasSchedule ?? false}
+              isAdult={applicant.isAdult}
+              monthlyAmount={applicant.monthlyAmount}
+              classesInMonth={applicant.classesInMonth ?? suggestedClassesInMonth(applicant.sessionsPerWeek, applicant.hoursPerWeek, minutesFromDurationLabel(applicant.sessionDuration))}
               defaultParentEmail={applicant.email}
               defaultParentName={applicant.parentName}
               defaultParentPhone={applicant.phone}
@@ -2043,6 +2050,8 @@ function normalizeApplicant(id: string, data: Record<string, unknown>): Enrollme
     sessionDuration: stringValue(program.sessionDuration),
     hoursPerWeek: numberOrNull(program.hoursPerWeek),
     sessionsPerWeek: numberOrNull(program.sessionsPerWeek),
+    monthlyAmount: numberOrNull(metadata.monthlyAmount),
+    classesInMonth: numberOrNull(metadata.classesInMonth),
     block: normalizeBlock(data.block ?? preferences.timeOfDayPreference) ?? "",
     preferredLanguage: stringValue(preferences.preferredLanguage),
     matchedTeacherId: stringValue(metadata.matchedTeacherId),
