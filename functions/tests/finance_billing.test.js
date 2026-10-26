@@ -846,3 +846,81 @@ describe('scheduled functions', () => {
     }
   });
 });
+
+describe('monthly amount entered while registering a student', () => {
+  const seed = () => {
+    const s = baseSeed();
+    s.users.stu_1 = {...student('Amina'), guardian_ids: ['parent_1']};
+    s.users.stu_2 = {...student('Omar'), guardian_ids: ['parent_1']};
+    s.users.adult_1 = {user_type: 'student', first_name: 'Serigne', last_name: 'Massamba', is_adult_student: true};
+    s.users.stu_orphan = student('Kadi');
+    s.enrollments = {
+      app_1: {student: {name: 'Amina', age: '9'}, metadata: {status: 'matched', studentUserId: 'stu_1'}},
+      app_2: {student: {name: 'Omar', age: '7'}, metadata: {status: 'matched', studentUserId: 'stu_2'}},
+      app_adult: {student: {name: 'Serigne Massamba', age: '36'}, metadata: {status: 'matched', studentUserId: 'adult_1', isAdult: true}},
+      app_noparent: {student: {name: 'Kadi', age: '8'}, metadata: {status: 'matched', studentUserId: 'stu_orphan'}},
+      app_noaccount: {student: {name: 'Ali', age: '8'}, metadata: {status: 'matched'}},
+    };
+    s.teaching_shifts = {
+      a1: {student_ids: ['stu_1'], status: 'fullyCompleted', shift_start: ts('2026-10-20T21:00:00Z'), teacher_id: 't1'},
+      a2: {student_ids: ['stu_1'], status: 'scheduled', shift_start: ts('2026-10-27T21:00:00Z'), teacher_id: 't1'},
+      o1: {student_ids: ['stu_2'], status: 'scheduled', shift_start: ts('2026-10-28T21:00:00Z'), teacher_id: 't2'},
+    };
+    s.teaching_shifts_archive = {};
+    return s;
+  };
+  const set = (deps, data) => finance.setEnrollmentMonthlyAmount({auth: {uid: 'admin_1'}, data}, deps);
+
+  test('saves a waiting first invoice on the paying parent and on the application', async () => {
+    const deps = makeDeps(seed());
+    const out = await set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 8});
+    expect(out).toEqual({ok: true, payer_id: 'parent_1', student_id: 'stu_1'});
+    const fb = deps.db.store.family_billing.parent_1;
+    expect(fb.student_ids).toEqual(['stu_1']);
+    expect(fb.pending_first_invoices.stu_1).toMatchObject({monthly_amount: 80, classes_in_month: 8, student_id: 'stu_1', enrollment_id: 'app_1'});
+    expect(fb.monthly_amount).toBeUndefined();
+    expect(deps.db.store.enrollments.app_1.metadata).toMatchObject({monthlyAmount: 80, classesInMonth: 8, monthlyAmountPayerId: 'parent_1'});
+  });
+
+  test('an adult student pays for themselves', async () => {
+    const deps = makeDeps(seed());
+    const out = await set(deps, {enrollment_id: 'app_adult', monthly_amount: 50, classes_in_month: 12});
+    expect(out.payer_id).toBe('adult_1');
+    expect(deps.db.store.family_billing.adult_1.pending_first_invoices.adult_1.monthly_amount).toBe(50);
+  });
+
+  test('two siblings registered separately each keep their own amount, and each first class bills only that child', async () => {
+    const deps = makeDeps(seed(), '2026-10-20T23:00:00Z');
+    await set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 8});
+    await set(deps, {enrollment_id: 'app_2', monthly_amount: 60, classes_in_month: 4});
+    const both = deps.db.store.family_billing.parent_1.pending_first_invoices;
+    expect(Object.keys(both).sort()).toEqual(['stu_1', 'stu_2']);
+
+    const out = await finance.handleShiftChange({
+      deps, shiftId: 'a1',
+      before: {student_ids: ['stu_1'], status: 'scheduled', shift_start: ts('2026-10-20T21:00:00Z')},
+      after: {student_ids: ['stu_1'], status: 'fullyCompleted', shift_start: ts('2026-10-20T21:00:00Z')},
+    });
+    expect(out.outcomes).toEqual([expect.objectContaining({created: true, invoiceId: 'first_stu_1'})]);
+    const fb = deps.db.store.family_billing.parent_1;
+    expect(fb.monthly_amount).toBe(80);
+    expect(fb.pending_first_invoices.stu_1).toBeUndefined();
+    expect(fb.pending_first_invoices.stu_2).toMatchObject({monthly_amount: 60});
+  });
+
+  test('refuses when the account, the parent or a sensible amount is missing', async () => {
+    const deps = makeDeps(seed());
+    await expect(set(deps, {enrollment_id: 'app_noaccount', monthly_amount: 80, classes_in_month: 8})).rejects.toMatchObject({code: 'failed-precondition'});
+    await expect(set(deps, {enrollment_id: 'app_noparent', monthly_amount: 80, classes_in_month: 8})).rejects.toThrow(/Link the parent first/);
+    await expect(set(deps, {enrollment_id: 'app_1', monthly_amount: 0, classes_in_month: 8})).rejects.toMatchObject({code: 'invalid-argument'});
+    await expect(set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 0})).rejects.toMatchObject({code: 'invalid-argument'});
+    await expect(set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 2.5})).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
+  test('refuses once the student already has a first invoice', async () => {
+    const s = seed();
+    s.invoices = {first_stu_1: {status: 'pending', parent_id: 'parent_1'}};
+    const deps = makeDeps(s);
+    await expect(set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 8})).rejects.toThrow(/already has a first invoice/);
+  });
+});
