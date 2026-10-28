@@ -13,7 +13,7 @@ import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase";
 import { DEFAULT_SETTINGS, FIN, type FinanceSettings } from "@/lib/finance/model";
 import { financeMonthBounds } from "@/lib/finance/months";
-import { normalizeInvoice, toDate, type EnrollmentLite, type Invoice, type PaymentLite } from "@/lib/finance/invoices";
+import { normalizeInvoice, toDate, type EnrollmentLite, type Invoice, type PaymentLite, type SuspendedStudent } from "@/lib/finance/invoices";
 
 export const MONTH_QUERY_LIMIT = 500;
 export const RECENT_QUERY_LIMIT = 600;
@@ -48,6 +48,39 @@ export async function loadRecentInvoices(now: Date = new Date()): Promise<{ invo
   since.setMonth(since.getMonth() - RECENT_MONTHS);
   const snap = await getDocs(query(collection(db, FIN.invoices), where("issued_date", ">=", Timestamp.fromDate(since)), orderBy("issued_date", "desc"), limit(RECENT_QUERY_LIMIT)));
   return { invoices: snap.docs.map(toInvoice), truncated: snap.size >= RECENT_QUERY_LIMIT };
+}
+
+/** Every invoice still waiting for money, whatever month it is for. */
+export async function loadUnsettledInvoices(): Promise<Invoice[]> {
+  const snap = await getDocs(
+    query(collection(db, FIN.invoices), where("status", "in", ["pending", "overdue", "partial", "partially_paid", "unpaid", "sent", "issued", "open"]), limit(1000)),
+  );
+  return snap.docs.map(toInvoice);
+}
+
+/** Students the server has cut off from classes, with every parent linked to them. */
+export async function loadSuspendedStudents(): Promise<SuspendedStudent[]> {
+  const snap = await getDocs(query(collection(db, "users"), where("access_suspended", "==", true), limit(1000)));
+  const students = snap.docs.filter((d) => str(d.data().user_type) === "student");
+  const ids = students.map((d) => d.id);
+  const parentsOf = new Map<string, Set<string>>();
+  for (let i = 0; i < ids.length; i += 30) {
+    const part = ids.slice(i, i + 30);
+    const parents = await getDocs(query(collection(db, "users"), where("children_ids", "array-contains-any", part)));
+    for (const p of parents.docs) {
+      for (const child of (p.data().children_ids ?? []) as unknown[]) {
+        const id = str(child);
+        if (!part.includes(id)) continue;
+        if (!parentsOf.has(id)) parentsOf.set(id, new Set());
+        parentsOf.get(id)?.add(p.id);
+      }
+    }
+  }
+  return students.map((d) => {
+    const data = d.data();
+    const guardians = new Set([...((data.guardian_ids ?? []) as unknown[]).map(str).filter(Boolean), ...(parentsOf.get(d.id) ?? [])]);
+    return { id: d.id, name: displayName(data) || "Student", guardianIds: [...guardians] };
+  });
 }
 
 export async function loadInvoiceById(id: string): Promise<Invoice | null> {

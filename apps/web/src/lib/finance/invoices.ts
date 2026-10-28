@@ -129,6 +129,12 @@ export type Invoice = {
   number: string;
   parentId: string;
   studentIds: string[];
+  /**
+   * The children whose class access this invoice can stop, read the way the
+   * server does (functions/handlers/invoice_access.js): its student list,
+   * else the students on its lines. Empty = the whole family.
+   */
+  accessStudentIds: string[];
   kind: InvoiceKind;
   billingMonth: string | null;
   issuedAt: Date | null;
@@ -230,6 +236,9 @@ export function normalizeInvoice(id: string, data: Rec): Invoice {
   const studentIds = Array.isArray(data.student_ids) ? (data.student_ids as unknown[]).map(str).filter(Boolean) : [];
   const single = str(data.student_id ?? data.studentId);
   if (!studentIds.length && single) studentIds.push(single);
+  const listed = Array.isArray(data.student_ids ?? data.studentIds) ? ((data.student_ids ?? data.studentIds) as unknown[]).map(str).filter(Boolean) : [];
+  const onLines = Array.isArray(data.items) ? (data.items as unknown[]).map((item) => str(rec(item).student_id ?? rec(item).studentId)).filter(Boolean) : [];
+  const accessStudentIds = [...new Set([...listed, ...onLines])];
   const kindRaw = str(data.kind);
   const kind: InvoiceKind = kindRaw === "first_month" || kindRaw === "monthly" || kindRaw === "one_off" ? kindRaw : "";
   const firstMonth = rec(data.first_month);
@@ -241,6 +250,7 @@ export function normalizeInvoice(id: string, data: Rec): Invoice {
     number: str(data.invoice_number ?? data.invoiceNumber) || id,
     parentId: str(data.parent_id ?? data.parentId),
     studentIds,
+    accessStudentIds,
     kind,
     billingMonth: billingMonthOf(data),
     issuedAt: toDate((data.issued_date ?? data.created_at) as Dateish),
@@ -916,4 +926,68 @@ export function newStudentStatus(row: NewStudentRow, now: Date = new Date()): Ne
   if (state.kind === "paid") return { label: "Paid", tone: "ok" };
   if (state.late) return { label: "Overdue", tone: "bad" };
   return { label: "Waiting for payment", tone: "warn" };
+}
+
+/* ---------------------------------------------------------------- cut off -- */
+
+/** A student the server has cut off from classes (`users.access_suspended`). */
+export type SuspendedStudent = { id: string; name: string; guardianIds: string[] };
+
+export type CutOffStudent = {
+  studentId: string;
+  name: string;
+  /** Every unpaid invoice past its cutoff that blocks this student, oldest cutoff first. */
+  invoices: { inv: Invoice; owed: number; cutoffKey: string }[];
+  owed: number;
+  /** The earliest cutoff among those invoices: the day classes stopped. */
+  sinceKey: string | null;
+  /** The family that pays the blocking invoices (the first one's parent). */
+  parentId: string;
+};
+
+/**
+ * When an unpaid invoice stops classes: its own cutoff (an extension moves it),
+ * otherwise the day after it was due. Mirrors functions/handlers/invoice_access.js.
+ */
+export function invoiceCutoffKey(inv: Invoice): string | null {
+  if (inv.accessCutoff) return dayKeyNY(inv.accessCutoff);
+  return inv.dueKey ? addDays(inv.dueKey, 1) : null;
+}
+
+/** An invoice that currently blocks class access: unpaid, not cancelled, past its cutoff. */
+export function isBlockingInvoice(inv: Invoice, now: Date = new Date()): boolean {
+  if (inv.status === "paid" || inv.status === "cancelled") return false;
+  if (!(inv.total > 0) || inv.paid >= inv.total) return false;
+  const key = invoiceCutoffKey(inv);
+  return !!key && key <= dayKeyNY(now);
+}
+
+/**
+ * Each cut-off student with every invoice keeping them out of class. An
+ * invoice that names its students blocks only them; an older invoice with no
+ * students blocks the whole family it was sent to (the parent, or an adult
+ * student billed directly).
+ */
+export function cutOffStudents(students: SuspendedStudent[], invoices: Invoice[], now: Date = new Date()): CutOffStudent[] {
+  const blocking = invoices.filter((inv) => isBlockingInvoice(inv, now));
+  return students
+    .map((s) => {
+      const payers = new Set([s.id, ...s.guardianIds]);
+      const hits = blocking
+        .filter((inv) => {
+          const billed = inv.accessStudentIds;
+          return billed.length ? billed.includes(s.id) : payers.has(inv.parentId);
+        })
+        .map((inv) => ({ inv, owed: Math.max(0, r2(inv.total - inv.paid)), cutoffKey: invoiceCutoffKey(inv) ?? "" }))
+        .sort((a, b) => a.cutoffKey.localeCompare(b.cutoffKey));
+      return {
+        studentId: s.id,
+        name: s.name,
+        invoices: hits,
+        owed: r2(hits.reduce((sum, h) => sum + h.owed, 0)),
+        sinceKey: hits[0]?.cutoffKey || null,
+        parentId: hits[0]?.inv.parentId ?? s.guardianIds[0] ?? s.id,
+      };
+    })
+    .sort((a, b) => (a.sinceKey ?? "9999").localeCompare(b.sinceKey ?? "9999") || a.name.localeCompare(b.name));
 }
