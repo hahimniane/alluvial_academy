@@ -9,6 +9,7 @@ import {
   DEFAULT_FILTERS,
   STATUS_CHIPS,
   buildRow,
+  cutOffStudents,
   extendAccessTarget,
   filterAndSort,
   formatDay,
@@ -16,6 +17,7 @@ import {
   toneFor,
   type Invoice,
   type InvoiceFilters,
+  type CutOffStudent,
   type InvoiceRow,
   type OverdueBucket,
   type SortKey,
@@ -31,10 +33,13 @@ import {
   loadInvoicesForMonth,
   loadOpenCreditParents,
   loadRecentInvoices,
+  loadSuspendedStudents,
   loadTeachersForStudents,
+  loadUnsettledInvoices,
   loadUserDirectory,
   type FinanceSettingsView,
 } from "./data";
+import { CutOffPanel } from "./CutOffPanel";
 import { InvoiceDetail } from "./InvoiceDetail";
 import { NewInvoiceDialog } from "./NewInvoiceDialog";
 import { Badge, Field, Notice, inputClass, outlineButton, primaryButton } from "./ui";
@@ -50,6 +55,7 @@ export function InvoicesScreen() {
   const router = useRouter();
 
   const forAll = params?.get("for") === "all";
+  const cutOffView = params?.get("view") === "cutoff";
   const openId = params?.get("invoice") || "";
   const initialStatus = params?.get("status") || "all";
 
@@ -70,6 +76,8 @@ export function InvoicesScreen() {
   const [extendingParent, setExtendingParent] = useState("");
   const [actionMessage, setActionMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [cutOff, setCutOff] = useState<{ rows: CutOffStudent[]; invoices: Invoice[]; names: Map<string, string>; phones: Map<string, string> } | null>(null);
+  const [cutOffError, setCutOffError] = useState("");
 
   const navigate = useCallback(
     (patch: Record<string, string | null>) => {
@@ -133,6 +141,26 @@ export function InvoicesScreen() {
       alive = false;
     };
   }, [month, forAll, reloadKey]);
+
+  // Cut-off students across every month: who cannot join classes, and every invoice that keeps them out.
+  useEffect(() => {
+    let alive = true;
+    setCutOffError("");
+    (async () => {
+      try {
+        const at = new Date();
+        const [students, unsettled] = await Promise.all([loadSuspendedStudents(), loadUnsettledInvoices()]);
+        const found = cutOffStudents(students, unsettled, at);
+        const directory = await loadUserDirectory(found.map((r) => r.parentId));
+        if (alive) setCutOff({ rows: found, invoices: unsettled, names: directory.names, phones: directory.phones });
+      } catch (e) {
+        if (alive) setCutOffError(errorMessage(e, "Could not load cut-off students."));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [reloadKey]);
 
   const rows: InvoiceRow[] = useMemo(
     () => invoices.map((inv) => buildRow(inv, { now, names, phones, teachersByStudent, creditParents })),
@@ -224,7 +252,16 @@ export function InvoicesScreen() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              aria-pressed={cutOffView}
+              onClick={() => navigate({ view: cutOffView ? null : "cutoff" })}
+              className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold ${cutOffView ? "border-red-700 bg-red-700 text-white" : "border-red-300 bg-white text-red-800 hover:bg-red-50"}`}
+            >
+              Cut off students <span className="opacity-80">{cutOff ? cutOff.rows.length : "…"}</span>
+            </button>
           </div>
+          {!cutOffView ? (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Search">
               <input className={inputClass} type="text" value={filters.q} placeholder="Family, student, WhatsApp or invoice #" onChange={(e) => setFilter("q", e.target.value)} />
@@ -285,8 +322,22 @@ export function InvoicesScreen() {
               </label>
             </div>
           </div>
+          ) : null}
         </div>
 
+        {cutOffView ? (
+          <CutOffPanel
+            rows={cutOff?.rows ?? []}
+            names={cutOff?.names ?? new Map()}
+            phones={cutOff?.phones ?? new Map()}
+            now={now}
+            loading={!cutOff && !cutOffError}
+            error={cutOffError}
+            onOpenInvoice={open}
+            onChanged={() => setReloadKey((k) => k + 1)}
+          />
+        ) : (
+        <>
         {scopeNote ? <p className="text-xs text-slate-600">{scopeNote}</p> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
         {actionMessage ? <Notice tone={actionMessage.tone}>{actionMessage.text}</Notice> : null}
@@ -408,9 +459,11 @@ export function InvoicesScreen() {
             </ul>
           </>
         )}
+        </>
+        )}
       </section>
 
-      {openId ? <InvoiceDetail key={openId} invoiceId={openId} initial={invoices.find((i) => i.id === openId) ?? null} settings={settings} now={now} onClose={close} onChanged={onChanged} /> : null}
+      {openId ? <InvoiceDetail key={openId} invoiceId={openId} initial={invoices.find((i) => i.id === openId) ?? cutOff?.invoices.find((i) => i.id === openId) ?? null} settings={settings} now={now} onClose={close} onChanged={onChanged} /> : null}
 
       {creating ? (
         <NewInvoiceDialog
