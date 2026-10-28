@@ -26,15 +26,18 @@ import {
   callCancelInvoice,
   callEditInvoice,
   callExtendAccess,
+  callGetPaymentLink,
   callRecordPayment,
   callSendReminder,
   callSetMonthlyAmount,
+  callStopPaymentLink,
   errorMessage,
   loadFamilyBilling,
   loadInvoiceById,
   loadInvoicePayments,
   loadMonthClosed,
   loadNames,
+  loadPhone,
   type FamilyBilling,
   type FinanceSettingsView,
 } from "./data";
@@ -81,6 +84,10 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
 
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("zelle");
+
+  const [payLink, setPayLink] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [parentPhone, setParentPhone] = useState("");
 
   const [planOpen, setPlanOpen] = useState(false);
   const [plan, setPlan] = useState({ amount: "", reason: "" });
@@ -132,6 +139,8 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
     (async () => {
       const map = await loadNames([inv.parentId, ...inv.studentIds]).catch(() => new Map<string, string>());
       if (alive) setNames(new Map(map));
+      const phone = await loadPhone(inv.parentId).catch(() => "");
+      if (alive) setParentPhone(phone);
       try {
         const b = await loadFamilyBilling(inv.parentId);
         if (!alive) return;
@@ -228,6 +237,32 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
       await refresh();
       setMessage({ tone: "ok", text: `Class access is extended to ${extendTarget.label}.` });
     });
+
+  /* ----- payment link ----- */
+  const getPayLink = () =>
+    run("link", async () => {
+      const out = await callGetPaymentLink({ invoiceId: inv.id });
+      setPayLink(out.url);
+      setCopied(false);
+      if (out.reactivated) setMessage({ tone: "info", text: "This invoice's payment link had been stopped. It works again." });
+    });
+  const copyPayLink = async () => {
+    try {
+      await navigator.clipboard.writeText(payLink);
+      setCopied(true);
+    } catch {
+      setMessage({ tone: "error", text: "Could not copy. Select the link and copy it by hand." });
+    }
+  };
+  const stopPayLink = () =>
+    run("stoplink", async () => {
+      await callStopPaymentLink({ invoiceId: inv.id });
+      setPayLink("");
+      setMessage({ tone: "ok", text: `The payment link for ${inv.number} no longer works.` });
+    });
+  const waDigits = parentPhone.replace(/\D/g, "");
+  const waText = `Assalamu alaikum ${parentName}. Here is the link to pay invoice ${inv.number} (${money(state.owed)}): ${payLink}`;
+  const waHref = waDigits.length >= 8 ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waText)}` : `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   /* ----- edit ----- */
   const startEdit = () => {
@@ -510,6 +545,38 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
         </ul>
         {timeline.access ? <div className={`text-[13px] font-bold ${timeline.access.tone === "bad" ? "text-red-700" : "text-blue-800"}`}>{timeline.access.text}</div> : null}
       </div>
+
+      {!editing && !cancelled && state.owed > 0.004 ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3">
+          <div className="text-[13px] font-bold">Payment link</div>
+          <div className="text-xs text-slate-600">
+            The parent opens the link and pays {money(state.owed)} by card. The invoice is marked paid as soon as the payment goes through. The link keeps working until the invoice is paid or you stop it.
+          </div>
+          {payLink ? (
+            <>
+              <input className={`${inputClass} font-mono text-xs`} readOnly value={payLink} aria-label="Payment link" onFocus={(e) => e.currentTarget.select()} />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={primaryButton} onClick={copyPayLink}>
+                  {copied ? "Copied" : "Copy link"}
+                </button>
+                <a className={outlineButton} href={waHref} target="_blank" rel="noopener noreferrer">
+                  {waDigits.length >= 8 ? `Send on WhatsApp to ${parentPhone}` : "Send on WhatsApp"}
+                </a>
+                <div className="flex-1" />
+                <button type="button" className={outlineButton} disabled={busy !== ""} onClick={stopPayLink}>
+                  {busy === "stoplink" ? "Stopping…" : "Stop link"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div>
+              <button type="button" className={blueOutlineButton} disabled={busy !== ""} onClick={getPayLink}>
+                {busy === "link" ? "Getting link…" : "Get payment link"}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {!editing && !cancelled && state.owed > 0.004 ? (
         <div className="flex flex-wrap items-end gap-2.5 border-t border-slate-200 pt-2">
