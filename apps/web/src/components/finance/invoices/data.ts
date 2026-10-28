@@ -387,6 +387,17 @@ export const callExtendAccess = (data: { parentId: string; scope: "parent"; exte
 export const callSetMonthlyAmount = (data: { parent_id: string; monthly_amount: number; reason: string }) => call<{ ok: boolean }>("setFamilyMonthlyAmount", data);
 export const callCreateFirstInvoice = (data: { parent_id: string; student_id: string; monthly_amount: number; classes_in_month: number; classes_left: number; first_class_date: string }) =>
   call<{ invoice_id: string }>("createFirstInvoice", data);
+/** The invoice's payment link: permanent until paid or stopped; each visit opens a fresh card payment and paying marks the invoice paid. */
+export const callGetPaymentLink = (data: { invoiceId: string }) => call<{ url: string; reactivated: boolean }>("getInvoicePaymentLink", data);
+export const callStopPaymentLink = (data: { invoiceId: string }) => call<{ success: boolean }>("cancelInvoicePaymentLink", data);
+
+/** A user's phone number as stored, or "" when they have none. */
+export async function loadPhone(uid: string): Promise<string> {
+  if (!uid) return "";
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? displayPhone(snap.data()) : "";
+}
+
 export const callCreateInvoice = (data: Record<string, unknown>) => call<{ success: boolean; invoiceId: string; invoiceNumber: string }>("createInvoice", data);
 
 export function errorMessage(error: unknown, fallback = "Something went wrong. Try again."): string {
