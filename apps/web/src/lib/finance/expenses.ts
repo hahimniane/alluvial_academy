@@ -188,6 +188,9 @@ export type StaffSummary = {
   teacherPay: number;
   teacherPayFinal: boolean;
   teacherCount: number;
+  leaderPay?: number;
+  leaderPayFinal?: boolean;
+  leaderCount?: number;
   adminPay: number;
   adminCount: number;
   /** All transfer fees for the month, including any one-off rows entered here. */
@@ -232,6 +235,17 @@ export function buildExpenseTable(input: {
       date: "—",
       amount: r2(staff.teacherPay),
     });
+    if ((staff.leaderCount ?? 0) > 0) {
+      rows.push({
+        key: "leader_pay",
+        category: CATEGORY_LABEL.leader_pay,
+        name: plural(staff.leaderCount ?? 0, "leader", "leaders"),
+        note: staff.leaderPayFinal ? "(final)" : "(estimate)",
+        date: "—",
+        amount: r2(staff.leaderPay ?? 0),
+      });
+      if (!staff.leaderPayFinal) hasEstimate = true;
+    }
     rows.push({
       key: "admin_pay",
       category: CATEGORY_LABEL.admin_pay,

@@ -118,10 +118,10 @@ test("insights without enough history say so instead of guessing", () => {
   assert.equal(flat?.versusPrevious?.percent, null);
 });
 
-test("breakdown has the six lines with roll-ups: Staff, Administration, Other", () => {
+test("breakdown has the seven lines with roll-ups: Staff, Administration, Other", () => {
   const rows = breakdownRows([row("2026-09")]);
   assert.deepEqual(rows.map((r) => r.label), [
-    "Teacher pay", "Administrator pay", "Software & subscriptions", "Marketing", "Transfer fees", "Other",
+    "Teacher pay", "Leader pay", "Administrator pay", "Software & subscriptions", "Marketing", "Transfer fees", "Other",
   ]);
   assert.equal(rows[0].bar, 100);
   assert.equal(rows[0].share, Math.round((400 / 600) * 100));
@@ -131,6 +131,15 @@ test("breakdown has the six lines with roll-ups: Staff, Administration, Other", 
     { group: "Administration", amount: 60 },
     { group: "Other", amount: 40 },
   ]);
+});
+
+test("leader pay is a Staff line and an estimate until approved", () => {
+  const withLeaders = row("2026-10", { leader_pay: 300, leader_pay_final: false });
+  const rows = breakdownRows([withLeaders]);
+  const leader = rows.find((r) => r.category === "leader_pay");
+  assert.equal(leader?.amount, 300);
+  assert.equal(leader?.estimate, true);
+  assert.equal(rollups(rows).find((g) => g.group === "Staff")?.amount, 800);
 });
 
 test("breakdown marks lines that are still estimates", () => {

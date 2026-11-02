@@ -7452,5 +7452,17 @@
   "financeSummaryRecurringToConfirm": "Coûts récurrents à confirmer",
   "financeSummaryMonthClosed": "Clôturé",
   "financeSummaryOpenOnWeb": "Ouvrez Finance sur le web pour faire des modifications.",
-  "financeSummaryLoadError": "Impossible de charger Finance."
+  "financeSummaryLoadError": "Impossible de charger Finance.",
+  "adminAuditLeaderPayHeading": "Rémunération du responsable",
+  "adminAuditLeaderHoursLine": "Heures de direction ce mois : {hours} h, {amount} selon les feuilles de temps",
+  "adminAuditLeaderNoHours": "Aucune heure de direction pointée ce mois.",
+  "adminAuditLeaderUseHoursPay": "Utiliser ce montant",
+  "adminAuditLeaderBasePay": "Salaire du mois (USD)",
+  "adminAuditLeaderFinalPay": "Salaire final : {amount}",
+  "adminAuditLeaderFinalPayHint": "Salaire du mois + bonus − retenue. Les finances le comptent une fois approuvé.",
+  "adminAuditLeaderApprovePay": "Approuver le salaire",
+  "adminAuditLeaderApprovedBy": "Approuvé par {name} le {date} : {amount}",
+  "adminAuditLeaderReopenPay": "Rouvrir",
+  "adminAuditLeaderNeedsPay": "Saisissez d'abord le salaire du mois.",
+  "adminAuditLeaderPayLocked": "Rouvrez le salaire pour modifier ces montants."
 }

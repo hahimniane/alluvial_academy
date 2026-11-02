@@ -8624,5 +8624,47 @@
   "financeSummaryRecurringToConfirm": "Recurring costs to confirm",
   "financeSummaryMonthClosed": "Closed",
   "financeSummaryOpenOnWeb": "Open Finance on the web to make changes.",
-  "financeSummaryLoadError": "Finance couldn't be loaded."
+  "financeSummaryLoadError": "Finance couldn't be loaded.",
+  "adminAuditLeaderPayHeading": "Leader pay",
+  "adminAuditLeaderHoursLine": "Leadership hours this month: {hours} h, {amount} from timesheets",
+  "@adminAuditLeaderHoursLine": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "adminAuditLeaderNoHours": "No leadership hours clocked this month.",
+  "adminAuditLeaderUseHoursPay": "Use this amount",
+  "adminAuditLeaderBasePay": "Pay for the month (USD)",
+  "adminAuditLeaderFinalPay": "Final pay: {amount}",
+  "@adminAuditLeaderFinalPay": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "adminAuditLeaderFinalPayHint": "Pay for the month + bonus − pay cut. Finance counts it once approved.",
+  "adminAuditLeaderApprovePay": "Approve pay",
+  "adminAuditLeaderApprovedBy": "Approved by {name} on {date}: {amount}",
+  "@adminAuditLeaderApprovedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "adminAuditLeaderReopenPay": "Reopen",
+  "adminAuditLeaderNeedsPay": "Enter the pay for the month first.",
+  "adminAuditLeaderPayLocked": "Reopen the pay to change these amounts."
 }

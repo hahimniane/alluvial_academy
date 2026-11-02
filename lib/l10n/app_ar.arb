@@ -6876,5 +6876,17 @@
   "financeSummaryRecurringToConfirm": "تكاليف متكررة للتأكيد",
   "financeSummaryMonthClosed": "مغلق",
   "financeSummaryOpenOnWeb": "افتح المالية على الويب لإجراء التغييرات.",
-  "financeSummaryLoadError": "تعذّر تحميل المالية."
+  "financeSummaryLoadError": "تعذّر تحميل المالية.",
+  "adminAuditLeaderPayHeading": "راتب القائد",
+  "adminAuditLeaderHoursLine": "ساعات القيادة هذا الشهر: {hours} ساعة، {amount} من سجلات الدوام",
+  "adminAuditLeaderNoHours": "لا توجد ساعات قيادة مسجلة هذا الشهر.",
+  "adminAuditLeaderUseHoursPay": "استخدم هذا المبلغ",
+  "adminAuditLeaderBasePay": "راتب الشهر (USD)",
+  "adminAuditLeaderFinalPay": "الراتب النهائي: {amount}",
+  "adminAuditLeaderFinalPayHint": "راتب الشهر + المكافأة − الخصم. تحتسبه المالية بعد الموافقة.",
+  "adminAuditLeaderApprovePay": "اعتماد الراتب",
+  "adminAuditLeaderApprovedBy": "اعتمده {name} في {date}: {amount}",
+  "adminAuditLeaderReopenPay": "إعادة فتح",
+  "adminAuditLeaderNeedsPay": "أدخل راتب الشهر أولاً.",
+  "adminAuditLeaderPayLocked": "أعد فتح الراتب لتغيير هذه المبالغ."
 }

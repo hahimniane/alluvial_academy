@@ -44,9 +44,12 @@ type MonthSummary = {
   final?: boolean;
   teacher_pay?: number;
   teacher_pay_final?: boolean;
+  leader_pay?: number;
+  leader_pay_final?: boolean;
   admin_pay?: number;
   transfer_fees?: number;
   teachers?: unknown[];
+  leaders?: unknown[];
   admins?: unknown[];
 };
 
@@ -85,6 +88,9 @@ function staffFrom(summary: MonthSummary | null): StaffSummary | null {
     teacherPay: Number(summary.teacher_pay) || 0,
     teacherPayFinal: summary.teacher_pay_final === true,
     teacherCount: Array.isArray(summary.teachers) ? summary.teachers.length : 0,
+    leaderPay: Number(summary.leader_pay) || 0,
+    leaderPayFinal: summary.leader_pay_final !== false,
+    leaderCount: Array.isArray(summary.leaders) ? summary.leaders.length : 0,
     adminPay: Number(summary.admin_pay) || 0,
     adminCount: Array.isArray(summary.admins) ? summary.admins.length : 0,
     transferFees: Number(summary.transfer_fees) || 0,
