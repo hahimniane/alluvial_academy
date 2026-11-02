@@ -7464,5 +7464,8 @@
   "adminAuditLeaderApprovedBy": "Approuvé par {name} le {date} : {amount}",
   "adminAuditLeaderReopenPay": "Rouvrir",
   "adminAuditLeaderNeedsPay": "Saisissez d'abord le salaire du mois.",
-  "adminAuditLeaderPayLocked": "Rouvrez le salaire pour modifier ces montants."
+  "adminAuditLeaderPayLocked": "Rouvrez le salaire pour modifier ces montants.",
+  "presenceMonthLatest": "Les plus récents",
+  "presencePreviousWeek": "Semaine précédente",
+  "presenceNextWeek": "Semaine suivante"
 }

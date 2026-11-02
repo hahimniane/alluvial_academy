@@ -260,6 +260,26 @@ describe('who may read a report', () => {
     expect(result.teachers.map((t) => t.uid)).toEqual(['teacher_1']);
   });
 
+  test('the overview lists admins who teach, never students or parents, for a past month', async () => {
+    const sep = makeTimestamp(new Date('2026-09-01T00:00:00Z'));
+    const row = (uid, role, drops) => ({
+      uid, role, period_type: 'monthly', period_start: sep,
+      counted: { drops, secondsLost: 60, longestSeconds: 60, neverReturned: 0 },
+    });
+    stores.presence_period_reports = new Map([
+      ['teacher_1_monthly_2026-09-01', row('teacher_1', 'teacher', 2)],
+      ['admin_2_monthly_2026-09-01', row('admin_2', 'admin', 5)],
+      ['student_1_monthly_2026-09-01', row('student_1', 'student', 9)],
+      ['parent_1_monthly_2026-09-01', row('parent_1', 'parent', 9)],
+    ]);
+    const result = await getPresenceOverview({
+      auth: { uid: 'admin_1', token: {} },
+      data: { periodType: 'monthly', referenceDate: '2026-09-01T12:00:00Z' },
+    });
+    expect(result.periodStart).toBe('2026-09-01T00:00:00.000Z');
+    expect(result.teachers.map((t) => t.uid)).toEqual(['admin_2', 'teacher_1']);
+  });
+
   test('a period with no report yet answers plainly instead of failing', async () => {
     const result = await getPresenceReport({
       auth: { uid: 'teacher_2', token: {} },

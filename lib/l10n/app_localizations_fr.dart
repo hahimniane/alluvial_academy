@@ -19188,4 +19188,13 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get adminAuditLeaderPayLocked =>
       'Rouvrez le salaire pour modifier ces montants.';
+
+  @override
+  String get presenceMonthLatest => 'Les plus récents';
+
+  @override
+  String get presencePreviousWeek => 'Semaine précédente';
+
+  @override
+  String get presenceNextWeek => 'Semaine suivante';
 }

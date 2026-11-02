@@ -290,10 +290,13 @@ class PresenceReportService {
   /// Every teacher for a period, worst first. Administrators only.
   static Future<List<PresenceReport>> overview({
     String periodType = 'weekly',
+    DateTime? referenceDate,
   }) async {
     try {
       final result = await _functions.httpsCallable('getPresenceOverview').call({
         'periodType': periodType,
+        if (referenceDate != null)
+          'referenceDate': referenceDate.toUtc().toIso8601String(),
       });
       final data = result.data;
       if (data is! Map) return const [];

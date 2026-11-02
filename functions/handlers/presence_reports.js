@@ -34,6 +34,9 @@ const PERIOD_REPORTS = 'presence_period_reports';
  */
 const REVIEWS = 'class_presence_reviews';
 
+/** Who the drop-out overview lists. */
+const STAFF_ROLES = new Set(['teacher', 'admin']);
+
 /** A class is only summarised once its grace period has run out. */
 const CLASS_SETTLE_MINUTES = 20;
 /** How far back a sweep looks, so one missed run repairs itself. */
@@ -282,9 +285,11 @@ const getPresenceOverview = onCall(async (request) => {
     .where('period_start', '==', admin.firestore.Timestamp.fromDate(periodStart))
     .get();
 
+  // Admins teach classes too (and are audited like any teacher), so they are
+  // listed with the teachers. Students and parents are not.
   const people = snap.docs
     .map((doc) => doc.data() || {})
-    .filter((row) => String(row.role || '') === 'teacher')
+    .filter((row) => STAFF_ROLES.has(String(row.role || '')))
     .sort((a, b) => (b.counted?.drops || 0) - (a.counted?.drops || 0));
 
   return {

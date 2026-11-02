@@ -34135,6 +34135,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reopen the pay to change these amounts.'**
   String get adminAuditLeaderPayLocked;
+
+  /// Month picker option on the class presence page: the most recent alerts, not one month
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get presenceMonthLatest;
+
+  /// Tooltip: go back one week in the drop-out overview
+  ///
+  /// In en, this message translates to:
+  /// **'Previous week'**
+  String get presencePreviousWeek;
+
+  /// Tooltip: go forward one week in the drop-out overview
+  ///
+  /// In en, this message translates to:
+  /// **'Next week'**
+  String get presenceNextWeek;
 }
 
 class _AppLocalizationsDelegate

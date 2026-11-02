@@ -94,10 +94,30 @@ class NoShowService {
       NoShowReport.attendanceAlertCollection;
   static const String _sessionCollection = 'livekit_sessions';
   static const String _shiftCollection = 'teaching_shifts';
+  static const String _shiftArchiveCollection = 'teaching_shifts_archive';
   static const String _usersCollection = 'users';
 
   static Future<List<Employee>> fetchAvailableTeachers() =>
       _fetchAvailablePeople('teacher');
+
+  /// Teachers and admins: admins teach classes too and are checked the same way.
+  static Future<List<Employee>> fetchAvailableStaff() async {
+    final lists = await Future.wait([
+      _fetchAvailablePeople('teacher'),
+      _fetchAvailablePeople('admin'),
+    ]);
+    final seen = <String>{};
+    final staff = [
+      for (final list in lists)
+        for (final person in list)
+          if (seen.add(person.documentId)) person,
+    ];
+    staff.sort((a, b) => '${a.firstName} ${a.lastName}'
+        .trim()
+        .toLowerCase()
+        .compareTo('${b.firstName} ${b.lastName}'.trim().toLowerCase()));
+    return staff;
+  }
 
   static Future<List<Employee>> fetchAvailableStudents() =>
       _fetchAvailablePeople('student');
@@ -147,6 +167,42 @@ class NoShowService {
       ...enriched,
       ...limited.skip(detailCount),
     ];
+  }
+
+  /// Every alert raised between [start] and [end], for looking back at a
+  /// past month. Unlike [fetchReports] there is no cap: a month is read whole,
+  /// so a teacher with no alerts in it really had none.
+  static Future<List<NoShowReport>> fetchReportsBetween({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final from = Timestamp.fromDate(start);
+    final to = Timestamp.fromDate(end);
+    final snapshots = await Future.wait([
+      _db
+          .collection(_collection)
+          .where('createdAt', isGreaterThanOrEqualTo: from)
+          .where('createdAt', isLessThan: to)
+          .get(),
+      _db
+          .collection(_attendanceAlertCollection)
+          .where('first_detected_at', isGreaterThanOrEqualTo: from)
+          .where('first_detected_at', isLessThan: to)
+          .get(),
+    ]);
+    final reports = <NoShowReport>[
+      ...snapshots[0].docs.map(NoShowReport.fromFirestore),
+      ...snapshots[1].docs.map(NoShowReport.fromAttendanceAlertFirestore),
+    ];
+    reports.sort((a, b) {
+      final aWhen = a.when;
+      final bWhen = b.when;
+      if (aWhen == null && bWhen == null) return 0;
+      if (aWhen == null) return 1;
+      if (bWhen == null) return -1;
+      return bWhen.compareTo(aWhen);
+    });
+    return reports;
   }
 
   /// Mark a report reviewed in whichever alert collection produced it.
@@ -277,6 +333,28 @@ class NoShowService {
     for (final snap in snapshots) {
       for (final doc in snap.docs) {
         result[doc.id] = _shiftMetaFromMap(doc.data());
+      }
+    }
+    // Classes older than sixty days have moved to the archive.
+    final missing =
+        shiftIds.where((id) => !result.containsKey(id)).toList(growable: false);
+    if (missing.isNotEmpty) {
+      try {
+        final archived = await Future.wait(
+          _chunks(missing, 10).map((chunk) {
+            return _db
+                .collection(_shiftArchiveCollection)
+                .where(FieldPath.documentId, whereIn: chunk)
+                .get();
+          }),
+        );
+        for (final snap in archived) {
+          for (final doc in snap.docs) {
+            result[doc.id] = _shiftMetaFromMap(doc.data());
+          }
+        }
+      } catch (_) {
+        // Only administrators may read the archive; the alert still shows.
       }
     }
     return result;
