@@ -16,6 +16,7 @@ const enrollmentRepublishHandlers = require('./handlers/enrollment_republish');
 const financeStaffHandlers = require('./handlers/finance_staff');
 const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
 const shiftRateGuard = require('./handlers/shift_rate_guard');
+const moveClassHandlers = require('./handlers/move_classes');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -345,6 +346,11 @@ exports.republishEnrollmentJob = onCall(
 // request for a missed class; admin-only, gated in the handler.
 // Every upcoming class pays its subject's rate (no $0 classes; a subject change brings its rate).
 exports.enforceShiftSubjectRate = shiftRateGuard.enforceShiftSubjectRate;
+// Move a teacher's / a student's classes earlier or later (daylight-saving fixes); admin-only.
+exports.moveClassTimes = onCall(
+  { cors: true, invoker: 'public', memory: '512MiB', timeoutSeconds: 300 },
+  (request) => moveClassHandlers.moveClassTimes(request)
+);
 exports.reviewRescheduleRequest = onCall(
   { cors: true, invoker: 'public' },
   (request) => rescheduleRequestHandlers.reviewRescheduleRequest(request)
