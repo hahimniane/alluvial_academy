@@ -23,6 +23,7 @@ const {onDocumentUpdated} = require('firebase-functions/v2/firestore');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const {applyStudentDiscounts} = require('../utils/student_discounts');
 const {shiftsInRange} = require('../utils/shifts_in_range');
+const {studentsWithUpcomingClasses} = require('../utils/upcoming_classes');
 const {loadBillingSettings} = require('../utils/finance_billing_gate');
 const payLinks = require('../services/payment_links');
 const math = require('../utils/finance_billing_math');
@@ -234,24 +235,28 @@ const createMonthlyInvoice = async ({deps, parentId, month, settings}) => {
     if (!fbSnap.exists) return {created: false, reason: 'no_family_billing', invoiceId};
     const fb = fbSnap.data() || {};
     if (fb.active === false) return {created: false, reason: 'inactive', invoiceId};
-    const amount = math.amountForMonth(fb, month);
-    if (!(amount > 0)) return {created: false, reason: 'no_amount', invoiceId};
-
-    const studentIds = list(fb.student_ids).map(str).filter(Boolean);
-    const studentSnaps = studentIds.length
-      ? await tx.getAll(...studentIds.map((id) => db.collection('users').doc(id)))
+    const allIds = list(fb.student_ids).map(str).filter(Boolean);
+    const studentSnaps = allIds.length
+      ? await tx.getAll(...allIds.map((id) => db.collection('users').doc(id)))
       : [];
+    const users = new Map();
     const studentNames = {};
     studentSnaps.forEach((s, i) => {
-      if (s.exists) studentNames[studentIds[i]] = displayName(s.data());
+      if (!s.exists) return;
+      users.set(allIds[i], s.data() || {});
+      studentNames[allIds[i]] = displayName(s.data());
     });
+    // Archived children are not billed, and their share comes off the amount.
+    const billable = billableFamily({amount: math.amountForMonth(fb, month), studentIds: allIds, studentAmounts: fb.student_amounts, users});
+    const {amount, studentIds} = billable;
+    if (!(amount > 0)) return {created: false, reason: 'no_amount', invoiceId};
 
     const credits = await readOpenCredits(tx, db, parentId);
     const tuition = math.monthlyTuitionLines({
       month,
       amount,
       studentIds,
-      studentAmounts: fb.student_amounts,
+      studentAmounts: billable.studentAmounts,
       studentNames,
     });
     const withDiscounts = await deps.applyDiscounts(db, tuition, monthStartUtc(month), tx, parentId);
@@ -634,6 +639,111 @@ const setFamilyMonthlyAmount = async (request, deps = defaultDeps()) => {
   });
 };
 
+// ---------------------------------------------------------------- students not attending
+
+/**
+ * Children on a family's monthly billing who no longer attend: archived, or
+ * with no weekly class and no upcoming class. Each with the share of the
+ * family amount that would come off if removed.
+ */
+const listStudentsNotAttending = async (request, deps = defaultDeps()) => {
+  await deps.verifyAdmin(request);
+  const {db} = deps;
+  const families = (await db.collection('family_billing').get()).docs
+    .map((d) => ({id: d.id, ...(d.data() || {})}))
+    .filter((f) => f.active !== false);
+  const allIds = [...new Set(families.flatMap((f) => list(f.student_ids).map(str).filter(Boolean)))];
+  const users = await readUsers(db, [...allIds, ...families.map((f) => f.id)]);
+  const withClasses = await studentsWithUpcomingClasses(db, allIds, deps.now());
+
+  const rows = [];
+  for (const f of families) {
+    const ids = list(f.student_ids).map(str).filter(Boolean);
+    const amount = math.round2(f.monthly_amount);
+    const parts = math.splitAmount({amount, studentIds: ids, studentAmounts: f.student_amounts});
+    for (const id of ids) {
+      const archived = isArchivedStudent(users.get(id));
+      if (!archived && withClasses.has(id)) continue;
+      const part = parts.find((p) => p.studentId === id);
+      rows.push({
+        parent_id: f.id,
+        parent_name: displayName(users.get(f.id)) || f.id,
+        student_id: id,
+        student_name: displayName(users.get(id)) || 'Student without an account',
+        reason: archived ? 'archived' : 'no_classes',
+        family_amount: amount,
+        share: part ? math.fromCents(part.cents) : 0,
+        children: ids.length,
+      });
+    }
+  }
+  rows.sort((a, b) => a.parent_name.localeCompare(b.parent_name) || a.student_name.localeCompare(b.student_name));
+  return {rows};
+};
+
+/**
+ * Takes a child off the family's monthly billing: out of student_ids, and
+ * their share off the monthly amount from the next invoice nobody has issued.
+ * A family left with no child stops being billed. Recorded in history.
+ */
+const removeStudentFromBilling = async (request, deps = defaultDeps()) => {
+  const {callerUid} = await deps.verifyAdmin(request);
+  const data = rec(request && request.data);
+  const parentId = str(data.parent_id);
+  const studentId = str(data.student_id);
+  const reason = str(data.reason);
+  if (!parentId || !studentId) throw httpsError('invalid-argument', 'parent_id and student_id are required.');
+  if (!reason) throw httpsError('invalid-argument', 'A reason is required.');
+
+  const {db, FieldValue} = deps;
+  const now = deps.now();
+  const actor = await actorProfile(db, callerUid);
+  const candidate = math.nextBillingMonth(now);
+  await deps.assertMonthOpen(db, candidate);
+  const fbRef = db.collection('family_billing').doc(parentId);
+  const studentSnap = await db.collection('users').doc(studentId).get();
+  const studentName = studentSnap.exists ? displayName(studentSnap.data()) : studentId;
+
+  return db.runTransaction(async (tx) => {
+    const fbSnap = await tx.get(fbRef);
+    if (!fbSnap.exists) throw httpsError('not-found', 'This family has no monthly billing.');
+    const fb = fbSnap.data() || {};
+    const ids = list(fb.student_ids).map(str).filter(Boolean);
+    if (!ids.includes(studentId)) throw httpsError('failed-precondition', `${studentName} is not on this family's billing.`);
+
+    const oldAmount = math.round2(fb.monthly_amount);
+    const parts = math.splitAmount({amount: oldAmount, studentIds: ids, studentAmounts: fb.student_amounts});
+    const share = math.fromCents((parts.find((p) => p.studentId === studentId) || {cents: 0}).cents);
+    const kept = ids.filter((id) => id !== studentId);
+    const newAmount = kept.length ? math.round2(Math.max(0, oldAmount - share)) : 0;
+
+    const months = [candidate, math.addMonths(candidate, 1), math.addMonths(candidate, 2)];
+    const issued = await tx.getAll(...months.map((m) => db.collection('invoices').doc(math.monthlyInvoiceId(parentId, m))));
+    const fromMonth = math.changeStartMonth(now, new Set(months.filter((_, i) => issued[i].exists)));
+
+    const keptAmounts = {};
+    for (const p of parts) if (p.studentId && p.studentId !== studentId) keptAmounts[p.studentId] = math.fromCents(p.cents);
+    const at = deps.Timestamp.fromDate(now);
+    const update = {
+      student_ids: kept,
+      monthly_amount: newAmount,
+      history: [...list(fb.history), {
+        from_month: fromMonth, old: oldAmount, new: newAmount,
+        reason: `${studentName} removed from billing: ${reason}`,
+        removed_student_id: studentId, at, by: callerUid, by_name: actor.name,
+      }],
+      removed_students: [...list(fb.removed_students), {student_id: studentId, name: studentName, share, reason, at, by: callerUid, by_name: actor.name}],
+      student_amounts: kept.length && Object.keys(keptAmounts).length === kept.length ? keptAmounts : FieldValue.delete(),
+      updated_at: FieldValue.serverTimestamp(),
+    };
+    if (!kept.length || !(newAmount > 0)) update.active = false;
+    // update(), not set({merge:true}): a merge keeps the removed child's key
+    // inside student_amounts, because nested maps are merged, not replaced.
+    tx.update(fbRef, update);
+    return {ok: true, from_month: fromMonth, old: oldAmount, new: newAmount, share, family_active: update.active !== false};
+  });
+};
+
 // ---------------------------------------------------------------- preview
 
 const invoiceCoversMonth = (invoice, month) => {
@@ -676,6 +786,33 @@ const readUsers = async (db, ids) => {
     });
   }
   return out;
+};
+
+/** An archived student (or one whose account is gone) is never billed. */
+const isArchivedStudent = (user) =>
+  !user || user.is_active === false || user.archived === true || user.isArchived === true;
+
+/**
+ * The part of a family's monthly amount that is still billed: archived
+ * children drop out together with their share (their own amount when the
+ * per-child amounts add up, otherwise their part of the even split).
+ * `users` maps student id -> user data.
+ */
+const billableFamily = ({amount, studentIds, studentAmounts, users}) => {
+  const dropped = studentIds.filter((id) => isArchivedStudent(users.get(id)));
+  if (!dropped.length) return {amount, studentIds, studentAmounts, dropped};
+  const parts = math.splitAmount({amount, studentIds, studentAmounts})
+    .filter((p) => p.studentId && !dropped.includes(p.studentId));
+  const kept = studentIds.filter((id) => !dropped.includes(id));
+  const keptAmounts = {};
+  for (const p of parts) keptAmounts[p.studentId] = math.fromCents(p.cents);
+  for (const id of kept) if (!(id in keptAmounts)) keptAmounts[id] = 0;
+  return {
+    amount: math.fromCents(parts.reduce((sum, p) => sum + p.cents, 0)),
+    studentIds: kept,
+    studentAmounts: keptAmounts,
+    dropped,
+  };
 };
 
 /**
@@ -721,13 +858,19 @@ const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDisco
   const rows = [];
   for (const [parentId, fb] of families) {
     if (fb.active === false) continue;
-    const amount = math.amountForMonth(fb, month);
-    const studentIds = list(fb.student_ids).map(str).filter(Boolean);
+    const allIds = list(fb.student_ids).map(str).filter(Boolean);
     const studentNames = {};
-    for (const id of studentIds) studentNames[id] = displayName(users.get(id)) || id;
+    for (const id of allIds) studentNames[id] = displayName(users.get(id)) || id;
+    const billable = billableFamily({
+      amount: math.amountForMonth(fb, month),
+      studentIds: allIds,
+      studentAmounts: fb.student_amounts,
+      users,
+    });
+    const {amount, studentIds} = billable;
 
     const tuition = amount > 0
-      ? math.monthlyTuitionLines({month, amount, studentIds, studentAmounts: fb.student_amounts, studentNames})
+      ? math.monthlyTuitionLines({month, amount, studentIds, studentAmounts: billable.studentAmounts, studentNames})
       : [];
     const withDiscounts = tuition.length
       ? await applyDiscounts(db, tuition, monthStartUtc(month), db, parentId)
@@ -742,6 +885,7 @@ const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDisco
       parent_email: emailOf(parent),
       students: studentIds.map((id) => studentNames[id]),
       student_ids: studentIds,
+      not_billed: billable.dropped.map((id) => ({student_id: id, name: studentNames[id], reason: 'archived'})),
       monthly_amount: amount,
       discount: settle.discount,
       credit: settle.credit_applied,
@@ -1120,6 +1264,9 @@ const createFirstInvoiceOnFirstClass = onDocumentUpdated('teaching_shifts/{shift
 });
 
 module.exports = {
+  listStudentsNotAttending,
+  removeStudentFromBilling,
+  __billingTest: {billableFamily, isArchivedStudent},
   createFirstInvoice,
   setFamilyMonthlyAmount,
   setEnrollmentMonthlyAmount,

@@ -36,10 +36,13 @@ import {
   loadSuspendedStudents,
   loadTeachersForStudents,
   loadUnsettledInvoices,
+  callListNotAttending,
+  type NotAttendingRow,
   loadUserDirectory,
   type FinanceSettingsView,
 } from "./data";
 import { CutOffPanel } from "./CutOffPanel";
+import { NotAttendingPanel } from "./NotAttendingPanel";
 import { InvoiceDetail } from "./InvoiceDetail";
 import { NewInvoiceDialog } from "./NewInvoiceDialog";
 import { Badge, Field, Notice, inputClass, outlineButton, primaryButton } from "./ui";
@@ -56,6 +59,8 @@ export function InvoicesScreen() {
 
   const forAll = params?.get("for") === "all";
   const cutOffView = params?.get("view") === "cutoff";
+  const notAttendingView = params?.get("view") === "notattending";
+  const panelView = cutOffView || notAttendingView;
   const openId = params?.get("invoice") || "";
   const initialStatus = params?.get("status") || "all";
 
@@ -78,6 +83,8 @@ export function InvoicesScreen() {
   const [now, setNow] = useState(() => new Date());
   const [cutOff, setCutOff] = useState<{ rows: CutOffStudent[]; invoices: Invoice[]; names: Map<string, string>; phones: Map<string, string> } | null>(null);
   const [cutOffError, setCutOffError] = useState("");
+  const [notAttending, setNotAttending] = useState<NotAttendingRow[] | null>(null);
+  const [notAttendingError, setNotAttendingError] = useState("");
 
   const navigate = useCallback(
     (patch: Record<string, string | null>) => {
@@ -157,6 +164,18 @@ export function InvoicesScreen() {
         if (alive) setCutOffError(errorMessage(e, "Could not load cut-off students."));
       }
     })();
+    return () => {
+      alive = false;
+    };
+  }, [reloadKey]);
+
+  // Children still on a family's monthly billing who no longer attend.
+  useEffect(() => {
+    let alive = true;
+    setNotAttendingError("");
+    callListNotAttending()
+      .then((r) => alive && setNotAttending(r.rows))
+      .catch((e) => alive && setNotAttendingError(errorMessage(e, "Could not load students who no longer attend.")));
     return () => {
       alive = false;
     };
@@ -260,8 +279,16 @@ export function InvoicesScreen() {
             >
               Cut off students <span className="opacity-80">{cutOff ? cutOff.rows.length : "…"}</span>
             </button>
+            <button
+              type="button"
+              aria-pressed={notAttendingView}
+              onClick={() => navigate({ view: notAttendingView ? null : "notattending" })}
+              className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold ${notAttendingView ? "border-amber-700 bg-amber-700 text-white" : "border-amber-300 bg-white text-amber-900 hover:bg-amber-50"}`}
+            >
+              Not attending <span className="opacity-80">{notAttending ? notAttending.length : "…"}</span>
+            </button>
           </div>
-          {!cutOffView ? (
+          {!panelView ? (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Search">
               <input className={inputClass} type="text" value={filters.q} placeholder="Family, student, WhatsApp or invoice #" onChange={(e) => setFilter("q", e.target.value)} />
@@ -325,7 +352,14 @@ export function InvoicesScreen() {
           ) : null}
         </div>
 
-        {cutOffView ? (
+        {notAttendingView ? (
+          <NotAttendingPanel
+            rows={notAttending ?? []}
+            loading={!notAttending && !notAttendingError}
+            error={notAttendingError}
+            onChanged={() => setReloadKey((k) => k + 1)}
+          />
+        ) : cutOffView ? (
           <CutOffPanel
             rows={cutOff?.rows ?? []}
             names={cutOff?.names ?? new Map()}

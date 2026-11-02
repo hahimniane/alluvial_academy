@@ -421,6 +421,19 @@ export const callSetMonthlyAmount = (data: { parent_id: string; monthly_amount: 
 export const callCreateFirstInvoice = (data: { parent_id: string; student_id: string; monthly_amount: number; classes_in_month: number; classes_left: number; first_class_date: string }) =>
   call<{ invoice_id: string }>("createFirstInvoice", data);
 /** The invoice's payment link: permanent until paid or stopped; each visit opens a fresh card payment and paying marks the invoice paid. */
+export type NotAttendingRow = {
+  parent_id: string;
+  parent_name: string;
+  student_id: string;
+  student_name: string;
+  reason: "archived" | "no_classes";
+  family_amount: number;
+  share: number;
+  children: number;
+};
+export const callListNotAttending = () => call<{ rows: NotAttendingRow[] }>("listStudentsNotAttending", {});
+export const callRemoveFromBilling = (data: { parent_id: string; student_id: string; reason: string }) =>
+  call<{ ok: boolean; from_month: string; old: number; new: number; share: number; family_active: boolean }>("removeStudentFromBilling", data);
 export const callGetPaymentLink = (data: { invoiceId: string }) => call<{ url: string; reactivated: boolean }>("getInvoicePaymentLink", data);
 export const callStopPaymentLink = (data: { invoiceId: string }) => call<{ success: boolean }>("cancelInvoicePaymentLink", data);
 
