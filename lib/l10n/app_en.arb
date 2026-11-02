@@ -8666,5 +8666,17 @@
   },
   "adminAuditLeaderReopenPay": "Reopen",
   "adminAuditLeaderNeedsPay": "Enter the pay for the month first.",
-  "adminAuditLeaderPayLocked": "Reopen the pay to change these amounts."
+  "adminAuditLeaderPayLocked": "Reopen the pay to change these amounts.",
+  "presenceMonthLatest": "Latest",
+  "@presenceMonthLatest": {
+    "description": "Month picker option on the class presence page: the most recent alerts, not one month"
+  },
+  "presencePreviousWeek": "Previous week",
+  "@presencePreviousWeek": {
+    "description": "Tooltip: go back one week in the drop-out overview"
+  },
+  "presenceNextWeek": "Next week",
+  "@presenceNextWeek": {
+    "description": "Tooltip: go forward one week in the drop-out overview"
+  }
 }

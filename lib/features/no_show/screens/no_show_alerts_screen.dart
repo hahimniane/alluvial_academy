@@ -58,6 +58,9 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
   String? _selectedStudentId;
   DateTime? _fromDate;
   DateTime? _toDate;
+
+  /// The month being looked back at, or null for the latest alerts.
+  DateTime? _month;
   final Set<String> _reviewing = {};
 
   @override
@@ -74,18 +77,21 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
       _error = null;
     });
     try {
-      final reports = await NoShowService.fetchReports(
-        limitN: 120,
-        enrich: false,
-      );
-      if (!mounted) return;
+      final month = _month;
+      final reports = month == null
+          ? await NoShowService.fetchReports(limitN: 120, enrich: false)
+          : await NoShowService.fetchReportsBetween(
+              start: month,
+              end: DateTime(month.year, month.month + 1),
+            );
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _reports = reports;
         _loading = false;
         _enriching = reports.isNotEmpty;
       });
-      unawaited(_loadPeople(generation));
-      unawaited(_loadFullBaseHistory(generation));
+      if (_teachers.isEmpty) unawaited(_loadPeople(generation));
+      if (month == null) unawaited(_loadFullBaseHistory(generation));
       unawaited(_enrichReports(generation, reports));
     } catch (e) {
       if (!mounted) return;
@@ -377,6 +383,87 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
         }
       }
     });
+  }
+
+  /// The last twelve months, newest first, for the month picker.
+  List<DateTime> get _monthOptions {
+    final now = DateTime.now();
+    return List.generate(12, (i) => DateTime(now.year, now.month - i));
+  }
+
+  void _setMonth(DateTime? month) {
+    if (month == _month) return;
+    setState(() {
+      _month = month;
+      // "Today" and "last 7 days" mean nothing inside a past month.
+      if (month != null && _dateFilter != 'custom') {
+        _dateFilter = 'all';
+        _fromDate = null;
+        _toDate = null;
+      }
+    });
+    _load();
+  }
+
+  Widget _monthPicker() {
+    final material = MaterialLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final month = _month;
+    final active = month != null;
+    return PopupMenuButton<int>(
+      tooltip: l10n.adminSubmissionsFilterMonth,
+      initialValue: month == null
+          ? -1
+          : _monthOptions.indexWhere(
+              (m) => m.year == month.year && m.month == month.month),
+      onSelected: (i) => _setMonth(i < 0 ? null : _monthOptions[i]),
+      itemBuilder: (context) => [
+        PopupMenuItem(value: -1, child: Text(l10n.presenceMonthLatest)),
+        const PopupMenuDivider(),
+        for (var i = 0; i < _monthOptions.length; i++)
+          PopupMenuItem(
+            value: i,
+            child: Text(material.formatMonthYear(_monthOptions[i])),
+          ),
+      ],
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? const Color(0xff1a6ef5) : _border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_month_outlined,
+              size: 16,
+              color: active ? const Color(0xff1a6ef5) : _slate,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              month == null
+                  ? l10n.presenceMonthLatest
+                  : material.formatMonthYear(month),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: active ? const Color(0xff1a6ef5) : _slate,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: active ? const Color(0xff1a6ef5) : _slate,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _pickTeacher(AppLocalizations l10n) async {
@@ -732,6 +819,8 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
+              _monthPicker(),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () => setState(
                   () => _showAdvancedFilters = !_showAdvancedFilters,
@@ -802,12 +891,14 @@ class _NoShowAlertsScreenState extends State<NoShowAlertsScreen> {
               ),
               _filterChip(l10n.noShowDateAll, _dateFilter == 'all',
                   () => _setDateFilter('all')),
-              _filterChip(l10n.noShowDateToday, _dateFilter == 'today',
-                  () => _setDateFilter('today')),
-              _filterChip(l10n.noShowDate7Days, _dateFilter == '7d',
-                  () => _setDateFilter('7d')),
-              _filterChip(l10n.noShowDate30Days, _dateFilter == '30d',
-                  () => _setDateFilter('30d')),
+              if (_month == null) ...[
+                _filterChip(l10n.noShowDateToday, _dateFilter == 'today',
+                    () => _setDateFilter('today')),
+                _filterChip(l10n.noShowDate7Days, _dateFilter == '7d',
+                    () => _setDateFilter('7d')),
+                _filterChip(l10n.noShowDate30Days, _dateFilter == '30d',
+                    () => _setDateFilter('30d')),
+              ],
             ],
           ),
           if (_showAdvancedFilters) ...[

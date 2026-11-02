@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/employee_model.dart';
 import 'package:alluwalacademyadmin/core/services/presence_report_service.dart';
@@ -457,10 +458,18 @@ class _OccasionListState extends State<_OccasionList> {
 }
 
 class _PeriodToggle extends StatelessWidget {
-  const _PeriodToggle({required this.period, required this.onChanged});
+  const _PeriodToggle({
+    required this.period,
+    required this.onChanged,
+    this.current = true,
+  });
 
   final String period;
   final ValueChanged<String> onChanged;
+
+  /// Whether the period on screen is the one we are in now. A past week is
+  /// not "this week".
+  final bool current;
 
   @override
   Widget build(BuildContext context) {
@@ -468,8 +477,14 @@ class _PeriodToggle extends StatelessWidget {
     return SegmentedButton<String>(
       style: const ButtonStyle(visualDensity: VisualDensity.compact),
       segments: [
-        ButtonSegment(value: 'weekly', label: Text(l10n.connectionReportThisWeek)),
-        ButtonSegment(value: 'monthly', label: Text(l10n.connectionReportThisMonth)),
+        ButtonSegment(
+          value: 'weekly',
+          label: Text(current ? l10n.connectionReportThisWeek : l10n.weekly),
+        ),
+        ButtonSegment(
+          value: 'monthly',
+          label: Text(current ? l10n.connectionReportThisMonth : l10n.monthly),
+        ),
       ],
       selected: {period},
       showSelectedIcon: false,
@@ -559,7 +574,11 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
   static const double _listMaxHeight = 320;
 
   String _period = 'weekly';
+
+  /// How many weeks or months back from now is on screen. 0 is the current one.
+  int _stepsBack = 0;
   bool _loading = true;
+  int _loadGeneration = 0;
   List<PresenceReport> _teachers = const [];
   final TextEditingController _search = TextEditingController();
   String _query = '';
@@ -578,7 +597,7 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
 
   Future<void> _loadStaff() async {
     try {
-      final staff = await NoShowService.fetchAvailableTeachers();
+      final staff = await NoShowService.fetchAvailableStaff();
       if (!mounted) return;
       setState(() => _staff = staff);
     } catch (_) {
@@ -610,10 +629,46 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
     super.dispose();
   }
 
+  /// The first day of the period on screen, in UTC, the way the server counts
+  /// weeks (Monday to Sunday) and months.
+  DateTime get _periodStart {
+    final now = DateTime.now().toUtc();
+    if (_period == 'monthly') {
+      return DateTime.utc(now.year, now.month - _stepsBack);
+    }
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    return monday.subtract(Duration(days: 7 * _stepsBack));
+  }
+
+  String _periodLabel(BuildContext context) {
+    final start = _periodStart;
+    if (_period == 'monthly') {
+      return MaterialLocalizations.of(context).formatMonthYear(start);
+    }
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final end = start.add(const Duration(days: 6));
+    final format = DateFormat.MMMd(locale);
+    return '${format.format(start)} – ${format.format(end)}';
+  }
+
+  void _step(int delta) {
+    final next = _stepsBack + delta;
+    if (next < 0) return;
+    setState(() => _stepsBack = next);
+    _load();
+  }
+
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() => _loading = true);
-    final teachers = await PresenceReportService.overview(periodType: _period);
-    if (!mounted) return;
+    final teachers = await PresenceReportService.overview(
+      periodType: _period,
+      // Midday on the first day, so no time zone can tip it into the period
+      // before.
+      referenceDate: _periodStart.add(const Duration(hours: 12)),
+    );
+    if (!mounted || generation != _loadGeneration) return;
     setState(() {
       _teachers = teachers;
       _loading = false;
@@ -690,10 +745,40 @@ class _ConnectionOverviewCardState extends State<ConnectionOverviewCard> {
                 ),
                 _PeriodToggle(
                   period: _period,
+                  current: _stepsBack == 0,
                   onChanged: (next) {
-                    setState(() => _period = next);
+                    setState(() {
+                      _period = next;
+                      _stepsBack = 0;
+                    });
                     _load();
                   },
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: _period == 'monthly'
+                      ? MaterialLocalizations.of(context).previousMonthTooltip
+                      : l10n.presencePreviousWeek,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: _loading ? null : () => _step(1),
+                ),
+                Text(
+                  _periodLabel(context),
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                IconButton(
+                  tooltip: _period == 'monthly'
+                      ? MaterialLocalizations.of(context).nextMonthTooltip
+                      : l10n.presenceNextWeek,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: _loading || _stepsBack == 0 ? null : () => _step(-1),
                 ),
               ],
             ),

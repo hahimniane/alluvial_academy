@@ -6888,5 +6888,8 @@
   "adminAuditLeaderApprovedBy": "اعتمده {name} في {date}: {amount}",
   "adminAuditLeaderReopenPay": "إعادة فتح",
   "adminAuditLeaderNeedsPay": "أدخل راتب الشهر أولاً.",
-  "adminAuditLeaderPayLocked": "أعد فتح الراتب لتغيير هذه المبالغ."
+  "adminAuditLeaderPayLocked": "أعد فتح الراتب لتغيير هذه المبالغ.",
+  "presenceMonthLatest": "الأحدث",
+  "presencePreviousWeek": "الأسبوع السابق",
+  "presenceNextWeek": "الأسبوع التالي"
 }
