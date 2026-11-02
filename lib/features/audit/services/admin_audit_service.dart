@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:alluwalacademyadmin/features/audit/config/admin_audit_compliance_config.dart';
 import 'package:alluwalacademyadmin/features/audit/models/admin_audit.dart';
 import '../../../core/utils/app_logger.dart';
@@ -6,6 +7,39 @@ import '../../../core/utils/app_logger.dart';
 /// Service for computing and storing admin audit KPIs.
 class AdminAuditService {
   static final _firestore = FirebaseFirestore.instance;
+  static final _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+
+  /// Leaders of [yearMonth] (anyone with a leadership class), with hours and
+  /// pay from their leadership timesheets. Keyed by user id. Empty on failure
+  /// so the audit still generates.
+  static Future<Map<String, Map<String, dynamic>>> loadLeadersForMonth(
+      String yearMonth) async {
+    try {
+      final res = await _functions
+          .httpsCallable('getLeaderPayMonth')
+          .call<dynamic>({'month': yearMonth});
+      final data = Map<String, dynamic>.from(res.data as Map);
+      final out = <String, Map<String, dynamic>>{};
+      for (final raw in (data['leaders'] as List? ?? const [])) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final uid = (row['uid'] ?? '').toString();
+        if (uid.isNotEmpty) out[uid] = row;
+      }
+      return out;
+    } catch (e) {
+      AppLogger.error('AdminAuditService: could not load leaders for $yearMonth: $e');
+      return {};
+    }
+  }
+
+  /// Approve (or reopen) a leader's pay for the month. The server locks the
+  /// final pay (pay + bonus − pay cut) and Finance counts it.
+  static Future<void> setLeaderPayApproved(String auditDocId,
+      {required bool approve}) async {
+    await _functions
+        .httpsCallable('approveLeaderPay')
+        .call<dynamic>({'audit_id': auditDocId, 'approve': approve});
+  }
 
   static const int _maxLabelEntriesPerAdmin = 25;
 
@@ -155,6 +189,22 @@ class AdminAuditService {
     AppLogger.info('⚙️ AdminAuditService: generating for $yearMonth');
 
     final adminMap = await loadAuditedUsersMap();
+
+    // Leaders are audited too: anyone with a leadership class this month,
+    // admin or not, with the hours their leadership timesheets add up to.
+    final leaders = await loadLeadersForMonth(yearMonth);
+    final missing = leaders.keys.where((id) => !adminMap.containsKey(id)).toList();
+    for (var i = 0; i < missing.length; i += 10) {
+      final chunk = missing.skip(i).take(10).toList();
+      final users = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final u in users.docs) {
+        if (u.data()['is_active'] == false) continue;
+        adminMap[u.id] = u.data();
+      }
+    }
 
     if (adminMap.isEmpty) {
       AppLogger.info('AdminAuditService: no admin users found');
@@ -324,6 +374,10 @@ class AdminAuditService {
         taskEfficiencyScore: taskScore,
         overallScore: overall,
         subTasksRatio: subTasksRatio,
+        leadershipHours:
+            (leaders[adminId]?['hours'] as num?)?.toDouble() ?? 0,
+        leadershipHoursPayUsd:
+            (leaders[adminId]?['hours_pay'] as num?)?.toDouble() ?? 0,
         ceoNotes: '',
         adminEvalScores: const {},
         adminEvalSectionComments: const {},
@@ -367,6 +421,7 @@ class AdminAuditService {
     required double ceoBonusMonthlyUsd,
     required double ceoPaycutMonthlyUsd,
     required String ceoAdjustmentRationale,
+    double? leaderBasePayUsd,
   }) async {
     await _firestore.collection('admin_audits').doc(auditDocId).set(
           {
@@ -374,6 +429,7 @@ class AdminAuditService {
             'ceoBonusMonthlyUsd': ceoBonusMonthlyUsd,
             'ceoPaycutMonthlyUsd': ceoPaycutMonthlyUsd,
             'ceoAdjustmentRationale': ceoAdjustmentRationale,
+            if (leaderBasePayUsd != null) 'leaderBasePayUsd': leaderBasePayUsd,
           },
           SetOptions(merge: true),
         );

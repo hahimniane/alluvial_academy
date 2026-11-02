@@ -51,6 +51,31 @@ class AdminAudit {
   /// Explanation when bonus or pay cut applies; not overwritten by regeneration.
   final String ceoAdjustmentRationale;
 
+  /// Leadership hours this month from the leader's leadership timesheets (computed).
+  final double leadershipHours;
+
+  /// What those leadership timesheets come to, in USD (computed; a guide for [leaderBasePayUsd]).
+  final double leadershipHoursPayUsd;
+
+  /// Pay for the month entered by the CEO (USD). Final pay = this + bonus − pay cut.
+  final double leaderBasePayUsd;
+
+  /// 'approved' once the CEO approved the month's pay; Finance then counts [leaderNetPayUsd].
+  final String leaderPayStatus;
+
+  /// Final pay locked at approval.
+  final double leaderNetPayUsd;
+  final String leaderPayApprovedByName;
+  final DateTime? leaderPayApprovedAt;
+
+  bool get leaderPayApproved => leaderPayStatus == 'approved';
+
+  /// Pay + bonus − pay cut, never below zero.
+  double get leaderFinalPayUsd {
+    final v = leaderBasePayUsd + ceoBonusMonthlyUsd - ceoPaycutMonthlyUsd;
+    return v < 0 ? 0 : v;
+  }
+
   /// Manual CEO evaluation scores (criterion id → 0–5). Omitted ids = N/A. Not overwritten by regeneration.
   final Map<String, int> adminEvalScores;
 
@@ -82,6 +107,13 @@ class AdminAudit {
     this.ceoBonusMonthlyUsd = 0,
     this.ceoPaycutMonthlyUsd = 0,
     this.ceoAdjustmentRationale = '',
+    this.leadershipHours = 0,
+    this.leadershipHoursPayUsd = 0,
+    this.leaderBasePayUsd = 0,
+    this.leaderPayStatus = '',
+    this.leaderNetPayUsd = 0,
+    this.leaderPayApprovedByName = '',
+    this.leaderPayApprovedAt,
     this.adminEvalScores = const {},
     this.adminEvalSectionComments = const {},
     required this.lastUpdated,
@@ -108,6 +140,8 @@ class AdminAudit {
         'taskEfficiencyScore': taskEfficiencyScore,
         'overallScore': overallScore,
         'subTasksRatio': subTasksRatio,
+        'leadershipHours': leadershipHours,
+        'leadershipHoursPayUsd': leadershipHoursPayUsd,
         'lastUpdated': Timestamp.fromDate(lastUpdated),
       };
 
@@ -118,6 +152,7 @@ class AdminAudit {
         'ceoBonusMonthlyUsd': ceoBonusMonthlyUsd,
         'ceoPaycutMonthlyUsd': ceoPaycutMonthlyUsd,
         'ceoAdjustmentRationale': ceoAdjustmentRationale,
+        'leaderBasePayUsd': leaderBasePayUsd,
         'adminEvalScores': adminEvalScores,
         'adminEvalSectionComments': adminEvalSectionComments,
       };
@@ -183,6 +218,17 @@ class AdminAudit {
       ceoPaycutMonthlyUsd:
           (data['ceoPaycutMonthlyUsd'] as num?)?.toDouble() ?? 0,
       ceoAdjustmentRationale: data['ceoAdjustmentRationale']?.toString() ?? '',
+      leadershipHours: (data['leadershipHours'] as num?)?.toDouble() ?? 0,
+      leadershipHoursPayUsd:
+          (data['leadershipHoursPayUsd'] as num?)?.toDouble() ?? 0,
+      leaderBasePayUsd: (data['leaderBasePayUsd'] as num?)?.toDouble() ?? 0,
+      leaderPayStatus: data['leaderPayStatus']?.toString() ?? '',
+      leaderNetPayUsd: (data['leaderNetPayUsd'] as num?)?.toDouble() ?? 0,
+      leaderPayApprovedByName:
+          data['leaderPayApprovedByName']?.toString() ?? '',
+      leaderPayApprovedAt: data['leaderPayApprovedAt'] is Timestamp
+          ? (data['leaderPayApprovedAt'] as Timestamp).toDate()
+          : null,
       adminEvalScores: _parseEvalScoresMap(data['adminEvalScores']),
       adminEvalSectionComments: _parseStringStringMap(data['adminEvalSectionComments']),
       lastUpdated: data['lastUpdated'] is Timestamp
@@ -219,6 +265,13 @@ class AdminAudit {
     double? ceoBonusMonthlyUsd,
     double? ceoPaycutMonthlyUsd,
     String? ceoAdjustmentRationale,
+    double? leadershipHours,
+    double? leadershipHoursPayUsd,
+    double? leaderBasePayUsd,
+    String? leaderPayStatus,
+    double? leaderNetPayUsd,
+    String? leaderPayApprovedByName,
+    DateTime? leaderPayApprovedAt,
     Map<String, int>? adminEvalScores,
     Map<String, String>? adminEvalSectionComments,
     DateTime? lastUpdated,
@@ -248,6 +301,15 @@ class AdminAudit {
       ceoPaycutMonthlyUsd: ceoPaycutMonthlyUsd ?? this.ceoPaycutMonthlyUsd,
       ceoAdjustmentRationale:
           ceoAdjustmentRationale ?? this.ceoAdjustmentRationale,
+      leadershipHours: leadershipHours ?? this.leadershipHours,
+      leadershipHoursPayUsd:
+          leadershipHoursPayUsd ?? this.leadershipHoursPayUsd,
+      leaderBasePayUsd: leaderBasePayUsd ?? this.leaderBasePayUsd,
+      leaderPayStatus: leaderPayStatus ?? this.leaderPayStatus,
+      leaderNetPayUsd: leaderNetPayUsd ?? this.leaderNetPayUsd,
+      leaderPayApprovedByName:
+          leaderPayApprovedByName ?? this.leaderPayApprovedByName,
+      leaderPayApprovedAt: leaderPayApprovedAt ?? this.leaderPayApprovedAt,
       adminEvalScores: adminEvalScores ?? this.adminEvalScores,
       adminEvalSectionComments:
           adminEvalSectionComments ?? this.adminEvalSectionComments,

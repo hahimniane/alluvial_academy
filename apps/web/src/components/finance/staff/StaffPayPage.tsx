@@ -17,6 +17,7 @@ import {
   staffCards,
   staffCsv,
   teacherRows,
+  leaderRows,
   type PayableRow,
 } from "@/lib/finance/staff";
 import { AdminPayDialog, PauseDialog } from "./AdminDialogs";
@@ -59,7 +60,8 @@ export function StaffPayPage() {
 
   const teachers = useMemo(() => (data ? teacherRows(data.summary, data.payouts) : []), [data]);
   const admins = useMemo(() => (data ? adminRows(data.summary, data.payouts) : []), [data]);
-  const payable = useMemo(() => [...teachers, ...admins].filter((r) => r.payable), [teachers, admins]);
+  const leaders = useMemo(() => (data ? leaderRows(data.summary, data.payouts) : []), [data]);
+  const payable = useMemo(() => [...teachers, ...leaders, ...admins].filter((r) => r.payable), [teachers, leaders, admins]);
   const picked = payable.filter((r) => selected.has(payoutKey(r.role, r.uid)));
 
   if (loading && !data) return <p className="p-2 text-sm text-slate-600">Loading staff pay…</p>;
@@ -78,7 +80,7 @@ export function StaffPayPage() {
 
   const { summary, payouts, usualMethod, terms, deactivated, closedMonths } = data;
   const closed = summary.status === "closed";
-  const cards = staffCards(summary, teachers, admins);
+  const cards = staffCards(summary, teachers, admins, leaders);
   const teacherFinalAll = summary.teachers.length > 0 && summary.teachers.every((t) => t.final);
   const toggle = (uid: string) =>
     setSelected((s) => {
@@ -130,7 +132,7 @@ export function StaffPayPage() {
     />
   );
 
-  const exportCsv = () => downloadCsv(`staff-pay-${month}.csv`, staffCsv(month, teachers, admins, summary));
+  const exportCsv = () => downloadCsv(`staff-pay-${month}.csv`, staffCsv(month, teachers, admins, summary, leaders));
   const editing = dialog?.kind === "admin" && dialog.uid ? summary.admins.find((a) => a.uid === dialog.uid) : null;
 
   return (
@@ -209,6 +211,60 @@ export function StaffPayPage() {
                   <td className={`${TD} text-right font-extrabold`}>{money(t.net)}</td>
                   <td className={TD}>
                     <Badge tone={t.final ? "info" : "warn"}>{t.final ? "Final" : "Estimate"}</Badge>
+                  </td>
+                  <td className={TD}>{paymentCell(row)}</td>
+                  <td className={TD}>{payButton(row)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-2 text-base font-bold">Leaders</h2>
+      <p className="text-sm text-slate-600">
+        Pay for the month, bonus and pay cut are set in each leader&apos;s audit. Approved pay can be marked paid here.
+      </p>
+      <div className={`${CARD} relative overflow-x-auto`}>
+        <table className="w-full min-w-[900px] border-collapse text-[13px]">
+          <caption className="sr-only">Leader pay for {monthLabel(month)}</caption>
+          <thead>
+            <tr className="bg-slate-50 text-left text-slate-700">
+              <th className={`${TH} w-10`}>
+                <span className="sr-only">Select</span>
+              </th>
+              <th className={TH}>Leader</th>
+              <th className={`${TH} text-right`}>Pay for the month</th>
+              <th className={`${TH} text-right`}>Bonus</th>
+              <th className={TH}>Pay cut</th>
+              <th className={`${TH} text-right`}>Pay</th>
+              <th className={TH}>Audit</th>
+              <th className={TH}>Payment</th>
+              <th className={TH}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {(summary.leaders ?? []).length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-600">
+                  No leader pay entered for {monthLabel(month)} yet. Enter it in the leader audit.
+                </td>
+              </tr>
+            ) : null}
+            {(summary.leaders ?? []).map((l, i) => {
+              const row = leaders[i];
+              return (
+                <tr key={l.uid} className="border-t border-slate-200">
+                  <td className={TD}>{checkbox(row)}</td>
+                  <td className={`${TD} font-semibold`}>{l.name}</td>
+                  <td className={`${TD} text-right`}>{money(l.base)}</td>
+                  <td className={`${TD} text-right`}>{l.bonus > 0 ? `+${money(l.bonus)}` : <span className="text-slate-500">—</span>}</td>
+                  <td className={TD}>{l.paycut > 0 ? <span className="font-bold text-red-700">−{money(l.paycut)}</span> : <span className="text-slate-500">—</span>}</td>
+                  <td className={`${TD} text-right font-extrabold`}>{money(l.net)}</td>
+                  <td className={TD}>
+                    <Badge tone={l.final ? "info" : "warn"}>{l.final ? "Approved" : "Estimate"}</Badge>
                   </td>
                   <td className={TD}>{paymentCell(row)}</td>
                   <td className={TD}>{payButton(row)}</td>

@@ -629,3 +629,28 @@ describe('autoPauseOnDeactivation', () => {
     expect(out.from_month).toBe('2026-11');
   });
 });
+
+describe('leader pay (from the leader audit)', () => {
+  const withLeaders = () => {
+    const s = seed();
+    s.admin_audits = {
+      'lead_1_2026-09': {adminId: 'lead_1', adminName: 'Saikou Jalloh', yearMonth: '2026-09', leaderBasePayUsd: 400, ceoBonusMonthlyUsd: 50, ceoPaycutMonthlyUsd: 20, leaderPayStatus: 'approved', leaderNetPayUsd: 430},
+      'lead_2_2026-09': {adminId: 'lead_2', adminName: 'Fatimah Ibrahim', yearMonth: '2026-09', leaderBasePayUsd: 100},
+    };
+    return s;
+  };
+
+  test('pays an approved leader the approved amount', async () => {
+    const db = makeDb(withLeaders());
+    const out = await recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 'lead_1', role: 'leader', amount_paid: 430})]}}, makeDeps(db));
+    expect(out).toEqual({ok: true, count: 1});
+    expect(db.store.staff_payouts['2026-09_lead_1_leader']).toMatchObject({role: 'leader', name: 'Saikou Jalloh', amount_due: 430, amount_paid: 430});
+  });
+
+  test('refuses a leader whose pay is not approved', async () => {
+    const db = makeDb(withLeaders());
+    await expect(recordStaffPayouts({data: {month: '2026-09', entries: [entry({uid: 'lead_2', role: 'leader', amount_paid: 100})]}}, makeDeps(db)))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    expect(db.writes).toEqual([]);
+  });
+});

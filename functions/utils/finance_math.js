@@ -222,6 +222,34 @@ const auditsBlockingClose = (audits) =>
     return num(summary.totalNetPayment) !== 0 || num(summary.totalGrossPayment) !== 0 || paidHours(audit) > 0;
   });
 
+/**
+ * Leader pay from the leader audits (admin_audits) of the month. A leader
+ * counts once a pay for the month is entered; the amount is the approved
+ * figure, or until approval pay + bonus − pay cut as an estimate.
+ */
+const leaderRows = (leaderAudits) => {
+  const rows = [];
+  for (const a of leaderAudits) {
+    const base = num(a.leaderBasePayUsd);
+    const approved = text(a.leaderPayStatus) === 'approved';
+    if (!(base > 0) && !approved) continue;
+    const bonus = r2(num(a.ceoBonusMonthlyUsd));
+    const paycut = r2(num(a.ceoPaycutMonthlyUsd));
+    const estimate = r2(Math.max(0, base + bonus - paycut));
+    const uid = text(a.adminId) || text(a.id).split('_')[0];
+    rows.push({
+      uid,
+      name: text(a.adminName) || uid,
+      base: r2(base),
+      bonus,
+      paycut,
+      net: approved ? r2(num(a.leaderNetPayUsd)) : estimate,
+      final: approved,
+    });
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
+};
+
 // ------------------------------------------------------------- expenses ----
 
 const expenseMonth = (expense) => {
@@ -407,21 +435,25 @@ const adminPayoutMismatches = (admins, payouts) =>
  * @param {Array} input.confirmations finance_recurring_confirmations for the month
  * @param {Array} input.payouts staff_payouts for the month
  * @param {Array} input.adminTerms admin_pay_terms documents
+ * @param {Array} input.leaderAudits admin_audits (leader audits) for the month
  */
 const buildMonthSummary = ({
   month, now, invoices = [], audits = [], expenses = [], recurringCosts = [],
-  confirmations = [], payouts = [], adminTerms = [],
+  confirmations = [], payouts = [], adminTerms = [], leaderAudits = [],
 }) => {
   const inv = invoiceTotals(invoices, month);
   const teachers = teacherRows(audits);
   const teacherPay = r2(teachers.reduce((sum, t) => sum + t.net, 0));
   const penalties = r2(teachers.reduce((sum, t) => sum + t.penalties, 0));
   const teacherPayFinal = teachers.every((t) => t.final);
+  const leaders = leaderRows(leaderAudits);
+  const leaderPay = r2(leaders.reduce((sum, l) => sum + l.net, 0));
+  const leaderPayFinal = leaders.every((l) => l.final);
 
   const costs = costTotals({month, expenses, recurringCosts, confirmations, now});
   const transferFees = r2(costs.transfer_fees + payoutTransferFees(payouts));
 
-  const otherCosts = r2(teacherPay + costs.software + costs.marketing + transferFees + costs.other);
+  const otherCosts = r2(teacherPay + leaderPay + costs.software + costs.marketing + transferFees + costs.other);
   // The fee for sending an administrator their own pay is still Alluwal's
   // expense, but it does not lower the profit share: otherwise paying (or
   // voiding) one administrator would move the others' amounts by cents.
@@ -434,9 +466,10 @@ const buildMonthSummary = ({
 
   const expensesTotal = r2(otherCosts + adminTotal);
   const ended = monthEnded(month, now);
-  const final = ended && costs.recurring_pending === 0 && teacherPayFinal;
+  const final = ended && costs.recurring_pending === 0 && teacherPayFinal && leaderPayFinal;
 
   const unpaidTeachers = teachers.filter((t) => t.final && t.net > 0 && !hasPayout(payouts, t.uid, 'teacher')).length;
+  const unpaidLeaders = leaders.filter((l) => l.final && l.net > 0 && !hasPayout(payouts, l.uid, 'leader')).length;
   const unpaidAdmins = final
     ? admins.filter((a) => !a.paused && a.total > 0 && !hasPayout(payouts, a.uid, 'admin')).length
     : 0;
@@ -452,6 +485,8 @@ const buildMonthSummary = ({
     penalties,
     teacher_pay: teacherPay,
     teacher_pay_final: teacherPayFinal,
+    leader_pay: leaderPay,
+    leader_pay_final: leaderPayFinal,
     admin_pay: adminTotal,
     admin_base: adminBase,
     software: costs.software,
@@ -466,8 +501,10 @@ const buildMonthSummary = ({
     recurring_due: costs.recurring_due,
     unpaid_teachers: unpaidTeachers,
     unpaid_admins: unpaidAdmins,
+    unpaid_leaders: unpaidLeaders,
     admin_payout_mismatches: final ? adminPayoutMismatches(admins, payouts) : 0,
     teachers,
+    leaders,
     admins,
   };
 };
@@ -482,10 +519,14 @@ const closeBlockers = ({month, now, summary, unapprovedAudits}) => {
   if (unapprovedAudits > 0) {
     out.push(`${unapprovedAudits} teacher ${unapprovedAudits === 1 ? 'audit is' : 'audits are'} not approved`);
   }
+  const leadersPending = (summary.leaders || []).filter((l) => !l.final).length;
+  if (leadersPending > 0) {
+    out.push(`${leadersPending} leader ${leadersPending === 1 ? 'pay is' : 'pays are'} not approved`);
+  }
   if (summary.recurring_pending > 0) {
     out.push(`${summary.recurring_pending} recurring ${summary.recurring_pending === 1 ? 'cost is' : 'costs are'} not confirmed`);
   }
-  const unpaid = summary.unpaid_teachers + summary.unpaid_admins;
+  const unpaid = summary.unpaid_teachers + summary.unpaid_admins + num(summary.unpaid_leaders);
   if (unpaid > 0) out.push(`${unpaid} ${unpaid === 1 ? 'person is' : 'people are'} not paid`);
   const mismatched = num(summary.admin_payout_mismatches);
   if (mismatched > 0) out.push(`Adjust ${mismatched} administrator ${mismatched === 1 ? 'payment' : 'payments'}`);
@@ -516,6 +557,7 @@ module.exports = {
   isFinalAudit,
   paidHours,
   teacherRows,
+  leaderRows,
   auditPenalties,
   auditsBlockingClose,
   expenseMonth,

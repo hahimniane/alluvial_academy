@@ -125,8 +125,8 @@ const parseEntry = (raw) => {
   const entry = record(raw);
   const uid = requireUid(entry.uid);
   const role = entry.role;
-  if (role !== 'teacher' && role !== 'admin') {
-    throw HttpsError('invalid-argument', 'role must be teacher or admin.');
+  if (role !== 'teacher' && role !== 'admin' && role !== 'leader') {
+    throw HttpsError('invalid-argument', 'role must be teacher, leader or admin.');
   }
   const amount = finite(entry.amount_paid);
   if (amount === null || amount <= 0) {
@@ -183,6 +183,20 @@ const resolveDue = async (tx, db, month, entry, adminTotals) => {
       name: text(audit.teacherName) || '',
       amount_due: math.r2(net === null ? 0 : net),
     };
+  }
+
+  if (entry.role === 'leader') {
+    // Leader pay is decided in the leader audit (admin_audits {uid}_{yyyy-MM}).
+    const snap = await tx.get(db.collection('admin_audits').doc(`${entry.uid}_${month}`));
+    const audit = snap.exists ? snap.data() || {} : null;
+    if (!audit || text(audit.leaderPayStatus) !== 'approved') {
+      throw HttpsError(
+        'failed-precondition',
+        `${text(audit && audit.adminName) || 'This leader'}'s pay is not approved yet. Approve it in the leader audit first.`
+      );
+    }
+    const net = finite(audit.leaderNetPayUsd);
+    return {name: text(audit.adminName) || '', amount_due: math.r2(net === null ? 0 : net)};
   }
 
   const ref = db.collection('admin_pay_terms').doc(entry.uid);
@@ -297,8 +311,8 @@ const voidStaffPayout = async (request, deps = defaultDeps()) => {
   const uid = requireUid(payload.uid);
   const reason = requireReason(payload.reason, 'Say why this payment is being voided.');
   const role = payload.role === undefined || payload.role === null ? null : payload.role;
-  if (role !== null && role !== 'teacher' && role !== 'admin') {
-    throw HttpsError('invalid-argument', 'role must be teacher or admin.');
+  if (role !== null && role !== 'teacher' && role !== 'admin' && role !== 'leader') {
+    throw HttpsError('invalid-argument', 'role must be teacher, leader or admin.');
   }
 
   await assertMonthOpen(db, month);
@@ -308,7 +322,7 @@ const voidStaffPayout = async (request, deps = defaultDeps()) => {
   await db.runTransaction(async (tx) => {
     await assertMonthOpenInTransaction(tx, db, month);
     // The page names the role; without it the one live payout for this person is used.
-    const roles = role ? [role] : ['teacher', 'admin'];
+    const roles = role ? [role] : ['teacher', 'leader', 'admin'];
     const found = [];
     for (const r of roles) {
       const ref = db.collection('staff_payouts').doc(docId(month, uid, r));

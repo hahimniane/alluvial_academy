@@ -6,7 +6,7 @@ import { monthName } from "./months.ts";
 import type { MonthSummary } from "./summary.ts";
 
 export type CloseCheck = {
-  id: "ended" | "audits" | "recurring" | "paid" | "adjust";
+  id: "ended" | "audits" | "leaders" | "recurring" | "paid" | "adjust";
   ok: boolean;
   text: string;
   /** Where to fix it; null when nothing can be done there. */
@@ -23,7 +23,7 @@ export function lastDay(month: string): number {
 
 export function closeChecklist(summary: MonthSummary, ended: boolean): CloseCheck[] {
   const name = monthName(summary.month);
-  const people = summary.unpaid_teachers + summary.unpaid_admins;
+  const people = summary.unpaid_teachers + summary.unpaid_admins + (summary.unpaid_leaders ?? 0);
   const staffHref = `/admin/finance/staff/?month=${summary.month}`;
   const estimate = people === 0 && !summary.final && summary.status !== "closed";
   const mismatched = summary.admin_payout_mismatches ?? 0;
@@ -40,6 +40,9 @@ export function closeChecklist(summary: MonthSummary, ended: boolean): CloseChec
       text: summary.teacher_pay_final ? "All teacher audits approved" : "Teacher audits are still in progress",
       href: summary.teacher_pay_final ? null : `/admin/finance/staff/?month=${summary.month}`,
     },
+    ...(summary.leader_pay_final === false
+      ? [{ id: "leaders" as const, ok: false, text: "Leader pay is not all approved", href: `/admin/finance/staff/?month=${summary.month}` }]
+      : []),
     {
       id: "recurring",
       ok: summary.recurring_pending === 0,

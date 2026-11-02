@@ -22,10 +22,11 @@ export const FIN = {
   audits: "teacher_audits",
 } as const;
 
-export type ExpenseCategory = "teacher_pay" | "admin_pay" | "software" | "marketing" | "transfer_fees" | "other";
+export type ExpenseCategory = "teacher_pay" | "leader_pay" | "admin_pay" | "software" | "marketing" | "transfer_fees" | "other";
 
 export const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   teacher_pay: "Teacher pay",
+  leader_pay: "Leader pay",
   admin_pay: "Administrator pay",
   software: "Software & subscriptions",
   marketing: "Marketing",
@@ -37,6 +38,7 @@ export type RollupGroup = "Staff" | "Administration" | "Other";
 
 export const CATEGORY_GROUP: Record<ExpenseCategory, RollupGroup> = {
   teacher_pay: "Staff",
+  leader_pay: "Staff",
   admin_pay: "Staff",
   software: "Administration",
   transfer_fees: "Administration",
@@ -44,7 +46,7 @@ export const CATEGORY_GROUP: Record<ExpenseCategory, RollupGroup> = {
   other: "Other",
 };
 
-/** Stored (entered) categories; teacher and administrator pay are computed. */
+/** Stored (entered) categories; teacher, leader and administrator pay are computed. */
 export const ENTERED_CATEGORIES: ExpenseCategory[] = ["software", "marketing", "transfer_fees", "other"];
 
 /**

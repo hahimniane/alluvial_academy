@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:alluwalacademyadmin/features/audit/models/teacher_audit_full.dart';
 import '../services/teacher_audit_service.dart';
@@ -103,7 +104,10 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
       TextEditingController();
   final TextEditingController _adminCeoAdjustmentRationaleController =
       TextEditingController();
+  final TextEditingController _adminLeaderBasePayController =
+      TextEditingController();
   bool _isSavingAdminCeoNotes = false;
+  bool _isApprovingLeaderPay = false;
   bool _bottomBarCollapsed = true;
 
   @override
@@ -144,6 +148,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
     _adminCeoBonusController.dispose();
     _adminCeoPaycutController.dispose();
     _adminCeoAdjustmentRationaleController.dispose();
+    _adminLeaderBasePayController.dispose();
     super.dispose();
   }
 
@@ -155,13 +160,19 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
         ? a.ceoPaycutMonthlyUsd.toStringAsFixed(2)
         : '';
     _adminCeoAdjustmentRationaleController.text = a.ceoAdjustmentRationale;
+    _adminLeaderBasePayController.text =
+        a.leaderBasePayUsd > 0 ? a.leaderBasePayUsd.toStringAsFixed(2) : '';
   }
+
+  double _parseUsd(TextEditingController c) =>
+      double.tryParse(c.text.trim().replaceAll(',', '.')) ?? 0.0;
 
   void _clearAdminCeoFields() {
     _adminCeoNotesController.clear();
     _adminCeoBonusController.clear();
     _adminCeoPaycutController.clear();
     _adminCeoAdjustmentRationaleController.clear();
+    _adminLeaderBasePayController.clear();
   }
 
   Future<void> _loadAudits({bool force = false}) async {
@@ -2398,12 +2409,14 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                 _adminCeoPaycutController.text.trim().replaceAll(',', '.')) ??
             0.0;
         final rationale = _adminCeoAdjustmentRationaleController.text;
+        final basePay = _parseUsd(_adminLeaderBasePayController);
         await AdminAuditService.updateCeoWrittenFields(
           audit.id,
           ceoNotes: text,
           ceoBonusMonthlyUsd: bonus,
           ceoPaycutMonthlyUsd: paycut,
           ceoAdjustmentRationale: rationale,
+          leaderBasePayUsd: basePay,
         );
         if (!mounted) return;
         final i = _adminAudits.indexWhere((a) => a.id == audit.id);
@@ -2413,6 +2426,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                 ceoBonusMonthlyUsd: bonus,
                 ceoPaycutMonthlyUsd: paycut,
                 ceoAdjustmentRationale: rationale,
+                leaderBasePayUsd: basePay,
               ));
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2427,6 +2441,48 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
         if (mounted) setState(() => _isSavingAdminCeoNotes = false);
       }
     }
+
+    // Approving saves the amounts first, then the server locks the final pay.
+    Future<void> setLeaderPayApproved(bool approve) async {
+      if (approve && _parseUsd(_adminLeaderBasePayController) <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.adminAuditLeaderNeedsPay)),
+        );
+        return;
+      }
+      setState(() => _isApprovingLeaderPay = true);
+      try {
+        if (approve) await saveNotes();
+        await AdminAuditService.setLeaderPayApproved(audit.id, approve: approve);
+        final fresh = await FirebaseFirestore.instance
+            .collection('admin_audits')
+            .doc(audit.id)
+            .get();
+        if (!mounted || !fresh.exists) return;
+        final updated = AdminAudit.fromFirestore(fresh);
+        final i = _adminAudits.indexWhere((a) => a.id == audit.id);
+        if (i >= 0) {
+          setState(() => _adminAudits[i] = _adminAudits[i].copyWith(
+                leaderBasePayUsd: updated.leaderBasePayUsd,
+                leaderPayStatus: updated.leaderPayStatus,
+                leaderNetPayUsd: updated.leaderNetPayUsd,
+                leaderPayApprovedByName: updated.leaderPayApprovedByName,
+                leaderPayApprovedAt: updated.leaderPayApprovedAt,
+              ));
+        }
+      } catch (e) {
+        if (!mounted) return;
+        final message = e is FirebaseFunctionsException ? (e.message ?? '$e') : '$e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } finally {
+        if (mounted) setState(() => _isApprovingLeaderPay = false);
+      }
+    }
+
+    final payLocked = audit.leaderPayApproved;
+    final usd = NumberFormat.currency(symbol: r'$', decimalDigits: 2);
 
     return Container(
       margin: EdgeInsets.zero,
@@ -2573,6 +2629,59 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                                   fontSize: 11,
                                   color: Win11Colors.textSecondary),
                             ),
+                            const SizedBox(height: 12),
+                            Text(
+                              l10n.adminAuditLeaderPayHeading,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              children: [
+                                Text(
+                                  audit.leadershipHours > 0
+                                      ? l10n.adminAuditLeaderHoursLine(
+                                          audit.leadershipHours
+                                              .toStringAsFixed(1),
+                                          usd.format(
+                                              audit.leadershipHoursPayUsd))
+                                      : l10n.adminAuditLeaderNoHours,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: Win11Colors.textSecondary),
+                                ),
+                                if (!payLocked &&
+                                    audit.leadershipHoursPayUsd > 0)
+                                  TextButton(
+                                    onPressed: () => setState(() =>
+                                        _adminLeaderBasePayController.text =
+                                            audit.leadershipHoursPayUsd
+                                                .toStringAsFixed(2)),
+                                    child: Text(l10n.adminAuditLeaderUseHoursPay),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              l10n.adminAuditLeaderBasePay,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600, fontSize: 11),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _adminLeaderBasePayController,
+                              readOnly: payLocked,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               l10n.adminAuditCeoBonusMonthly,
@@ -2582,6 +2691,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                             const SizedBox(height: 4),
                             TextField(
                               controller: _adminCeoBonusController,
+                              readOnly: payLocked,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
@@ -2600,6 +2710,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                             const SizedBox(height: 4),
                             TextField(
                               controller: _adminCeoPaycutController,
+                              readOnly: payLocked,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
@@ -2625,6 +2736,85 @@ class _AdminAuditScreenState extends State<AdminAuditScreen>
                                     borderRadius: BorderRadius.circular(6)),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            ListenableBuilder(
+                              listenable: Listenable.merge([
+                                _adminLeaderBasePayController,
+                                _adminCeoBonusController,
+                                _adminCeoPaycutController,
+                              ]),
+                              builder: (context, _) {
+                                final finalPay = payLocked
+                                    ? audit.leaderNetPayUsd
+                                    : (_parseUsd(_adminLeaderBasePayController) +
+                                            _parseUsd(_adminCeoBonusController) -
+                                            _parseUsd(_adminCeoPaycutController))
+                                        .clamp(0, double.infinity)
+                                        .toDouble();
+                                return Text(
+                                  l10n.adminAuditLeaderFinalPay(
+                                      usd.format(finalPay)),
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              payLocked
+                                  ? l10n.adminAuditLeaderPayLocked
+                                  : l10n.adminAuditLeaderFinalPayHint,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Win11Colors.textSecondary),
+                            ),
+                            const SizedBox(height: 10),
+                            if (payLocked)
+                              Row(
+                                children: [
+                                  const Icon(Icons.check_circle,
+                                      size: 16, color: Color(0xFF059669)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      l10n.adminAuditLeaderApprovedBy(
+                                        audit.leaderPayApprovedByName,
+                                        audit.leaderPayApprovedAt != null
+                                            ? DateFormat.yMMMd().format(
+                                                audit.leaderPayApprovedAt!)
+                                            : '',
+                                        usd.format(audit.leaderNetPayUsd),
+                                      ),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF047857)),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _isApprovingLeaderPay
+                                        ? null
+                                        : () => setLeaderPayApproved(false),
+                                    child: Text(l10n.adminAuditLeaderReopenPay),
+                                  ),
+                                ],
+                              )
+                            else
+                              FilledButton.icon(
+                                onPressed: _isApprovingLeaderPay ||
+                                        _isSavingAdminCeoNotes
+                                    ? null
+                                    : () => setLeaderPayApproved(true),
+                                icon: _isApprovingLeaderPay
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2))
+                                    : const Icon(Icons.verified, size: 16),
+                                label: Text(l10n.adminAuditLeaderApprovePay),
+                              ),
                           ],
                         ),
                       ),

@@ -19,6 +19,17 @@ export type SummaryTeacher = {
   final: boolean;
 };
 
+/** Leader pay, decided and approved in the leader audit. */
+export type SummaryLeader = {
+  uid: string;
+  name: string;
+  base: number;
+  bonus: number;
+  paycut: number;
+  net: number;
+  final: boolean;
+};
+
 export type SummaryAdmin = {
   uid: string;
   name: string;
@@ -37,12 +48,15 @@ export type StaffSummary = {
   final?: boolean;
   teacher_pay?: number;
   teacher_pay_final?: boolean;
+  leader_pay?: number;
+  leader_pay_final?: boolean;
   admin_pay?: number;
   admin_base?: number;
   penalties?: number;
   /** Administrator payouts that differ from what is due by more than a cent. */
   admin_payout_mismatches?: number;
   teachers: SummaryTeacher[];
+  leaders?: SummaryLeader[];
   admins: SummaryAdmin[];
 };
 
@@ -61,7 +75,7 @@ export type PayoutHistoryEntry = {
 export type Payout = {
   user_id: string;
   name?: string;
-  role: "teacher" | "admin";
+  role: StaffRole;
   month: string;
   amount_due: number;
   amount_paid: number;
@@ -74,6 +88,8 @@ export type Payout = {
   void_reason?: string;
   history: PayoutHistoryEntry[];
 };
+
+export type StaffRole = "teacher" | "leader" | "admin";
 
 export type PayTerm = { from_month: string; fixed: number; pct: number; note?: string; set_by_name?: string };
 export type PayPause = {
@@ -168,7 +184,7 @@ export function splitFee(total: number, count: number): number[] {
 export type PayableRow = {
   uid: string;
   name: string;
-  role: "teacher" | "admin";
+  role: StaffRole;
   due: number;
   payout: Payout | null;
   /** Final pay, not paused, not already paid in full. */
@@ -178,7 +194,7 @@ export type PayableRow = {
 };
 
 /** Key for the payouts map: the same person can have a teacher and an administrator payout. */
-export const payoutKey = (role: "teacher" | "admin", uid: string): string => `${role}:${uid}`;
+export const payoutKey = (role: StaffRole, uid: string): string => `${role}:${uid}`;
 
 export function teacherRows(summary: StaffSummary, payouts: Map<string, Payout>): PayableRow[] {
   return summary.teachers.map((t) => {
@@ -186,6 +202,15 @@ export function teacherRows(summary: StaffSummary, payouts: Map<string, Payout>)
     const state = payState(t.net, payout);
     const blocked = !t.final ? "Estimate until the audit is approved" : state === "paid" ? "Already paid" : "";
     return { uid: t.uid, name: t.name, role: "teacher", due: t.net, payout, payable: !blocked, blocked };
+  });
+}
+
+export function leaderRows(summary: StaffSummary, payouts: Map<string, Payout>): PayableRow[] {
+  return (summary.leaders ?? []).map((l) => {
+    const payout = payouts.get(payoutKey("leader", l.uid)) ?? null;
+    const state = payState(l.net, payout);
+    const blocked = !l.final ? "Approve the pay in the leader audit first" : state === "paid" ? "Already paid" : l.net <= 0 ? "Nothing to pay" : "";
+    return { uid: l.uid, name: l.name, role: "leader", due: l.net, payout, payable: !blocked, blocked };
   });
 }
 
@@ -211,19 +236,22 @@ export function adminRows(summary: StaffSummary, payouts: Map<string, Payout>): 
 
 export type StaffCard = { label: string; value: string; sub: string; tone?: "bad" };
 
-export function staffCards(summary: StaffSummary, teachers: PayableRow[], admins: PayableRow[]): StaffCard[] {
+export function staffCards(summary: StaffSummary, teachers: PayableRow[], admins: PayableRow[], leaders: PayableRow[] = []): StaffCard[] {
   const teacherPay = summary.teacher_pay ?? r2(summary.teachers.reduce((s, t) => s + t.net, 0));
   const teacherFinal = summary.teacher_pay_final ?? (summary.teachers.length > 0 && summary.teachers.every((t) => t.final));
   const penalties = summary.penalties ?? r2(summary.teachers.reduce((s, t) => s + t.penalties, 0));
   const cut = summary.teachers.filter((t) => t.penalties > 0).length;
   const adminPay = summary.admin_pay ?? r2(summary.admins.reduce((s, a) => s + a.total, 0));
   const activeAdmins = admins.filter((a) => !summary.admins.find((x) => x.uid === a.uid)?.paused);
-  const everyone = [...teachers, ...activeAdmins];
+  const everyone = [...teachers, ...leaders, ...activeAdmins];
   const paid = everyone.filter((r) => payState(r.due, r.payout) === "paid").length;
-  const fees = r2([...teachers, ...admins].reduce((s, r) => s + (r.payout && !r.payout.voided ? r.payout.transfer_fee : 0), 0));
+  const fees = r2([...teachers, ...leaders, ...admins].reduce((s, r) => s + (r.payout && !r.payout.voided ? r.payout.transfer_fee : 0), 0));
   return [
     { label: "Teacher pay", value: money(teacherPay), sub: `${summary.teachers.length} teachers · ${teacherFinal ? "final" : "estimate"}` },
     { label: "Penalties (all teachers)", value: `−${money(penalties)}`, sub: `${cut} ${cut === 1 ? "teacher" : "teachers"} had money cut`, tone: "bad" },
+    ...(leaders.length
+      ? [{ label: "Leader pay", value: money(summary.leader_pay ?? r2(leaders.reduce((s, r) => s + r.due, 0))), sub: `${leaders.length} ${leaders.length === 1 ? "leader" : "leaders"} · ${summary.leader_pay_final === false ? "estimate" : "final"}` }]
+      : []),
     { label: "Administrator pay", value: money(adminPay), sub: summary.final ? "Final" : "Estimate until the month is final" },
     { label: "Paid so far", value: `${paid} of ${everyone.length}`, sub: `Transfer fees ${money(fees)}` },
   ];
@@ -311,7 +339,7 @@ export function openMonthOptions(months: string[], closed: Set<string>): string[
 // CSV
 // ---------------------------------------------------------------------------
 
-export function staffCsv(month: string, teachers: PayableRow[], admins: PayableRow[], summary: StaffSummary): string {
+export function staffCsv(month: string, teachers: PayableRow[], admins: PayableRow[], summary: StaffSummary, leaders: PayableRow[] = []): string {
   const header = ["Type", "Name", "Month", "Owed", "Paid", "Left", "Status", "Date paid", "Method", "Transfer fee", "Reference", "Note"];
   const out: Array<Array<string | number>> = [];
   const add = (type: string, r: PayableRow, status: string) => {
@@ -334,6 +362,10 @@ export function staffCsv(month: string, teachers: PayableRow[], admins: PayableR
   for (const r of teachers) {
     const final = summary.teachers.find((t) => t.uid === r.uid)?.final;
     add("Teacher", r, final ? payState(r.due, r.payout) : "estimate");
+  }
+  for (const r of leaders) {
+    const final = summary.leaders?.find((l) => l.uid === r.uid)?.final;
+    add("Leader", r, final ? payState(r.due, r.payout) : "estimate");
   }
   for (const r of admins) {
     const paused = Boolean(summary.admins.find((a) => a.uid === r.uid)?.paused);

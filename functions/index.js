@@ -17,6 +17,7 @@ const financeStaffHandlers = require('./handlers/finance_staff');
 const rescheduleRequestHandlers = require('./handlers/reschedule_requests');
 const shiftRateGuard = require('./handlers/shift_rate_guard');
 const moveClassHandlers = require('./handlers/move_classes');
+const leaderPayHandlers = require('./handlers/leader_pay');
 const aiTutorVoice = require('./handlers/ai_tutor_voice');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
@@ -665,6 +666,15 @@ const financeSummaryHandlers = require('./handlers/finance_summary');
 const financeMonthsHandlers = require('./handlers/finance_months');
 const financeSettingsHandlers = require('./handlers/finance_settings');
 exports.getFinanceMonthSummary = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinanceMonthSummary(request));
+// Leader pay in the leader audit: hours from leadership timesheets, and approve/reopen.
+exports.getLeaderPayMonth = onCall(
+  { cors: true, invoker: 'public', memory: '512MiB', timeoutSeconds: 120 },
+  (request) => leaderPayHandlers.getLeaderPayMonth(request)
+);
+exports.approveLeaderPay = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => leaderPayHandlers.approveLeaderPay(request)
+);
 exports.getFinancePenaltyAudits = onCall({ cors: true, invoker: 'public' }, (request) => financeSummaryHandlers.getFinancePenaltyAudits(request));
 exports.closeFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.closeFinanceMonth(request));
 exports.reopenFinanceMonth = onCall({ cors: true, invoker: 'public' }, (request) => financeMonthsHandlers.reopenFinanceMonth(request));

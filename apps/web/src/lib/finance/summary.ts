@@ -13,6 +13,17 @@ export type TeacherLine = {
   final: boolean;
 };
 
+/** Leader pay from the leader audit: pay for the month + bonus − pay cut. */
+export type LeaderLine = {
+  uid: string;
+  name: string;
+  base: number;
+  bonus: number;
+  paycut: number;
+  net: number;
+  final: boolean;
+};
+
 export type AdminLine = {
   uid: string;
   name: string;
@@ -36,6 +47,8 @@ export type MonthSummary = {
   penalties: number;
   teacher_pay: number;
   teacher_pay_final: boolean;
+  leader_pay?: number;
+  leader_pay_final?: boolean;
   admin_pay: number;
   admin_base: number;
   software: number;
@@ -50,11 +63,13 @@ export type MonthSummary = {
   recurring_due: number;
   unpaid_teachers: number;
   unpaid_admins: number;
+  unpaid_leaders?: number;
   /** Administrator payouts that differ from what is due by more than a cent (0 until pay is final). */
   admin_payout_mismatches?: number;
   overdue_invoices: number;
   first_invoices_this_week: number;
   teachers: TeacherLine[];
+  leaders?: LeaderLine[];
   admins: AdminLine[];
 };
 

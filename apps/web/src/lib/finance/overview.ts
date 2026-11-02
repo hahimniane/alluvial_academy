@@ -59,6 +59,7 @@ export type Totals = {
   discounts: number;
   penalties: number;
   teacher_pay: number;
+  leader_pay: number;
   admin_pay: number;
   software: number;
   marketing: number;
@@ -82,6 +83,7 @@ export function sumMonths(rows: MonthSummary[]): Totals {
     discounts: total((r) => r.discounts),
     penalties: total((r) => r.penalties),
     teacher_pay: total((r) => r.teacher_pay),
+    leader_pay: total((r) => r.leader_pay ?? 0),
     admin_pay: total((r) => r.admin_pay),
     software,
     marketing,
@@ -136,12 +138,13 @@ export type BreakdownRow = {
   estimate: boolean;
 };
 
-export const BREAKDOWN_ORDER: ExpenseCategory[] = ["teacher_pay", "admin_pay", "software", "marketing", "transfer_fees", "other"];
+export const BREAKDOWN_ORDER: ExpenseCategory[] = ["teacher_pay", "leader_pay", "admin_pay", "software", "marketing", "transfer_fees", "other"];
 
 export function breakdownRows(rows: MonthSummary[]): BreakdownRow[] {
   const totals = sumMonths(rows);
   const amounts: Record<ExpenseCategory, number> = {
     teacher_pay: totals.teacher_pay,
+    leader_pay: totals.leader_pay,
     admin_pay: totals.admin_pay,
     software: totals.software,
     marketing: totals.marketing,
@@ -150,6 +153,7 @@ export function breakdownRows(rows: MonthSummary[]): BreakdownRow[] {
   };
   const estimateFor: Record<ExpenseCategory, boolean> = {
     teacher_pay: rows.some((r) => r.status !== "closed" && !r.teacher_pay_final),
+    leader_pay: rows.some((r) => r.status !== "closed" && r.leader_pay_final === false),
     admin_pay: rows.some(isEstimate),
     software: rows.some((r) => r.status !== "closed" && r.recurring_pending > 0),
     marketing: false,
@@ -195,6 +199,12 @@ export function monthTodos(row: MonthSummary, opts: { ended: boolean }): Todo[] 
   }
   if (row.unpaid_teachers > 0) {
     out.push({ id: `${row.month}:teachers`, text: `${plural(row.unpaid_teachers, "teacher", "teachers")} not paid for ${name}`, href: staff, tone: "warn" });
+  }
+  if (opts.ended && row.leader_pay_final === false) {
+    out.push({ id: `${row.month}:leaders-pay`, text: `Leader pay for ${name} is not all approved`, href: staff, tone: "warn" });
+  }
+  if ((row.unpaid_leaders ?? 0) > 0) {
+    out.push({ id: `${row.month}:leaders`, text: `${plural(row.unpaid_leaders ?? 0, "leader", "leaders")} not paid for ${name}`, href: staff, tone: "warn" });
   }
   if (row.unpaid_admins > 0) {
     out.push({ id: `${row.month}:admins`, text: `${plural(row.unpaid_admins, "administrator", "administrators")} not paid for ${name}`, href: staff, tone: "warn" });
@@ -256,7 +266,8 @@ export function findCloseBannerMonth(rows: MonthSummary[], current: string): Mon
 export function bannerText(row: MonthSummary): string {
   const bits: string[] = [];
   if (!row.teacher_pay_final) bits.push("teacher audits waiting for approval");
-  const people = row.unpaid_teachers + row.unpaid_admins;
+  if (row.leader_pay_final === false) bits.push("leader pay waiting for approval");
+  const people = row.unpaid_teachers + row.unpaid_admins + (row.unpaid_leaders ?? 0);
   if (people > 0) bits.push(`${plural(people, "person", "people")} still to pay`);
   if (row.recurring_pending > 0) bits.push(`${plural(row.recurring_pending, "cost", "costs")} to confirm`);
   const mismatched = row.admin_payout_mismatches ?? 0;

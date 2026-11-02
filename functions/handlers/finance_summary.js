@@ -17,6 +17,7 @@ const math = require('../utils/finance_math');
 /** Figures a closed month keeps exactly as they were when it was closed. */
 const LOCKED_KEYS = [
   'final', 'billed', 'discounts', 'penalties', 'teacher_pay', 'teacher_pay_final',
+  'leader_pay', 'leader_pay_final', 'unpaid_leaders', 'leaders',
   'admin_pay', 'admin_base', 'software', 'marketing', 'transfer_fees', 'other',
   'expenses', 'profit', 'invoice_count', 'recurring_pending', 'recurring_due',
   'unpaid_teachers', 'unpaid_admins', 'teachers', 'admins',
@@ -75,7 +76,7 @@ const loadInvoices = async (db, month) => {
 
 const loadMonthDocs = async (db, month, Timestamp) => {
   const {start, end} = math.monthBounds(month);
-  const [invoices, audits, byMonth, byDate, recurringCosts, confirmations, payouts, terms] = await Promise.all([
+  const [invoices, audits, byMonth, byDate, recurringCosts, confirmations, payouts, terms, leaderAudits] = await Promise.all([
     loadInvoices(db, month),
     db.collection('teacher_audits').where('yearMonth', '==', month).select(...AUDIT_FIELDS).get(),
     db.collection('finance_expenses').where('month', '==', month).get(),
@@ -88,6 +89,11 @@ const loadMonthDocs = async (db, month, Timestamp) => {
     db.collection('staff_payouts').where('month', '==', month).get(),
     // One document per administrator: a handful, not a growing collection.
     db.collection('admin_pay_terms').limit(500).get(),
+    // Leader audits carry leader pay (pay for the month + bonus − pay cut).
+    db.collection('admin_audits').where('yearMonth', '==', month)
+      .select('adminId', 'adminName', 'leaderBasePayUsd', 'ceoBonusMonthlyUsd', 'ceoPaycutMonthlyUsd',
+        'leaderPayStatus', 'leaderNetPayUsd')
+      .get(),
   ]);
   // Rows saved before `month` existed are placed by their date.
   const legacyExpenses = docsOf(byDate).filter((e) => !math.isMonth(math.text(e.month)));
@@ -99,6 +105,7 @@ const loadMonthDocs = async (db, month, Timestamp) => {
     confirmations: docsOf(confirmations),
     payouts: docsOf(payouts),
     adminTerms: docsOf(terms).map((d) => ({...d, uid: d.uid || d.id})),
+    leaderAudits: docsOf(leaderAudits),
   };
 };
 
