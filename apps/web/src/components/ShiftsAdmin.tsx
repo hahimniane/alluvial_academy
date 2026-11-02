@@ -4,6 +4,7 @@ import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownUp,
   CalendarClock,
   CalendarDays,
   CalendarPlus,
@@ -37,6 +38,7 @@ import { ShiftEditOptionsDialog } from "@/components/ShiftEditOptionsDialog";
 import { ShiftEditorDialog } from "@/components/ShiftEditorDialog";
 import { ShiftSeriesEditDialog } from "@/components/ShiftSeriesEditDialog";
 import { FamilyPauseDialog } from "@/components/FamilyPauseDialog";
+import { MoveClassesDialog } from "@/components/MoveClassesDialog";
 import { MakeupRequestsDialog } from "@/components/MakeupRequestsDialog";
 import { TemplateManagerDialog } from "@/components/TemplateManagerDialog";
 import {
@@ -166,6 +168,7 @@ export function ShiftsAdmin() {
   const [hydration, setHydration] = useState<{ loaded: number; done: boolean } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [familyPauseOpen, setFamilyPauseOpen] = useState(false);
+  const [moveClassesOpen, setMoveClassesOpen] = useState(false);
   const [makeupRequestsOpen, setMakeupRequestsOpen] = useState(false);
 
   const refreshShifts = useCallback(async (targetWeek: Date) => {
@@ -404,6 +407,15 @@ export function ShiftsAdmin() {
             </button>
             <button
               type="button"
+              onClick={() => setMoveClassesOpen(true)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#C7D2FE] px-3 text-sm font-semibold text-[#4F46E5] hover:bg-[#EEF2FF]"
+              title="Move a teacher's or a student's classes earlier or later"
+            >
+              <ArrowDownUp size={16} />
+              <span className="hidden sm:inline">Move Times</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setMakeupRequestsOpen(true)}
               className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#BFDBFE] px-3 text-sm font-semibold text-[#0386FF] hover:bg-[#EFF6FF]"
               title="Makeup requests"
@@ -579,6 +591,18 @@ export function ShiftsAdmin() {
           <MakeupRequestsDialog
             adminTimezone={adminTimezone}
             onClose={() => setMakeupRequestsOpen(false)}
+            onChanged={() => {
+              void loadShiftCounts().then(setGlobalCounts).catch(() => {});
+              void refreshShifts(weekStart);
+            }}
+          />
+        ) : null}
+
+        {moveClassesOpen ? (
+          <MoveClassesDialog
+            staff={staff}
+            students={students}
+            onClose={() => setMoveClassesOpen(false)}
             onChanged={() => {
               void loadShiftCounts().then(setGlobalCounts).catch(() => {});
               void refreshShifts(weekStart);

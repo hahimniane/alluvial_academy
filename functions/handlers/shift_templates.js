@@ -1298,6 +1298,7 @@ module.exports = {
   onTeacherDeleted,
   _generateShiftsForTemplate,
   _cleanupGeneratedShifts,
+  _isAdminUid,
   __test: {
     _isTeachingCategory,
     _assertTeachingSubjectOrThrow,
