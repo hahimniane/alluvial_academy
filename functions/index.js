@@ -715,6 +715,15 @@ exports.createFirstInvoice = onCall(
   { cors: true, invoker: 'public' },
   (request) => financeBillingHandlers.createFirstInvoice(request)
 );
+// Finance: children on monthly billing who no longer attend, and taking one off billing.
+exports.listStudentsNotAttending = onCall(
+  { cors: true, invoker: 'public', memory: '512MiB' },
+  (request) => financeBillingHandlers.listStudentsNotAttending(request)
+);
+exports.removeStudentFromBilling = onCall(
+  { cors: true, invoker: 'public' },
+  (request) => financeBillingHandlers.removeStudentFromBilling(request)
+);
 exports.setFamilyMonthlyAmount = onCall(
   { cors: true, invoker: 'public' },
   (request) => financeBillingHandlers.setFamilyMonthlyAmount(request)

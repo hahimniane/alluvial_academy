@@ -250,6 +250,7 @@ function createFakeFirestore(seed = {}, {now = () => new Date()} = {}) {
     q.where = (field, op, value) => makeQuery(collection, [...filters, {field, op, value}], orders, limitN);
     q.orderBy = (field, dir = 'asc') => makeQuery(collection, filters, [...orders, {field, dir}], limitN);
     q.limit = (n) => makeQuery(collection, filters, orders, n);
+    q.select = () => q; // projection is not modelled: every field comes back
     q.get = async () => runQuery(q);
     return q;
   };

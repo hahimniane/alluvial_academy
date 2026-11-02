@@ -924,3 +924,81 @@ describe('monthly amount entered while registering a student', () => {
     await expect(set(deps, {enrollment_id: 'app_1', monthly_amount: 80, classes_in_month: 8})).rejects.toThrow(/already has a first invoice/);
   });
 });
+
+describe('students who no longer attend', () => {
+  const families = () => {
+    const s = baseSeed();
+    s.finance_settings = {main: {auto_billing_enabled: true}};
+    s.family_billing = {
+      parent_1: {monthly_amount: 80, student_ids: ['stu_1'], history: [], active: true},
+      parent_2: {monthly_amount: 150, student_ids: ['stu_2', 'stu_3'], student_amounts: {stu_2: 100, stu_3: 50}, history: [], active: true},
+    };
+    s.shift_templates = {tpl_a: {is_active: true, student_ids: ['stu_1', 'stu_2']}};
+    return s;
+  };
+
+  test('an archived child is not billed and their share comes off', async () => {
+    const s = families();
+    s.users.stu_3.is_active = false;
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    const plan = await finance.previewMonthlyBilling({auth: {uid: 'admin_1'}, data: {month: '2026-11'}}, deps);
+    const row = plan.rows.find((r) => r.parent_id === 'parent_2');
+    expect(row).toMatchObject({monthly_amount: 100, student_ids: ['stu_2']});
+    expect(row.not_billed).toEqual([{student_id: 'stu_3', name: 'Kadi Diallo', reason: 'archived'}]);
+
+    await finance.runMonthlyGeneration(deps);
+    const inv = deps.db.store.invoices['monthly_parent_2_2026-11'];
+    expect(inv.total_amount).toBe(100);
+    expect(inv.items.map((i) => i.student_id)).toEqual(['stu_2']);
+  });
+
+  test('a family whose only child is archived gets no invoice', async () => {
+    const s = families();
+    s.users.stu_1.is_active = false;
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    await finance.runMonthlyGeneration(deps);
+    expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeUndefined();
+  });
+
+  test('lists children with no classes or archived, with their share', async () => {
+    const s = families();
+    s.users.stu_2.is_active = false;
+    const deps = makeDeps(s);
+    const {rows} = await finance.listStudentsNotAttending({auth: {uid: 'admin_1'}, data: {}}, deps);
+    expect(rows.map((r) => [r.student_id, r.reason, r.share])).toEqual([
+      ['stu_3', 'no_classes', 50], // Kadi before Omar
+      ['stu_2', 'archived', 100],
+    ]);
+  });
+
+  test('a child with an upcoming class is attending', async () => {
+    const s = families();
+    s.teaching_shifts = {x: {student_ids: ['stu_3'], status: 'scheduled', shift_start: FakeTimestamp.fromDate(new Date('2026-10-30T15:00:00Z'))}};
+    const deps = makeDeps(s);
+    const {rows} = await finance.listStudentsNotAttending({auth: {uid: 'admin_1'}, data: {}}, deps);
+    expect(rows).toEqual([]);
+  });
+
+  test('removing a child takes their share off from the next unissued month', async () => {
+    const deps = makeDeps(families());
+    const out = await finance.removeStudentFromBilling({auth: {uid: 'admin_1'}, data: {parent_id: 'parent_2', student_id: 'stu_3', reason: 'Stopped classes'}}, deps);
+    expect(out).toMatchObject({old: 150, new: 100, share: 50, from_month: '2026-11', family_active: true});
+    const fb = deps.db.store.family_billing.parent_2;
+    expect(fb.student_ids).toEqual(['stu_2']);
+    expect(fb.student_amounts).toEqual({stu_2: 100});
+    expect(fb.history.at(-1)).toMatchObject({from_month: '2026-11', old: 150, new: 100, removed_student_id: 'stu_3'});
+    expect(fb.removed_students[0]).toMatchObject({student_id: 'stu_3', share: 50, reason: 'Stopped classes'});
+  });
+
+  test('removing the last child stops the family being billed', async () => {
+    const deps = makeDeps(families());
+    const out = await finance.removeStudentFromBilling({auth: {uid: 'admin_1'}, data: {parent_id: 'parent_1', student_id: 'stu_1', reason: 'Left'}}, deps);
+    expect(out).toMatchObject({new: 0, family_active: false});
+    expect(deps.db.store.family_billing.parent_1.active).toBe(false);
+  });
+
+  test('a reason is required', async () => {
+    const deps = makeDeps(families());
+    await expect(finance.removeStudentFromBilling({auth: {uid: 'admin_1'}, data: {parent_id: 'parent_2', student_id: 'stu_3'}}, deps)).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+});
