@@ -475,19 +475,31 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     }
   }
 
+  /// Every submission of the month, read page by page. A month holds more
+  /// than one page (October 2026: 952), and stopping at the first page hid
+  /// everything older than about the 17th, so those forms looked deleted.
   Future<List<QueryDocumentSnapshot>> _queryAllFormsByMonth(
-      String yearMonth, int limit) async {
+      String yearMonth, int pageSize) async {
+    final all = <QueryDocumentSnapshot>[];
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('yearMonth', isEqualTo: yearMonth)
-          .orderBy('submittedAt', descending: true)
-          .limit(limit)
-          .get(const GetOptions(source: Source.server));
-      return snapshot.docs;
+      QueryDocumentSnapshot? last;
+      while (true) {
+        Query query = FirebaseFirestore.instance
+            .collection('form_responses')
+            .where('yearMonth', isEqualTo: yearMonth)
+            .orderBy('submittedAt', descending: true)
+            .limit(pageSize);
+        if (last != null) query = query.startAfterDocument(last);
+        final snapshot =
+            await query.get(const GetOptions(source: Source.server));
+        all.addAll(snapshot.docs);
+        if (snapshot.docs.length < pageSize) break;
+        last = snapshot.docs.last;
+      }
+      return all;
     } catch (e) {
       AppLogger.error('Query all forms month=$yearMonth failed: $e');
-      return [];
+      return all;
     }
   }
 
@@ -586,7 +598,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     });
     final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
     _lastSubmissionDoc = mergedDocs.isNotEmpty ? mergedDocs.last : null;
-    _hasMoreSubmissions = allDocs.length >= _priorityFormsLimit;
+    // The month query reads the whole month, so there is nothing more to load.
+    _hasMoreSubmissions = false;
     final missingUserIds = byTeacher.keys
         .where((uid) => !_teachersData.containsKey(uid))
         .toSet()
