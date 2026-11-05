@@ -3837,7 +3837,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteAllTeacherShifts => 'Delete All Teacher Shifts';
 
   @override
-  String get deleteAllTeachershifts => 'Delete All Teachershifts';
+  String get deleteAllTeachershifts => 'Delete upcoming classes';
 
   @override
   String get deleteAssignment => 'Delete Assignment';
@@ -8244,7 +8244,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get teachershiftsShiftsWillBePermanentlyDeleted =>
-      'Teachershifts Shifts Will Be Permanently Deleted';
+      'Their upcoming classes will be deleted. Classes that already happened stay as records.';
 
   @override
   String get teachingSelectedstudentname => 'Teaching Selectedstudentname';
@@ -18839,4 +18839,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get presenceNextWeek => 'Next week';
+
+  @override
+  String get pastClassTitle => 'This class already started';
+
+  @override
+  String pastClassCannotDelete(String name) {
+    return '\"$name\" has already started, so it can\'t be deleted. It stays as a record of attendance and pay.';
+  }
+
+  @override
+  String get pastClassTaught =>
+      'Someone clocked in to it, so it was taught and stays as it is.';
+
+  @override
+  String get pastClassNotTaught =>
+      'Nobody clocked in to it. If it should never have been on the schedule, cancel it so it doesn\'t count as missed.';
+
+  @override
+  String get pastClassAlreadyCancelled => 'It is already cancelled.';
+
+  @override
+  String get pastClassCancelFailed => 'Could not cancel this class. Try again.';
+
+  @override
+  String get cancelThisClass => 'Cancel this class';
+
+  @override
+  String get classCancelledRecord =>
+      'Class cancelled. It stays on the schedule as a record.';
+
+  @override
+  String shiftsKeptStarted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count classes had already started and were kept.',
+      one: '1 class had already started and was kept.',
+    );
+    return '$_temp0';
+  }
 }

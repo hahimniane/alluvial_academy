@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/widgets/past_class_dialog.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
@@ -469,8 +470,23 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     );
   }
 
-  void _confirmDelete() {
-    showDialog(
+  Future<void> _confirmDelete() async {
+    // A class that already started is a record: offer cancelling instead.
+    if (!ShiftService.canDeleteShift(widget.shift)) {
+      final cancelled = await showPastClassDialog(context, widget.shift);
+      if (cancelled && mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        final message = AppLocalizations.of(context)!.classCancelledRecord;
+        Navigator.pop(context);
+        widget.onDeleted();
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.green),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteShift,

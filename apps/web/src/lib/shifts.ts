@@ -818,7 +818,17 @@ export async function updateShiftGuarded(input: EditShiftInput): Promise<void> {
   }
 }
 
+/** A class may be deleted only before it starts; after that it is a record. */
+export function canDeleteShift(shift: ShiftDoc, now: Date = new Date()): boolean {
+  return isDeletableFutureOccurrence(shift.start, shift.status, now);
+}
+
+export const PAST_CLASS_DELETE_REFUSAL =
+  "This class has already started, so it can't be deleted. It stays as a record of attendance and pay.";
+
 export async function deleteShiftGuarded(shift: ShiftDoc): Promise<void> {
+  // The database refuses this too; checking here gives a readable reason.
+  if (!canDeleteShift(shift)) throw new Error(PAST_CLASS_DELETE_REFUSAL);
   // Deleting a generated occurrence without excluding its date lets the
   // nightly generator recreate it.
   if (shift.templateId) {
@@ -897,6 +907,33 @@ export async function deleteShiftSeriesForward(
     deactivated_reason: "this_and_future_deleted",
   });
   return removed;
+}
+
+/** True when anyone clocked in to this class (it was taught, at least in part). */
+export async function shiftHasClockIn(shiftId: string): Promise<boolean> {
+  const snap = await getDocs(
+    query(collection(db, "timesheet_entries"), where("shift_id", "==", shiftId), limit(1)),
+  );
+  return !snap.empty;
+}
+
+/**
+ * A past class that should never have existed (a duplicate, a wrong day) is
+ * cancelled rather than deleted, so it stops counting as missed but the
+ * record stays. A class someone clocked in to was taught and is left alone.
+ */
+export async function cancelPastShift(shift: ShiftDoc, user: User | null): Promise<void> {
+  if (shift.status.toLowerCase() === "cancelled") return;
+  if (await shiftHasClockIn(shift.id)) {
+    throw new Error("Someone clocked in to this class, so it was taught and can't be cancelled.");
+  }
+  await updateDoc(doc(db, "teaching_shifts", shift.id), {
+    status: "cancelled",
+    cancelled_at: serverTimestamp(),
+    cancelled_by: user?.uid ?? null,
+    cancelled_by_name: user?.displayName ?? user?.email ?? null,
+    last_modified: serverTimestamp(),
+  });
 }
 
 /** How many upcoming classes a "this & future" delete would actually remove. */

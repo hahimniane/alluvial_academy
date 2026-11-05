@@ -1,3 +1,4 @@
+import 'package:alluwalacademyadmin/features/shift_management/widgets/past_class_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
@@ -1873,7 +1874,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const RescheduleRequestsScreen(),
+                                  builder: (context) =>
+                                      const RescheduleRequestsScreen(),
                                 ),
                               );
                             }
@@ -3372,6 +3374,22 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   void _deleteShift(TeachingShift shift) async {
+    // A class that already started is a record: offer cancelling instead.
+    if (!ShiftService.canDeleteShift(shift)) {
+      final cancelled = await showPastClassDialog(context, shift);
+      if (cancelled && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.classCancelledRecord),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadShiftStatistics();
+        _loadShiftData();
+      }
+      return;
+    }
+
     final isPossiblyRecurring = (shift.recurrenceSeriesId != null &&
             shift.recurrenceSeriesId!.trim().isNotEmpty) ||
         shift.templateId != null ||
@@ -3390,8 +3408,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           content: Text(
-            AppLocalizations.of(context)!
-                .deleteShiftConfirm(shift.displayName),
+            AppLocalizations.of(context)!.deleteShiftConfirm(shift.displayName),
             style: GoogleFonts.inter(),
           ),
           actions: [
@@ -3420,14 +3437,14 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     } else {
       scope = await showDialog<_DeleteShiftScope>(
         context: context,
-        builder: (context) =>
-            FutureBuilder<List<TeachingShift>>(
+        builder: (context) => FutureBuilder<List<TeachingShift>>(
           future: ShiftService.getRelatedShiftsForDelete(shift),
           builder: (context, snapshot) {
             final related = snapshot.data ?? const <TeachingShift>[];
             final futureScheduled = related
                 .where((s) =>
                     s.status == ShiftStatus.scheduled &&
+                    ShiftService.canDeleteShift(s) &&
                     !s.shiftStart.isBefore(shift.shiftStart))
                 .toList();
             final canDeleteFuture = futureScheduled.length > 1;
@@ -3471,8 +3488,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   else if (canDeleteFuture)
                     Text(
                       AppLocalizations.of(context)!
-                          .deleteShiftSeriesOptionsHint(
-                              futureScheduled.length),
+                          .deleteShiftSeriesOptionsHint(futureScheduled.length),
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff6B7280),
@@ -3553,6 +3569,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         final ids = related
             .where((s) =>
                 s.status == ShiftStatus.scheduled &&
+                ShiftService.canDeleteShift(s) &&
                 !s.shiftStart.isBefore(shift.shiftStart))
             .map((s) => s.id)
             .toList();
@@ -3568,10 +3585,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           return;
         }
         await ShiftService.deleteMultipleShifts(ids);
-        final templateId = related
-                .map((s) => s.templateId)
-                .firstWhere((id) => id != null && id.trim().isNotEmpty,
-                    orElse: () => null) ??
+        final templateId = related.map((s) => s.templateId).firstWhere(
+                (id) => id != null && id.trim().isNotEmpty,
+                orElse: () => null) ??
             shift.templateId;
         if (templateId != null && templateId.trim().isNotEmpty) {
           await ShiftService.deactivateShiftTemplate(
@@ -3580,8 +3596,6 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           );
         }
       }
-
-      await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3677,8 +3691,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           );
         }
 
-        // Delete all selected shifts
-        await ShiftService.deleteMultipleShifts(_selectedShiftIds.toList());
+        // Delete all selected shifts; classes that already started are kept
+        final keptStarted =
+            await ShiftService.deleteMultipleShifts(_selectedShiftIds.toList());
 
         if (mounted) {
           setState(() {
@@ -3686,13 +3701,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             _isSelectionMode = false;
           });
 
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!
-                  .allSelectedShiftsDeletedSuccessfully),
-              backgroundColor: Colors.green,
+              content: Text(keptStarted == 0
+                  ? l10n.allSelectedShiftsDeletedSuccessfully
+                  : l10n.shiftsKeptStarted(keptStarted)),
+              backgroundColor: keptStarted == 0 ? Colors.green : Colors.orange,
             ),
           );
+          _loadShiftData();
           // Force refresh statistics
           _loadShiftStatistics();
         }
@@ -4063,7 +4081,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Deleting all shifts for ${selectedTeacher.firstName} ${selectedTeacher.lastName}...'),
+                  'Deleting upcoming classes for ${selectedTeacher.firstName} ${selectedTeacher.lastName}...'),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 3),
             ),
@@ -4082,7 +4100,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Successfully deleted $deletedCount shifts for ${selectedTeacher.firstName} ${selectedTeacher.lastName}'),
+                  'Deleted $deletedCount upcoming classes for ${selectedTeacher.firstName} ${selectedTeacher.lastName}. Past classes were kept.'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),

@@ -1357,7 +1357,7 @@
   "deleteAccount": "Supprimer le compte",
   "deleteAll": "Tout supprimer",
   "deleteAllTeacherShifts": "Supprimer tous les postes d'enseignant",
-  "deleteAllTeachershifts": "Supprimer tous les postes d'enseignant",
+  "deleteAllTeachershifts": "Supprimer les cours à venir",
   "deleteAssignment": "Supprimer l'attribution",
   "deleteAttachment": "Supprimer la pièce jointe",
   "deleteComment": "Supprimer le commentaire",
@@ -2838,7 +2838,7 @@
   "teachers": "Enseignants",
   "teachers2": "Enseignants2",
   "teachersOnly": "Enseignants seulement",
-  "teachershiftsShiftsWillBePermanentlyDeleted": "Les postes d'enseignant seront définitivement supprimés",
+  "teachershiftsShiftsWillBePermanentlyDeleted": "Ses cours à venir seront supprimés. Les cours déjà passés restent comme trace.",
   "teachingSelectedstudentname": "Enseignement Nom de l'étudiant sélectionné",
   "tealTestLastLoginUpdateTracking": "Test Teal Dernière connexion Suivi des mises à jour",
   "templateDeleted": "Modèle supprimé",
@@ -7467,5 +7467,14 @@
   "adminAuditLeaderPayLocked": "Rouvrez le salaire pour modifier ces montants.",
   "presenceMonthLatest": "Les plus récents",
   "presencePreviousWeek": "Semaine précédente",
-  "presenceNextWeek": "Semaine suivante"
+  "presenceNextWeek": "Semaine suivante",
+  "pastClassTitle": "Ce cours a déjà commencé",
+  "pastClassCannotDelete": "« {name} » a déjà commencé, il ne peut donc pas être supprimé. Il reste comme trace de la présence et de la paie.",
+  "pastClassTaught": "Quelqu'un a pointé pour ce cours : il a eu lieu et reste tel quel.",
+  "pastClassNotTaught": "Personne n'a pointé pour ce cours. S'il n'aurait jamais dû être au planning, annulez-le pour qu'il ne compte pas comme manqué.",
+  "pastClassAlreadyCancelled": "Il est déjà annulé.",
+  "pastClassCancelFailed": "Impossible d'annuler ce cours. Réessayez.",
+  "cancelThisClass": "Annuler ce cours",
+  "classCancelledRecord": "Cours annulé. Il reste au planning comme trace.",
+  "shiftsKeptStarted": "{count, plural, =1{1 cours avait déjà commencé et a été conservé.} other{{count} cours avaient déjà commencé et ont été conservés.}}"
 }

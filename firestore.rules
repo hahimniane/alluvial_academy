@@ -488,9 +488,17 @@ service cloud.firestore {
 
       ) && keepsTeachingSubject();
 
-      // Allow delete only for admins
+      // Only admins delete, and only a class that has not started. A class
+      // that started is a record of attendance and pay; it can be cancelled
+      // but never removed from the apps.
 
-      allow delete: if isSignedIn() && isAdmin();
+      function shiftNotStarted(data) {
+        return ('shift_start' in data) && data.shift_start is timestamp
+          && data.shift_start > request.time
+          && data.get('status', 'scheduled') in ['scheduled', 'missed', 'cancelled'];
+      }
+
+      allow delete: if isSignedIn() && isAdmin() && shiftNotStarted(resource.data);
 
     }
 
@@ -533,7 +541,7 @@ service cloud.firestore {
 
       // Check both field names explicitly to avoid function call issues
 
-      allow update, delete: if isSignedIn() && (
+      allow update: if isSignedIn() && (
 
         (resource.data.teacher_id != null && resource.data.teacher_id == request.auth.uid) ||
 
@@ -542,6 +550,11 @@ service cloud.firestore {
         isAdmin()
 
       );
+
+      // Timesheets are pay records: no app deletes them. A wrong one is
+      // rejected instead, which keeps the history.
+
+      allow delete: if false;
 
 	    }
 
@@ -1311,9 +1324,13 @@ service cloud.firestore {
     // admin write there and bypass its subject requirement (rules are OR'd).
     // finance_private (the bank link token) and known_phones (parents' phone
     // numbers) are server-only: the read here must not reach them either.
+    // Pay and attendance records (classes, archived classes, timesheets) are
+    // never deleted through the fallback either.
     match /{collection}/{document=**} {
       allow read: if isAdmin() && collection != 'finance_private' && collection != 'known_phones';
-      allow write: if isAdmin() && collection != 'teaching_shifts' && !isFinanceCollection(collection);
+      allow create, update: if isAdmin() && collection != 'teaching_shifts' && !isFinanceCollection(collection);
+      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries'])
+        && !isFinanceCollection(collection);
     }
 
   }

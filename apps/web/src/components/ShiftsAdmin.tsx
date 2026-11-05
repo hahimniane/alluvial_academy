@@ -688,6 +688,12 @@ export function ShiftsAdmin() {
               setToast(deletedMessage);
               if (mode === "series") {
                 void reconcileSeriesInCache(seriesTemplateId(target));
+              } else if (mode === "cancelled") {
+                setShiftMap((prev) => {
+                  const next = new Map(prev);
+                  next.set(target.id, { ...target, status: "cancelled" });
+                  return next;
+                });
               } else {
                 setShiftMap((prev) => {
                   const next = new Map(prev);

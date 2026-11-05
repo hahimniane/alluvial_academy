@@ -3803,7 +3803,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deleteAllTeacherShifts => 'Delete All Teacher Shifts';
 
   @override
-  String get deleteAllTeachershifts => 'Delete All Teachershifts';
+  String get deleteAllTeachershifts => 'حذف الحصص القادمة';
 
   @override
   String get deleteAssignment => 'Delete Assignment';
@@ -8211,7 +8211,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get teachershiftsShiftsWillBePermanentlyDeleted =>
-      'Teachershifts Shifts Will Be Permanently Deleted';
+      'ستُحذف حصصه القادمة. الحصص التي تمت تبقى كسجلات.';
 
   @override
   String get teachingSelectedstudentname => 'Teaching Selectedstudentname';
@@ -18785,4 +18785,43 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get presenceNextWeek => 'الأسبوع التالي';
+
+  @override
+  String get pastClassTitle => 'هذه الحصة بدأت بالفعل';
+
+  @override
+  String pastClassCannotDelete(String name) {
+    return 'الحصة \"$name\" بدأت بالفعل، لذلك لا يمكن حذفها. تبقى سجلاً للحضور والأجر.';
+  }
+
+  @override
+  String get pastClassTaught =>
+      'سجّل أحدهم الحضور فيها، فقد دُرِّست وتبقى كما هي.';
+
+  @override
+  String get pastClassNotTaught =>
+      'لم يسجّل أحد الحضور فيها. إن لم يكن ينبغي وجودها في الجدول، ألغِها حتى لا تُحسب غياباً.';
+
+  @override
+  String get pastClassAlreadyCancelled => 'إنها ملغاة بالفعل.';
+
+  @override
+  String get pastClassCancelFailed => 'تعذّر إلغاء هذه الحصة. حاول مرة أخرى.';
+
+  @override
+  String get cancelThisClass => 'إلغاء هذه الحصة';
+
+  @override
+  String get classCancelledRecord => 'أُلغيت الحصة. تبقى في الجدول كسجل.';
+
+  @override
+  String shiftsKeptStarted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count حصص كانت قد بدأت وتم الاحتفاظ بها.',
+      one: 'حصة واحدة كانت قد بدأت وتم الاحتفاظ بها.',
+    );
+    return '$_temp0';
+  }
 }

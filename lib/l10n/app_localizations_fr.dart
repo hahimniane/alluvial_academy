@@ -3915,8 +3915,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Supprimer tous les postes d\'enseignant';
 
   @override
-  String get deleteAllTeachershifts =>
-      'Supprimer tous les postes d\'enseignant';
+  String get deleteAllTeachershifts => 'Supprimer les cours à venir';
 
   @override
   String get deleteAssignment => 'Supprimer l\'attribution';
@@ -8459,7 +8458,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get teachershiftsShiftsWillBePermanentlyDeleted =>
-      'Les postes d\'enseignant seront définitivement supprimés';
+      'Ses cours à venir seront supprimés. Les cours déjà passés restent comme trace.';
 
   @override
   String get teachingSelectedstudentname =>
@@ -19197,4 +19196,45 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get presenceNextWeek => 'Semaine suivante';
+
+  @override
+  String get pastClassTitle => 'Ce cours a déjà commencé';
+
+  @override
+  String pastClassCannotDelete(String name) {
+    return '« $name » a déjà commencé, il ne peut donc pas être supprimé. Il reste comme trace de la présence et de la paie.';
+  }
+
+  @override
+  String get pastClassTaught =>
+      'Quelqu\'un a pointé pour ce cours : il a eu lieu et reste tel quel.';
+
+  @override
+  String get pastClassNotTaught =>
+      'Personne n\'a pointé pour ce cours. S\'il n\'aurait jamais dû être au planning, annulez-le pour qu\'il ne compte pas comme manqué.';
+
+  @override
+  String get pastClassAlreadyCancelled => 'Il est déjà annulé.';
+
+  @override
+  String get pastClassCancelFailed =>
+      'Impossible d\'annuler ce cours. Réessayez.';
+
+  @override
+  String get cancelThisClass => 'Annuler ce cours';
+
+  @override
+  String get classCancelledRecord =>
+      'Cours annulé. Il reste au planning comme trace.';
+
+  @override
+  String shiftsKeptStarted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cours avaient déjà commencé et ont été conservés.',
+      one: '1 cours avait déjà commencé et a été conservé.',
+    );
+    return '$_temp0';
+  }
 }

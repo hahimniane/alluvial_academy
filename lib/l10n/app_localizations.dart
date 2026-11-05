@@ -7191,7 +7191,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteAllTeachershifts.
   ///
   /// In en, this message translates to:
-  /// **'Delete All Teachershifts'**
+  /// **'Delete upcoming classes'**
   String get deleteAllTeachershifts;
 
   /// No description provided for @deleteAssignment.
@@ -15531,7 +15531,7 @@ abstract class AppLocalizations {
   /// No description provided for @teachershiftsShiftsWillBePermanentlyDeleted.
   ///
   /// In en, this message translates to:
-  /// **'Teachershifts Shifts Will Be Permanently Deleted'**
+  /// **'Their upcoming classes will be deleted. Classes that already happened stay as records.'**
   String get teachershiftsShiftsWillBePermanentlyDeleted;
 
   /// No description provided for @teachingSelectedstudentname.
@@ -34153,6 +34153,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next week'**
   String get presenceNextWeek;
+
+  /// No description provided for @pastClassTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This class already started'**
+  String get pastClassTitle;
+
+  /// No description provided for @pastClassCannotDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" has already started, so it can\'t be deleted. It stays as a record of attendance and pay.'**
+  String pastClassCannotDelete(String name);
+
+  /// No description provided for @pastClassTaught.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone clocked in to it, so it was taught and stays as it is.'**
+  String get pastClassTaught;
+
+  /// No description provided for @pastClassNotTaught.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody clocked in to it. If it should never have been on the schedule, cancel it so it doesn\'t count as missed.'**
+  String get pastClassNotTaught;
+
+  /// No description provided for @pastClassAlreadyCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'It is already cancelled.'**
+  String get pastClassAlreadyCancelled;
+
+  /// No description provided for @pastClassCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel this class. Try again.'**
+  String get pastClassCancelFailed;
+
+  /// No description provided for @cancelThisClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this class'**
+  String get cancelThisClass;
+
+  /// No description provided for @classCancelledRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Class cancelled. It stays on the schedule as a record.'**
+  String get classCancelledRecord;
+
+  /// No description provided for @shiftsKeptStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 class had already started and was kept.} other{{count} classes had already started and were kept.}}'**
+  String shiftsKeptStarted(int count);
 }
 
 class _AppLocalizationsDelegate
