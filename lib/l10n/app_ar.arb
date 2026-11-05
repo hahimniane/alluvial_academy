@@ -1523,7 +1523,7 @@
   "deleteAccount": "Delete Account",
   "deleteAll": "Delete All",
   "deleteAllTeacherShifts": "Delete All Teacher Shifts",
-  "deleteAllTeachershifts": "Delete All Teachershifts",
+  "deleteAllTeachershifts": "حذف الحصص القادمة",
   "deleteAssignment": "Delete Assignment",
   "deleteAttachment": "Delete Attachment",
   "deleteComment": "Delete Comment",
@@ -3064,7 +3064,7 @@
   "teachers": "Teachers",
   "teachers2": "Teachers2",
   "teachersOnly": "Teachers Only",
-  "teachershiftsShiftsWillBePermanentlyDeleted": "Teachershifts Shifts Will Be Permanently Deleted",
+  "teachershiftsShiftsWillBePermanentlyDeleted": "ستُحذف حصصه القادمة. الحصص التي تمت تبقى كسجلات.",
   "teachingSelectedstudentname": "Teaching Selectedstudentname",
   "tealTestLastLoginUpdateTracking": "Teal Test Last Login Update Tracking",
   "templateDeleted": "Template Deleted",
@@ -6891,5 +6891,14 @@
   "adminAuditLeaderPayLocked": "أعد فتح الراتب لتغيير هذه المبالغ.",
   "presenceMonthLatest": "الأحدث",
   "presencePreviousWeek": "الأسبوع السابق",
-  "presenceNextWeek": "الأسبوع التالي"
+  "presenceNextWeek": "الأسبوع التالي",
+  "pastClassTitle": "هذه الحصة بدأت بالفعل",
+  "pastClassCannotDelete": "الحصة \"{name}\" بدأت بالفعل، لذلك لا يمكن حذفها. تبقى سجلاً للحضور والأجر.",
+  "pastClassTaught": "سجّل أحدهم الحضور فيها، فقد دُرِّست وتبقى كما هي.",
+  "pastClassNotTaught": "لم يسجّل أحد الحضور فيها. إن لم يكن ينبغي وجودها في الجدول، ألغِها حتى لا تُحسب غياباً.",
+  "pastClassAlreadyCancelled": "إنها ملغاة بالفعل.",
+  "pastClassCancelFailed": "تعذّر إلغاء هذه الحصة. حاول مرة أخرى.",
+  "cancelThisClass": "إلغاء هذه الحصة",
+  "classCancelledRecord": "أُلغيت الحصة. تبقى في الجدول كسجل.",
+  "shiftsKeptStarted": "{count, plural, =1{حصة واحدة كانت قد بدأت وتم الاحتفاظ بها.} other{{count} حصص كانت قد بدأت وتم الاحتفاظ بها.}}"
 }

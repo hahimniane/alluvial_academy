@@ -4180,8 +4180,13 @@ class TeacherAuditService {
       if (!linkSuccess) {
         AppLogger.error(
             'Failed to link form $formId to newly created shift $shiftId');
-        // Clean up: delete the shift we just created
-        await shiftRef.delete();
+        // Clean up: the class we just created is in the past, which the
+        // database keeps as a record, so cancel it rather than delete it.
+        await shiftRef.update({
+          'status': 'cancelled',
+          'cancelled_at': FieldValue.serverTimestamp(),
+          'cancel_reason': 'form_link_failed',
+        });
         return false;
       }
 

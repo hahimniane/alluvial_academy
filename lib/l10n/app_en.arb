@@ -1556,7 +1556,7 @@
   "deleteAccount": "Delete Account",
   "deleteAll": "Delete All",
   "deleteAllTeacherShifts": "Delete All Teacher Shifts",
-  "deleteAllTeachershifts": "Delete All Teachershifts",
+  "deleteAllTeachershifts": "Delete upcoming classes",
   "deleteAssignment": "Delete Assignment",
   "deleteAttachment": "Delete Attachment",
   "deleteComment": "Delete Comment",
@@ -3131,7 +3131,7 @@
   "teachers": "Teachers",
   "teachers2": "Teachers2",
   "teachersOnly": "Teachers Only",
-  "teachershiftsShiftsWillBePermanentlyDeleted": "Teachershifts Shifts Will Be Permanently Deleted",
+  "teachershiftsShiftsWillBePermanentlyDeleted": "Their upcoming classes will be deleted. Classes that already happened stay as records.",
   "teachingSelectedstudentname": "Teaching Selectedstudentname",
   "tealTestLastLoginUpdateTracking": "Teal Test Last Login Update Tracking",
   "templateDeleted": "Template Deleted",
@@ -8678,5 +8678,28 @@
   "presenceNextWeek": "Next week",
   "@presenceNextWeek": {
     "description": "Tooltip: go forward one week in the drop-out overview"
+  },
+  "pastClassTitle": "This class already started",
+  "pastClassCannotDelete": "\"{name}\" has already started, so it can't be deleted. It stays as a record of attendance and pay.",
+  "@pastClassCannotDelete": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pastClassTaught": "Someone clocked in to it, so it was taught and stays as it is.",
+  "pastClassNotTaught": "Nobody clocked in to it. If it should never have been on the schedule, cancel it so it doesn't count as missed.",
+  "pastClassAlreadyCancelled": "It is already cancelled.",
+  "pastClassCancelFailed": "Could not cancel this class. Try again.",
+  "cancelThisClass": "Cancel this class",
+  "classCancelledRecord": "Class cancelled. It stays on the schedule as a record.",
+  "shiftsKeptStarted": "{count, plural, =1{1 class had already started and was kept.} other{{count} classes had already started and were kept.}}",
+  "@shiftsKeptStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

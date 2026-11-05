@@ -965,6 +965,13 @@ const onShiftCancelled = onDocumentUpdated('teaching_shifts/{shiftId}', async (e
         console.log(`Shift ${shiftId} cancelled but has no teacher_id - skipping notification`);
         return;
       }
+      // A past class cancelled after the fact (a duplicate cleaned up from
+      // the record) is not news to the teacher.
+      const endDate = afterData.shift_end ? toDate(afterData.shift_end) : null;
+      if (endDate && !Number.isNaN(endDate.getTime()) && endDate.getTime() < Date.now()) {
+        console.log(`Shift ${shiftId} cancelled after it ended - no notification`);
+        return;
+      }
       const displayName = afterData.custom_name || afterData.auto_generated_name || 'Your shift';
       const teacherTimezone = await getUserTimezone(teacherId);
       const shiftDateTime = formatShiftDateTime(
