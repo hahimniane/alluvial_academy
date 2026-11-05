@@ -113,10 +113,12 @@ export function ShiftDeleteDialog({
             This class repeats. You can delete just this one, or stop it repeating and remove the upcoming ones.
           </p>
         ) : null}
-        <p className="mt-2 text-sm text-[#64748B]">
-          Classes that already happened or are running now are never removed — including missed and cancelled ones. They
-          stay as a record.
-        </p>
+        {deletable ? (
+          <p className="mt-2 text-sm text-[#64748B]">
+            Classes that already happened or are running now are never removed — including missed and cancelled ones.
+            They stay as a record.
+          </p>
+        ) : null}
 
         {error ? (
           <p className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-2.5 text-sm font-semibold text-[#B91C1C]">
@@ -126,7 +128,7 @@ export function ShiftDeleteDialog({
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
           <button type="button" onClick={onClose} disabled={busy !== null} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-[#64748B]">
-            Cancel
+            {deletable ? "Cancel" : "Close"}
           </button>
           {deletable ? (
             <ActionButton
