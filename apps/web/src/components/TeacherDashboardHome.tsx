@@ -899,8 +899,17 @@ async function loadTeacherTasks(uid: string) {
 }
 
 async function loadTeacherTimesheets(uid: string) {
-  const snap = await getDocs(query(collection(db, "timesheet_entries"), where("teacher_id", "==", uid), limit(100)));
-  return snap.docs.map((entry) => normalizeTimesheet(entry.id, entry.data() as Record<string, unknown>));
+  // Every timesheet since the start of the earlier of this week and this
+  // month (a day earlier for clock-ins near midnight). The cards add these up,
+  // so a cap here silently drops pay.
+  const now = new Date();
+  const from = new Date(Math.min(startOfWeek(now).getTime(), new Date(now.getFullYear(), now.getMonth(), 1).getTime()) - 86400000);
+  const snap = await getDocs(
+    query(collection(db, "timesheet_entries"), where("teacher_id", "==", uid), where("created_at", ">=", Timestamp.fromDate(from))),
+  );
+  return snap.docs
+    .map((entry) => normalizeTimesheet(entry.id, entry.data() as Record<string, unknown>))
+    .filter((entry) => entry.status !== "rejected");
 }
 
 function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift {
@@ -938,7 +947,7 @@ function normalizeTask(id: string, data: Record<string, unknown>): TeacherTask {
 
 function normalizeTimesheet(id: string, data: Record<string, unknown>): TeacherTimesheet {
   const date = dateValue(data.clock_in_timestamp ?? data.clockInTimestamp ?? data.created_at ?? data.createdAt ?? data.date);
-  const hours = numberValue(data.total_hours ?? data.totalHours ?? data.hours, 0);
+  const hours = timesheetHours(data);
   const pay = numberValue(data.payment_amount ?? data.paymentAmount ?? data.total_pay ?? data.totalPay, hours * numberValue(data.hourly_rate ?? data.hourlyRate, 0));
   return {
     id,
@@ -947,6 +956,19 @@ function normalizeTimesheet(id: string, data: Record<string, unknown>): TeacherT
     pay,
     status: stringValue(data.status).toLowerCase(),
   };
+}
+
+/** Hours from the clock-in/out times; total_hours is stored as text ("02:00:00"). */
+function timesheetHours(data: Record<string, unknown>): number {
+  const start = dateValue(data.clock_in_timestamp ?? data.clockInTimestamp);
+  const end = dateValue(data.effective_end_timestamp ?? data.clock_out_timestamp ?? data.clockOutTimestamp);
+  if (start && end && end > start) return (end.getTime() - start.getTime()) / 3600000;
+  const raw = data.total_hours ?? data.totalHours ?? data.hours;
+  if (typeof raw === "string" && /^\d+:\d{1,2}(:\d{1,2})?$/.test(raw.trim())) {
+    const [h, m, sec] = raw.trim().split(":").map(Number);
+    return h + (m || 0) / 60 + (sec || 0) / 3600;
+  }
+  return numberValue(raw, 0);
 }
 
 function summaryForUser(user: User, data: UserRecord | null): TeacherSummary {
