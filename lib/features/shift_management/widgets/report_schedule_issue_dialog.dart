@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -249,11 +250,17 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
             _buildIssueTypeOption(
                 'incorrect_time', 'Shift time is incorrect', Icons.schedule),
             const SizedBox(height: 8),
-            _buildIssueTypeOption(
-                'publish',
-                AppLocalizations.of(context)!.offerShiftToOtherTeachers,
-                Icons.public),
-            const SizedBox(height: 8),
+            // Only a class that has not started can be handed to another
+            // teacher, and only once.
+            if (!widget.shift.isPublished &&
+                widget.shift.status == ShiftStatus.scheduled &&
+                widget.shift.shiftStart.isAfter(DateTime.now())) ...[
+              _buildIssueTypeOption(
+                  'publish',
+                  AppLocalizations.of(context)!.offerShiftToOtherTeachers,
+                  Icons.public),
+              const SizedBox(height: 8),
+            ],
             _buildIssueTypeOption('other', 'Other issue', Icons.info_outline),
 
             const SizedBox(height: 20),

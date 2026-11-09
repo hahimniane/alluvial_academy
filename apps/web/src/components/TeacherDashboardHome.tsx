@@ -13,6 +13,7 @@ import {
   Briefcase,
   CalendarCheck,
   CalendarClock,
+  CalendarPlus,
   CheckCircle2,
   CircleUserRound,
   ClipboardCheck,
@@ -114,6 +115,7 @@ const teacherSections: SidebarSection[] = [
     title: "Work",
     items: [
       { label: "My Shifts", icon: Clock3, href: "/teacher/shifts/", color: "#10B981" },
+      { label: "Available Shifts", icon: CalendarPlus, href: "/teacher/available-shifts/", color: "#10B981" },
       { label: "Time Clock", icon: TimerReset, href: "/teacher/time-clock/", color: "#EF4444" },
       { label: "Tasks", icon: CheckCircle2, href: "/teacher/tasks/", color: "#14B8A6" },
       { label: "Job Board", icon: Briefcase, href: "/teacher/job-board/", color: "#3B82F6" },
@@ -146,7 +148,7 @@ const teacherSections: SidebarSection[] = [
 
 const quickAccess = [
   { label: "Schedule", icon: CalendarClock, href: "/teacher/shifts/", color: "#0386FF" },
-  { label: "Trading", icon: CheckCircle2, href: "/teacher/job-board/", color: "#10B981" },
+  { label: "Trading", icon: CheckCircle2, href: "/teacher/available-shifts/", color: "#10B981" },
   { label: "Forms", icon: FileText, href: "/teacher/submit-form/", color: "#F59E0B" },
   { label: "My Form Submissions", icon: RotateCcw, href: "/teacher/form-submissions/", color: "#64748B" },
   { label: "Assignments", icon: ClipboardList, href: "/teacher/assignments/", color: "#8B5CF6" },

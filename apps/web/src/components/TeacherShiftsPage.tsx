@@ -33,6 +33,7 @@ import { tr, dateLocale} from "@/lib/i18n";
 import { TeacherMakeupRequestDialog } from "@/components/TeacherMakeupRequestDialog";
 import { canRequestMakeup, isShiftAfterStrictPolicy, latestRequestByShift, type MakeupRequest, type MakeupSourceShift } from "@/lib/makeupRequests";
 import { loadTeacherMakeupRequests } from "@/lib/makeupRequestsClient";
+import { canOfferShift } from "@/lib/shiftTrading";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -64,6 +65,7 @@ type TeacherShift = {
   clockInTime: Date | null;
   clockOutTime: Date | null;
   formResponseId: string;
+  isPublished: boolean;
 };
 
 export function TeacherShiftsPage() {
@@ -284,6 +286,7 @@ export function TeacherShiftsPage() {
             onClose={() => setIssueShift(null)}
             onSubmitted={(message) => {
               showNotice(message);
+              void loadTeacherShifts(currentUser.uid).then(setShifts).catch(() => undefined);
             }}
           />
         ) : null}
@@ -658,7 +661,10 @@ function TimelineShiftCard({
               <h3 className="text-base font-black text-[#1E293B]">{shift.studentNames.join(", ") || shift.title}</h3>
               <p className="mt-1 text-sm font-medium text-[#64748B]">{shift.subject || shift.title}</p>
             </div>
-            <span className={`rounded-md px-2 py-1 text-[10px] font-black uppercase ${config.badge}`}>{config.label}</span>
+            <span className="flex flex-col items-end gap-1">
+              <span className={`rounded-md px-2 py-1 text-[10px] font-black uppercase ${config.badge}`}>{config.label}</span>
+              {shift.isPublished ? <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">{tr("Offered")}</span> : null}
+            </span>
           </div>
           <p className="mt-3 inline-flex items-center gap-1 text-sm text-[#64748B]">
             <Timer size={16} />
@@ -896,6 +902,13 @@ function ScheduleSettingsDialog({ shifts, onClose, onReportShift, onTimezoneOnly
 }
 
 function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shift: TeacherShift; user: User; onClose: () => void; onSubmitted: (message: string) => void }) {
+  const offerable = canOfferShift(shift);
+  const issueOptions = [
+    ["timezone", "My timezone is wrong"],
+    ["incorrect_time", "Shift time is incorrect"],
+    ...(offerable ? [["publish", "Offer shift to other teachers"]] : []),
+    ["other", "Other issue"],
+  ];
   const [issueType, setIssueType] = useState("timezone");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -918,7 +931,19 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
         reported_at: serverTimestamp(),
         reportedAt: serverTimestamp(),
       });
-      onSubmitted(issueType === "publish" ? "Shift offered to other teachers!" : "Issue reported! Admin will review and fix it.");
+      if (issueType === "publish") {
+        // Same change the app makes: the class stays this teacher's until
+        // someone claims it from Available Shifts.
+        await updateDoc(doc(db, "teaching_shifts", shift.id), {
+          is_published: true,
+          published_at: serverTimestamp(),
+          published_by: user.uid,
+          original_teacher_id: user.uid,
+          original_teacher_name: shift.teacherName,
+          last_modified: serverTimestamp(),
+        });
+      }
+      onSubmitted(issueType === "publish" ? tr("Shift offered to other teachers!") : tr("Issue reported! Admin will review and fix it."));
       onClose();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not submit this report.");
@@ -935,10 +960,13 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
         </div>
         <p className="mt-4 text-sm font-bold text-[#374151]">{tr("What’s the issue?")}</p>
         <div className="mt-2 grid gap-2">
-          {[["timezone", "My timezone is wrong"], ["incorrect_time", "Shift time is incorrect"], ["publish", "Offer shift to other teachers"], ["other", "Other issue"]].map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setIssueType(value)} className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${issueType === value ? "border-[#0386FF] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#334155]"}`}>{label}</button>
+          {issueOptions.map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setIssueType(value)} className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${issueType === value ? "border-[#0386FF] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#334155]"}`}>{tr(label)}</button>
           ))}
         </div>
+        {issueType === "publish" ? (
+          <p className="mt-3 rounded-xl bg-[#F0FDF4] px-3 py-2 text-xs font-medium text-[#166534]">{tr("Other teachers can claim this class. It stays yours until someone does.")}</p>
+        ) : null}
         <label className="mt-4 block text-sm font-bold text-[#374151]">{tr("Additional Notes (Optional)")}</label>
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder={tr("Explain the issue")} className="mt-2 w-full rounded-xl border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0386FF]" />
         {error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
@@ -1023,6 +1051,7 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     clockInTime: dateValue(data.clock_in_time ?? data.clockInTime),
     clockOutTime: dateValue(data.clock_out_time ?? data.clockOutTime),
     formResponseId: stringValue(data.form_response_id ?? data.formResponseId),
+    isPublished: data.is_published === true,
   };
 }
 
