@@ -69,12 +69,19 @@ class TimesheetReviewController {
     }
   }
 
+  /// The timesheets that belong to one area: teaching classes or leadership.
+  static List<TimesheetEntry> inGroup(
+      List<TimesheetEntry> all, TimesheetGroup group) {
+    final leaders = group == TimesheetGroup.leaders;
+    return all.where((entry) => entry.isLeadership == leaders).toList();
+  }
+
   static List<TimesheetEntry> applyFilters({
     required List<TimesheetEntry> all,
     required TimesheetFilterState filterState,
     required TimesheetDateParser parseEntryDate,
   }) {
-    List<TimesheetEntry> filtered = List.from(all);
+    List<TimesheetEntry> filtered = inGroup(all, filterState.group);
 
     if (filterState.statusFilter != 'All') {
       final targetStatus = _parseStatus(filterState.statusFilter);

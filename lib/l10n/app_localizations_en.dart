@@ -18879,4 +18879,16 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get timesheetGroupTeachers => 'Teachers';
+
+  @override
+  String get timesheetGroupLeaders => 'Leaders';
+
+  @override
+  String get timesheetAllLeaders => 'All leaders';
+
+  @override
+  String get timesheetFilterByLeader => 'Filter by leader';
 }

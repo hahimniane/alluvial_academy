@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:alluwalacademyadmin/core/services/shift_archive_reader.dart';
 
 enum LeaderLiveAttendanceState {
   working,
@@ -73,21 +74,26 @@ class LeaderAttendanceService {
     final monthStart = DateTime(now.year, now.month);
     final monthEnd = DateTime(now.year, now.month + 1);
 
-    final shiftSnapshot = await _firestore
-        .collection('teaching_shifts')
-        .where(
-          'shift_start',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart),
-        )
-        .where('shift_start', isLessThan: Timestamp.fromDate(monthEnd))
-        .get();
+    // Live and archived classes, so a month is complete after archiving.
+    final shiftDocs = await ShiftArchiveReader.inRange(
+      start: Timestamp.fromDate(monthStart),
+      end: Timestamp.fromDate(monthEnd),
+      endInclusive: false,
+      firestore: _firestore,
+    );
 
     final shifts = <LeaderScheduledShiftRecord>[];
-    for (final doc in shiftSnapshot.docs) {
+    for (final doc in shiftDocs) {
       final data = doc.data();
-      final category = data['category']?.toString() ?? 'teaching';
+      // Classes store their kind in `shift_category`; nothing writes
+      // `category`, which made every class look like teaching here.
+      final category =
+          (data['shift_category'] ?? data['category'])?.toString().trim() ??
+              'teaching';
       final status = data['status']?.toString();
-      if (category == 'teaching' || status == 'cancelled') continue;
+      if (category.isEmpty || category == 'teaching' || status == 'cancelled') {
+        continue;
+      }
 
       final leaderId = data['teacher_id']?.toString().trim() ?? '';
       final start = _dateFrom(data['shift_start']);

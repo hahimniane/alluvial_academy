@@ -72,6 +72,20 @@ class TimesheetEntry {
   final List<TimesheetEntry>? childEntries;
   final Map<String, dynamic>? rawDocumentData;
 
+  /// A leadership duty (leadership, meeting, training) rather than a teaching
+  /// class, from the timesheet's `shift_category`. Grouped entries read it
+  /// from their first session.
+  bool get isLeadership {
+    final children = childEntries;
+    final raw = rawDocumentData ??
+        (children != null && children.isNotEmpty
+            ? children.first.rawDocumentData
+            : null);
+    final category =
+        (raw?['shift_category'] ?? '').toString().trim().toLowerCase();
+    return category.isNotEmpty && category != 'teaching';
+  }
+
   const TimesheetEntry({
     this.documentId,
     required this.date,

@@ -6900,5 +6900,9 @@
   "pastClassCancelFailed": "تعذّر إلغاء هذه الحصة. حاول مرة أخرى.",
   "cancelThisClass": "إلغاء هذه الحصة",
   "classCancelledRecord": "أُلغيت الحصة. تبقى في الجدول كسجل.",
-  "shiftsKeptStarted": "{count, plural, =1{حصة واحدة كانت قد بدأت وتم الاحتفاظ بها.} other{{count} حصص كانت قد بدأت وتم الاحتفاظ بها.}}"
+  "shiftsKeptStarted": "{count, plural, =1{حصة واحدة كانت قد بدأت وتم الاحتفاظ بها.} other{{count} حصص كانت قد بدأت وتم الاحتفاظ بها.}}",
+  "timesheetGroupTeachers": "المعلمون",
+  "timesheetGroupLeaders": "القادة",
+  "timesheetAllLeaders": "كل القادة",
+  "timesheetFilterByLeader": "تصفية حسب القائد"
 }

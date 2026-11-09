@@ -34207,6 +34207,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 class had already started and was kept.} other{{count} classes had already started and were kept.}}'**
   String shiftsKeptStarted(int count);
+
+  /// No description provided for @timesheetGroupTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get timesheetGroupTeachers;
+
+  /// No description provided for @timesheetGroupLeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaders'**
+  String get timesheetGroupLeaders;
+
+  /// No description provided for @timesheetAllLeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'All leaders'**
+  String get timesheetAllLeaders;
+
+  /// No description provided for @timesheetFilterByLeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by leader'**
+  String get timesheetFilterByLeader;
 }
 
 class _AppLocalizationsDelegate

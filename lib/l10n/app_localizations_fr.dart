@@ -19237,4 +19237,16 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get timesheetGroupTeachers => 'Enseignants';
+
+  @override
+  String get timesheetGroupLeaders => 'Responsables';
+
+  @override
+  String get timesheetAllLeaders => 'Tous les responsables';
+
+  @override
+  String get timesheetFilterByLeader => 'Filtrer par responsable';
 }
