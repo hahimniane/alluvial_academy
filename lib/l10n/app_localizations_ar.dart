@@ -18824,4 +18824,16 @@ class AppLocalizationsAr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get timesheetGroupTeachers => 'المعلمون';
+
+  @override
+  String get timesheetGroupLeaders => 'القادة';
+
+  @override
+  String get timesheetAllLeaders => 'كل القادة';
+
+  @override
+  String get timesheetFilterByLeader => 'تصفية حسب القائد';
 }

@@ -8701,5 +8701,9 @@
         "type": "int"
       }
     }
-  }
+  },
+  "timesheetGroupTeachers": "Teachers",
+  "timesheetGroupLeaders": "Leaders",
+  "timesheetAllLeaders": "All leaders",
+  "timesheetFilterByLeader": "Filter by leader"
 }

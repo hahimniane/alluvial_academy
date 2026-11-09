@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../models/timesheet_filter_state.dart';
 import '../view_models/timesheet_review_view_model.dart';
 
 /// Compact 3-row admin timesheet inbox toolbar (title + export + filters menu;
@@ -71,6 +72,7 @@ class TimesheetReviewToolbar extends StatelessWidget {
     TimesheetReviewViewModel vm,
   ) async {
     final l10n = AppLocalizations.of(context)!;
+    final leaders = vm.filterState.group == TimesheetGroup.leaders;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -96,19 +98,22 @@ class TimesheetReviewToolbar extends StatelessWidget {
                   value: vm.filterState.teacherFilter,
                   isDense: true,
                   decoration: InputDecoration(
-                    labelText: l10n.filterByTeacher,
+                    labelText:
+                        leaders ? l10n.timesheetFilterByLeader : l10n.filterByTeacher,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  hint: Text(l10n.allTeachers, style: GoogleFonts.inter(fontSize: 12)),
+                  hint: Text(leaders ? l10n.timesheetAllLeaders : l10n.allTeachers,
+                      style: GoogleFonts.inter(fontSize: 12)),
                   items: [
                     DropdownMenuItem<String>(
                       value: null,
-                      child: Text(l10n.allTeachers,
+                      child: Text(
+                          leaders ? l10n.timesheetAllLeaders : l10n.allTeachers,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ),
-                    ...vm.availableTeachers.map(
+                    ...vm.availableTeachersInGroup.map(
                       (t) => DropdownMenuItem<String>(
                         value: t,
                         child: Text(
@@ -158,6 +163,7 @@ class TimesheetReviewToolbar extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final vm = context.watch<TimesheetReviewViewModel>();
     final counts = vm.statusCounts();
+    final groupCounts = vm.groupCounts();
     final statusFilter = vm.filterState.statusFilter;
 
     return Padding(
@@ -190,7 +196,36 @@ class TimesheetReviewToolbar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<TimesheetGroup>(
+              segments: [
+                ButtonSegment(
+                  value: TimesheetGroup.teachers,
+                  icon: const Icon(Icons.school_outlined, size: 18),
+                  label: Text(
+                    '${l10n.timesheetGroupTeachers} (${groupCounts[TimesheetGroup.teachers] ?? 0})',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                ButtonSegment(
+                  value: TimesheetGroup.leaders,
+                  icon: const Icon(Icons.groups_outlined, size: 18),
+                  label: Text(
+                    '${l10n.timesheetGroupLeaders} (${groupCounts[TimesheetGroup.leaders] ?? 0})',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+              selected: {vm.filterState.group},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) => vm.setGroup(selection.first),
+            ),
+          ),
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(

@@ -7476,5 +7476,9 @@
   "pastClassCancelFailed": "Impossible d'annuler ce cours. Réessayez.",
   "cancelThisClass": "Annuler ce cours",
   "classCancelledRecord": "Cours annulé. Il reste au planning comme trace.",
-  "shiftsKeptStarted": "{count, plural, =1{1 cours avait déjà commencé et a été conservé.} other{{count} cours avaient déjà commencé et ont été conservés.}}"
+  "shiftsKeptStarted": "{count, plural, =1{1 cours avait déjà commencé et a été conservé.} other{{count} cours avaient déjà commencé et ont été conservés.}}",
+  "timesheetGroupTeachers": "Enseignants",
+  "timesheetGroupLeaders": "Responsables",
+  "timesheetAllLeaders": "Tous les responsables",
+  "timesheetFilterByLeader": "Filtrer par responsable"
 }

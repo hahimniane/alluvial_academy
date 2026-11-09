@@ -35,15 +35,49 @@ class TimesheetReviewViewModel extends ChangeNotifier {
 
   List<TimesheetEntry> get filteredTimesheets => _computeFiltered();
 
+  /// How many timesheets each area (teachers / leaders) holds.
+  Map<TimesheetGroup, int> groupCounts() {
+    var leaders = 0;
+    for (final e in _allTimesheets) {
+      if (e.isLeadership) leaders++;
+    }
+    return {
+      TimesheetGroup.teachers: _allTimesheets.length - leaders,
+      TimesheetGroup.leaders: leaders,
+    };
+  }
+
+  /// People who have timesheets in the area currently shown.
+  List<String> get availableTeachersInGroup {
+    final names = TimesheetReviewController.inGroup(
+            _allTimesheets, _filterState.group)
+        .map((e) => e.teacherName)
+        .where((n) => n.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
+  }
+
+  /// Switch between the teachers' and the leaders' timesheets.
+  void setGroup(TimesheetGroup group) {
+    if (_filterState.group == group) return;
+    _filterState =
+        _filterState.copyWith(group: group, clearTeacherFilter: true);
+    rebuildFilteredView(clearSelection: true);
+  }
+
   Map<String, int> statusCounts() {
+    final inGroup =
+        TimesheetReviewController.inGroup(_allTimesheets, _filterState.group);
     final m = <String, int>{
-      'All': _allTimesheets.length,
+      'All': inGroup.length,
       'Pending': 0,
       'Approved': 0,
       'Rejected': 0,
       'Draft': 0,
     };
-    for (final e in _allTimesheets) {
+    for (final e in inGroup) {
       switch (e.status) {
         case TimesheetStatus.pending:
           m['Pending'] = (m['Pending'] ?? 0) + 1;
