@@ -34237,6 +34237,426 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filter by leader'**
   String get timesheetFilterByLeader;
+
+  /// No description provided for @userParentEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent Email'**
+  String get userParentEmail;
+
+  /// No description provided for @loginSignUpForClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up for a class'**
+  String get loginSignUpForClass;
+
+  /// No description provided for @loginSignUpOpenError.
+  ///
+  /// In en, this message translates to:
+  /// **'The sign-up page could not be opened. Visit alluwaleducationhub.org/enroll in your browser.'**
+  String get loginSignUpOpenError;
+
+  /// No description provided for @parentAnalyticsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance Analytics'**
+  String get parentAnalyticsTitle;
+
+  /// No description provided for @parentAnalyticsSubtitleWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly attendance signals from actual class joins and overlap.'**
+  String get parentAnalyticsSubtitleWeekly;
+
+  /// No description provided for @parentAnalyticsSubtitleMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly attendance signals from actual class joins and overlap.'**
+  String get parentAnalyticsSubtitleMonthly;
+
+  /// No description provided for @parentAnalyticsWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get parentAnalyticsWeekly;
+
+  /// No description provided for @parentAnalyticsMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get parentAnalyticsMonthly;
+
+  /// No description provided for @parentAnalyticsAttendanceAvg.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance Avg'**
+  String get parentAnalyticsAttendanceAvg;
+
+  /// No description provided for @parentAnalyticsPunctualityAvg.
+  ///
+  /// In en, this message translates to:
+  /// **'Punctuality Avg'**
+  String get parentAnalyticsPunctualityAvg;
+
+  /// No description provided for @parentAnalyticsLateClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Late Classes'**
+  String get parentAnalyticsLateClasses;
+
+  /// No description provided for @parentAnalyticsTeacherAbsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher Absent'**
+  String get parentAnalyticsTeacherAbsent;
+
+  /// No description provided for @parentAnalyticsByChild.
+  ///
+  /// In en, this message translates to:
+  /// **'By Child'**
+  String get parentAnalyticsByChild;
+
+  /// No description provided for @parentAnalyticsAttendancePercent.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% attendance'**
+  String parentAnalyticsAttendancePercent(String percent);
+
+  /// No description provided for @parentAnalyticsScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get parentAnalyticsScheduled;
+
+  /// No description provided for @parentAnalyticsAttended.
+  ///
+  /// In en, this message translates to:
+  /// **'Attended'**
+  String get parentAnalyticsAttended;
+
+  /// No description provided for @parentAnalyticsAbsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Absent'**
+  String get parentAnalyticsAbsent;
+
+  /// No description provided for @parentAnalyticsLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Late'**
+  String get parentAnalyticsLate;
+
+  /// No description provided for @parentAnalyticsEarlyJoins.
+  ///
+  /// In en, this message translates to:
+  /// **'Early Joins'**
+  String get parentAnalyticsEarlyJoins;
+
+  /// No description provided for @parentAnalyticsAttendance.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance'**
+  String get parentAnalyticsAttendance;
+
+  /// No description provided for @parentAnalyticsPunctuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Punctuality'**
+  String get parentAnalyticsPunctuality;
+
+  /// No description provided for @parentAnalyticsAvgJoinOffset.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg join offset: {offset}'**
+  String parentAnalyticsAvgJoinOffset(String offset);
+
+  /// No description provided for @parentAnalyticsOverlap.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlap: {minutes} min'**
+  String parentAnalyticsOverlap(String minutes);
+
+  /// No description provided for @parentAnalyticsOnTime.
+  ///
+  /// In en, this message translates to:
+  /// **'On time'**
+  String get parentAnalyticsOnTime;
+
+  /// No description provided for @parentAnalyticsMinEarly.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min early'**
+  String parentAnalyticsMinEarly(String minutes);
+
+  /// No description provided for @parentAnalyticsMinLate.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min late'**
+  String parentAnalyticsMinLate(String minutes);
+
+  /// No description provided for @parentProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Family Progress Overview'**
+  String get parentProgressTitle;
+
+  /// No description provided for @parentProgressSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track attendance and learning momentum for all your children in one place.'**
+  String get parentProgressSubtitle;
+
+  /// No description provided for @parentProgressAvg.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg'**
+  String get parentProgressAvg;
+
+  /// No description provided for @parentProgressChildren.
+  ///
+  /// In en, this message translates to:
+  /// **'Children'**
+  String get parentProgressChildren;
+
+  /// No description provided for @parentProgressLinkedAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked accounts'**
+  String get parentProgressLinkedAccounts;
+
+  /// No description provided for @parentProgressClassesThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes This Week'**
+  String get parentProgressClassesThisWeek;
+
+  /// No description provided for @parentProgressLast7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get parentProgressLast7Days;
+
+  /// No description provided for @parentProgressLearningHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Learning Hours'**
+  String get parentProgressLearningHours;
+
+  /// No description provided for @parentProgressPast30Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Past 30 days'**
+  String get parentProgressPast30Days;
+
+  /// No description provided for @parentProgressNeedsSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs Support'**
+  String get parentProgressNeedsSupport;
+
+  /// No description provided for @parentProgressAttendanceUnder60.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance under 60%'**
+  String get parentProgressAttendanceUnder60;
+
+  /// No description provided for @parentProgressTopSubjects.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Subjects'**
+  String get parentProgressTopSubjects;
+
+  /// No description provided for @parentProgressChildPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'Child Performance'**
+  String get parentProgressChildPerformance;
+
+  /// No description provided for @studentProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} Progress'**
+  String studentProgressTitle(String name);
+
+  /// No description provided for @studentProgressSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A focused view of attendance, study volume, and class consistency.'**
+  String get studentProgressSubtitle;
+
+  /// No description provided for @studentProgressAttendance.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance'**
+  String get studentProgressAttendance;
+
+  /// No description provided for @studentProgressClasses7d.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes (7d)'**
+  String get studentProgressClasses7d;
+
+  /// No description provided for @studentProgressHours30d.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours (30d)'**
+  String get studentProgressHours30d;
+
+  /// No description provided for @studentProgressStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get studentProgressStatus;
+
+  /// No description provided for @studentProgressTrendStable.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable class activity vs previous week'**
+  String get studentProgressTrendStable;
+
+  /// No description provided for @studentProgressTrendDelta.
+  ///
+  /// In en, this message translates to:
+  /// **'{delta} class activity vs previous week'**
+  String studentProgressTrendDelta(String delta);
+
+  /// No description provided for @studentProgressWeeklyActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly Activity'**
+  String get studentProgressWeeklyActivity;
+
+  /// No description provided for @studentProgressClassCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 class} other{{count} classes}}'**
+  String studentProgressClassCount(int count);
+
+  /// No description provided for @studentProgressBreakdownTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance Breakdown (30 days)'**
+  String get studentProgressBreakdownTitle;
+
+  /// No description provided for @studentProgressCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get studentProgressCompleted;
+
+  /// No description provided for @studentProgressMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get studentProgressMissed;
+
+  /// No description provided for @studentProgressCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get studentProgressCancelled;
+
+  /// No description provided for @studentProgressTracked.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracked'**
+  String get studentProgressTracked;
+
+  /// No description provided for @studentProgressPercentCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% completed'**
+  String studentProgressPercentCompleted(String percent);
+
+  /// No description provided for @studentProgressClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes'**
+  String get studentProgressClasses;
+
+  /// No description provided for @studentProgressHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours'**
+  String get studentProgressHours;
+
+  /// No description provided for @studentProgressNeedsSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs Support'**
+  String get studentProgressNeedsSupport;
+
+  /// No description provided for @studentProgressWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get studentProgressWatch;
+
+  /// No description provided for @studentProgressOnTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'On Track'**
+  String get studentProgressOnTrack;
+
+  /// No description provided for @paymentErrorSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again to pay this invoice.'**
+  String get paymentErrorSignIn;
+
+  /// No description provided for @paymentErrorNotYourInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice belongs to another account.'**
+  String get paymentErrorNotYourInvoice;
+
+  /// No description provided for @paymentErrorInvoiceNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice could not be found.'**
+  String get paymentErrorInvoiceNotFound;
+
+  /// No description provided for @paymentErrorInvoiceCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice was cancelled.'**
+  String get paymentErrorInvoiceCancelled;
+
+  /// No description provided for @paymentErrorAlreadyPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice is already paid.'**
+  String get paymentErrorAlreadyPaid;
+
+  /// No description provided for @paymentErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'The payment could not be started. Please try again, or contact the school if this keeps happening.'**
+  String get paymentErrorGeneric;
+
+  /// No description provided for @paymentErrorCheckoutOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'The payment page could not be opened. Please try again.'**
+  String get paymentErrorCheckoutOpen;
+
+  /// No description provided for @paymentErrorFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The payment did not go through. Please try again.'**
+  String get paymentErrorFailed;
+
+  /// No description provided for @paymentErrorStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'The payment status could not be checked. Please try again in a moment.'**
+  String get paymentErrorStatus;
+
+  /// No description provided for @paymentErrorInvoiceLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'This invoice could not be loaded. Please try again.'**
+  String get paymentErrorInvoiceLoad;
 }
 
 class _AppLocalizationsDelegate

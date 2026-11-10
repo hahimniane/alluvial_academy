@@ -644,7 +644,8 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                                     ),
                                     Text(
                                       user.role != null
-                                          ? _getRoleDisplayName(user.role!)
+                                          ? (user.leaderTitle ??
+                                              _getRoleDisplayName(user.role!))
                                           : user.email,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,

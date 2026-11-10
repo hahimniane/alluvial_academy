@@ -678,6 +678,7 @@ class ChatPermissionService {
           '',
       profilePicture: data['profile_picture'],
       role: data['user_type'],
+      jobTitle: data['title']?.toString(),
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
     );

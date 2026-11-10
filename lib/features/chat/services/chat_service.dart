@@ -96,6 +96,7 @@ class ChatService {
             profilePicture:
                 data['profile_picture_url'] ?? data['profile_picture'],
             role: data['user_type'],
+            jobTitle: data['title']?.toString(),
             isOnline: presence.isOnline,
             lastSeen: presence.lastSeen,
           );
@@ -310,6 +311,7 @@ class ChatService {
       profilePicture:
           userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
+      jobTitle: userData['title']?.toString(),
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
       lastMessage: _recentMessagePreview(lastMessage),
@@ -464,6 +466,7 @@ class ChatService {
       profilePicture:
           userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
+      jobTitle: userData['title']?.toString(),
       isOnline: presence.isOnline,
       lastSeen: presence.lastSeen,
       lastMessage: _recentMessagePreview(lastMessage),

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Ban, EyeOff, X, GraduationCap, Lock, Menu, MessageSquare, Mic, MoreHorizontal, Paperclip, Pencil, Reply, School, Search, Send, ShieldCheck, Shuffle, Square, Trash2, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
+import { leaderTitle } from "@/lib/leaderTitle";
 import { cachedStudentSession, resolveStudentSession } from "@/lib/studentSession";
 import { StudentAccessPrompt, StudentShell, openStudentMobileMenu, StudentAvatar } from "@/components/StudentDashboardHome";
 import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
@@ -40,6 +41,8 @@ type ContactRecord = {
   displayName: string;
   email: string;
   role: string;
+  /** Leader job title (user doc `title`), null when the role label shows. */
+  title: string | null;
   group: string;
 };
 
@@ -50,6 +53,8 @@ type Conversation = {
   isGroup: boolean;
   isSupport: boolean;
   participants: string[];
+  /** The counterpart leader's job title, shown under their name. */
+  leaderTitle?: string | null;
 };
 
 type ChatMessageRecord = {
@@ -230,6 +235,9 @@ export function StudentChatPage() {
 
   const openChat = async (chat: ChatPreview) => {
     setSendError("");
+    const counterpart = chat.isGroup || chat.isSupport
+      ? undefined
+      : contacts.find((contact) => contact.id !== user?.uid && chat.participants.includes(contact.id));
     openConversation({
       id: chat.id,
       displayName: chat.displayName,
@@ -237,6 +245,7 @@ export function StudentChatPage() {
       isGroup: chat.isGroup,
       isSupport: chat.isSupport,
       participants: chat.participants,
+      leaderTitle: counterpart?.title ?? null,
     });
     if (user) {
       await markChatRead(chat.id, user.uid).catch(() => undefined);
@@ -256,6 +265,7 @@ export function StudentChatPage() {
       isGroup: false,
       isSupport: false,
       participants: [user.uid, contact.id],
+      leaderTitle: contact.title,
     });
     await markChatRead(chatId, user.uid).catch(() => undefined);
   };
@@ -647,7 +657,7 @@ function ContactRow({ contact, onOpen }: { contact: ContactRecord; onOpen: () =>
       <Avatar label={contact.displayName} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-semibold text-[#111827]">{contact.displayName}</div>
-        <span className={`mt-2 inline-flex rounded-md border px-2 py-0.5 text-xs font-bold ${rolePillStyle(contact.role)}`}>{roleLabel(contact.role)}</span>
+        <span className={`mt-2 inline-flex rounded-md border px-2 py-0.5 text-xs font-bold ${rolePillStyle(contact.role)}`}>{contact.title ?? roleLabel(contact.role)}</span>
       </div>
       <span className="text-xl text-[#9CA3AF]">›</span>
     </button>
@@ -747,7 +757,7 @@ function ConversationPanel({
           <Avatar label={conversation.displayName} />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-bold text-[#111827]">{conversation.displayName}</h2>
-            <p className="truncate text-sm text-[#64748B]">{conversation.isSupport ? "School administrators" : conversation.email || (conversation.isGroup ? "Group chat" : "Conversation")}</p>
+            <p className="truncate text-sm text-[#64748B]">{conversation.isSupport ? "School administrators" : conversation.leaderTitle || conversation.email || (conversation.isGroup ? "Group chat" : "Conversation")}</p>
           </div>
           {onToggleBlock ? (
             <button
@@ -1350,6 +1360,7 @@ function normalizeContact(id: string, data: Record<string, unknown>): ContactRec
     displayName: name || stringValue(data.email ?? data["e-mail"]) || "Unknown User",
     email: stringValue(data.email ?? data["e-mail"]),
     role,
+    title: leaderTitle(role, data.title),
     group: groupForRole(role),
   };
 }

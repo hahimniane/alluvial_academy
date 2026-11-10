@@ -5,6 +5,10 @@ class ChatUser {
   final String phone;
   final String? profilePicture;
   final String? role;
+
+  /// Job title from the user doc's `title` field (edited on the admin
+  /// Edit User screen).
+  final String? jobTitle;
   final bool isOnline;
   final DateTime? lastSeen;
   final String lastMessage;
@@ -23,6 +27,7 @@ class ChatUser {
     this.phone = '',
     this.profilePicture,
     this.role,
+    this.jobTitle,
     this.isOnline = false,
     this.lastSeen,
     this.lastMessage = '',
@@ -48,6 +53,7 @@ class ChatUser {
           '',
       profilePicture: map['profile_picture_url'] ?? map['profile_picture'],
       role: map['user_type'],
+      jobTitle: map['title']?.toString(),
       isOnline: map['is_online'] ?? false,
       lastSeen:
           map['last_seen'] != null ? DateTime.tryParse(map['last_seen']) : null,
@@ -65,6 +71,28 @@ class ChatUser {
   }
 
   String get displayName => name.isNotEmpty ? name : email;
+
+  /// A leader's job title to show under their name in chat, or null when the
+  /// generic role label should be shown instead.
+  String? get leaderTitle => leaderTitleFor(role: role, title: jobTitle);
+
+  static const Set<String> _leaderRoles = {
+    'admin',
+    'super_admin',
+    'ceo',
+    'founder',
+  };
+
+  /// Only leaders (admin user types) show a job title, and only one that says
+  /// more than the role itself ("Admin" / "Administrator", any case).
+  static String? leaderTitleFor({String? role, String? title}) {
+    if (!_leaderRoles.contains((role ?? '').trim().toLowerCase())) return null;
+    final trimmed = (title ?? '').trim();
+    if (trimmed.isEmpty) return null;
+    final lower = trimmed.toLowerCase();
+    if (lower == 'admin' || lower == 'administrator') return null;
+    return trimmed;
+  }
 
   String get initials {
     if (name.isEmpty) return email.isNotEmpty ? email[0].toUpperCase() : '?';

@@ -19253,4 +19253,253 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get timesheetFilterByLeader => 'Filtrer par responsable';
+
+  @override
+  String get userParentEmail => 'E-mail du parent';
+
+  @override
+  String get loginSignUpForClass => 'S\'inscrire à un cours';
+
+  @override
+  String get loginSignUpOpenError =>
+      'La page d\'inscription n\'a pas pu s\'ouvrir. Rendez-vous sur alluwaleducationhub.org/enroll dans votre navigateur.';
+
+  @override
+  String get parentAnalyticsTitle => 'Analyse de l\'assiduité';
+
+  @override
+  String get parentAnalyticsSubtitleWeekly =>
+      'Indicateurs d\'assiduité hebdomadaires, basés sur les connexions réelles aux cours et le temps de présence.';
+
+  @override
+  String get parentAnalyticsSubtitleMonthly =>
+      'Indicateurs d\'assiduité mensuels, basés sur les connexions réelles aux cours et le temps de présence.';
+
+  @override
+  String get parentAnalyticsWeekly => 'Hebdomadaire';
+
+  @override
+  String get parentAnalyticsMonthly => 'Mensuel';
+
+  @override
+  String get parentAnalyticsAttendanceAvg => 'Assiduité moy.';
+
+  @override
+  String get parentAnalyticsPunctualityAvg => 'Ponctualité moy.';
+
+  @override
+  String get parentAnalyticsLateClasses => 'Cours en retard';
+
+  @override
+  String get parentAnalyticsTeacherAbsent => 'Enseignant absent';
+
+  @override
+  String get parentAnalyticsByChild => 'Par enfant';
+
+  @override
+  String parentAnalyticsAttendancePercent(String percent) {
+    return '$percent % d\'assiduité';
+  }
+
+  @override
+  String get parentAnalyticsScheduled => 'Prévus';
+
+  @override
+  String get parentAnalyticsAttended => 'Suivis';
+
+  @override
+  String get parentAnalyticsAbsent => 'Absences';
+
+  @override
+  String get parentAnalyticsLate => 'En retard';
+
+  @override
+  String get parentAnalyticsEarlyJoins => 'Arrivées en avance';
+
+  @override
+  String get parentAnalyticsAttendance => 'Assiduité';
+
+  @override
+  String get parentAnalyticsPunctuality => 'Ponctualité';
+
+  @override
+  String parentAnalyticsAvgJoinOffset(String offset) {
+    return 'Écart moyen à l\'arrivée : $offset';
+  }
+
+  @override
+  String parentAnalyticsOverlap(String minutes) {
+    return 'Présence : $minutes min';
+  }
+
+  @override
+  String get parentAnalyticsOnTime => 'À l\'heure';
+
+  @override
+  String parentAnalyticsMinEarly(String minutes) {
+    return '$minutes min en avance';
+  }
+
+  @override
+  String parentAnalyticsMinLate(String minutes) {
+    return '$minutes min en retard';
+  }
+
+  @override
+  String get parentProgressTitle => 'Aperçu des progrès de la famille';
+
+  @override
+  String get parentProgressSubtitle =>
+      'Suivez l\'assiduité et la progression de tous vos enfants en un seul endroit.';
+
+  @override
+  String get parentProgressAvg => 'Moy.';
+
+  @override
+  String get parentProgressChildren => 'Enfants';
+
+  @override
+  String get parentProgressLinkedAccounts => 'Comptes liés';
+
+  @override
+  String get parentProgressClassesThisWeek => 'Cours cette semaine';
+
+  @override
+  String get parentProgressLast7Days => '7 derniers jours';
+
+  @override
+  String get parentProgressLearningHours => 'Heures d\'apprentissage';
+
+  @override
+  String get parentProgressPast30Days => '30 derniers jours';
+
+  @override
+  String get parentProgressNeedsSupport => 'Besoin de soutien';
+
+  @override
+  String get parentProgressAttendanceUnder60 => 'Assiduité inférieure à 60 %';
+
+  @override
+  String get parentProgressTopSubjects => 'Matières principales';
+
+  @override
+  String get parentProgressChildPerformance => 'Résultats par enfant';
+
+  @override
+  String studentProgressTitle(String name) {
+    return 'Progression de $name';
+  }
+
+  @override
+  String get studentProgressSubtitle =>
+      'Une vue claire de l\'assiduité, du volume d\'étude et de la régularité des cours.';
+
+  @override
+  String get studentProgressAttendance => 'Assiduité';
+
+  @override
+  String get studentProgressClasses7d => 'Cours (7 j)';
+
+  @override
+  String get studentProgressHours30d => 'Heures (30 j)';
+
+  @override
+  String get studentProgressStatus => 'Statut';
+
+  @override
+  String get studentProgressTrendStable =>
+      'Activité stable par rapport à la semaine précédente';
+
+  @override
+  String studentProgressTrendDelta(String delta) {
+    return '$delta cours par rapport à la semaine précédente';
+  }
+
+  @override
+  String get studentProgressWeeklyActivity => 'Activité de la semaine';
+
+  @override
+  String studentProgressClassCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cours',
+      one: '1 cours',
+      zero: '0 cours',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get studentProgressBreakdownTitle =>
+      'Détail de l\'assiduité (30 jours)';
+
+  @override
+  String get studentProgressCompleted => 'Terminés';
+
+  @override
+  String get studentProgressMissed => 'Manqués';
+
+  @override
+  String get studentProgressCancelled => 'Annulés';
+
+  @override
+  String get studentProgressTracked => 'Suivis';
+
+  @override
+  String studentProgressPercentCompleted(String percent) {
+    return '$percent % terminés';
+  }
+
+  @override
+  String get studentProgressClasses => 'Cours';
+
+  @override
+  String get studentProgressHours => 'Heures';
+
+  @override
+  String get studentProgressNeedsSupport => 'Besoin de soutien';
+
+  @override
+  String get studentProgressWatch => 'À surveiller';
+
+  @override
+  String get studentProgressOnTrack => 'En bonne voie';
+
+  @override
+  String get paymentErrorSignIn =>
+      'Veuillez vous reconnecter pour payer cette facture.';
+
+  @override
+  String get paymentErrorNotYourInvoice =>
+      'Cette facture appartient à un autre compte.';
+
+  @override
+  String get paymentErrorInvoiceNotFound => 'Cette facture est introuvable.';
+
+  @override
+  String get paymentErrorInvoiceCancelled => 'Cette facture a été annulée.';
+
+  @override
+  String get paymentErrorAlreadyPaid => 'Cette facture est déjà payée.';
+
+  @override
+  String get paymentErrorGeneric =>
+      'Le paiement n\'a pas pu démarrer. Veuillez réessayer ou contacter l\'école si le problème persiste.';
+
+  @override
+  String get paymentErrorCheckoutOpen =>
+      'La page de paiement n\'a pas pu s\'ouvrir. Veuillez réessayer.';
+
+  @override
+  String get paymentErrorFailed =>
+      'Le paiement n\'a pas abouti. Veuillez réessayer.';
+
+  @override
+  String get paymentErrorStatus =>
+      'Le statut du paiement n\'a pas pu être vérifié. Veuillez réessayer dans un instant.';
+
+  @override
+  String get paymentErrorInvoiceLoad =>
+      'Cette facture n\'a pas pu être chargée. Veuillez réessayer.';
 }

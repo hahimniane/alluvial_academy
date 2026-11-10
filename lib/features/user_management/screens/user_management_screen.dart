@@ -554,6 +554,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       {}; // student ID -> parent ID (for display)
   final Map<String, String> _studentParentNameMap =
       {}; // student ID -> parent display name
+  final Map<String, String> _studentParentEmailMap =
+      {}; // student ID -> parent email
   final Map<String, String> _studentTeacherNamesMap =
       {}; // student ID -> joined teacher name(s) this week
   final Map<String, double> _studentWeeklyHoursMap =
@@ -564,7 +566,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   int numberOfAdmins = 0;
   Timer? _debounceTimer;
 
-  static const double _kAdminsGridMinContentWidth = 920;
+  static const double _kAdminsGridMinContentWidth = 1050;
 
   void getFirebaseData() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -736,6 +738,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final newParentStudentMap = <String, List<String>>{};
       final newStudentParentMap = <String, String>{};
       final newStudentParentNameMap = <String, String>{};
+      final newStudentParentEmailMap = <String, String>{};
       final employeesById = {
         for (final e in _snapshotEmployees) e.documentId: e,
       };
@@ -765,6 +768,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               newStudentParentNameMap[studentId] = parentEmployee != null
                   ? _displayNameForEmployee(parentEmployee)
                   : '';
+              newStudentParentEmailMap[studentId] =
+                  parentEmployee?.email.trim() ?? '';
             }
           }
         }
@@ -777,6 +782,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         _studentParentMap.addAll(newStudentParentMap);
         _studentParentNameMap.clear();
         _studentParentNameMap.addAll(newStudentParentNameMap);
+        _studentParentEmailMap.clear();
+        _studentParentEmailMap.addAll(newStudentParentEmailMap);
       }
 
       AppLogger.debug('=== Parent-Student Mapping Debug ===');
@@ -1200,7 +1207,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
-  /// Attaches guardian name / teacher name(s) / weekly hours to each student
+  /// Attaches guardian name + email / teacher name(s) / weekly hours to each student
   /// row from the maps already loaded by [_loadParentStudentRelationships]
   /// and [_loadStudentScheduleInfo] — no extra Firestore reads here.
   List<Employee> _enrichWithScheduleInfo(List<Employee> employees) {
@@ -1209,6 +1216,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final hours = _studentWeeklyHoursMap[emp.documentId];
       return emp.copyWithScheduleInfo(
         parentName: _studentParentNameMap[emp.documentId] ?? '',
+        parentEmail: _studentParentEmailMap[emp.documentId] ?? '',
         teacherNames: _studentTeacherNamesMap[emp.documentId] ?? '',
         weeklyHoursLabel:
             hours != null && hours > 0 ? _formatWeeklyHours(hours) : '',
@@ -2714,6 +2722,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   _denseHeaderLabel(AppLocalizations.of(context)!.profileEmail),
             ),
             GridColumn(
+              columnName: 'Phone',
+              width: 130,
+              label: _denseHeaderLabel(AppLocalizations.of(context)!.userPhone),
+            ),
+            GridColumn(
               columnName: 'UserType',
               width: 110,
               label: _denseHeaderLabel(AppLocalizations.of(context)!.roleType),
@@ -2748,6 +2761,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       "Student ID",
       "Kiosk Code",
       "Parent",
+      "Parent Email",
       "Teacher",
       "Weekly Hours",
       "Date Added",
@@ -2764,6 +2778,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               e.studentCode,
               e.kioskCode,
               e.parentName,
+              e.parentEmail,
               e.teacherNames,
               e.weeklyHoursLabel,
               e.dateAdded,
@@ -3026,6 +3041,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 label: _denseHeaderLabel(
                                                   AppLocalizations.of(context)!
                                                       .userParentName,
+                                                ),
+                                              ),
+                                              GridColumn(
+                                                columnName: 'ParentEmail',
+                                                width: 150,
+                                                label: _denseHeaderLabel(
+                                                  AppLocalizations.of(context)!
+                                                      .userParentEmail,
                                                 ),
                                               ),
                                               GridColumn(

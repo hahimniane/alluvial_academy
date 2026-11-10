@@ -28,6 +28,7 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'StudentId', value: e.studentCode),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'ParentName', value: e.parentName),
+        DataGridCell<String>(columnName: 'ParentEmail', value: e.parentEmail),
         DataGridCell<String>(columnName: 'TeacherName', value: e.teacherNames),
         DataGridCell<String>(
             columnName: 'WeeklyHours', value: e.weeklyHoursLabel),
@@ -65,6 +66,7 @@ class UserEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'StudentId', value: e.studentCode),
         DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
         DataGridCell<String>(columnName: 'ParentName', value: e.parentName),
+        DataGridCell<String>(columnName: 'ParentEmail', value: e.parentEmail),
         DataGridCell<String>(columnName: 'TeacherName', value: e.teacherNames),
         DataGridCell<String>(
             columnName: 'WeeklyHours', value: e.weeklyHoursLabel),

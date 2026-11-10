@@ -769,7 +769,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Text(
       widget.chatUser.role != null
-          ? _getRoleDisplayName(widget.chatUser.role!)
+          ? (widget.chatUser.leaderTitle ??
+              _getRoleDisplayName(widget.chatUser.role!))
           : 'Offline',
       style: GoogleFonts.inter(
         fontSize: 12,

@@ -23,6 +23,7 @@ class AdminEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
+        DataGridCell<String>(columnName: 'Phone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
         DataGridCell<String>(
             columnName: 'AdminType',
@@ -54,6 +55,7 @@ class AdminEmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
         DataGridCell<String>(columnName: 'LastName', value: e.lastName),
         DataGridCell<String>(columnName: 'Email', value: e.email),
+        DataGridCell<String>(columnName: 'Phone', value: e.mobilePhone),
         DataGridCell<String>(columnName: 'UserType', value: e.userType),
         DataGridCell<String>(
             columnName: 'AdminType',

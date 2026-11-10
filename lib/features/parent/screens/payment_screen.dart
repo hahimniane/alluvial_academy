@@ -76,7 +76,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           (result.data as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
 
       if (data['success'] != true) {
-        throw Exception(data['error'] ?? 'Failed to create payment');
+        throw const _PaymentStartFailure(_PaymentFailureKind.generic);
       }
 
       final clientSecret = (data['paymentIntent'] ?? '').toString();
@@ -89,7 +89,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ephemeralKey.isEmpty ||
           customerId.isEmpty ||
           publishableKey.isEmpty) {
-        throw Exception('Invalid payment response from server');
+        throw const _PaymentStartFailure(_PaymentFailureKind.generic);
       }
 
       setState(() => _paymentId = paymentId);
@@ -131,16 +131,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
         AppLogger.error(
             'PaymentScreen: Stripe error: ${e.error.localizedMessage}');
         if (mounted) {
-          setState(() => _error = e.error.localizedMessage ?? 'Payment failed');
+          final message = e.error.localizedMessage?.trim() ?? '';
+          setState(() => _error = message.isNotEmpty
+              ? message
+              : AppLocalizations.of(context)!.paymentErrorFailed);
         }
       }
     } on FirebaseFunctionsException catch (e) {
       AppLogger.error(
           'PaymentScreen: createPaymentIntent failed: ${e.code} ${e.message}');
-      if (mounted) setState(() => _error = e.message ?? e.code);
+      if (mounted) setState(() => _error = _functionsErrorMessage(e));
+    } on _PaymentStartFailure catch (e) {
+      AppLogger.error('PaymentScreen: payment error: ${e.kind}');
+      if (mounted) setState(() => _error = _failureMessage(e.kind));
     } catch (e) {
       AppLogger.error('PaymentScreen: payment error: $e');
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        setState(() => _error = _failureMessage(_PaymentFailureKind.generic));
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -154,7 +162,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         (result.data as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
 
     if (data['success'] != true) {
-      throw Exception(data['error'] ?? 'Failed to create checkout session');
+      throw const _PaymentStartFailure(_PaymentFailureKind.generic);
     }
 
     final paymentId = (data['paymentId'] ?? '').toString();
@@ -164,14 +172,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         uri == null ||
         !uri.hasScheme ||
         uri.host.isEmpty) {
-      throw Exception('Invalid checkout response from server');
+      throw const _PaymentStartFailure(_PaymentFailureKind.generic);
     }
 
     setState(() => _paymentId = paymentId);
 
     final launched = await launchUrl(uri, webOnlyWindowName: '_self');
     if (!launched) {
-      throw Exception('Could not open Stripe checkout');
+      throw const _PaymentStartFailure(_PaymentFailureKind.checkoutOpen);
     }
   }
 
@@ -182,7 +190,56 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final payment = await PaymentService.getPaymentStatus(paymentId);
       if (mounted) setState(() => _payment = payment);
     } catch (e) {
-      if (!silent && mounted) setState(() => _error = e.toString());
+      AppLogger.error('PaymentScreen: payment status check failed: $e');
+      if (!silent && mounted) {
+        setState(() => _error = _failureMessage(_PaymentFailureKind.status));
+      }
+    }
+  }
+
+  /// Server messages are English and technical; parents see a plain message
+  /// in their own language, chosen from the callable's error code.
+  String _functionsErrorMessage(FirebaseFunctionsException e) {
+    final serverMessage = (e.message ?? '').toLowerCase();
+    switch (e.code) {
+      case 'unauthenticated':
+        return _failureMessage(_PaymentFailureKind.signIn);
+      case 'permission-denied':
+        return _failureMessage(_PaymentFailureKind.notYourInvoice);
+      case 'not-found':
+        return _failureMessage(_PaymentFailureKind.invoiceNotFound);
+      case 'failed-precondition':
+        if (serverMessage.contains('cancel')) {
+          return _failureMessage(_PaymentFailureKind.invoiceCancelled);
+        }
+        if (serverMessage.contains('already paid')) {
+          return _failureMessage(_PaymentFailureKind.alreadyPaid);
+        }
+        return _failureMessage(_PaymentFailureKind.generic);
+      default:
+        return _failureMessage(_PaymentFailureKind.generic);
+    }
+  }
+
+  String _failureMessage(_PaymentFailureKind kind) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (kind) {
+      case _PaymentFailureKind.signIn:
+        return l10n.paymentErrorSignIn;
+      case _PaymentFailureKind.notYourInvoice:
+        return l10n.paymentErrorNotYourInvoice;
+      case _PaymentFailureKind.invoiceNotFound:
+        return l10n.paymentErrorInvoiceNotFound;
+      case _PaymentFailureKind.invoiceCancelled:
+        return l10n.paymentErrorInvoiceCancelled;
+      case _PaymentFailureKind.alreadyPaid:
+        return l10n.paymentErrorAlreadyPaid;
+      case _PaymentFailureKind.checkoutOpen:
+        return l10n.paymentErrorCheckoutOpen;
+      case _PaymentFailureKind.status:
+        return l10n.paymentErrorStatus;
+      case _PaymentFailureKind.generic:
+        return l10n.paymentErrorGeneric;
     }
   }
 
@@ -211,11 +268,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return _centreMessage('Failed to load invoice: ${snapshot.error}');
+            AppLogger.error(
+                'PaymentScreen: invoice stream failed: ${snapshot.error}');
+            return _centreMessage(l10n.paymentErrorInvoiceLoad);
           }
           final invoice = snapshot.data;
           if (invoice == null) {
-            return _centreMessage('Invoice not found');
+            return _centreMessage(l10n.paymentErrorInvoiceNotFound);
           }
 
           final money = NumberFormat.simpleCurrency(name: invoice.currency);
@@ -598,6 +657,22 @@ class _SuccessBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _PaymentFailureKind {
+  signIn,
+  notYourInvoice,
+  invoiceNotFound,
+  invoiceCancelled,
+  alreadyPaid,
+  checkoutOpen,
+  status,
+  generic,
+}
+
+class _PaymentStartFailure implements Exception {
+  const _PaymentStartFailure(this.kind);
+  final _PaymentFailureKind kind;
 }
 
 class _ErrorCard extends StatelessWidget {
