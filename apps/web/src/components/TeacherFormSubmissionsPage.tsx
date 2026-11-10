@@ -21,6 +21,7 @@ import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell } from "@/components/TeacherDashboardHome";
 import { tr, dateLocale} from "@/lib/i18n";
 import { buildFieldLayout, orderResponseEntries, type FieldLayout } from "@/lib/formAnswerOrder";
+import { decisionCounts, normalizeReviewStatus, reviewStatusClasses, reviewStatusLabel, type ReviewStatus } from "@/lib/formReview";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type SubmissionRecord = {
@@ -28,6 +29,7 @@ type SubmissionRecord = {
   formId: string;
   formTitle: string;
   status: string;
+  reviewStatus: ReviewStatus;
   responses: Record<string, unknown>;
   fieldLabels: Record<string, string>;
   fieldOrder: Record<string, number>;
@@ -126,7 +128,7 @@ export function TeacherFormSubmissionsPage() {
     return groups
       .map((group) => {
         if (group.title.toLowerCase().includes(term)) return group;
-        const matching = group.submissions.filter((item) => item.status.toLowerCase().includes(term));
+        const matching = group.submissions.filter((item) => item.status.toLowerCase().includes(term) || tr(reviewStatusLabel(item.reviewStatus)).toLowerCase().includes(term));
         return matching.length > 0 ? { ...group, submissions: matching } : null;
       })
       .filter((group): group is SubmissionGroup => group !== null);
@@ -278,7 +280,7 @@ function EmptySubmissions({ search }: { search: string }) {
 
 function SubmissionGroupCard({ group, onOpen }: { group: SubmissionGroup; onOpen: () => void }) {
   const latest = group.submissions[0];
-  const completed = group.submissions.filter((item) => item.status.toLowerCase() === "completed").length;
+  const counts = decisionCounts(group.submissions.map((item) => item.reviewStatus));
   return (
     <button type="button" onClick={onOpen} className="grid min-h-[96px] grid-cols-[48px_minmax(0,1fr)_20px] items-center gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 text-left hover:border-[#BFDBFE] hover:shadow-sm">
       <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#0386FF]/10 text-[#0386FF]">
@@ -288,12 +290,27 @@ function SubmissionGroupCard({ group, onOpen }: { group: SubmissionGroup; onOpen
         <span className="line-clamp-2 block text-base font-bold text-[#1E293B]">{group.title}</span>
         <span className="mt-2 flex flex-wrap gap-2">
           <MiniChip icon={ClipboardList} text={`${group.submissions.length} ${group.submissions.length === 1 ? "submission" : "submissions"}`} />
-          {completed > 0 ? <MiniChip icon={Check} text={`${completed} completed`} tone="green" /> : null}
+          {counts.accepted > 0 ? <DecisionChip status="accepted" count={counts.accepted} /> : null}
+          {counts.rejected > 0 ? <DecisionChip status="rejected" count={counts.rejected} /> : null}
+          {counts.awaiting > 0 ? <DecisionChip status="" count={counts.awaiting} /> : null}
         </span>
         {latest?.submittedAt ? <span className="mt-2 block text-xs text-[#64748B]">{tr("Last submitted")} {shortDate(latest.submittedAt)}</span> : null}
       </span>
       <ChevronRight size={17} className="text-[#94A3B8]" />
     </button>
+  );
+}
+
+function DecisionChip({ status, count }: { status: ReviewStatus; count: number }) {
+  return <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${reviewStatusClasses(status)}`}>{count} {tr(reviewStatusLabel(status))}</span>;
+}
+
+function DecisionBadge({ status }: { status: ReviewStatus }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569]">
+      {tr("Decision")}:
+      <span className={`inline-flex rounded-full px-2 py-0.5 ${reviewStatusClasses(status)}`}>{tr(reviewStatusLabel(status))}</span>
+    </span>
   );
 }
 
@@ -377,7 +394,7 @@ function GroupSheet({ group, onClose, onView }: { group: SubmissionGroup; onClos
             <button key={submission.id} type="button" onClick={() => onView(submission)} className="mb-3 grid min-h-[76px] w-full grid-cols-[1fr_20px] items-center gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 text-left hover:border-[#BFDBFE]">
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-[#1E293B]">{submission.submittedAt ? fullDate(submission.submittedAt) : tr("Submission date unknown")}</span>
-                <span className="mt-2 inline-flex rounded-md bg-[#EFF6FF] px-2 py-1 text-xs font-semibold text-[#0386FF]">{submission.status || "Submitted"}</span>
+                <span className="mt-2 block"><DecisionBadge status={submission.reviewStatus} /></span>
               </span>
               <ChevronRight size={17} className="text-[#94A3B8]" />
             </button>
@@ -404,6 +421,7 @@ function SubmissionDetail({ submission, onClose }: { submission: SubmissionRecor
               </span>
             </div>
             <p className="mt-2 text-sm text-[#64748B]">{submission.submittedAt ? tr("Submitted on {date}", { date: fullDate(submission.submittedAt) }) : tr("Submission date unknown")}</p>
+            <p className="mt-2"><DecisionBadge status={submission.reviewStatus} /></p>
           </div>
           <button type="button" onClick={onClose} aria-label={tr("Close")} className="ml-3 grid h-10 w-10 place-items-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC]">
             <X size={20} />
@@ -509,6 +527,7 @@ function normalizeSubmission(id: string, data: Record<string, unknown>): Submiss
     formId,
     formTitle: title,
     status: stringValue(data.status) || "Submitted",
+    reviewStatus: normalizeReviewStatus(data.reviewStatus),
     responses,
     fieldLabels: {},
     fieldOrder: {},
