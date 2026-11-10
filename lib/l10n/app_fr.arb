@@ -3537,6 +3537,7 @@
     }
   },
   "classVideoConnectFailed": "Impossible de se connecter à la classe",
+  "classVideoSlowConnection": "Votre connexion est trop lente pour rejoindre la classe. Vérifiez votre internet et réessayez.",
   "classVideoMobileTeacherNotEnabled": "Les classes sur l'application mobile ne sont pas activées pour votre compte. Veuillez contacter un administrateur.",
   "classVideoEnded": "Cette classe est terminée",
   "classVideoOpensInMinutes": "{count, plural, =1{La classe ouvre dans 1 minute} other{La classe ouvre dans {count} minutes}}",

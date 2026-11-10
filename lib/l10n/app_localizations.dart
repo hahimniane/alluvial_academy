@@ -17730,6 +17730,12 @@ abstract class AppLocalizations {
   /// **'Failed to connect to class'**
   String get classVideoConnectFailed;
 
+  /// No description provided for @classVideoSlowConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Your connection is too slow to reach the class. Check your internet and try again.'**
+  String get classVideoSlowConnection;
+
   /// No description provided for @classVideoMobileTeacherNotEnabled.
   ///
   /// In en, this message translates to:

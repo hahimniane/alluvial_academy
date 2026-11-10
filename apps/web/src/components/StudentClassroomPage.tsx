@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2, Lock, LockOpen, RefreshCw, UserMinus, Users, Video,
 import { auth, db, functions, firebaseProjectId } from "@/lib/firebase";
 import { resolveStudentSession } from "@/lib/studentSession";
 import { useT } from "@/lib/i18n";
+import { classroomErrorText } from "@/lib/classroomErrorText";
 import { readClassroomReconnect, type ClassroomReconnect } from "@/lib/classroomReconnect";
 import ClassroomReconnecting from "@/components/ClassroomReconnecting";
 import { StudentAccessPrompt } from "@/components/StudentDashboardHome";
@@ -150,7 +151,7 @@ export function StudentClassroomPage() {
           const reconnecting = readClassroomReconnect(error);
           setReconnectInfo(reconnecting);
           setStatus("error");
-          setMessage(reconnecting ? "" : classroomErrorMessage(error, t));
+          setMessage(reconnecting ? "" : t(classroomErrorText(error)));
         }
       }
     }
@@ -411,20 +412,6 @@ function classAvailability(shift: ClassroomShift, t: Translate) {
   }
   if (now > joinWindowEnd) return { kind: "blocked", message: t("This class has ended") } as const;
   return { kind: "ready" } as const;
-}
-
-function classroomErrorMessage(error: unknown, t: Translate) {
-  const raw = error instanceof Error ? error.message : String(error || "");
-  const normalized = raw.toLowerCase();
-  if (
-    normalized.includes("cors") ||
-    normalized.includes("failed to fetch") ||
-    normalized === "internal" ||
-    normalized.includes("internal")
-  ) {
-    return t("Class video is unavailable in this Firebase project. RealtimeKit functions or secrets are not configured.");
-  }
-  return raw.trim() || t("Unable to join this class.");
 }
 
 function functionErrorMessage(error: unknown, fallback: string) {

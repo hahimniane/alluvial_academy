@@ -3574,6 +3574,7 @@
     }
   },
   "classVideoConnectFailed": "Failed to connect to class",
+  "classVideoSlowConnection": "اتصالك بطيء جدًا للوصول إلى الحصة. تحقق من الإنترنت وحاول مرة أخرى.",
   "classVideoMobileTeacherNotEnabled": "Mobile app classes are not enabled for your account. Please contact an administrator.",
   "classVideoEnded": "This class has ended",
   "classVideoOpensInMinutes": "{count, plural, =1{Class opens in 1 minute} other{Class opens in {count} minutes}}",
