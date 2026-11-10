@@ -513,6 +513,12 @@ export const FR: Record<string, string> = {
   "Class video is unavailable in this Firebase project. RealtimeKit functions or secrets are not configured.":
     "La vidéo du cours est indisponible dans ce projet Firebase. Les fonctions ou les secrets RealtimeKit ne sont pas configurés.",
   "Unable to join this class.": "Impossible de rejoindre ce cours.",
+  "Decision": "Décision",
+  "Accepted": "Accepté",
+  "Rejected": "Refusé",
+  "Not reviewed": "Non examiné",
+  "In review": "En cours d’examen",
+  "Seen": "Vu",
   "Your connection is too slow to reach the class. Check your internet and try again.":
     "Votre connexion est trop lente pour rejoindre le cours. Vérifiez votre internet et réessayez.",
   "Back to classes": "Retour aux cours",
