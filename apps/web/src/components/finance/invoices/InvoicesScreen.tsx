@@ -41,6 +41,8 @@ import {
   loadUserDirectory,
   type FinanceSettingsView,
 } from "./data";
+import { INVOICE_EXPORT_HEADERS, invoiceExportFileName, invoiceExportRows } from "@/lib/finance/invoiceExport";
+import { downloadWorkbook } from "@/lib/xlsx";
 import { CutOffPanel } from "./CutOffPanel";
 import { NotAttendingPanel } from "./NotAttendingPanel";
 import { InvoiceDetail } from "./InvoiceDetail";
@@ -232,6 +234,14 @@ export function InvoicesScreen() {
       ? `Showing the first ${MONTH_QUERY_LIMIT} invoices for ${monthLabel(month)}.`
       : "";
 
+  // The list exactly as filtered and sorted on screen.
+  const exportExcel = () => {
+    downloadWorkbook(
+      [{ name: forAll ? "Invoices" : `Invoices ${monthLabel(month)}`, headers: INVOICE_EXPORT_HEADERS, rows: invoiceExportRows(view.rows) }],
+      invoiceExportFileName(forAll ? "all" : month, filters.status),
+    );
+  };
+
   const totals = [
     { label: "Invoices", value: String(view.totals.count) },
     { label: "Billed", value: money(view.totals.billed) },
@@ -247,6 +257,11 @@ export function InvoicesScreen() {
             Invoices
           </h2>
           <div className="flex-1" />
+          {!panelView ? (
+            <button type="button" className={outlineButton} onClick={exportExcel} disabled={loading || view.rows.length === 0}>
+              Export to Excel
+            </button>
+          ) : null}
           <button type="button" className={primaryButton} onClick={() => setCreating(true)}>
             New invoice
           </button>

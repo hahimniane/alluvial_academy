@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Clock,
   Download,
+  DollarSign,
   Grid2X2,
   Handshake,
   Hourglass,
@@ -66,11 +67,12 @@ import {
   republishConfirmBody,
   type PreviousMatch,
 } from "@/lib/previousMatches";
-import { MatchedSetupActions } from "@/components/MatchedSetupActions";
+import { MatchedSetupActions, MonthlyAmountDialog } from "@/components/MatchedSetupActions";
 import { ApplicantDetailsDialog } from "@/components/ApplicantDetailsDialog";
 import { auth, db } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
-import { suggestedClassesInMonth } from "@/lib/enrollmentSetup";
+import { setEnrollmentMonthlyAmount, suggestedClassesInMonth } from "@/lib/enrollmentSetup";
+import { dollars } from "@/lib/enrollmentSetupRules";
 import { blockById, blockRangeLabel, minutesFromDurationLabel, normalizeBlock, normalizeClassType } from "@/lib/enrollmentDomain";
 import { groupApplicants, groupIds, listNames, type ApplicantGroup } from "@/lib/familyGroups";
 import {
@@ -1491,6 +1493,12 @@ function ApplicantCard({
   const archived = applicant.status === "archived";
   const matched = applicant.status === "matched";
   const waiting = setup && isStale(applicant.matchedAt, setup.stage) ? daysWaiting(applicant.matchedAt) : null;
+  const readyToTeach = setup?.stage === "ready";
+  const [pricing, setPricing] = useState(false);
+  const cardStudentName = classmates ? listNames(classmates.map((c) => c.studentName)) : applicant.studentName;
+  const classesInMonth =
+    applicant.classesInMonth ??
+    suggestedClassesInMonth(applicant.sessionsPerWeek, applicant.hoursPerWeek, minutesFromDurationLabel(applicant.sessionDuration));
   return (
     <article className={`overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)] ${live ? "border border-[#10B981]" : ""}`}>
       <div className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold ${matched ? "bg-[#ECFDF5] text-[#059669]" : live ? "bg-[#ECFDF5] text-[#059669]" : archived ? "bg-[#F1F5F9] text-[#64748B]" : "bg-[#F8FAFC] text-[#94A3B8]"}`}>
@@ -1644,7 +1652,39 @@ function ApplicantCard({
               <Tag size={16} />
               {applicant.discount || applicant.familyDiscount ? "Edit discount" : "Add discount"}
             </button>
+            {readyToTeach ? (
+              <button
+                type="button"
+                onClick={() => setPricing(true)}
+                aria-label={applicant.monthlyAmount ? `Edit the monthly amount, now ${dollars(applicant.monthlyAmount)} a month` : "Set the monthly amount"}
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-xs font-semibold text-[#047857] hover:bg-[#ECFDF5]"
+              >
+                <DollarSign size={16} />
+                {applicant.monthlyAmount ? (
+                  <span>
+                    <span className="font-bold">{dollars(applicant.monthlyAmount)} a month</span> · Edit
+                  </span>
+                ) : (
+                  "Set monthly amount"
+                )}
+              </button>
+            ) : null}
           </div>
+          {pricing ? (
+            <MonthlyAmountDialog
+              studentName={cardStudentName}
+              isFamilyClass={!!classmates}
+              initialAmount={applicant.monthlyAmount}
+              initialClasses={classesInMonth}
+              onSave={async (amount, classes) => {
+                await setEnrollmentMonthlyAmount(applicant.id, amount, classes);
+                setPricing(false);
+                onMessage(`${dollars(amount)} a month saved for ${cardStudentName}. The first invoice is created after the first class.`);
+                onChanged();
+              }}
+              onClose={() => setPricing(false)}
+            />
+          ) : null}
           <div className="flex items-center gap-3">
             {applicant.status !== "archived" ? (
               <button type="button" onClick={onArchive} aria-label={`Archive ${applicant.studentName}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#94A3B8] hover:bg-[#F1F5F9]">

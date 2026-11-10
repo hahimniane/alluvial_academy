@@ -34,3 +34,21 @@ export const parentInviteProblem = (invite: ParentInvite): string | null => {
   if (!email.includes("@")) return "Enter a valid email address.";
   return null;
 };
+
+/**
+ * Why a monthly amount cannot be saved yet, or null when it can. Mirrors the
+ * setEnrollmentMonthlyAmount callable: above $0, and 1 to 62 classes in a
+ * full month.
+ */
+export const monthlyAmountProblem = (amount: string, classesInMonth: string): string | null => {
+  const amountValue = Number(amount);
+  const classesValue = Number(classesInMonth);
+  if (amount.trim() === "" || !Number.isFinite(amountValue) || !(amountValue > 0)) return "Enter the monthly amount.";
+  if (classesInMonth.trim() === "" || !Number.isInteger(classesValue) || classesValue < 1 || classesValue > 62) {
+    return "Enter how many classes a full month has.";
+  }
+  return null;
+};
+
+/** "$80", "$82.50". */
+export const dollars = (n: number): string => `$${n.toFixed(2).replace(/\.00$/, "")}`;
