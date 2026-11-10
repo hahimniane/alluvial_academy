@@ -300,10 +300,35 @@ class ClassVideoService {
     return null;
   }
 
+  /// The message to show for a refused join. A message the server wrote is
+  /// kept as is. When the phone gave up on its own (a timeout, no network), the
+  /// SDK fills the message with the bare code, e.g. "DEADLINE_EXCEEDED", which
+  /// tells a teacher nothing, so it becomes [slowConnectionError] instead.
+  @visibleForTesting
+  static String joinErrorText(
+    FirebaseFunctionsException e, {
+    required String fallbackError,
+    required String slowConnectionError,
+  }) {
+    final message = (e.message ?? '').trim();
+    final code = e.code.toLowerCase();
+    final normalized = message.toLowerCase().replaceAll('_', '-');
+    final isBareCode = message.isEmpty ||
+        normalized == code ||
+        normalized == code.replaceFirst('functions/', '') ||
+        normalized == 'internal';
+    if (!isBareCode) return message;
+    if (code.endsWith('deadline-exceeded') || code.endsWith('unavailable')) {
+      return slowConnectionError.isNotEmpty ? slowConnectionError : fallbackError;
+    }
+    return fallbackError;
+  }
+
   static Future<ClassVideoJoinResult> getJoinToken(
     String shiftId, {
     String fallbackError = '',
     String unauthenticatedError = '',
+    String slowConnectionError = '',
   }) async {
     try {
       if (_auth.currentUser == null) {
@@ -322,7 +347,11 @@ class ClassVideoService {
       AppLogger.error(
         'ClassVideoService: join token error: ${e.code} - ${e.message}',
       );
-      return ClassVideoJoinResult.error(e.message ?? fallbackError);
+      return ClassVideoJoinResult.error(joinErrorText(
+        e,
+        fallbackError: fallbackError,
+        slowConnectionError: slowConnectionError,
+      ));
     } catch (e) {
       AppLogger.error('ClassVideoService: join token error: $e');
       return ClassVideoJoinResult.error(fallbackError);
@@ -350,6 +379,7 @@ class ClassVideoService {
     String? clientPlatform,
     String fallbackError = '',
     String unauthenticatedError = '',
+    String slowConnectionError = '',
   }) async {
     try {
       if (_auth.currentUser == null) {
@@ -376,7 +406,11 @@ class ClassVideoService {
           reconnect.expectedBackAt,
         );
       }
-      return ZoomClassJoinInfo.error(e.message ?? fallbackError);
+      return ZoomClassJoinInfo.error(joinErrorText(
+        e,
+        fallbackError: fallbackError,
+        slowConnectionError: slowConnectionError,
+      ));
     } catch (e) {
       AppLogger.error('ClassVideoService: Zoom join info error: $e');
       return ZoomClassJoinInfo.error(fallbackError);
@@ -629,6 +663,7 @@ class ClassVideoService {
           clientPlatform: isNativeMobile ? 'native_mobile' : null,
           fallbackError: l10n.classVideoConnectFailed,
           unauthenticatedError: l10n.pleaseSignInAgainToJoin,
+          slowConnectionError: l10n.classVideoSlowConnection,
         );
         if (context.mounted) Navigator.of(context).pop();
 
@@ -644,6 +679,7 @@ class ClassVideoService {
               clientPlatform: isNativeMobile ? 'native_mobile' : null,
               fallbackError: l10n.classVideoConnectFailed,
               unauthenticatedError: l10n.pleaseSignInAgainToJoin,
+              slowConnectionError: l10n.classVideoSlowConnection,
             ),
           );
           if (resolved == null) return;
@@ -699,6 +735,7 @@ class ClassVideoService {
         shift.id,
         fallbackError: l10n.classVideoConnectFailed,
         unauthenticatedError: l10n.pleaseSignInAgainToJoin,
+        slowConnectionError: l10n.classVideoSlowConnection,
       );
       if (context.mounted) Navigator.of(context).pop();
 

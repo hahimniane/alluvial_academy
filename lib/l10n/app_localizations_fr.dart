@@ -9721,6 +9721,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de se connecter à la classe';
 
   @override
+  String get classVideoSlowConnection =>
+      'Votre connexion est trop lente pour rejoindre la classe. Vérifiez votre internet et réessayez.';
+
+  @override
   String get classVideoMobileTeacherNotEnabled =>
       'Les classes sur l\'application mobile ne sont pas activées pour votre compte. Veuillez contacter un administrateur.';
 

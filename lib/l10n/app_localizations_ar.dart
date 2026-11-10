@@ -9443,6 +9443,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get classVideoConnectFailed => 'Failed to connect to class';
 
   @override
+  String get classVideoSlowConnection =>
+      'اتصالك بطيء جدًا للوصول إلى الحصة. تحقق من الإنترنت وحاول مرة أخرى.';
+
+  @override
   String get classVideoMobileTeacherNotEnabled =>
       'Mobile app classes are not enabled for your account. Please contact an administrator.';
 
