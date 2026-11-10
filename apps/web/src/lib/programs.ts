@@ -12,7 +12,7 @@ export type Program = {
 export const programs: Program[] = [
   {
     id: "islamic",
-    title: "Islamic Studies",
+    title: "Religious Studies",
     description: "Quran recitation, memorization support, Islamic foundations, and values-centered learning.",
     audience: "Children, teens, and adults",
     icon: MoonStar,

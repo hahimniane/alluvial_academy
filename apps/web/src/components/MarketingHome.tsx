@@ -541,7 +541,7 @@ export function MarketingHome() {
               About Alluwal Education Hub
             </h2>
             <p className="mx-auto mt-4 max-w-[700px] text-[18px] leading-[1.6] text-[#6B7280]">
-              We are fostering a world where diverse knowledge—African, Western, and faith traditions—comes together to prepare students for a globalized future.
+              We are building a learning community where Islamic, African, and Western knowledge come together to equip students with the understanding and skills they need to thrive in today’s world.
             </p>
           </Reveal>
 

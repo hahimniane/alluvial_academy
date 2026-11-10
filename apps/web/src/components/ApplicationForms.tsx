@@ -73,7 +73,7 @@ const teachingPrograms = [
   },
   {
     value: "islamic_studies",
-    label: "Islamic Program (Quran, Arabic, Hadith, Fiqh)",
+    label: "Religious Studies (Quran, Arabic, Hadith, Fiqh)",
     icon: BookOpen,
     color: "#10B981",
   },
@@ -500,8 +500,6 @@ export function TeacherApplicationForm() {
             <div className="grid gap-3">
               {teachingPrograms.map(({ value, label, icon: Icon, color }) => {
                 const selected = selectedPrograms.includes(value);
-                const accessibleLabel =
-                  value === "islamic_studies" ? "Islamic & AdLam Islamic Program" : label;
                 return (
                   <button
                     key={value}
@@ -514,7 +512,7 @@ export function TeacherApplicationForm() {
                       backgroundColor: selected ? `${color}18` : "white",
                     }}
                     aria-pressed={selected}
-                    aria-label={accessibleLabel}
+                    aria-label={label}
                   >
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: selected ? `${color}2e` : "#F3F4F6", color }}>
                       <Icon size={20} />
@@ -542,7 +540,7 @@ export function TeacherApplicationForm() {
             ) : null}
             {isIslamicSelected ? (
               <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h3 className="font-bold text-[#374151]">Islamic Studies Qualifications</h3>
+                <h3 className="font-bold text-[#374151]">Religious Studies Qualifications</h3>
                 <SelectField
                   label="Are you excellent in Tajwid Rules?"
                   name="tajwidLevel"

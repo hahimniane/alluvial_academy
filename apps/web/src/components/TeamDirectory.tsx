@@ -66,7 +66,7 @@ const categories: CategoryTheme[] = [
     id: "teacher",
     label: "Teachers",
     tagline: "Global Knowledge Carriers",
-    description: "Scholars and educators spanning 10+ countries - bringing Islamic and academic excellence to every learner, everywhere.",
+    description: "Scholars and educators spanning 10+ countries - bringing religious and academic excellence to every learner, everywhere.",
     icon: BookOpen,
     accent: "#6366F1",
     accentLight: "#EEEEFD",
@@ -152,7 +152,7 @@ function TeamHero({ members }: { members: PublicSiteTeamMember[] }) {
           Meet the People Behind Alluwal
         </h1>
         <p className="mt-5 max-w-[650px] text-[15px] leading-[1.55] text-white/88 md:mt-6 md:text-[18px]">
-          Educators, leaders, and innovators united by a shared mission — to make quality Islamic and academic education accessible to every learner, everywhere.
+          Educators, leaders, and innovators united by a shared mission — to make quality religious and academic education accessible to every learner, everywhere.
         </p>
         {preview.length > 0 ? (
           <div className="mt-9 flex items-center justify-center">

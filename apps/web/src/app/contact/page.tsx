@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { ContactForm } from "@/components/ContactForm";
 import { PageShell } from "@/components/PageShell";
 
@@ -7,7 +7,10 @@ export default function ContactPage() {
     <PageShell>
       <section className="bg-[#001E4E] px-6 py-20 text-center text-white">
         <h1 className="text-5xl font-extrabold leading-tight">Get In Touch</h1>
-        <p className="mt-4 text-lg text-white/80">We DLove To Hear From</p>
+        <p className="mt-4 text-lg text-white/80">We’d love to hear from you</p>
+        <p className="mx-auto mt-6 max-w-[700px] text-base leading-[1.6] text-white/70">
+          We are building a learning community where Islamic, African, and Western knowledge come together to equip students with the understanding and skills they need to thrive in today’s world.
+        </p>
       </section>
 
       <section className="bg-white px-6 py-20">
@@ -31,18 +34,7 @@ function ContactInformation() {
           value="support@alluwaleducationhub.org"
           href="mailto:support@alluwaleducationhub.org"
         />
-        <InfoItem
-          icon={Phone}
-          label="Phone"
-          value="+1 (555) 123-4567"
-          href="tel:+15551234567"
-        />
         <InfoItem icon={MapPin} label="Location" value="Global Online Platform" />
-      </div>
-
-      <div className="mt-12 rounded-[20px] bg-[#EFF6FF] p-6">
-        <h3 className="text-lg font-bold text-[#1E40AF]">Faqs</h3>
-        <p className="mt-4 leading-6 text-[#1E3A8A]">Check Our Frequently Asked Questions For</p>
       </div>
     </div>
   );
