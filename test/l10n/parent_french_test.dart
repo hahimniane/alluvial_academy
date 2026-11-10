@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
-/// The parent dashboard, child progress and payment-error strings resolve in
+/// The parent dashboard, payment-error and sign-up strings resolve in
 /// French and Arabic and are not left as their English source.
 void main() {
   Future<AppLocalizations> load(String code) =>
@@ -25,14 +25,6 @@ void main() {
         'parentProgressNeedsSupport': [
           en.parentProgressNeedsSupport,
           other.parentProgressNeedsSupport
-        ],
-        'studentProgressBreakdownTitle': [
-          en.studentProgressBreakdownTitle,
-          other.studentProgressBreakdownTitle
-        ],
-        'studentProgressOnTrack': [
-          en.studentProgressOnTrack,
-          other.studentProgressOnTrack
         ],
         'paymentErrorGeneric': [
           en.paymentErrorGeneric,
@@ -56,10 +48,7 @@ void main() {
     }
 
     final fr = await load('fr');
-    expect(fr.studentProgressTitle('Awa'), 'Progression de Awa');
-    expect(fr.studentProgressClassCount(3), '3 cours');
-    expect(en.studentProgressClassCount(1), '1 class');
-    expect(en.studentProgressClassCount(4), '4 classes');
     expect(fr.parentAnalyticsMinLate('2.5'), '2.5 min en retard');
+    expect(fr.parentAnalyticsAttendancePercent('80'), '80 % d\'assiduité');
   });
 }

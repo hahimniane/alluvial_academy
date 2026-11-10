@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
@@ -231,7 +230,6 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
   }
 
   Widget _buildOverviewCard(_StudentProgressMetrics metrics) {
-    final l10n = AppLocalizations.of(context)!;
     final attendancePercent = (metrics.attendanceRate * 100).round();
     final trendDelta = metrics.classesLast7Days - metrics.classesPrevious7Days;
     final trendColor = trendDelta > 0
@@ -274,7 +272,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.studentProgressTitle(widget.studentName),
+                      '${widget.studentName} Progress',
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 19,
@@ -283,7 +281,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      l10n.studentProgressSubtitle,
+                      'A focused view of attendance, study volume, and class consistency.',
                       style: GoogleFonts.inter(
                         color: Colors.white.withValues(alpha: 0.86),
                         fontSize: 12.5,
@@ -320,7 +318,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                           ),
                         ),
                         Text(
-                          l10n.studentProgressAttendance,
+                          'Attendance',
                           style: GoogleFonts.inter(
                             color: Colors.white.withValues(alpha: 0.86),
                             fontSize: 10,
@@ -341,22 +339,22 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
               final cards = [
                 _buildHeroMetricCard(
                   icon: Icons.calendar_month_rounded,
-                  label: l10n.studentProgressClasses7d,
+                  label: 'Classes (7d)',
                   value: '${metrics.classesLast7Days}',
                 ),
                 _buildHeroMetricCard(
                   icon: Icons.schedule_rounded,
-                  label: l10n.studentProgressHours30d,
+                  label: 'Hours (30d)',
                   value: metrics.totalHoursLast30Days.toStringAsFixed(1),
                 ),
                 _buildHeroMetricCard(
                   icon: Icons.menu_book_rounded,
-                  label: l10n.studentProgressTabSubjects,
+                  label: 'Subjects',
                   value: '${metrics.uniqueSubjectsLast30Days}',
                 ),
                 _buildHeroMetricCard(
                   icon: Icons.flag_rounded,
-                  label: l10n.studentProgressStatus,
+                  label: 'Status',
                   value: _attentionLabel(metrics.attentionLevel),
                   accent: _attentionColor(metrics.attentionLevel),
                 ),
@@ -397,9 +395,10 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
               const SizedBox(width: 6),
               Text(
                 trendDelta == 0
-                    ? l10n.studentProgressTrendStable
-                    : l10n.studentProgressTrendDelta(
-                        trendDelta > 0 ? '+$trendDelta' : '$trendDelta'),
+                    ? 'Stable class activity vs previous week'
+                    : trendDelta > 0
+                        ? '+$trendDelta class activity vs previous week'
+                        : '$trendDelta class activity vs previous week',
                 style: GoogleFonts.inter(
                   color: trendColor,
                   fontSize: 11.5,
@@ -467,7 +466,6 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
   }
 
   Widget _buildWeeklyActivityChart(_StudentProgressMetrics metrics) {
-    final l10n = AppLocalizations.of(context)!;
     final maxCount = metrics.weeklyCounts.fold<int>(
       0,
       (current, value) => value > current ? value : current,
@@ -487,7 +485,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
           Row(
             children: [
               Text(
-                l10n.studentProgressWeeklyActivity,
+                'Weekly Activity',
                 style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 13.5,
@@ -496,7 +494,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
               ),
               const Spacer(),
               Text(
-                l10n.studentProgressClassCount(metrics.classesLast7Days),
+                '${metrics.classesLast7Days} classes',
                 style: GoogleFonts.inter(
                   color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 11.5,
@@ -582,12 +580,11 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
   }
 
   String _weekLabel(DateTime day) {
-    final locale = Localizations.localeOf(context).toLanguageTag();
-    return DateFormat.E(locale).format(day);
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return labels[day.weekday - 1];
   }
 
   Widget _buildAttendanceBreakdownCard(_StudentProgressMetrics metrics) {
-    final l10n = AppLocalizations.of(context)!;
     final attendancePercent = (metrics.attendanceRate * 100).round();
 
     return Container(
@@ -610,7 +607,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
           Row(
             children: [
               Text(
-                l10n.studentProgressBreakdownTitle,
+                'Attendance Breakdown (30 days)',
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -635,28 +632,28 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
             children: [
               Expanded(
                 child: _buildAttendanceMetric(
-                  label: l10n.studentProgressCompleted,
+                  label: 'Completed',
                   value: '${metrics.completedClasses}',
                   valueColor: const Color(0xFF16A34A),
                 ),
               ),
               Expanded(
                 child: _buildAttendanceMetric(
-                  label: l10n.studentProgressMissed,
+                  label: 'Missed',
                   value: '${metrics.missedClasses}',
                   valueColor: const Color(0xFFDC2626),
                 ),
               ),
               Expanded(
                 child: _buildAttendanceMetric(
-                  label: l10n.studentProgressCancelled,
+                  label: 'Cancelled',
                   value: '${metrics.cancelledClasses}',
                   valueColor: const Color(0xFF6B7280),
                 ),
               ),
               Expanded(
                 child: _buildAttendanceMetric(
-                  label: l10n.studentProgressTracked,
+                  label: 'Tracked',
                   value: '${metrics.totalTrackedClasses}',
                   valueColor: const Color(0xFF111827),
                 ),
@@ -737,7 +734,6 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
   }
 
   Widget _buildSubjectProgressCard(_SubjectProgressData data) {
-    final l10n = AppLocalizations.of(context)!;
     final completionRate =
         data.totalClasses > 0 ? data.completedClasses / data.totalClasses : 0.0;
     final completionPercent = (completionRate * 100).round();
@@ -779,7 +775,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  l10n.studentProgressPercentCompleted('$completionPercent'),
+                  '$completionPercent% completed',
                   style: GoogleFonts.inter(
                     color: _completionColor(completionRate),
                     fontSize: 10.5,
@@ -805,21 +801,21 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
             children: [
               Expanded(
                 child: _subjectMetric(
-                  label: l10n.studentProgressClasses,
+                  label: 'Classes',
                   value: '${data.totalClasses}',
                   color: const Color(0xFF111827),
                 ),
               ),
               Expanded(
                 child: _subjectMetric(
-                  label: l10n.studentProgressCompleted,
+                  label: 'Completed',
                   value: '${data.completedClasses}',
                   color: const Color(0xFF16A34A),
                 ),
               ),
               Expanded(
                 child: _subjectMetric(
-                  label: l10n.studentProgressHours,
+                  label: 'Hours',
                   value: '${data.totalHours.toStringAsFixed(1)}h',
                   color: const Color(0xFF0F766E),
                 ),
@@ -878,14 +874,13 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
   }
 
   String _attentionLabel(_AttentionLevel level) {
-    final l10n = AppLocalizations.of(context)!;
     switch (level) {
       case _AttentionLevel.needsSupport:
-        return l10n.studentProgressNeedsSupport;
+        return 'Needs Support';
       case _AttentionLevel.watch:
-        return l10n.studentProgressWatch;
+        return 'Watch';
       case _AttentionLevel.onTrack:
-        return l10n.studentProgressOnTrack;
+        return 'On Track';
     }
   }
 
