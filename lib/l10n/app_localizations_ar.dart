@@ -18840,4 +18840,171 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get timesheetFilterByLeader => 'تصفية حسب القائد';
+
+  @override
+  String get userParentEmail => 'البريد الإلكتروني لولي الأمر';
+
+  @override
+  String get loginSignUpForClass => 'التسجيل في فصل';
+
+  @override
+  String get loginSignUpOpenError =>
+      'تعذر فتح صفحة التسجيل. يرجى زيارة alluwaleducationhub.org/enroll في المتصفح.';
+
+  @override
+  String get parentAnalyticsTitle => 'تحليلات الحضور';
+
+  @override
+  String get parentAnalyticsSubtitleWeekly =>
+      'مؤشرات الحضور الأسبوعية بناءً على الانضمام الفعلي للحصص ومدة الحضور.';
+
+  @override
+  String get parentAnalyticsSubtitleMonthly =>
+      'مؤشرات الحضور الشهرية بناءً على الانضمام الفعلي للحصص ومدة الحضور.';
+
+  @override
+  String get parentAnalyticsWeekly => 'أسبوعي';
+
+  @override
+  String get parentAnalyticsMonthly => 'شهري';
+
+  @override
+  String get parentAnalyticsAttendanceAvg => 'متوسط الحضور';
+
+  @override
+  String get parentAnalyticsPunctualityAvg => 'متوسط الالتزام بالمواعيد';
+
+  @override
+  String get parentAnalyticsLateClasses => 'حصص متأخرة';
+
+  @override
+  String get parentAnalyticsTeacherAbsent => 'غياب المعلم';
+
+  @override
+  String get parentAnalyticsByChild => 'حسب الطفل';
+
+  @override
+  String parentAnalyticsAttendancePercent(String percent) {
+    return 'نسبة الحضور $percent%';
+  }
+
+  @override
+  String get parentAnalyticsScheduled => 'مجدولة';
+
+  @override
+  String get parentAnalyticsAttended => 'حضر';
+
+  @override
+  String get parentAnalyticsAbsent => 'غياب';
+
+  @override
+  String get parentAnalyticsLate => 'تأخر';
+
+  @override
+  String get parentAnalyticsEarlyJoins => 'انضمام مبكر';
+
+  @override
+  String get parentAnalyticsAttendance => 'الحضور';
+
+  @override
+  String get parentAnalyticsPunctuality => 'الالتزام بالمواعيد';
+
+  @override
+  String parentAnalyticsAvgJoinOffset(String offset) {
+    return 'متوسط فارق الانضمام: $offset';
+  }
+
+  @override
+  String parentAnalyticsOverlap(String minutes) {
+    return 'مدة الحضور: $minutes د';
+  }
+
+  @override
+  String get parentAnalyticsOnTime => 'في الموعد';
+
+  @override
+  String parentAnalyticsMinEarly(String minutes) {
+    return 'مبكرًا بـ $minutes د';
+  }
+
+  @override
+  String parentAnalyticsMinLate(String minutes) {
+    return 'متأخرًا بـ $minutes د';
+  }
+
+  @override
+  String get parentProgressTitle => 'نظرة عامة على تقدم العائلة';
+
+  @override
+  String get parentProgressSubtitle =>
+      'تابع حضور جميع أطفالك وتقدمهم في التعلم في مكان واحد.';
+
+  @override
+  String get parentProgressAvg => 'المتوسط';
+
+  @override
+  String get parentProgressChildren => 'الأطفال';
+
+  @override
+  String get parentProgressLinkedAccounts => 'حسابات مرتبطة';
+
+  @override
+  String get parentProgressClassesThisWeek => 'حصص هذا الأسبوع';
+
+  @override
+  String get parentProgressLast7Days => 'آخر 7 أيام';
+
+  @override
+  String get parentProgressLearningHours => 'ساعات التعلم';
+
+  @override
+  String get parentProgressPast30Days => 'آخر 30 يومًا';
+
+  @override
+  String get parentProgressNeedsSupport => 'يحتاج إلى دعم';
+
+  @override
+  String get parentProgressAttendanceUnder60 => 'حضور أقل من 60%';
+
+  @override
+  String get parentProgressTopSubjects => 'أبرز المواد';
+
+  @override
+  String get parentProgressChildPerformance => 'أداء الأطفال';
+
+  @override
+  String get paymentErrorSignIn =>
+      'يرجى تسجيل الدخول مرة أخرى لدفع هذه الفاتورة.';
+
+  @override
+  String get paymentErrorNotYourInvoice => 'هذه الفاتورة تخص حسابًا آخر.';
+
+  @override
+  String get paymentErrorInvoiceNotFound => 'تعذر العثور على هذه الفاتورة.';
+
+  @override
+  String get paymentErrorInvoiceCancelled => 'تم إلغاء هذه الفاتورة.';
+
+  @override
+  String get paymentErrorAlreadyPaid => 'هذه الفاتورة مدفوعة بالفعل.';
+
+  @override
+  String get paymentErrorGeneric =>
+      'تعذر بدء عملية الدفع. يرجى المحاولة مرة أخرى، أو التواصل مع المدرسة إذا تكررت المشكلة.';
+
+  @override
+  String get paymentErrorCheckoutOpen =>
+      'تعذر فتح صفحة الدفع. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get paymentErrorFailed =>
+      'لم تتم عملية الدفع. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get paymentErrorStatus =>
+      'تعذر التحقق من حالة الدفع. يرجى المحاولة بعد قليل.';
+
+  @override
+  String get paymentErrorInvoiceLoad =>
+      'تعذر تحميل هذه الفاتورة. يرجى المحاولة مرة أخرى.';
 }

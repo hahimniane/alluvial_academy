@@ -18895,4 +18895,171 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timesheetFilterByLeader => 'Filter by leader';
+
+  @override
+  String get userParentEmail => 'Parent Email';
+
+  @override
+  String get loginSignUpForClass => 'Sign up for a class';
+
+  @override
+  String get loginSignUpOpenError =>
+      'The sign-up page could not be opened. Visit alluwaleducationhub.org/enroll in your browser.';
+
+  @override
+  String get parentAnalyticsTitle => 'Attendance Analytics';
+
+  @override
+  String get parentAnalyticsSubtitleWeekly =>
+      'Weekly attendance signals from actual class joins and overlap.';
+
+  @override
+  String get parentAnalyticsSubtitleMonthly =>
+      'Monthly attendance signals from actual class joins and overlap.';
+
+  @override
+  String get parentAnalyticsWeekly => 'Weekly';
+
+  @override
+  String get parentAnalyticsMonthly => 'Monthly';
+
+  @override
+  String get parentAnalyticsAttendanceAvg => 'Attendance Avg';
+
+  @override
+  String get parentAnalyticsPunctualityAvg => 'Punctuality Avg';
+
+  @override
+  String get parentAnalyticsLateClasses => 'Late Classes';
+
+  @override
+  String get parentAnalyticsTeacherAbsent => 'Teacher Absent';
+
+  @override
+  String get parentAnalyticsByChild => 'By Child';
+
+  @override
+  String parentAnalyticsAttendancePercent(String percent) {
+    return '$percent% attendance';
+  }
+
+  @override
+  String get parentAnalyticsScheduled => 'Scheduled';
+
+  @override
+  String get parentAnalyticsAttended => 'Attended';
+
+  @override
+  String get parentAnalyticsAbsent => 'Absent';
+
+  @override
+  String get parentAnalyticsLate => 'Late';
+
+  @override
+  String get parentAnalyticsEarlyJoins => 'Early Joins';
+
+  @override
+  String get parentAnalyticsAttendance => 'Attendance';
+
+  @override
+  String get parentAnalyticsPunctuality => 'Punctuality';
+
+  @override
+  String parentAnalyticsAvgJoinOffset(String offset) {
+    return 'Avg join offset: $offset';
+  }
+
+  @override
+  String parentAnalyticsOverlap(String minutes) {
+    return 'Overlap: $minutes min';
+  }
+
+  @override
+  String get parentAnalyticsOnTime => 'On time';
+
+  @override
+  String parentAnalyticsMinEarly(String minutes) {
+    return '$minutes min early';
+  }
+
+  @override
+  String parentAnalyticsMinLate(String minutes) {
+    return '$minutes min late';
+  }
+
+  @override
+  String get parentProgressTitle => 'Family Progress Overview';
+
+  @override
+  String get parentProgressSubtitle =>
+      'Track attendance and learning momentum for all your children in one place.';
+
+  @override
+  String get parentProgressAvg => 'Avg';
+
+  @override
+  String get parentProgressChildren => 'Children';
+
+  @override
+  String get parentProgressLinkedAccounts => 'Linked accounts';
+
+  @override
+  String get parentProgressClassesThisWeek => 'Classes This Week';
+
+  @override
+  String get parentProgressLast7Days => 'Last 7 days';
+
+  @override
+  String get parentProgressLearningHours => 'Learning Hours';
+
+  @override
+  String get parentProgressPast30Days => 'Past 30 days';
+
+  @override
+  String get parentProgressNeedsSupport => 'Needs Support';
+
+  @override
+  String get parentProgressAttendanceUnder60 => 'Attendance under 60%';
+
+  @override
+  String get parentProgressTopSubjects => 'Top Subjects';
+
+  @override
+  String get parentProgressChildPerformance => 'Child Performance';
+
+  @override
+  String get paymentErrorSignIn => 'Please sign in again to pay this invoice.';
+
+  @override
+  String get paymentErrorNotYourInvoice =>
+      'This invoice belongs to another account.';
+
+  @override
+  String get paymentErrorInvoiceNotFound => 'This invoice could not be found.';
+
+  @override
+  String get paymentErrorInvoiceCancelled => 'This invoice was cancelled.';
+
+  @override
+  String get paymentErrorAlreadyPaid => 'This invoice is already paid.';
+
+  @override
+  String get paymentErrorGeneric =>
+      'The payment could not be started. Please try again, or contact the school if this keeps happening.';
+
+  @override
+  String get paymentErrorCheckoutOpen =>
+      'The payment page could not be opened. Please try again.';
+
+  @override
+  String get paymentErrorFailed =>
+      'The payment did not go through. Please try again.';
+
+  @override
+  String get paymentErrorStatus =>
+      'The payment status could not be checked. Please try again in a moment.';
+
+  @override
+  String get paymentErrorInvoiceLoad =>
+      'This invoice could not be loaded. Please try again.';
 }

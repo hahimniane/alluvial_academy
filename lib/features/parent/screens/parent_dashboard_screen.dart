@@ -1000,9 +1000,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   Widget _buildAttendanceAnalyticsSection(
       _ParentAttendanceAnalyticsOverview overview) {
     final l10n = AppLocalizations.of(context)!;
-    final periodLabel = overview.period == _AttendanceReportPeriod.weekly
-        ? 'Weekly'
-        : 'Monthly';
+    final periodSubtitle = overview.period == _AttendanceReportPeriod.weekly
+        ? l10n.parentAnalyticsSubtitleWeekly
+        : l10n.parentAnalyticsSubtitleMonthly;
     final averageAttendancePercent =
         (overview.averageAttendanceRate * 100).round();
     final averagePunctualityPercent =
@@ -1033,7 +1033,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Attendance Analytics',
+                      l10n.parentAnalyticsTitle,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -1042,7 +1042,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$periodLabel attendance signals from actual class joins and overlap.',
+                      periodSubtitle,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -1057,14 +1057,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 spacing: 8,
                 children: [
                   _buildAttendancePeriodChip(
-                    label: 'Weekly',
+                    label: l10n.parentAnalyticsWeekly,
                     selected:
                         _attendancePeriod == _AttendanceReportPeriod.weekly,
                     onTap: () =>
                         _setAttendancePeriod(_AttendanceReportPeriod.weekly),
                   ),
                   _buildAttendancePeriodChip(
-                    label: 'Monthly',
+                    label: l10n.parentAnalyticsMonthly,
                     selected:
                         _attendancePeriod == _AttendanceReportPeriod.monthly,
                     onTap: () =>
@@ -1088,25 +1088,25 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 _buildAttendanceMetricCard(
                   icon: Icons.fact_check_rounded,
-                  label: 'Attendance Avg',
+                  label: l10n.parentAnalyticsAttendanceAvg,
                   value: '$averageAttendancePercent%',
                   accent: const Color(0xFF1D4ED8),
                 ),
                 _buildAttendanceMetricCard(
                   icon: Icons.alarm_on_rounded,
-                  label: 'Punctuality Avg',
+                  label: l10n.parentAnalyticsPunctualityAvg,
                   value: '$averagePunctualityPercent%',
                   accent: const Color(0xFF0F766E),
                 ),
                 _buildAttendanceMetricCard(
                   icon: Icons.watch_later_rounded,
-                  label: 'Late Classes',
+                  label: l10n.parentAnalyticsLateClasses,
                   value: '${overview.totalLateClasses}',
                   accent: const Color(0xFFD97706),
                 ),
                 _buildAttendanceMetricCard(
                   icon: Icons.warning_amber_rounded,
-                  label: 'Teacher Absent',
+                  label: l10n.parentAnalyticsTeacherAbsent,
                   value: '${overview.totalTeacherAbsentIncidents}',
                   accent: const Color(0xFFDC2626),
                 ),
@@ -1141,7 +1141,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            'By Child',
+            l10n.parentAnalyticsByChild,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -1277,7 +1277,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '$attendancePercent% attendance',
+                  l10n.parentAnalyticsAttendancePercent('$attendancePercent'),
                   style: GoogleFonts.inter(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -1292,31 +1292,32 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             spacing: 10,
             runSpacing: 6,
             children: [
-              _inlineMetric('Scheduled', '${child.scheduledClasses}',
-                  const Color(0xFF334155)),
-              _inlineMetric('Attended', '${child.attendedClasses}',
-                  const Color(0xFF15803D)),
-              _inlineMetric(
-                  'Absent', '${child.absentClasses}', const Color(0xFFDC2626)),
-              _inlineMetric('Late', '$latePercent%', const Color(0xFFD97706)),
-              _inlineMetric('Teacher Absent', '${child.teacherAbsentClasses}',
-                  const Color(0xFFB91C1C)),
-              _inlineMetric('Early Joins', '${child.joinsBeforeStartEvents}',
-                  const Color(0xFF0F766E)),
+              _inlineMetric(l10n.parentAnalyticsScheduled,
+                  '${child.scheduledClasses}', const Color(0xFF334155)),
+              _inlineMetric(l10n.parentAnalyticsAttended,
+                  '${child.attendedClasses}', const Color(0xFF15803D)),
+              _inlineMetric(l10n.parentAnalyticsAbsent,
+                  '${child.absentClasses}', const Color(0xFFDC2626)),
+              _inlineMetric(l10n.parentAnalyticsLate, '$latePercent%',
+                  const Color(0xFFD97706)),
+              _inlineMetric(l10n.parentAnalyticsTeacherAbsent,
+                  '${child.teacherAbsentClasses}', const Color(0xFFB91C1C)),
+              _inlineMetric(l10n.parentAnalyticsEarlyJoins,
+                  '${child.joinsBeforeStartEvents}', const Color(0xFF0F766E)),
             ],
           ),
           const SizedBox(height: 10),
           _dualProgressRow(
-            labelLeft: 'Attendance',
+            labelLeft: l10n.parentAnalyticsAttendance,
             valueLeft: child.attendanceRate,
             colorLeft: const Color(0xFF2563EB),
-            labelRight: 'Punctuality',
+            labelRight: l10n.parentAnalyticsPunctuality,
             valueRight: child.punctualityRate,
             colorRight: const Color(0xFF0F766E),
           ),
           const SizedBox(height: 8),
           Text(
-            'Avg join offset: ${_formatJoinOffset(child.averageJoinOffsetMinutes)}  •  ${l10n.studentAttendanceClassTime}: ${l10n.studentAttendanceHoursValue((child.totalPresenceMinutes / 60).toStringAsFixed(1))}  •  Overlap: ${child.totalOverlapMinutes.toStringAsFixed(1)}m',
+            '${l10n.parentAnalyticsAvgJoinOffset(_formatJoinOffset(child.averageJoinOffsetMinutes))}  •  ${l10n.studentAttendanceClassTime}: ${l10n.studentAttendanceHoursValue((child.totalPresenceMinutes / 60).toStringAsFixed(1))}  •  ${l10n.parentAnalyticsOverlap(child.totalOverlapMinutes.toStringAsFixed(1))}',
             style: GoogleFonts.inter(
               fontSize: 10.8,
               fontWeight: FontWeight.w600,
@@ -1426,14 +1427,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   String _formatJoinOffset(double minutes) {
+    final l10n = AppLocalizations.of(context)!;
     if (minutes.isNaN || minutes.isInfinite) return '--';
-    if (minutes == 0) return 'On time';
+    if (minutes == 0) return l10n.parentAnalyticsOnTime;
     final absoluteMinutes = minutes.abs().toStringAsFixed(1);
-    if (minutes < 0) return '$absoluteMinutes min early';
-    return '$absoluteMinutes min late';
+    if (minutes < 0) return l10n.parentAnalyticsMinEarly(absoluteMinutes);
+    return l10n.parentAnalyticsMinLate(absoluteMinutes);
   }
 
   Widget _buildProgressOverviewSection(_ParentProgressOverview overview) {
+    final l10n = AppLocalizations.of(context)!;
     final averageAttendancePercent =
         (overview.averageAttendanceRate * 100).round();
     final supportCount = overview.needsSupportChildren;
@@ -1467,7 +1470,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Family Progress Overview',
+                      l10n.parentProgressTitle,
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 19,
@@ -1476,7 +1479,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Track attendance and learning momentum for all your children in one place.',
+                      l10n.parentProgressSubtitle,
                       style: GoogleFonts.inter(
                         color: Colors.white.withValues(alpha: 0.86),
                         fontSize: 12.5,
@@ -1513,7 +1516,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ),
                         ),
                         Text(
-                          'Avg',
+                          l10n.parentProgressAvg,
                           style: GoogleFonts.inter(
                             color: Colors.white.withValues(alpha: 0.86),
                             fontSize: 11,
@@ -1534,27 +1537,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               final cards = [
                 _buildProgressMetricCard(
                   icon: Icons.family_restroom_rounded,
-                  label: 'Children',
+                  label: l10n.parentProgressChildren,
                   value: '${overview.children.length}',
-                  hint: 'Linked accounts',
+                  hint: l10n.parentProgressLinkedAccounts,
                 ),
                 _buildProgressMetricCard(
                   icon: Icons.calendar_month_rounded,
-                  label: 'Classes This Week',
+                  label: l10n.parentProgressClassesThisWeek,
                   value: '${overview.classesThisWeek}',
-                  hint: 'Last 7 days',
+                  hint: l10n.parentProgressLast7Days,
                 ),
                 _buildProgressMetricCard(
                   icon: Icons.schedule_rounded,
-                  label: 'Learning Hours',
+                  label: l10n.parentProgressLearningHours,
                   value: overview.totalLearningHours.toStringAsFixed(1),
-                  hint: 'Past 30 days',
+                  hint: l10n.parentProgressPast30Days,
                 ),
                 _buildProgressMetricCard(
                   icon: Icons.warning_amber_rounded,
-                  label: 'Needs Support',
+                  label: l10n.parentProgressNeedsSupport,
                   value: '$supportCount',
-                  hint: 'Attendance under 60%',
+                  hint: l10n.parentProgressAttendanceUnder60,
                   accent: supportCount > 0
                       ? const Color(0xFFFCA5A5)
                       : const Color(0xFFA7F3D0),
@@ -1592,7 +1595,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           if (overview.topSubjects.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
-              'Top Subjects',
+              l10n.parentProgressTopSubjects,
               style: GoogleFonts.inter(
                 color: Colors.white,
                 fontSize: 13,
@@ -1629,7 +1632,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ],
           const SizedBox(height: 14),
           Text(
-            'Child Performance',
+            l10n.parentProgressChildPerformance,
             style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 14,

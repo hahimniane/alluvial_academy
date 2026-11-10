@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/build_info.dart';
+import '../../../core/services/language_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class RoleSettingsScreen extends StatelessWidget {
@@ -24,6 +26,8 @@ class RoleSettingsScreen extends StatelessWidget {
           children: [
             _buildHeader(context),
             const SizedBox(height: 24),
+            _buildLanguageCard(context),
+            const SizedBox(height: 16),
             _buildChangePasswordCard(context),
             const SizedBox(height: 24),
             _buildVersionCard(context, versionText),
@@ -31,6 +35,114 @@ class RoleSettingsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Same LanguageService as the login screen's language picker: the choice
+  /// applies at once and is saved on the device and to the account's
+  /// `language_preference`, so it follows the user to every device.
+  Widget _buildLanguageCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final languageService = context.watch<LanguageService>();
+    final currentCode = languageService.locale?.languageCode ??
+        Localizations.localeOf(context).languageCode;
+    final supportedCodes = LanguageService.supportedLocales
+        .map((locale) => locale.languageCode)
+        .toList();
+    final selectedCode =
+        supportedCodes.contains(currentCode) ? currentCode : 'en';
+
+    return Container(
+      key: const ValueKey('role-settings-language'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xff0386FF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.language_rounded,
+                    color: Color(0xff0386FF), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.languageTitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.selectLanguageTitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              for (final code in supportedCodes)
+                ButtonSegment<String>(
+                  value: code,
+                  label: Text(
+                    _languageEndonym(code),
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+            selected: {selectedCode},
+            onSelectionChanged: (selection) {
+              if (selection.isEmpty) return;
+              languageService.setLocale(Locale(selection.first));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Each language is named in itself, so a reader finds their own language
+  /// whatever the app is showing now.
+  static String _languageEndonym(String code) {
+    switch (code) {
+      case 'fr':
+        return 'Français';
+      case 'ar':
+        return 'العربية';
+      default:
+        return 'English';
+    }
   }
 
   Widget _buildChangePasswordCard(BuildContext context) {

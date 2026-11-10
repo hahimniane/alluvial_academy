@@ -298,7 +298,7 @@ class ChatUserListItem extends StatelessWidget {
           ),
         ),
         child: Text(
-          _getRoleDisplayName(user.role!),
+          user.leaderTitle ?? _getRoleDisplayName(user.role!),
           style: GoogleFonts.inter(
             fontSize: 11,
             color: _getRoleColor(),

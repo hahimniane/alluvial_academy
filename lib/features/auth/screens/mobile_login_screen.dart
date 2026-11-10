@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../l10n/app_localizations.dart';
@@ -665,6 +666,32 @@ class _MobileLoginScreenState extends State<MobileLoginScreen>
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            // New families: the website's class sign-up
+                            // form, opened in the browser.
+                            SizedBox(
+                              height: 44,
+                              child: TextButton.icon(
+                                key: const ValueKey('login-sign-up-for-class'),
+                                onPressed:
+                                    _isLoading ? null : _openClassSignUp,
+                                icon: const Icon(Icons.school_outlined,
+                                    size: 20),
+                                label: Text(
+                                  l10n.loginSignUpForClass,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xff0386FF),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -690,6 +717,28 @@ class _MobileLoginScreenState extends State<MobileLoginScreen>
         ),
       ),
     );
+  }
+
+  static final Uri _classSignUpUri =
+      Uri.parse('https://alluwaleducationhub.org/enroll/');
+
+  Future<void> _openClassSignUp() async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        _classSignUpUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      AppLogger.error('MobileLoginScreen: could not open class sign-up: $e');
+    }
+    if (!opened && mounted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.loginSignUpOpenError)),
+      );
+    }
   }
 
   Widget _buildLoginModeButton(

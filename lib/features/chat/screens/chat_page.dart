@@ -929,6 +929,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       email: user.email,
       profilePicture: user.profilePicture,
       role: user.role,
+      jobTitle: user.jobTitle,
     );
 
     Navigator.of(context).push(

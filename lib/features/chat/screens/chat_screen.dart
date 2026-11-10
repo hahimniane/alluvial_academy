@@ -18,7 +18,6 @@ import '../widgets/message_bubble.dart';
 import 'media_preview_screen.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/app_search.dart';
-import 'package:alluwalacademyadmin/features/livekit/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -629,9 +628,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       actions: [
-        // Call buttons hidden for now - will implement WhatsApp-style calling later
-        // _buildActionButton(Icons.call, () => _startAudioCall()),
-        // _buildActionButton(Icons.videocam, () => _startVideoCall()),
         PopupMenuButton<String>(
           icon: Container(
             width: 40,
@@ -686,26 +682,6 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Container(
           height: 1,
           color: const Color(0xffF1F5F9),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: IconButton(
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: const Color(0xffF1F5F9),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: Icon(
-          icon,
-          color: const Color(0xff64748B),
-          size: 20,
         ),
       ),
     );
@@ -769,7 +745,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Text(
       widget.chatUser.role != null
-          ? _getRoleDisplayName(widget.chatUser.role!)
+          ? (widget.chatUser.leaderTitle ??
+              _getRoleDisplayName(widget.chatUser.role!))
           : 'Offline',
       style: GoogleFonts.inter(
         fontSize: 12,
@@ -2010,36 +1987,6 @@ class _ChatScreenState extends State<ChatScreen> {
         _isUploading = false;
       });
     }
-  }
-
-  void _startAudioCall() {
-    if (widget.chatUser.isGroup) {
-      _showMessage('Group calls are not supported yet');
-      return;
-    }
-
-    // Start audio-only call via LiveKit
-    LiveKitService.startCall(
-      context,
-      recipientId: widget.chatUser.id,
-      recipientName: widget.chatUser.displayName,
-      isAudioOnly: true,
-    );
-  }
-
-  void _startVideoCall() {
-    if (widget.chatUser.isGroup) {
-      _showMessage('Group calls are not supported yet');
-      return;
-    }
-
-    // Start video call via LiveKit
-    LiveKitService.startCall(
-      context,
-      recipientId: widget.chatUser.id,
-      recipientName: widget.chatUser.displayName,
-      isAudioOnly: false,
-    );
   }
 
   void _showImagePreview(String imageUrl) {

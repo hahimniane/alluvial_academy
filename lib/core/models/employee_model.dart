@@ -33,6 +33,7 @@ class Employee {
     this.activatedByUid = '',
     this.activatedAt,
     this.parentName = '',
+    this.parentEmail = '',
     this.teacherNames = '',
     this.weeklyHoursLabel = '',
     this.isAdultStudent = false,
@@ -72,14 +73,16 @@ class Employee {
   final bool isAdultStudent;
 
   /// Below fields are derived client-side (not stored on the user doc) to
-  /// enrich the admin student grid: guardian display name, the name(s) of
+  /// enrich the admin student grid: guardian display name and email, the name(s) of
   /// teacher(s) with a class this week, and total scheduled hours this week.
   final String parentName;
+  final String parentEmail;
   final String teacherNames;
   final String weeklyHoursLabel;
 
   Employee copyWithScheduleInfo({
     String? parentName,
+    String? parentEmail,
     String? teacherNames,
     String? weeklyHoursLabel,
   }) {
@@ -112,6 +115,7 @@ class Employee {
       activatedAt: activatedAt,
       isAdultStudent: isAdultStudent,
       parentName: parentName ?? this.parentName,
+      parentEmail: parentEmail ?? this.parentEmail,
       teacherNames: teacherNames ?? this.teacherNames,
       weeklyHoursLabel: weeklyHoursLabel ?? this.weeklyHoursLabel,
     );
