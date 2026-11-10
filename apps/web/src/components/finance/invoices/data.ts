@@ -14,6 +14,7 @@ import { db, functions } from "@/lib/firebase";
 import { DEFAULT_SETTINGS, FIN, type FinanceSettings } from "@/lib/finance/model";
 import { financeMonthBounds } from "@/lib/finance/months";
 import { normalizeInvoice, toDate, type EnrollmentLite, type Invoice, type PaymentLite, type SuspendedStudent } from "@/lib/finance/invoices";
+import { readFamilyBillingLite, studentCodeOf, type FamilyBillingLite } from "@/lib/finance/newStudentContacts";
 
 export const MONTH_QUERY_LIMIT = 500;
 export const RECENT_QUERY_LIMIT = 600;
@@ -110,12 +111,14 @@ export function displayPhone(data: DocumentData): string {
 export type UserDirectory = {
   names: Map<string, string>;
   phones: Map<string, string>;
+  /** Student ID codes (students only; others have none). */
+  codes: Map<string, string>;
 };
 
-/** User names and phone numbers, fetched together in `in` chunks of 30. */
+/** User names, phone numbers and Student IDs, fetched together in `in` chunks of 30. */
 export async function loadUserDirectory(
   ids: readonly string[],
-  into: UserDirectory = { names: new Map(), phones: new Map() },
+  into: UserDirectory = { names: new Map(), phones: new Map(), codes: new Map() },
 ): Promise<UserDirectory> {
   const missing = [...new Set(ids.filter(Boolean))].filter((id) => !into.names.has(id) || !into.phones.has(id));
   await Promise.all(
@@ -125,6 +128,7 @@ export async function loadUserDirectory(
         const data = d.data();
         into.names.set(d.id, displayName(data));
         into.phones.set(d.id, displayPhone(data));
+        into.codes.set(d.id, studentCodeOf(data));
       }
     }),
   );
@@ -234,13 +238,13 @@ export async function loadFamilyBilling(parentId: string): Promise<FamilyBilling
   return { monthlyAmount: Number(d.monthly_amount) || 0, setOnInvoiceId: str(d.set_on_invoice_id), setAt: toDate(d.set_at), history };
 }
 
-/** monthly_amount of many families at once (New students screen). */
-export async function loadMonthlyAmounts(parentIds: readonly string[]): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
+/** The monthly amount of many families at once, with the amounts waiting for a first class (New students screen). */
+export async function loadMonthlyAmounts(parentIds: readonly string[]): Promise<Map<string, FamilyBillingLite>> {
+  const out = new Map<string, FamilyBillingLite>();
   await Promise.all(
     chunk([...new Set(parentIds.filter(Boolean))], 30).map(async (part) => {
       const snap = await getDocs(query(collection(db, FIN.familyBilling), where(documentId(), "in", part)));
-      for (const d of snap.docs) out.set(d.id, Number(d.data().monthly_amount) || 0);
+      for (const d of snap.docs) out.set(d.id, readFamilyBillingLite(d.data()));
     }),
   );
   return out;

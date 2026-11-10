@@ -22,17 +22,19 @@ import {
   loadGuardians,
   loadInvoicesForMonth,
   loadMonthlyAmounts,
-  loadNames,
   loadTeachersForStudents,
+  loadUserDirectory,
   type FinanceSettingsView,
+  type UserDirectory,
 } from "./data";
-import { Badge, Notice } from "./ui";
+import { rowMonthlyAmount, type FamilyBillingLite } from "@/lib/finance/newStudentContacts";
+import { Badge, CopyValue, Notice } from "./ui";
 
 export function NewStudentsScreen() {
   const { month } = useFinance();
   const [rows, setRows] = useState<NewStudentRow[]>([]);
-  const [names, setNames] = useState<Map<string, string>>(new Map());
-  const [monthly, setMonthly] = useState<Map<string, number>>(new Map());
+  const [directory, setDirectory] = useState<UserDirectory>({ names: new Map(), phones: new Map(), codes: new Map() });
+  const [billing, setBilling] = useState<Map<string, FamilyBillingLite>>(new Map());
   const [settings, setSettings] = useState<FinanceSettingsView>({ ...DEFAULT_SETTINGS, zelle_address: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -56,11 +58,15 @@ export function NewStudentsScreen() {
 
         const merged = newStudentsForMonth(mergeNewStudents(first, withParents, teacherByStudent), month).slice(0, 40);
         const ids = merged.flatMap((r) => [r.parentId, ...r.studentIds]);
-        const [resolved, amounts] = await Promise.all([loadNames(ids, new Map()), loadMonthlyAmounts(merged.map((r) => r.parentId)).catch(() => new Map<string, number>())]);
+        // Names, parent phones and Student IDs in one batched read of the users.
+        const [resolved, amounts] = await Promise.all([
+          loadUserDirectory(ids),
+          loadMonthlyAmounts(merged.map((r) => r.parentId)).catch(() => new Map<string, FamilyBillingLite>()),
+        ]);
         if (!alive) return;
         setRows(merged);
-        setNames(resolved);
-        setMonthly(amounts);
+        setDirectory(resolved);
+        setBilling(amounts);
         setSettings(s);
       } catch (e) {
         if (alive) setError(errorMessage(e, "Could not load new students."));
@@ -74,11 +80,16 @@ export function NewStudentsScreen() {
   }, [month, now]);
 
   const link = (invoiceId: string) => `/admin/finance/invoices/?invoice=${encodeURIComponent(invoiceId)}&month=${month}&embed=1`;
+  const names = directory.names;
   const studentLabel = (r: NewStudentRow) => r.studentIds.map((s) => names.get(s)).filter(Boolean).join(", ") || "Student";
   const familyLabel = (r: NewStudentRow) => names.get(r.parentId) || "Unknown family";
+  const monthlyOf = (r: NewStudentRow) => rowMonthlyAmount(billing.get(r.parentId), r.studentIds);
+  const parentPhone = (r: NewStudentRow) => (r.parentId ? directory.phones.get(r.parentId) ?? "" : "");
+  const studentCodes = (r: NewStudentRow) =>
+    r.studentIds.map((id) => ({ id, name: (names.get(id) ?? "").split(" ")[0], code: directory.codes.get(id) ?? "" })).filter((s) => s.code);
 
   const newest = rows.find((r) => r.invoice);
-  const example = newest?.invoice ? workedExample(newest.invoice, monthly.get(newest.parentId) ?? null) : null;
+  const example = newest?.invoice ? workedExample(newest.invoice, monthlyOf(newest)) : null;
   const next = nextMonthlyInvoice(now, settings.issue_day, settings.due_day);
 
   const exampleStart = newest?.startKey ?? null;
@@ -141,11 +152,13 @@ export function NewStudentsScreen() {
       ) : (
         <>
           <div className="relative hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-            <table className="w-full min-w-[720px] border-collapse text-[13px]">
+            <table className="w-full min-w-[980px] border-collapse text-[13px]">
               <thead>
                 <tr className="bg-slate-50 text-left text-slate-700">
                   <th className="px-3 py-2.5">Student</th>
+                  <th className="px-3 py-2.5">Student ID</th>
                   <th className="px-3 py-2.5">Family</th>
+                  <th className="px-3 py-2.5">Parent phone</th>
                   <th className="px-3 py-2.5">Milestone</th>
                   <th className="px-3 py-2.5">Teacher</th>
                   <th className="px-3 py-2.5">First invoice</th>
@@ -159,7 +172,13 @@ export function NewStudentsScreen() {
                   return (
                     <tr key={r.key} className="border-t border-slate-200">
                       <td className="px-3 py-2.5 font-semibold">{studentLabel(r)}</td>
+                      <td className="px-3 py-2.5">
+                        <StudentCodes codes={studentCodes(r)} />
+                      </td>
                       <td className="px-3 py-2.5">{familyLabel(r)}</td>
+                      <td className="px-3 py-2.5">
+                        <CopyValue value={parentPhone(r)} label={`${familyLabel(r)}'s phone number`} />
+                      </td>
                       <td className="px-3 py-2.5">{milestone(r)}</td>
                       <td className="px-3 py-2.5">{r.teacherName || "To be matched"}</td>
                       <td className="px-3 py-2.5">
@@ -171,7 +190,7 @@ export function NewStudentsScreen() {
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2.5">{monthly.has(r.parentId) ? money(monthly.get(r.parentId) ?? 0) : "—"}</td>
+                      <td className="px-3 py-2.5">{monthlyOf(r) !== null ? money(monthlyOf(r) ?? 0) : "—"}</td>
                       <td className="px-3 py-2.5">
                         <Badge tone={st.tone}>{st.label}</Badge>
                       </td>
@@ -196,8 +215,18 @@ export function NewStudentsScreen() {
                   <div className="text-slate-700">
                     {milestone(r)}
                     {r.teacherName ? ` · ${r.teacherName}` : ""}
-                    {monthly.has(r.parentId) ? ` · ${money(monthly.get(r.parentId) ?? 0)} a month` : ""}
+                    {monthlyOf(r) !== null ? ` · ${money(monthlyOf(r) ?? 0)} a month` : ""}
                   </div>
+                  <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+                    <dt className="text-xs font-semibold text-slate-600">Student ID</dt>
+                    <dd>
+                      <StudentCodes codes={studentCodes(r)} />
+                    </dd>
+                    <dt className="text-xs font-semibold text-slate-600">Parent phone</dt>
+                    <dd>
+                      <CopyValue value={parentPhone(r)} label={`${familyLabel(r)}'s phone number`} />
+                    </dd>
+                  </dl>
                   {r.invoice ? (
                     <Link href={link(r.invoice.id)} className="font-semibold text-[#024E96] underline">
                       {invoiceSummary(r)}
@@ -210,6 +239,21 @@ export function NewStudentsScreen() {
         </>
       )}
     </section>
+  );
+}
+
+/** One Student ID per student; a family row names whose code is whose. */
+function StudentCodes({ codes }: { codes: { id: string; name: string; code: string }[] }) {
+  if (codes.length === 0) return <span className="text-slate-500">—</span>;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {codes.map((c) => (
+        <span key={c.id} className="inline-flex items-center gap-1.5">
+          {codes.length > 1 && c.name ? <span className="text-[11px] text-slate-600">{c.name}</span> : null}
+          <CopyValue value={c.code} label={`${c.name || "the student"}'s Student ID`} />
+        </span>
+      ))}
+    </div>
   );
 }
 

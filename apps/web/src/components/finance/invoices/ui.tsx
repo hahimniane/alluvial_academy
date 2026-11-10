@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BadgeTone } from "@/lib/finance/invoices";
 
 /** Small shared pieces for the finance Invoices and New students screens. */
@@ -104,5 +104,47 @@ export function Notice({ tone, children }: { tone: "error" | "info" | "ok"; chil
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${cls}`}>
       {children}
     </div>
+  );
+}
+
+/**
+ * A value with a one-tap copy button beside it. The text itself stays
+ * selectable; the button says "Copied" for a moment after copying.
+ */
+export function CopyValue({ value, label, className = "" }: { value: string; label: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+  if (!value) return <span className="text-slate-500">—</span>;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+      <span className="select-all whitespace-nowrap font-mono text-[12px]">{value}</span>
+      <button
+        type="button"
+        onClick={() => void copy()}
+        aria-label={copied ? `${label} copied` : `Copy ${label}`}
+        className={`inline-flex min-h-7 items-center rounded-md border px-1.5 text-[11px] font-bold ${copied ? "border-green-600 bg-green-50 text-green-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+      <span role="status" aria-live="polite" className="sr-only">
+        {copied ? `${label} copied` : ""}
+      </span>
+    </span>
   );
 }

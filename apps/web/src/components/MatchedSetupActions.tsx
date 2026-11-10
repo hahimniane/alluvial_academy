@@ -14,7 +14,7 @@ import {
   teachersOfStudent,
   type ExistingParent,
 } from "@/lib/enrollmentSetup";
-import { parentInviteProblem, type ParentInvite } from "@/lib/enrollmentSetupRules";
+import { dollars, monthlyAmountProblem, parentInviteProblem, type ParentInvite } from "@/lib/enrollmentSetupRules";
 import { setupSteps, type SetupStepStatus } from "@/lib/applicantTriage";
 import {
   loadAdminProfile,
@@ -648,14 +648,12 @@ function Field({
   );
 }
 
-const dollars = (n: number) => `$${n.toFixed(2).replace(/\.00$/, "")}`;
-
 /**
  * The monthly price agreed with the family. It is billed from the first
  * class: that month pays for the classes left in it, and every month after
- * pays the full amount.
+ * pays the full amount. Used by step 4 and by the Ready to teach card.
  */
-function MonthlyAmountDialog({
+export function MonthlyAmountDialog({
   studentName,
   isFamilyClass,
   initialAmount,
@@ -675,12 +673,7 @@ function MonthlyAmountDialog({
   const [error, setError] = useState("");
   const amountValue = Number(amount);
   const classesValue = Number(classes);
-  const problem =
-    !(amountValue > 0)
-      ? "Enter the monthly amount."
-      : !Number.isInteger(classesValue) || classesValue < 1 || classesValue > 62
-        ? "Enter how many classes a full month has."
-        : "";
+  const problem = monthlyAmountProblem(amount, classes) ?? "";
   const perClass = !problem ? amountValue / classesValue : null;
 
   return (
