@@ -8,6 +8,9 @@ export default function ContactPage() {
       <section className="bg-[#001E4E] px-6 py-20 text-center text-white">
         <h1 className="text-5xl font-extrabold leading-tight">Get In Touch</h1>
         <p className="mt-4 text-lg text-white/80">We DLove To Hear From</p>
+        <p className="mx-auto mt-6 max-w-[700px] text-base leading-[1.6] text-white/70">
+          We are building a learning community where Islamic, African, and Western knowledge come together to equip students with the understanding and skills they need to thrive in today’s world.
+        </p>
       </section>
 
       <section className="bg-white px-6 py-20">
