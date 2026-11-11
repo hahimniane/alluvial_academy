@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 
 import '../../../core/constants/penalty_reasons.dart';
+import '../../../core/utils/subject_label.dart';
 
 /// Single audit factor (one of 16 mandatory factors from Excel model)
 class AuditFactor {
@@ -306,7 +307,7 @@ class TeacherAuditFull {
         'teacherEmail': teacherEmail,
         'teacherName': teacherName,
         'yearMonth': yearMonth,
-        'hoursTaughtBySubject': hoursTaughtBySubject,
+        'hoursTaughtBySubject': withSafeSubjectKeys(hoursTaughtBySubject),
         'totalHoursTaught': totalHoursTaught,
         'totalScheduledHours': totalScheduledHours,
         'totalWorkedHours': totalWorkedHours,
@@ -1038,9 +1039,35 @@ class PaymentSummary {
   /// Stored [totalNetPayment] should match this after any payment-affecting update.
   double netAfterAdvances() => netWithCoachLines() - totalAdvanceDeduction;
 
+  /// Payments keyed for Firestore: a blank subject is folded into "Other",
+  /// because an empty map key makes the whole audit save fail.
+  Map<String, dynamic> _paymentsBySubjectForStorage() {
+    final merged = <String, SubjectPayment>{};
+    paymentsBySubject.forEach((key, payment) {
+      final safe = subjectMapKey(key);
+      final existing = merged[safe];
+      if (existing == null) {
+        merged[safe] = safe == key
+            ? payment
+            : payment.copyWith(subjectName: safe);
+        return;
+      }
+      final hours = existing.hoursTaught + payment.hoursTaught;
+      final gross = existing.grossAmount + payment.grossAmount;
+      merged[safe] = existing.copyWith(
+        hoursTaught: hours,
+        grossAmount: gross,
+        hourlyRate: hours > 0 ? gross / hours : existing.hourlyRate,
+        penalties: existing.penalties + payment.penalties,
+        bonuses: existing.bonuses + payment.bonuses,
+        netAmount: existing.netAmount + payment.netAmount,
+      );
+    });
+    return merged.map((k, v) => MapEntry(k, v.toMap()));
+  }
+
   Map<String, dynamic> toMap() => {
-        'paymentsBySubject':
-            paymentsBySubject.map((k, v) => MapEntry(k, v.toMap())),
+        'paymentsBySubject': _paymentsBySubjectForStorage(),
         'totalGrossPayment': totalGrossPayment,
         'totalPenalties': totalPenalties,
         'totalBonuses': totalBonuses,
