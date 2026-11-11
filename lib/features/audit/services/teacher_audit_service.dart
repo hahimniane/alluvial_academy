@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:alluwalacademyadmin/core/utils/subject_label.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -26,13 +27,8 @@ import '../../../l10n/app_localizations_en.dart';
 /// Firestore refuses a map with an empty key, and a class created without a
 /// subject stores `''` (templates) or nothing at all (one-off shifts), so a
 /// blank subject folds into "Other" instead of breaking the whole audit write.
-String auditSubjectLabel(Map<String, dynamic> dataMap) {
-  for (final key in const ['subject_display_name', 'subject']) {
-    final value = dataMap[key];
-    if (value is String && value.trim().isNotEmpty) return value.trim();
-  }
-  return 'Other';
-}
+String auditSubjectLabel(Map<String, dynamic> dataMap) =>
+    classSubjectLabel(dataMap);
 /// Optimized service for computing and managing teacher audit metrics
 class TeacherAuditService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -172,9 +168,7 @@ class TeacherAuditService {
         continue;
       }
 
-      final subject =
-          (shift['subject_display_name'] ?? shift['subject'] ?? 'Other')
-              .toString();
+      final subject = classSubjectLabel(shift);
       final subjectKey =
           subject.toLowerCase().trim().replaceAll(RegExp(r'\s+'), '_');
       var fallbackRate = rates[subjectKey] ?? rates[subject.toLowerCase()];
@@ -4435,8 +4429,7 @@ class TeacherAuditService {
         AppLogger.error('Shift $shiftId has no data');
         return false;
       }
-      final subject =
-          shiftData['subject_display_name'] ?? shiftData['subject'] ?? 'Other';
+      final subject = classSubjectLabel(shiftData);
       final shiftStartTimestamp = shiftData['shift_start'] as Timestamp?;
       final shiftEndTimestamp = shiftData['shift_end'] as Timestamp?;
       if (shiftStartTimestamp == null || shiftEndTimestamp == null) {

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:alluwalacademyadmin/core/utils/subject_label.dart';
 import 'shift_archive_reader.dart';
 import '../audit/readiness_form_kpi.dart';
 import '../audit/teaching_form_acceptance_for_month.dart';
@@ -470,9 +471,7 @@ class TeacherMetricsService {
     for (final shiftEntry in shifts) {
       final shiftId = shiftEntry.key;
       final shift = Map<String, dynamic>.from(shiftEntry.value);
-      final subject =
-          (shift['subject_display_name'] ?? shift['subject'] ?? 'Other')
-              .toString();
+      final subject = classSubjectLabel(shift);
       final rate = _resolvedHourlyRate(
         shift,
         subject,
