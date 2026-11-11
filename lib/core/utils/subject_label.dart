@@ -8,3 +8,17 @@ String classSubjectLabel(Map<String, dynamic> data) {
   }
   return 'Other';
 }
+
+/// The key a subject is stored under in an audit map. Firestore refuses an
+/// empty map key, so a blank subject is stored as "Other".
+String subjectMapKey(String key) => key.trim().isEmpty ? 'Other' : key;
+
+/// [values] with any blank subject key folded into "Other" (amounts added).
+Map<String, double> withSafeSubjectKeys(Map<String, double> values) {
+  final out = <String, double>{};
+  values.forEach((key, value) {
+    final safe = subjectMapKey(key);
+    out[safe] = (out[safe] ?? 0) + value;
+  });
+  return out;
+}

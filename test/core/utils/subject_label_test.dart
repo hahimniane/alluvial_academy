@@ -12,4 +12,11 @@ void main() {
     expect(classSubjectLabel({'subject_display_name': '  ', 'subject': 'Math'}), 'Math');
     expect(classSubjectLabel({}), 'Other');
   });
+
+  test('a blank key is stored as Other, added to an existing Other', () {
+    expect(withSafeSubjectKeys({'': 2, 'Other': 1.5, 'Quran': 3}),
+        {'Other': 3.5, 'Quran': 3});
+    expect(subjectMapKey('  '), 'Other');
+    expect(subjectMapKey('Arabic'), 'Arabic');
+  });
 }
