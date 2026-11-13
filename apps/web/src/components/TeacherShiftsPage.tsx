@@ -580,7 +580,10 @@ function DayBadge({ day }: { day: Date }) {
 function ShiftPill({ shift, onSelect }: { shift: TeacherShift; onSelect: (shift: TeacherShift) => void }) {
   return (
     <button type="button" onClick={() => onSelect(shift)} className="mb-2 block w-full rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-left text-sm text-[#1E3A8A] hover:border-[#60A5FA]">
-      <p className="font-black">{shift.title}</p>
+      <p className="flex items-center gap-2 font-black">
+        <span className="min-w-0 truncate">{shift.title}</span>
+        {canWithdrawOffer(shift) ? <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">{tr("Offered")}</span> : null}
+      </p>
       <p className="mt-1 text-xs font-semibold text-[#2563EB]">{formatTimeRange(shift.start, shift.end)}</p>
       {shift.studentNames.length ? <p className="mt-1 truncate text-xs font-medium text-[#64748B]">{shift.studentNames.join(", ")}</p> : null}
     </button>
