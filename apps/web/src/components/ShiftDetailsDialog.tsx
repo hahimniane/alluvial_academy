@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  ArrowLeftRight,
   CalendarClock,
   Clock3,
   DollarSign,
@@ -10,10 +11,13 @@ import {
   NotebookPen,
   Pencil,
   Trash2,
+  Undo2,
   UserRound,
   Users,
   X,
 } from "lucide-react";
+import { canAdminOffer, isDuty, isOfferOpen, offerActionLabel } from "@/lib/adminShiftTrades";
+import { setShiftOffer } from "@/lib/adminShiftTradesClient";
 import {
   type ShiftDoc,
   type ShiftTimesheetSummary,
@@ -25,7 +29,8 @@ import {
  * Read-first shift view, modeled on the Flutter ShiftDetailsDialog: status
  * banner, schedule in both timezones, participants, pay, timesheets, and the
  * edit/delete actions. Recurring occurrences offer "just this" vs
- * "this and future" deletion, exactly like the Flutter grid.
+ * "this and future" deletion, exactly like the Flutter grid. An upcoming
+ * class can also be offered to other teachers here, or its offer taken back.
  */
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label?: string }> = {
@@ -44,13 +49,35 @@ type Props = {
   studentCodeById?: Map<string, string>;
   onEdit: () => void;
   onRequestDelete: () => void;
+  /** The class was offered or its offer taken back; resolves once `shift` is fresh. */
+  onOfferChanged?: (message: string) => Promise<void>;
   onClose: () => void;
 };
 
-export function ShiftDetailsDialog({ shift, studentCodeById, onEdit, onRequestDelete, onClose }: Props) {
+export function ShiftDetailsDialog({ shift, studentCodeById, onEdit, onRequestDelete, onOfferChanged, onClose }: Props) {
   // Past classes are settled history — viewable and deletable, never editable.
   const editable = shift.end.getTime() >= Date.now();
   const [timesheets, setTimesheets] = useState<ShiftTimesheetSummary[] | null>(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerError, setOfferError] = useState("");
+  const offered = isOfferOpen(shift);
+  const offerable = canAdminOffer(shift);
+  const duty = isDuty(shift.category);
+  const takers = duty ? "leaders" : "teachers";
+
+  const changeOffer = async (offer: boolean) => {
+    if (!onOfferChanged) return;
+    setOfferBusy(true);
+    setOfferError("");
+    try {
+      await setShiftOffer(shift.id, offer);
+      await onOfferChanged(offer ? `Offered to other ${takers}.` : "Offer taken back.");
+    } catch (error) {
+      setOfferError(error instanceof Error && error.message ? error.message : "Could not update this class.");
+    } finally {
+      setOfferBusy(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -85,6 +112,11 @@ export function ShiftDetailsDialog({ shift, studentCodeById, onEdit, onRequestDe
             >
               {status.label ?? shift.status}
             </span>
+            {offered ? (
+              <span className="ml-1.5 inline-block rounded-full bg-[#EDE9FE] px-2 py-0.5 text-[11px] font-bold text-[#6D28D9]">
+                Offered
+              </span>
+            ) : null}
           </div>
           <button type="button" onClick={onClose} className="ml-auto rounded-lg p-1.5 text-[#64748B] hover:bg-[#F1F5F9]">
             <X size={18} />
@@ -135,6 +167,40 @@ export function ShiftDetailsDialog({ shift, studentCodeById, onEdit, onRequestDe
               <p className="capitalize">{shift.leaderRole || shift.category}</p>
             </Row>
           )}
+
+          {onOfferChanged && (offered || offerable) ? (
+            <Row icon={ArrowLeftRight} label="Shift trading">
+              <p>
+                {offered
+                  ? `Offered to other ${takers}. It stays with ${shift.teacherName} until someone takes it.`
+                  : `Other ${takers} can take this ${duty ? "duty" : "class"} once it is offered. It stays with ${shift.teacherName} until someone does.`}
+              </p>
+              <button
+                type="button"
+                disabled={offerBusy}
+                onClick={() => void changeOffer(!offered)}
+                className={`mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold disabled:opacity-60 ${
+                  offered
+                    ? "border-[#E2E8F0] text-[#475569] hover:bg-[#F8FAFC]"
+                    : "border-[#DDD6FE] text-[#6D28D9] hover:bg-[#F5F3FF]"
+                }`}
+              >
+                {offerBusy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : offered ? (
+                  <Undo2 size={14} />
+                ) : (
+                  <ArrowLeftRight size={14} />
+                )}
+                {offered ? "Take offer back" : offerActionLabel(shift.category)}
+              </button>
+              {offerError ? (
+                <p className="mt-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#991B1B]">
+                  {offerError}
+                </p>
+              ) : null}
+            </Row>
+          ) : null}
 
           <Row icon={DollarSign} label="Hourly rate">
             <p className="font-semibold">${shift.hourlyRate.toFixed(2)}</p>
