@@ -17406,6 +17406,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Submit an excuse request or share feedback with school leaders.';
 
   @override
+  String get studentFormsSubtitle =>
+      'Fill in a form and send it to the school.';
+
+  @override
   String get parentExcuseFormTitle => 'Student Absence / Excuse Request';
 
   @override

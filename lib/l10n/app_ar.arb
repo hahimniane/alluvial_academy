@@ -6678,6 +6678,7 @@
   },
   "parentFormsTitle": "نماذج الأسرة",
   "parentFormsSubtitle": "أرسل طلب عذر أو شارك ملاحظاتك مع قادة المدرسة.",
+  "studentFormsSubtitle": "املأ نموذجًا وأرسله إلى المدرسة.",
   "parentExcuseFormTitle": "طلب عذر غياب الطالب",
   "parentExcuseFormDescription": "أبلغ المدرسة بسبب غياب طفلك عن الحصة أو توقع غيابه عنها.",
   "parentExcuseStudentName": "الاسم الكامل للطفل",

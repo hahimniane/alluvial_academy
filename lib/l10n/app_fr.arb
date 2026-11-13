@@ -7013,6 +7013,7 @@
   },
   "parentFormsTitle": "Formulaires familiaux",
   "parentFormsSubtitle": "Envoyez une demande d'excuse ou partagez vos commentaires avec les responsables de l'école.",
+  "studentFormsSubtitle": "Remplissez un formulaire et envoyez-le à l’école.",
   "parentExcuseFormTitle": "Demande d'excuse d'absence de l'élève",
   "parentExcuseFormDescription": "Informez l'école de la raison pour laquelle votre enfant manquera ou a manqué un cours.",
   "parentExcuseStudentName": "Nom complet de l'enfant",

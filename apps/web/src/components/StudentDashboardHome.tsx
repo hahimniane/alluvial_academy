@@ -8,13 +8,15 @@ import {
   Bell,
   BookMarked,
   BookOpen,
+  Bot,
   CalendarClock,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
-  CheckCircle2,
   CircleUserRound,
   ClipboardList,
   CreditCard,
+  FileText,
   Grid3X3,
   LayoutDashboard,
   Loader2,
@@ -31,7 +33,6 @@ import {
   UserRound,
   Video,
   X,
-  Bot,
 } from "lucide-react";
 import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { auth, db } from "@/lib/firebase";
@@ -103,7 +104,10 @@ function studentSections(isAdultStudent: boolean): SidebarSection[] {
     },
     {
       title: "Communication",
-      items: [{ label: "Chat", icon: MessageSquare, href: "/student/chat/", color: "#A646F2" }],
+      items: [
+        { label: "Chat", icon: MessageSquare, href: "/student/chat/", color: "#A646F2" },
+        { label: "Forms", icon: FileText, href: "/student/forms/", color: "#0386FF" },
+      ],
     },
   ];
 }

@@ -7661,6 +7661,7 @@
   },
   "parentFormsTitle": "Family Forms",
   "parentFormsSubtitle": "Submit an excuse request or share feedback with school leaders.",
+  "studentFormsSubtitle": "Fill in a form and send it to the school.",
   "parentExcuseFormTitle": "Student Absence / Excuse Request",
   "parentExcuseFormDescription": "Let the school know why your child will miss or has missed a class.",
   "parentExcuseStudentName": "Child's full name",
