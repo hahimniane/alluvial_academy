@@ -9,7 +9,8 @@ import { auth, db, functions } from "@/lib/firebase";
 import { getCurrentUserRecord, isCurrentUserTeacher } from "@/lib/userRoles";
 import { TeacherAccessPrompt, TeacherShell, openTeacherMobileMenu } from "@/components/TeacherDashboardHome";
 import { dateLocale, tr } from "@/lib/i18n";
-import { canClaimShift } from "@/lib/shiftTrading";
+import { canClaimShift, isLeadershipDuty, tradeSentence, type ShiftTrade } from "@/lib/shiftTrading";
+import { loadTeacherTrades } from "@/lib/shiftTradingClient";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type TeacherSummary = { displayName: string; firstName: string; initials: string };
@@ -23,6 +24,7 @@ export type OfferedShift = {
   end: Date;
   offeredBy: string;
   teacherId: string;
+  category: string;
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -41,6 +43,7 @@ export function normalizeOfferedShift(id: string, data: Record<string, unknown>)
     end,
     offeredBy: str(data.original_teacher_name) || str(data.teacher_name),
     teacherId: str(data.teacher_id),
+    category: str(data.shift_category),
   };
 }
 
@@ -60,7 +63,8 @@ async function loadOfferedShifts(uid: string) {
     .map((entry) => normalizeOfferedShift(entry.id, entry.data() as Record<string, unknown>))
     .filter((shift): shift is OfferedShift => shift !== null);
   const now = new Date();
-  return shifts.filter((shift) => canClaimShift({ isPublished: true, status: "scheduled", start: shift.start, teacherId: shift.teacherId }, uid, now));
+  // A leadership duty goes to a leader; teachers here only take classes.
+  return shifts.filter((shift) => !isLeadershipDuty(shift.category) && canClaimShift({ isPublished: true, status: "scheduled", start: shift.start, teacherId: shift.teacherId }, uid, now));
 }
 
 export function claimErrorMessage(error: unknown) {
@@ -92,6 +96,14 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit" });
 }
 
+function formatWhen(date: Date) {
+  return date.toLocaleString(dateLocale(), { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatHappened(date: Date) {
+  return date.toLocaleString(dateLocale(), { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 function hours(shift: OfferedShift) {
   return `${Math.max(0, (shift.end.getTime() - shift.start.getTime()) / 36e5).toFixed(1)} hrs`;
 }
@@ -107,10 +119,15 @@ export function TeacherAvailableShiftsPage() {
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState("");
   const [notice, setNotice] = useState("");
+  // null until the record has been read (and when it cannot be).
+  const [trades, setTrades] = useState<ShiftTrade[] | null>(null);
 
   const refresh = useCallback(async (uid: string) => {
     setLoading(true);
     setLoadError("");
+    // The record is a side note to the list: when it cannot be read the page
+    // keeps what it had and still shows the classes on offer.
+    void loadTeacherTrades(uid).then(setTrades).catch(() => undefined);
     try {
       setShifts(await loadOfferedShifts(uid));
     } catch {
@@ -237,6 +254,30 @@ export function TeacherAvailableShiftsPage() {
               ))}
             </div>
           )}
+
+          {trades ? (
+            <section aria-labelledby="your-trades" className="mt-8">
+              <h2 id="your-trades" className="text-base font-black text-[#1E293B]">{tr("Your trades")}</h2>
+              {!trades.length ? (
+                <p className="mt-2 text-sm text-[#64748B]">{tr("Classes you offer or take are listed here.")}</p>
+              ) : (
+                <ul className="mt-3 divide-y divide-[#F1F5F9] rounded-2xl bg-white px-4 shadow-sm">
+                  {trades.map((trade) => {
+                    const sentence = tradeSentence(trade, user?.uid ?? "");
+                    return (
+                      <li key={trade.id} className="py-3">
+                        <p className="text-sm font-semibold text-[#334155]">
+                          {tr(sentence.text, { class: sentence.vars.class || tr("a class"), name: sentence.vars.name })}
+                          {trade.shiftStart ? <span className="font-medium text-[#64748B]"> – {formatWhen(trade.shiftStart)}</span> : null}
+                        </p>
+                        {trade.createdAt ? <p className="mt-0.5 text-xs text-[#94A3B8]">{formatHappened(trade.createdAt)}</p> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          ) : null}
         </section>
 
         {confirming ? (
