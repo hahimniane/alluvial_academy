@@ -33,7 +33,8 @@ import { tr, dateLocale} from "@/lib/i18n";
 import { TeacherMakeupRequestDialog } from "@/components/TeacherMakeupRequestDialog";
 import { canRequestMakeup, isShiftAfterStrictPolicy, latestRequestByShift, type MakeupRequest, type MakeupSourceShift } from "@/lib/makeupRequests";
 import { loadTeacherMakeupRequests } from "@/lib/makeupRequestsClient";
-import { canOfferShift } from "@/lib/shiftTrading";
+import { OFFER_WINDOW_DAYS, canOfferShift, canWithdrawOffer, offerQuickPicks, offerReportNotes, offerSelection, sameSelection, seriesOfferDays, seriesIdOf, type OfferFailure, type SeriesShift } from "@/lib/shiftTrading";
+import { setShiftOffers } from "@/lib/shiftTradingClient";
 
 type AccessState = "checking" | "signedOut" | "allowed" | "denied";
 type UserRecord = Record<string, unknown>;
@@ -66,6 +67,7 @@ type TeacherShift = {
   clockOutTime: Date | null;
   formResponseId: string;
   isPublished: boolean;
+  templateId: string;
 };
 
 export function TeacherShiftsPage() {
@@ -85,6 +87,7 @@ export function TeacherShiftsPage() {
   const [clockBusyShiftId, setClockBusyShiftId] = useState<string | null>(null);
   const [makeupRequests, setMakeupRequests] = useState<Map<string, MakeupRequest>>(() => new Map());
   const [makeupShift, setMakeupShift] = useState<TeacherShift | null>(null);
+  const [offerBusyShiftId, setOfferBusyShiftId] = useState<string | null>(null);
 
   const refreshMakeupRequests = async (uid: string) => {
     try {
@@ -120,6 +123,22 @@ export function TeacherShiftsPage() {
       showNotice(error instanceof Error ? error.message : "Could not update this shift.");
     } finally {
       setClockBusyShiftId(null);
+    }
+  };
+
+  const handleWithdrawOffer = async (shift: TeacherShift) => {
+    if (!currentUser || offerBusyShiftId) return;
+    setOfferBusyShiftId(shift.id);
+    try {
+      const outcome = await setShiftOffers([shift.id], false);
+      showNotice(outcome.failures.length ? tr(outcome.failures[0].text) : tr("Offer taken back. The class stays yours."));
+      const loaded = await loadTeacherShifts(currentUser.uid);
+      setShifts(loaded);
+      setSelectedShift((current) => current ? loaded.find((nextShift) => nextShift.id === current.id) ?? current : current);
+    } catch {
+      showNotice(tr("Could not take this offer back. Try again."));
+    } finally {
+      setOfferBusyShiftId(null);
     }
   };
 
@@ -219,7 +238,7 @@ export function TeacherShiftsPage() {
           </div>
 
           {rangeMode === "day" ? (
-            <DaySchedule anchorDate={anchorDate} shifts={dayShifts} loading={loading} onSelectDate={setAnchorDate} onSelectShift={setSelectedShift} onClockAction={handleClockAction} clockBusyShiftId={clockBusyShiftId} />
+            <DaySchedule anchorDate={anchorDate} shifts={dayShifts} loading={loading} onSelectDate={setAnchorDate} onSelectShift={setSelectedShift} onClockAction={handleClockAction} clockBusyShiftId={clockBusyShiftId} onWithdrawOffer={handleWithdrawOffer} offerBusyShiftId={offerBusyShiftId} />
           ) : rangeMode === "month" ? (
             <MonthSchedule days={monthDays} anchorDate={anchorDate} shifts={shifts} loading={loading} onSelectDate={(date) => { setAnchorDate(date); setRangeMode("day"); }} onSelectShift={setSelectedShift} />
           ) : (
@@ -252,6 +271,8 @@ export function TeacherShiftsPage() {
             }}
             makeupRequest={makeupRequests.get(selectedShift.id)}
             onRequestMakeup={() => setMakeupShift(selectedShift)}
+            offerBusy={offerBusyShiftId === selectedShift.id}
+            onWithdrawOffer={handleWithdrawOffer}
           />
         ) : null}
         {makeupShift && currentUser ? (
@@ -559,7 +580,10 @@ function DayBadge({ day }: { day: Date }) {
 function ShiftPill({ shift, onSelect }: { shift: TeacherShift; onSelect: (shift: TeacherShift) => void }) {
   return (
     <button type="button" onClick={() => onSelect(shift)} className="mb-2 block w-full rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-left text-sm text-[#1E3A8A] hover:border-[#60A5FA]">
-      <p className="font-black">{shift.title}</p>
+      <p className="flex items-center gap-2 font-black">
+        <span className="min-w-0 truncate">{shift.title}</span>
+        {canWithdrawOffer(shift) ? <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">{tr("Offered")}</span> : null}
+      </p>
       <p className="mt-1 text-xs font-semibold text-[#2563EB]">{formatTimeRange(shift.start, shift.end)}</p>
       {shift.studentNames.length ? <p className="mt-1 truncate text-xs font-medium text-[#64748B]">{shift.studentNames.join(", ")}</p> : null}
     </button>
@@ -574,6 +598,8 @@ function DaySchedule({
   onSelectShift,
   onClockAction,
   clockBusyShiftId,
+  onWithdrawOffer,
+  offerBusyShiftId,
 }: {
   anchorDate: Date;
   shifts: TeacherShift[];
@@ -582,6 +608,8 @@ function DaySchedule({
   onSelectShift: (shift: TeacherShift) => void;
   onClockAction: (shift: TeacherShift) => void;
   clockBusyShiftId: string | null;
+  onWithdrawOffer: (shift: TeacherShift) => void;
+  offerBusyShiftId: string | null;
 }) {
   const stripStart = addDays(anchorDate, -2);
   const stripDays = Array.from({ length: 15 }, (_, index) => addDays(stripStart, index));
@@ -621,7 +649,7 @@ function DaySchedule({
             </div>
           </div>
         ) : (
-          shifts.map((shift, index) => <TimelineShiftCard key={shift.id} shift={shift} isLast={index === shifts.length - 1} onSelect={onSelectShift} onClockAction={onClockAction} busy={clockBusyShiftId === shift.id} />)
+          shifts.map((shift, index) => <TimelineShiftCard key={shift.id} shift={shift} isLast={index === shifts.length - 1} onSelect={onSelectShift} onClockAction={onClockAction} busy={clockBusyShiftId === shift.id} onWithdrawOffer={onWithdrawOffer} offerBusy={offerBusyShiftId === shift.id} />)
         )}
       </div>
     </section>
@@ -634,12 +662,16 @@ function TimelineShiftCard({
   onSelect,
   onClockAction,
   busy,
+  onWithdrawOffer,
+  offerBusy,
 }: {
   shift: TeacherShift;
   isLast: boolean;
   onSelect: (shift: TeacherShift) => void;
   onClockAction: (shift: TeacherShift) => void;
   busy: boolean;
+  onWithdrawOffer: (shift: TeacherShift) => void;
+  offerBusy: boolean;
 }) {
   const config = shiftVisualConfig(shift);
   const action = clockAction(shift);
@@ -686,6 +718,16 @@ function TimelineShiftCard({
           <Clock size={16} />
           {busy ? tr("Updating...") : tr(action.label)}
         </button>
+        {canWithdrawOffer(shift) ? (
+          <button
+            type="button"
+            disabled={offerBusy}
+            onClick={() => onWithdrawOffer(shift)}
+            className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-emerald-200 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-70"
+          >
+            {offerBusy ? tr("Updating...") : tr("Take offer back")}
+          </button>
+        ) : null}
       </article>
     </div>
   );
@@ -721,6 +763,8 @@ function ShiftDetailsDialog({
   onReportIssue,
   makeupRequest,
   onRequestMakeup,
+  offerBusy,
+  onWithdrawOffer,
 }: {
   shift: TeacherShift;
   busy: boolean;
@@ -729,6 +773,8 @@ function ShiftDetailsDialog({
   onReportIssue: () => void;
   makeupRequest: MakeupRequest | undefined;
   onRequestMakeup: () => void;
+  offerBusy: boolean;
+  onWithdrawOffer: (shift: TeacherShift) => void;
 }) {
   const action = clockAction(shift);
   const canAct = action.kind !== "disabled";
@@ -738,6 +784,7 @@ function ShiftDetailsDialog({
   // From the cutoff a missed class is made up through a request, not a report.
   const makeupFlow = reportStatus === "missed" && isShiftAfterStrictPolicy(shift.start);
   const reportRequired = !makeupFlow && (["completed", "fullycompleted", "partiallycompleted", "missed"].includes(reportStatus) || Boolean(shift.end && shift.end < now));
+  const offered = canWithdrawOffer(shift, now);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
       <section className="w-full max-w-[560px] rounded-2xl bg-white p-6 shadow-xl">
@@ -764,7 +811,15 @@ function ShiftDetailsDialog({
             onRequest={onRequestMakeup}
           />
         ) : null}
+        {offered ? (
+          <p className="mt-4 rounded-xl bg-[#F0FDF4] px-3 py-2 text-xs font-medium text-[#166534]">{tr("Other teachers can claim this class. It stays yours until someone does.")}</p>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {offered ? (
+            <button type="button" disabled={offerBusy} onClick={() => onWithdrawOffer(shift)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-70">
+              {offerBusy ? tr("Updating...") : tr("Take offer back")}
+            </button>
+          ) : null}
           {joinable ? <Link href={`/teacher/classroom/?shiftId=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-[#0E72ED] px-4 py-2 text-sm font-bold text-white"><Video size={16} />{tr("Join Class")}</Link> : null}
           {reportRequired ? shift.formResponseId ? <Link href="/teacher/form-submissions/" className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50"><FileCheck2 size={16} />{tr("View Class Report")}</Link> : <Link href={`/teacher/submit-form/?shift=${encodeURIComponent(shift.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[#BFDBFE] px-4 py-2 text-sm font-bold text-[#0369F6] hover:bg-[#EFF6FF]"><FileCheck2 size={16} />{tr("Fill Class Report")}</Link> : null}
           <button type="button" onClick={onReportIssue} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-4 py-2 text-sm font-bold text-orange-700 hover:bg-orange-50">
@@ -901,6 +956,14 @@ function ScheduleSettingsDialog({ shifts, onClose, onReportShift, onTimezoneOnly
   );
 }
 
+function seriesShiftOf(shift: TeacherShift): SeriesShift {
+  return { id: shift.id, seriesId: shift.templateId, isPublished: shift.isPublished, status: shift.status, start: shift.start, end: shift.end, teacherId: shift.teacherId };
+}
+
+function formatOfferDay(date: Date) {
+  return date.toLocaleDateString(dateLocale(), { weekday: "short", month: "short", day: "numeric" });
+}
+
 function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shift: TeacherShift; user: User; onClose: () => void; onSubmitted: (message: string) => void }) {
   const offerable = canOfferShift(shift);
   const issueOptions = [
@@ -913,37 +976,88 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // The other days of the same recurring class, so several can be given away at once.
+  const [seriesShifts, setSeriesShifts] = useState<TeacherShift[]>([]);
+  const [ticked, setTicked] = useState<string[]>([shift.id]);
+  const [justOffered, setJustOffered] = useState<string[]>([]);
+  const [failures, setFailures] = useState<OfferFailure[]>([]);
+
+  useEffect(() => {
+    if (!offerable || !shift.templateId) return;
+    let live = true;
+    void fetchTeacherShiftDocs(user.uid, { daysBack: 0, daysForward: OFFER_WINDOW_DAYS }).then((docs) => {
+      if (live) setSeriesShifts(docs.map((entry) => normalizeShift(entry.id, entry.data() as Record<string, unknown>)));
+    }).catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [offerable, shift.templateId, user.uid]);
+
+  const days = useMemo(() => {
+    const offeredHere = (entry: TeacherShift) => (justOffered.includes(entry.id) ? { ...entry, isPublished: true } : entry);
+    return seriesOfferDays(seriesShiftOf(offeredHere(shift)), seriesShifts.map((entry) => seriesShiftOf(offeredHere(entry))));
+  }, [justOffered, seriesShifts, shift]);
+  const quickPicks = useMemo(() => offerQuickPicks(days, shift.id), [days, shift.id]);
+  const selection = offerSelection(days, ticked);
+  const dayLabel = (shiftId: string) => {
+    const day = days.find((entry) => entry.id === shiftId);
+    return day ? `${formatOfferDay(day.start)}, ${formatTime(day.start)}` : tr("Class");
+  };
+
+  const fileReport = (offeredCount: number) =>
+    addDoc(collection(db, "schedule_issue_reports"), {
+      shift_id: shift.id,
+      shiftId: shift.id,
+      teacher_id: user.uid,
+      teacherId: user.uid,
+      reportedBy: user.uid,
+      teacher_name: shift.teacherName,
+      teacherName: shift.teacherName,
+      issue_type: issueType,
+      issueType,
+      notes: issueType === "publish" ? offerReportNotes(notes, offeredCount) : notes.trim(),
+      reported_at: serverTimestamp(),
+      reportedAt: serverTimestamp(),
+    });
+
+  const submitOffer = async () => {
+    let outcome: Awaited<ReturnType<typeof setShiftOffers>>;
+    try {
+      outcome = await setShiftOffers(selection, true);
+    } catch {
+      setError(tr("Could not offer this class. Try again."));
+      return;
+    }
+    if (selection.length === 1 && outcome.failures.length) {
+      setError(tr(outcome.failures[0].text));
+      return;
+    }
+    setFailures(outcome.failures);
+    if (!outcome.okIds.length) return;
+    // The classes are offered whether or not the note to the admins goes through.
+    await fileReport(outcome.okIds.length).catch(() => undefined);
+    const message = outcome.okIds.length === 1 ? tr("Shift offered to other teachers!") : tr("{count} classes offered to other teachers!", { count: outcome.okIds.length });
+    onSubmitted(message);
+    if (!outcome.failures.length) {
+      onClose();
+      return;
+    }
+    // Some days were refused: stay open to show which, with the rest marked as offered.
+    setJustOffered((current) => [...current, ...outcome.okIds]);
+    setTicked((current) => current.filter((id) => !outcome.okIds.includes(id)));
+  };
+
   const submit = async () => {
     setSaving(true);
     setError("");
+    setFailures([]);
     try {
-      await addDoc(collection(db, "schedule_issue_reports"), {
-        shift_id: shift.id,
-        shiftId: shift.id,
-        teacher_id: user.uid,
-        teacherId: user.uid,
-        reportedBy: user.uid,
-        teacher_name: shift.teacherName,
-        teacherName: shift.teacherName,
-        issue_type: issueType,
-        issueType,
-        notes: notes.trim(),
-        reported_at: serverTimestamp(),
-        reportedAt: serverTimestamp(),
-      });
       if (issueType === "publish") {
-        // Same change the app makes: the class stays this teacher's until
-        // someone claims it from Available Shifts.
-        await updateDoc(doc(db, "teaching_shifts", shift.id), {
-          is_published: true,
-          published_at: serverTimestamp(),
-          published_by: user.uid,
-          original_teacher_id: user.uid,
-          original_teacher_name: shift.teacherName,
-          last_modified: serverTimestamp(),
-        });
+        await submitOffer();
+        return;
       }
-      onSubmitted(issueType === "publish" ? tr("Shift offered to other teachers!") : tr("Issue reported! Admin will review and fix it."));
+      await fileReport(0);
+      onSubmitted(tr("Issue reported! Admin will review and fix it."));
       onClose();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not submit this report.");
@@ -953,7 +1067,7 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
   };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
-      <section className="w-full max-w-[420px] rounded-2xl bg-white p-5 shadow-xl">
+      <section className="max-h-[calc(100vh-32px)] w-full max-w-[420px] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-[#1E293B]">{tr("Report Schedule Issue")}</h2>
           <button type="button" onClick={onClose} aria-label={tr("Close report issue")} className="grid h-8 w-8 place-items-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"><X size={17} /></button>
@@ -967,12 +1081,60 @@ function ReportScheduleIssueDialog({ shift, user, onClose, onSubmitted }: { shif
         {issueType === "publish" ? (
           <p className="mt-3 rounded-xl bg-[#F0FDF4] px-3 py-2 text-xs font-medium text-[#166534]">{tr("Other teachers can claim this class. It stays yours until someone does.")}</p>
         ) : null}
+        {issueType === "publish" && days.length > 1 ? (
+          <div className="mt-4">
+            <p className="text-sm font-bold text-[#374151]">{tr("Days to give away")}</p>
+            {quickPicks.length > 1 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {quickPicks.map((pick) => (
+                  <button
+                    key={pick.kind}
+                    type="button"
+                    onClick={() => setTicked(pick.ids)}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${sameSelection(selection, pick.ids) ? "border-[#0386FF] bg-[#EFF6FF] text-[#1D4ED8]" : "border-[#E5E7EB] text-[#334155]"}`}
+                  >
+                    {tr(pick.label, pick.vars)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-2 grid max-h-[216px] gap-1 overflow-y-auto">
+              {days.map((day) => {
+                const alreadyOffered = day.state === "offered";
+                return (
+                  <label key={day.id} className={`flex items-center gap-3 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm ${alreadyOffered ? "text-[#94A3B8]" : "cursor-pointer text-[#334155]"}`}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[#0386FF]"
+                      checked={alreadyOffered || ticked.includes(day.id)}
+                      disabled={alreadyOffered}
+                      onChange={(event) => setTicked((current) => (event.target.checked ? [...current, day.id] : current.filter((id) => id !== day.id)))}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-semibold">{formatOfferDay(day.start)}</span>
+                      <span className="text-[#64748B]"> · {formatTimeRange(day.start, day.end ?? day.start)}</span>
+                    </span>
+                    {alreadyOffered ? <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">{tr("Offered")}</span> : null}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <label className="mt-4 block text-sm font-bold text-[#374151]">{tr("Additional Notes (Optional)")}</label>
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder={tr("Explain the issue")} className="mt-2 w-full rounded-xl border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0386FF]" />
         {error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+        {failures.length ? (
+          <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="font-semibold">{tr("Some days could not be offered:")}</p>
+            <ul className="mt-1 grid gap-0.5">
+              {failures.map((failure) => <li key={failure.shiftId}>{dayLabel(failure.shiftId)}: {tr(failure.text)}</li>)}
+            </ul>
+          </div>
+        ) : null}
         <div className="mt-5 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-bold text-[#64748B]">{tr("Cancel")}</button>
-          <button type="button" onClick={submit} disabled={saving} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? tr("Submitting...") : tr("Submit")}</button>
+          <button type="button" onClick={submit} disabled={saving || (issueType === "publish" && !selection.length)} className="rounded-xl bg-[#0386FF] px-5 py-2 text-sm font-bold text-white disabled:bg-[#93C5FD]">{saving ? tr("Submitting...") : tr("Submit")}</button>
         </div>
       </section>
     </div>
@@ -1052,6 +1214,7 @@ function normalizeShift(id: string, data: Record<string, unknown>): TeacherShift
     clockOutTime: dateValue(data.clock_out_time ?? data.clockOutTime),
     formResponseId: stringValue(data.form_response_id ?? data.formResponseId),
     isPublished: data.is_published === true,
+    templateId: seriesIdOf(data),
   };
 }
 
