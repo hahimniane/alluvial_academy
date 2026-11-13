@@ -14,6 +14,7 @@ import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../forms/screens/parent_forms_screen.dart';
+import '../../forms/screens/student_forms_screen.dart';
 import '../../profile/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
@@ -1474,6 +1475,12 @@ class _StudentMoreScreen extends StatelessWidget {
         label: l10n.progress,
         color: const Color(0xff0EA5E9),
         screen: const StudentProgressScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.description_rounded,
+        label: l10n.navForms,
+        color: const Color(0xff0386FF),
+        screen: const StudentFormsScreen(),
       ),
       _MoreItem(
         icon: Icons.menu_book_rounded,

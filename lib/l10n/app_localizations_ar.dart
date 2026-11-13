@@ -17356,6 +17356,9 @@ class AppLocalizationsAr extends AppLocalizations {
       'أرسل طلب عذر أو شارك ملاحظاتك مع قادة المدرسة.';
 
   @override
+  String get studentFormsSubtitle => 'املأ نموذجًا وأرسله إلى المدرسة.';
+
+  @override
   String get parentExcuseFormTitle => 'طلب عذر غياب الطالب';
 
   @override

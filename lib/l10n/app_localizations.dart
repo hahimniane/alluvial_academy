@@ -31615,6 +31615,12 @@ abstract class AppLocalizations {
   /// **'Submit an excuse request or share feedback with school leaders.'**
   String get parentFormsSubtitle;
 
+  /// No description provided for @studentFormsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in a form and send it to the school.'**
+  String get studentFormsSubtitle;
+
   /// No description provided for @parentExcuseFormTitle.
   ///
   /// In en, this message translates to:

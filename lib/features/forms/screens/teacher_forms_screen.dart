@@ -18,6 +18,7 @@ import '../services/form_labels_cache_service.dart';
 import '../utils/class_report_eligibility.dart';
 import '../utils/form_answer_order.dart';
 import '../utils/parent_form_access_policy.dart';
+import '../utils/student_form_access_policy.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -28,11 +29,19 @@ class TeacherFormsScreen extends StatefulWidget {
   final bool parentOnly;
   final FormTemplate? parentExcuseTemplate;
 
+  /// Student mode: only the forms aimed at students, with none of the
+  /// teacher's report sections.
+  final bool studentOnly;
+
   const TeacherFormsScreen({
     super.key,
     this.parentOnly = false,
     this.parentExcuseTemplate,
+    this.studentOnly = false,
   });
+
+  /// Parent or student mode: a plain list of the forms aimed at that audience.
+  bool get audienceOnly => parentOnly || studentOnly;
 
   @override
   State<TeacherFormsScreen> createState() => _TeacherFormsScreenState();
@@ -140,7 +149,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     final futures = <Future<void>>[
       _loadTemplates(forceRefresh: forceTemplateRefresh),
     ];
-    if (!widget.parentOnly) {
+    if (!widget.audienceOnly) {
       futures.add(_loadSubmissionStatus());
     }
     await Future.wait(futures);
@@ -195,6 +204,9 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         if (widget.parentOnly && !ParentFormAccessPolicy.allows(template)) {
           continue;
         }
+        if (widget.studentOnly && !StudentFormAccessPolicy.allows(template)) {
+          continue;
+        }
 
         if (template.category == FormCategory.studentAssessment) {
           studentAssessmentTemplatesFound++;
@@ -216,7 +228,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         // skip filtering entirely — showing admin-only forms to everyone.
         // An unknown role is now treated as the least privileged one, so a
         // form is only shown when it explicitly allows that role.
-        if (!widget.parentOnly) {
+        if (!widget.audienceOnly) {
           final userRoleLower = _userRole == null
               ? '__unknown__'
               : _normalizeRoleName(_userRole!);
@@ -302,6 +314,11 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         return;
       }
 
+      if (widget.studentOnly) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
       // Add default templates if none found for teaching category
       if (!_templatesByCategory.containsKey(FormCategory.teaching) ||
           _templatesByCategory[FormCategory.teaching]!.isEmpty) {
@@ -373,6 +390,11 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Error loading templates: $e');
+      if (widget.studentOnly) {
+        _templatesByCategory = {};
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
       if (widget.parentOnly) {
         _templatesByCategory = {
           if (widget.parentExcuseTemplate != null)
@@ -522,7 +544,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: widget.parentOnly ? 145.0 : 200.0,
+      expandedHeight: widget.audienceOnly ? 145.0 : 200.0,
       floating: false,
       pinned: true, // L'AppBar reste visible en haut
       backgroundColor: const Color(0xFF6366F1),
@@ -545,9 +567,11 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.parallax, // Effet parallaxe
         title: Text(
-          widget.parentOnly
-              ? AppLocalizations.of(context)!.parentFormsTitle
-              : AppLocalizations.of(context)!.formsReports,
+          widget.studentOnly
+              ? AppLocalizations.of(context)!.navForms
+              : widget.parentOnly
+                  ? AppLocalizations.of(context)!.parentFormsTitle
+                  : AppLocalizations.of(context)!.formsReports,
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -569,15 +593,17 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.parentOnly
-                        ? AppLocalizations.of(context)!.parentFormsSubtitle
-                        : AppLocalizations.of(context)!.submitReportsFeedback,
+                    widget.studentOnly
+                        ? AppLocalizations.of(context)!.studentFormsSubtitle
+                        : widget.parentOnly
+                            ? AppLocalizations.of(context)!.parentFormsSubtitle
+                            : AppLocalizations.of(context)!.submitReportsFeedback,
                     style: GoogleFonts.plusJakartaSans(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
                     ),
                   ),
-                  if (!widget.parentOnly) ...[
+                  if (!widget.audienceOnly) ...[
                     const SizedBox(height: 20),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
