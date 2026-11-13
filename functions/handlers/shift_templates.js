@@ -238,6 +238,12 @@ const _shouldSkipRegenerationForExistingShift = (existingData) => {
   if (existingData.admin_modified || existingData.admin_modified_at) {
     return 'admin_modified';
   }
+  // A class that is offered, or that another teacher took over, no longer
+  // matches its template on purpose. Regenerating it would hand it back to
+  // the template's teacher and move the pay with it.
+  if (existingData.is_published === true || existingData.claimed_via_shift_trade === true) {
+    return 'shift_trade';
+  }
   const status = (existingData.status || '').toString().trim().toLowerCase();
   if (status === 'deleted') {
     return 'deleted';
@@ -503,6 +509,11 @@ const _generateShiftsForTemplate = async ({templateId, template: rawTemplate}) =
       if (skipReason === 'admin_modified') {
         console.log(`[shift_templates] Skipping shift ${generatedShiftId}: admin-modified`);
         skippedAdminModified += 1;
+        continue;
+      }
+      if (skipReason === 'shift_trade') {
+        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: offered or traded`);
+        skippedTeacherModified += 1;
         continue;
       }
       if (skipReason === 'deleted') {

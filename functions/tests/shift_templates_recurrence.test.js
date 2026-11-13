@@ -152,6 +152,11 @@ describe('shift_templates helpers', () => {
       expect(t._shouldSkipRegenerationForExistingShift({status: 'scheduled'})).toBeNull();
     });
 
+    it('leaves an offered or traded class alone', () => {
+      expect(t._shouldSkipRegenerationForExistingShift({status: 'scheduled', is_published: true})).toBe('shift_trade');
+      expect(t._shouldSkipRegenerationForExistingShift({status: 'scheduled', claimed_via_shift_trade: true})).toBe('shift_trade');
+    });
+
     test('skips shifts modified by the teacher', () => {
       expect(
         t._shouldSkipRegenerationForExistingShift({teacher_modified: true}),

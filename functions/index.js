@@ -159,6 +159,8 @@ exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 exports.fixTimesheetsPayment = shiftHandlers.fixTimesheetsPayment;
 // Shift trade: native app claims a published shift through this callable.
 exports.claimShift = shiftHandlers.claimShift;
+exports.assignOfferedShift = shiftHandlers.assignOfferedShift;
+exports.setShiftOffers = shiftHandlers.setShiftOffers;
 
 // Parent billing (invoices & payments)
 exports.createInvoice = onCall(paymentHandlers.createInvoice);
