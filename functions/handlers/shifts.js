@@ -37,6 +37,7 @@ const {
   mergeTimesheetsForShift,
 } = require('../services/shifts/recompute_shift_completion');
 const { computeSession, getScheduledHours } = require('../utils/shiftSessionAggregator');
+const shiftTrading = require('../services/shifts/shift_trading');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
@@ -712,42 +713,109 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
 });
 
 /**
- * FCM to all teachers when a shift is published for trade (is_published becomes true).
- * Excludes the teacher who published the offer.
+ * FCM when a class or duty is offered (is_published becomes true): a class
+ * goes to the teachers, a leadership duty only to the leaders. The person who
+ * offered it and its current holder are left out; when an admin offered it on
+ * the holder's behalf, the holder is told so.
  */
 async function notifyTeachersOfPublishedShiftOffer({shiftId, shiftData, publishedByUid}) {
-  const excludeUid = String(publishedByUid || '').trim();
-  const displayName =
-    shiftData.custom_name ||
-    shiftData.auto_generated_name ||
-    shiftData.subject_display_name ||
-    shiftData.subject ||
-    'A class';
-  const snapshot = await db.collection('users').where('user_type', '==', 'teacher').get();
-  const notifyPromises = [];
-  for (const doc of snapshot.docs) {
-    if (!doc.id || doc.id === excludeUid) continue;
+  const db = admin.firestore();
+  const offeredBy = String(publishedByUid || '').trim();
+  const ownerUid = String(shiftData.teacher_id || '').trim();
+  const displayName = shiftTrading.shiftName(shiftData);
+  const duty = shiftTrading.isLeadershipDuty(shiftData);
+
+  const snapshot = duty ?
+    await db.collection('users').get() :
+    await db.collection('users').where('user_type', '==', 'teacher').get();
+  const audience = shiftTrading.offerAudience({
+    shiftData,
+    users: snapshot.docs.map((doc) => ({id: doc.id, data: doc.data() || {}})),
+    excludeUids: [offeredBy, ownerUid],
+  });
+
+  const notifyPromises = audience.map((uid) =>
+    sendFCMNotificationToTeacher(
+      uid,
+      {
+        title: duty ? '🔄 Duty available to take' : '🔄 Shift available to claim',
+        body: duty ?
+          `${displayName} is open for another leader. Open Available Shifts to view.` :
+          `${displayName} is open for another teacher. Open Available Shifts to view.`,
+      },
+      {type: 'shift', action: 'offered_for_trade', shiftId},
+    ).catch((err) => {
+      console.error(`notifyTeachersOfPublishedShiftOffer: FCM failed for ${uid}`, err);
+    }));
+
+  if (ownerUid && offeredBy && ownerUid !== offeredBy) {
     notifyPromises.push(
       sendFCMNotificationToTeacher(
-        doc.id,
+        ownerUid,
         {
-          title: '🔄 Shift available to claim',
-          body: `${displayName} is open for another teacher. Open Available Shifts to view.`,
+          title: '🔄 Your class was offered',
+          body: `An admin offered ${displayName} to others. It stays yours until someone takes it.`,
         },
-        {
-          type: 'shift',
-          action: 'offered_for_trade',
-          shiftId,
-        },
+        {type: 'shift', action: 'offered_for_trade_by_admin', shiftId},
       ).catch((err) => {
-        console.error(`notifyTeachersOfPublishedShiftOffer: FCM failed for ${doc.id}`, err);
-      }),
-    );
+        console.error(`notifyTeachersOfPublishedShiftOffer: owner FCM failed for ${ownerUid}`, err);
+      }));
   }
+
   await Promise.all(notifyPromises);
   console.log(
-    `✅ notifyTeachersOfPublishedShiftOffer: sent FCM for ${notifyPromises.length} teachers (shift ${shiftId})`,
+    `✅ notifyTeachersOfPublishedShiftOffer: ${audience.length} notified (shift ${shiftId}, ${duty ? 'duty' : 'class'})`,
   );
+}
+
+/**
+ * Writes one shift_trades row for a change to a shift's offer, and tells the
+ * two people a hand-over concerns. Best effort: a failure here never blocks
+ * the trade itself.
+ */
+async function recordShiftTradeEvent({shiftId, event}) {
+  const db = admin.firestore();
+  try {
+    await db.collection('shift_trades').add({
+      shift_id: shiftId,
+      ...event,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error(`recordShiftTradeEvent: could not record ${event.action} for ${shiftId}`, err);
+  }
+
+  if (event.action !== 'claimed' && event.action !== 'assigned') return;
+  const startDate = event.shift_start && event.shift_start.toDate ? event.shift_start.toDate() : null;
+  const whenFor = async (uid) => {
+    if (!startDate) return '';
+    const timezone = await getUserTimezone(uid);
+    return ` on ${formatDateInTimezone(startDate, timezone)}`;
+  };
+  const sends = [];
+  if (event.from_teacher_id) {
+    sends.push((async () => sendFCMNotificationToTeacher(
+      event.from_teacher_id,
+      {
+        title: '✅ Your class was picked up',
+        body: `${event.to_teacher_name || 'Another teacher'} will take ${event.shift_name}${await whenFor(event.from_teacher_id)}.`,
+      },
+      {type: 'shift', action: 'trade_completed', shiftId},
+    ))());
+  }
+  if (event.action === 'assigned' && event.to_teacher_id) {
+    sends.push((async () => sendFCMNotificationToTeacher(
+      event.to_teacher_id,
+      {
+        title: '📌 A class was assigned to you',
+        body: `You now have ${event.shift_name}${await whenFor(event.to_teacher_id)}.`,
+      },
+      {type: 'shift', action: 'trade_assigned', shiftId},
+    ))());
+  }
+  await Promise.all(sends.map((p) => p.catch((err) => {
+    console.error(`recordShiftTradeEvent: FCM failed for ${shiftId}`, err);
+  })));
 }
 
 const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (event) => {
@@ -758,6 +826,10 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
 
     const publishBefore = !!beforeData.is_published;
     const publishAfter = !!afterData.is_published;
+    const tradeEvent = shiftTrading.tradeEventFromChange(beforeData, afterData);
+    if (tradeEvent) {
+      await recordShiftTradeEvent({shiftId, event: tradeEvent});
+    }
     if (!publishBefore && publishAfter) {
       const publishedBy = afterData.published_by || afterData.teacher_id;
       await notifyTeachersOfPublishedShiftOffer({
@@ -767,6 +839,9 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
       });
       return;
     }
+    // An offer that ended (taken back, claimed or assigned) has said all it
+    // needs to above; it is not a "shift updated" for anybody.
+    if (tradeEvent) return;
 
     if (afterData.status === 'cancelled' && beforeData.status !== 'cancelled') {
       console.log('Shift cancelled - skipping onShiftUpdated');
@@ -1354,6 +1429,158 @@ function timesheetClockOutMs(data) {
   const t = data.clock_out_time || data.clock_out_timestamp;
   const d = t && t.toDate ? t.toDate() : null;
   return d ? d.getTime() : null;
+}
+
+async function requireAdminCaller(uid) {
+  const callerDoc = await admin.firestore().collection('users').doc(uid).get();
+  if (!shiftTrading.isAdminUser(callerDoc.exists ? callerDoc.data() : null)) {
+    throw new functions.https.HttpsError('permission-denied', 'Only an admin can do this');
+  }
+}
+
+/**
+ * Hands an offered class or duty to `toUid`: the one hand-over behind both a
+ * teacher claiming it and an admin assigning it. The class must still be
+ * offered and not started, the new teacher must be allowed to take it (a
+ * leadership duty only goes to a leader) and must be free at that time.
+ * From then on the class is theirs, so its clock-in and pay are theirs too.
+ */
+async function transferOfferedShift({shiftId, toUid, assignedBy}) {
+  const db = admin.firestore();
+  const shiftRef = db.collection('teaching_shifts').doc(shiftId);
+
+  // Whether the taker already hosts leadership duties; only matters for a
+  // duty, and is read outside the transaction (it cannot change the outcome
+  // for a class).
+  const preSnap = await shiftRef.get();
+  if (!preSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Shift not found');
+  }
+  let holdsLeadershipDuty = false;
+  if (shiftTrading.isLeadershipDuty(preSnap.data())) {
+    const dutySnap = await db.collection('teaching_shifts')
+      .where('teacher_id', '==', toUid)
+      .where('shift_category', 'in', ['leadership', 'meeting'])
+      .limit(1)
+      .get();
+    holdsLeadershipDuty = !dutySnap.empty;
+  }
+
+  const result = await db.runTransaction(async (transaction) => {
+    const shiftSnap = await transaction.get(shiftRef);
+    if (!shiftSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Shift not found');
+    }
+
+    const shiftData = shiftSnap.data();
+    const published = shiftData.is_published === true;
+    const statusNorm = String(shiftData.status || '').toLowerCase();
+    const isScheduled = statusNorm === 'scheduled';
+    if (!published || !isScheduled) {
+      throw new functions.https.HttpsError('failed-precondition', 'Shift is no longer available for claiming');
+    }
+
+    if (shiftData.teacher_id === toUid) {
+      throw new functions.https.HttpsError('already-exists',
+        assignedBy ? 'This teacher already has this shift' : 'You are already the teacher for this shift');
+    }
+
+    const userDoc = await transaction.get(db.collection('users').doc(toUid));
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User profile not found');
+    }
+    const userData = userDoc.data();
+    const refusal = shiftTrading.takeRefusal({shiftData, userData, holdsLeadershipDuty});
+    if (refusal) {
+      throw new functions.https.HttpsError('permission-denied', refusal);
+    }
+
+    // Taking a class puts it on the new teacher's calendar, so it must pass
+    // the same overlap rule as scheduling: refuse when they already have a
+    // class during this time.
+    const claimStart = shiftData.shift_start?.toDate?.();
+    const claimEnd = shiftData.shift_end?.toDate?.();
+    if (claimStart && claimEnd) {
+      const windowStart = new Date(claimStart.getTime() - 24 * 3600e3);
+      const windowEnd = new Date(claimStart.getTime() + 48 * 3600e3);
+      let mineDocs;
+      try {
+        const mineSnap = await transaction.get(
+          db.collection('teaching_shifts')
+            .where('teacher_id', '==', toUid)
+            .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(windowStart))
+            .where('shift_start', '<', admin.firestore.Timestamp.fromDate(windowEnd)));
+        mineDocs = mineSnap.docs;
+      } catch (err) {
+        const missingIndex = err?.code === 9 &&
+          String(err?.message || '').toLowerCase().includes('index');
+        if (!missingIndex) throw err;
+        const mineSnap = await transaction.get(
+          db.collection('teaching_shifts').where('teacher_id', '==', toUid));
+        mineDocs = mineSnap.docs;
+      }
+      const mine = mineDocs.map((d) => {
+        const x = d.data() || {};
+        return {
+          id: d.id,
+          startMs: x.shift_start?.toDate?.()?.getTime?.() ?? NaN,
+          endMs: x.shift_end?.toDate?.()?.getTime?.() ?? NaN,
+          status: x.status || '',
+          name: x.custom_name || x.auto_generated_name || '',
+        };
+      });
+      const conflict = findClaimConflict(
+        claimStart.getTime(), claimEnd.getTime(), mine, shiftId);
+      if (conflict) {
+        throw new functions.https.HttpsError('failed-precondition', assignedBy ?
+          `This teacher already has "${conflict.name}" during this time` :
+          `You already have "${conflict.name}" during this time, so you can't claim this shift`);
+      }
+    }
+
+    const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Teacher';
+
+    // Assign shift fully to the new teacher; clear trade metadata so only
+    // teacher_id is authoritative for permissions, audits, and metrics.
+    transaction.update(shiftRef, {
+      teacher_id: toUid,
+      teacher_name: userName,
+      is_published: false,
+      published_at: null,
+      published_by: null,
+      original_teacher_id: admin.firestore.FieldValue.delete(),
+      original_teacher_name: admin.firestore.FieldValue.delete(),
+      claimed_via_shift_trade: true,
+      shift_trade_claimed_at: admin.firestore.FieldValue.serverTimestamp(),
+      shift_trade_from_teacher_id: shiftData.teacher_id || null,
+      shift_trade_from_teacher_name: shiftData.teacher_name || '',
+      shift_trade_assigned_by: assignedBy || admin.firestore.FieldValue.delete(),
+      last_modified: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {shiftData};
+  });
+
+  // Post-transaction notifications (best-effort; must not fail the hand-over)
+  try {
+    const shiftData = result && result.shiftData;
+    const rawIds = shiftData ? shiftData.student_ids : null;
+    const studentIds = Array.isArray(rawIds) ? rawIds : [];
+    const notification = {
+      title: '👨‍🏫 New Teacher Assigned',
+      body: `A new teacher has been assigned to your class: ${(shiftData && (shiftData.subject_display_name || shiftData.subject)) || 'Class'}`,
+    };
+    for (const studentId of studentIds) {
+      if (typeof studentId !== 'string' || !studentId) continue;
+      await sendFCMNotificationToStudent(studentId, notification, {
+        type: 'shift',
+        action: 'teacher_changed',
+        shiftId,
+      });
+    }
+  } catch (err) {
+    console.error('Error sending claim notification:', err);
+  }
 }
 
 /**
@@ -2953,6 +3180,8 @@ module.exports = {
     isStampedeDuplicate,
     findClaimConflict,
     _resolveRescheduleWindow,
+    notifyTeachersOfPublishedShiftOffer,
+    recordShiftTradeEvent,
   },
   scheduleShiftLifecycle,
   handleShiftStartTask,
@@ -2980,132 +3209,11 @@ module.exports = {
       if (!request.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
       }
-
-      const uid = request.auth.uid;
       const {shiftId} = request.data || {};
-
       if (!shiftId) {
         throw new functions.https.HttpsError('invalid-argument', 'shiftId is required');
       }
-
-      const db = admin.firestore();
-      const shiftRef = db.collection('teaching_shifts').doc(shiftId);
-
-      const result = await db.runTransaction(async (transaction) => {
-        const shiftSnap = await transaction.get(shiftRef);
-        if (!shiftSnap.exists) {
-          throw new functions.https.HttpsError('not-found', 'Shift not found');
-        }
-
-        const shiftData = shiftSnap.data();
-        const published = shiftData.is_published === true;
-        const statusNorm = String(shiftData.status || '').toLowerCase();
-        const isScheduled = statusNorm === 'scheduled';
-        if (!published || !isScheduled) {
-          throw new functions.https.HttpsError('failed-precondition', 'Shift is no longer available for claiming');
-        }
-
-        if (shiftData.teacher_id === uid) {
-          throw new functions.https.HttpsError('already-exists', 'You are already the teacher for this shift');
-        }
-
-        // Claiming moves this class onto the claiming teacher's calendar, so
-        // it must pass the same overlap rule as scheduling: refuse when the
-        // teacher already has a class during this time.
-        const claimStart = shiftData.shift_start?.toDate?.();
-        const claimEnd = shiftData.shift_end?.toDate?.();
-        if (claimStart && claimEnd) {
-          const windowStart = new Date(claimStart.getTime() - 24 * 3600e3);
-          const windowEnd = new Date(claimStart.getTime() + 48 * 3600e3);
-          let mineDocs;
-          try {
-            const mineSnap = await transaction.get(
-              db.collection('teaching_shifts')
-                .where('teacher_id', '==', uid)
-                .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(windowStart))
-                .where('shift_start', '<', admin.firestore.Timestamp.fromDate(windowEnd)));
-            mineDocs = mineSnap.docs;
-          } catch (err) {
-            const missingIndex = err?.code === 9 &&
-              String(err?.message || '').toLowerCase().includes('index');
-            if (!missingIndex) throw err;
-            const mineSnap = await transaction.get(
-              db.collection('teaching_shifts').where('teacher_id', '==', uid));
-            mineDocs = mineSnap.docs;
-          }
-          const mine = mineDocs.map((d) => {
-            const x = d.data() || {};
-            return {
-              id: d.id,
-              startMs: x.shift_start?.toDate?.()?.getTime?.() ?? NaN,
-              endMs: x.shift_end?.toDate?.()?.getTime?.() ?? NaN,
-              status: x.status || '',
-              name: x.custom_name || x.auto_generated_name || '',
-            };
-          });
-          const conflict = findClaimConflict(
-            claimStart.getTime(), claimEnd.getTime(), mine, shiftId);
-          if (conflict) {
-            throw new functions.https.HttpsError('failed-precondition',
-              `You already have "${conflict.name}" during this time, so you can't claim this shift`);
-          }
-        }
-
-        // Get claiming teacher's name
-        const userDoc = await transaction.get(db.collection('users').doc(uid));
-        if (!userDoc.exists) {
-          throw new functions.https.HttpsError('not-found', 'User profile not found');
-        }
-        const userData = userDoc.data();
-        const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Teacher';
-
-        // Assign shift fully to the claiming teacher; clear trade metadata so only
-        // teacher_id is authoritative for permissions, audits, and metrics.
-        transaction.update(shiftRef, {
-          teacher_id: uid,
-          teacher_name: userName,
-          is_published: false,
-          published_at: null,
-          published_by: null,
-          original_teacher_id: admin.firestore.FieldValue.delete(),
-          original_teacher_name: admin.firestore.FieldValue.delete(),
-          claimed_via_shift_trade: true,
-          shift_trade_claimed_at: admin.firestore.FieldValue.serverTimestamp(),
-          last_modified: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        return {success: true, shiftData};
-      });
-
-      // Post-transaction notifications (best-effort; must not fail the claim)
-      try {
-        const shiftData = result && result.shiftData;
-        if (!shiftData) {
-          console.warn('claimShift: missing shiftData after transaction');
-          return {success: true};
-        }
-        const rawIds = shiftData.student_ids;
-        const studentIds = Array.isArray(rawIds) ? rawIds : [];
-        if (studentIds.length > 0) {
-          const notification = {
-            title: '👨‍🏫 New Teacher Assigned',
-            body: `A new teacher has been assigned to your class: ${shiftData.subject_display_name || shiftData.subject || 'Class'}`,
-          };
-
-          for (const studentId of studentIds) {
-            if (typeof studentId !== 'string' || !studentId) {
-              continue;
-            }
-            await sendFCMNotificationToStudent(studentId, notification, {
-              type: 'shift',
-              action: 'teacher_changed',
-              shiftId,
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Error sending claim notification:', err);
-      }
+      await transferOfferedShift({shiftId: String(shiftId), toUid: request.auth.uid, assignedBy: null});
       return {success: true};
     } catch (error) {
       console.error('[claimShift] Error:', error);
@@ -3115,6 +3223,129 @@ module.exports = {
       throw new functions.https.HttpsError(
         'internal',
         error && error.message ? String(error.message) : 'claimShift failed',
+      );
+    }
+  }),
+
+  // An admin gives an offered class or duty to a chosen teacher. Same checks
+  // and same hand-over as a teacher claiming it themselves.
+  assignOfferedShift: onCall({cors: true, invoker: 'public'}, async (request) => {
+    try {
+      if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+      }
+      await requireAdminCaller(request.auth.uid);
+      const {shiftId, teacherId} = request.data || {};
+      if (!shiftId || !teacherId) {
+        throw new functions.https.HttpsError('invalid-argument', 'shiftId and teacherId are required');
+      }
+      await transferOfferedShift({
+        shiftId: String(shiftId),
+        toUid: String(teacherId),
+        assignedBy: request.auth.uid,
+      });
+      return {success: true};
+    } catch (error) {
+      console.error('[assignOfferedShift] Error:', error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        'internal',
+        error && error.message ? String(error.message) : 'assignOfferedShift failed',
+      );
+    }
+  }),
+
+  // Offer one or more classes / duties to others, or take the offers back.
+  // The holder may do it for their own; an admin for anybody's. Each shift is
+  // judged on its own, so one that already started does not block the rest.
+  setShiftOffers: onCall({cors: true, invoker: 'public'}, async (request) => {
+    try {
+      if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+      }
+      const uid = request.auth.uid;
+      const data = request.data || {};
+      const offered = data.offered === true;
+      const shiftIds = Array.isArray(data.shiftIds) ?
+        [...new Set(data.shiftIds.map((id) => String(id || '').trim()).filter(Boolean))] :
+        [];
+      if (shiftIds.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'shiftIds is required');
+      }
+      if (shiftIds.length > 60) {
+        throw new functions.https.HttpsError('invalid-argument', 'At most 60 shifts at a time');
+      }
+
+      const db = admin.firestore();
+      const callerDoc = await db.collection('users').doc(uid).get();
+      const callerIsAdmin = shiftTrading.isAdminUser(callerDoc.exists ? callerDoc.data() : null);
+      const nowMs = Date.now();
+      const results = [];
+
+      for (const shiftId of shiftIds) {
+        const shiftRef = db.collection('teaching_shifts').doc(shiftId);
+        try {
+          await db.runTransaction(async (transaction) => {
+            const snap = await transaction.get(shiftRef);
+            if (!snap.exists) {
+              throw new functions.https.HttpsError('not-found', 'Shift not found');
+            }
+            const shiftData = snap.data();
+            const isHolder = shiftData.teacher_id === uid;
+            if (!isHolder && !callerIsAdmin) {
+              throw new functions.https.HttpsError('permission-denied', 'This is not your class');
+            }
+            if (offered) {
+              if (shiftData.is_published === true) return;
+              const refusal = shiftTrading.offerRefusal(shiftData, nowMs);
+              if (refusal) {
+                throw new functions.https.HttpsError('failed-precondition', refusal);
+              }
+              transaction.update(shiftRef, {
+                is_published: true,
+                published_at: admin.firestore.FieldValue.serverTimestamp(),
+                published_by: uid,
+                original_teacher_id: shiftData.teacher_id || null,
+                original_teacher_name: shiftData.teacher_name || '',
+                last_modified: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            } else {
+              if (shiftData.is_published !== true) return;
+              transaction.update(shiftRef, {
+                is_published: false,
+                published_at: null,
+                published_by: null,
+                original_teacher_id: admin.firestore.FieldValue.delete(),
+                original_teacher_name: admin.firestore.FieldValue.delete(),
+                shift_trade_withdrawn_by: uid,
+                last_modified: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            }
+          });
+          results.push({shiftId, ok: true});
+        } catch (err) {
+          results.push({
+            shiftId,
+            ok: false,
+            reason: err instanceof functions.https.HttpsError ? err.message : 'Could not update this class',
+          });
+          if (!(err instanceof functions.https.HttpsError)) {
+            console.error(`[setShiftOffers] ${shiftId}`, err);
+          }
+        }
+      }
+
+      return {success: results.every((r) => r.ok), results};
+    } catch (error) {
+      console.error('[setShiftOffers] Error:', error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        'internal',
+        error && error.message ? String(error.message) : 'setShiftOffers failed',
       );
     }
   }),

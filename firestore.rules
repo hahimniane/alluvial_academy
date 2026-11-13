@@ -434,6 +434,10 @@ service cloud.firestore {
         resource.data.is_published == true &&
 
         resource.data.status == 'scheduled' &&
+// Only a class can be claimed this way. A leadership duty goes to a
+// leader, which the claimShift callable checks; an admin passes the
+// admin branch of the update rule.
+(!('shift_category' in resource.data) || resource.data.shift_category == 'teaching') &&
 
         // Check if teacher is claiming it (updating teacher_id to their own UID)
 
@@ -446,6 +450,19 @@ service cloud.firestore {
     }
 
     
+
+    // The record of shift trades (offered, withdrawn, claimed, assigned),
+    // written only by the onShiftUpdated trigger. Admins read all of it; a
+    // teacher reads the rows they took part in.
+    match /shift_trades/{tradeId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.actor_id == request.auth.uid ||
+        resource.data.from_teacher_id == request.auth.uid ||
+        resource.data.to_teacher_id == request.auth.uid
+      );
+      allow write: if false;
+    }
 
     // Teaching shifts - teachers can read their own, admins can read/write all
 
@@ -1328,8 +1345,8 @@ service cloud.firestore {
     // never deleted through the fallback either.
     match /{collection}/{document=**} {
       allow read: if isAdmin() && collection != 'finance_private' && collection != 'known_phones';
-      allow create, update: if isAdmin() && collection != 'teaching_shifts' && !isFinanceCollection(collection);
-      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries'])
+      allow create, update: if isAdmin() && collection != 'teaching_shifts' && collection != 'shift_trades' && !isFinanceCollection(collection);
+      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries', 'shift_trades'])
         && !isFinanceCollection(collection);
     }
 
