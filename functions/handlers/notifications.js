@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {createTransporter} = require('../services/email/transporter');
 const {sleep} = require('../services/email/bulk_send');
+const {requireCallableCaller} = require('../utils/callable_admin');
 
 const logTokenDetails = (tokens) => {
   tokens.forEach((tokenData, idx) => {
@@ -344,12 +345,12 @@ const sendAdminNotification = async (data) => {
  * Callable; caller must be authenticated (admin / coach with elevated access).
  */
 const sendAuditNotification = async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Must be signed in to send audit notifications'
-    );
-  }
+  const callerAuth = await requireCallableCaller(
+    data,
+    context,
+    'Must be signed in to send audit notifications'
+  );
+  const callerUid = callerAuth.uid;
 
   const requestData = data.data || data;
   const {teacherId, auditId, yearMonth, status, bodyText} = requestData;
@@ -361,7 +362,7 @@ const sendAuditNotification = async (data, context) => {
     );
   }
 
-  const callerDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
+  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
   if (!callerDoc.exists) {
     throw new functions.https.HttpsError('permission-denied', 'Caller not found');
   }
@@ -388,7 +389,7 @@ const sendAuditNotification = async (data, context) => {
   const coachEval = auditData.coachEvaluation || {};
   const auditCoachId = coachEval.coachId || '';
   const isAssignedCoach =
-    callerType === 'teacher' && auditCoachId && auditCoachId === context.auth.uid;
+    callerType === 'teacher' && auditCoachId && auditCoachId === callerUid;
 
   if (!isAdmin && !isAssignedCoach) {
     throw new functions.https.HttpsError(
