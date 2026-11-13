@@ -5,6 +5,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownUp,
+  ArrowLeftRight,
   CalendarClock,
   CalendarDays,
   CalendarPlus,
@@ -40,6 +41,7 @@ import { ShiftSeriesEditDialog } from "@/components/ShiftSeriesEditDialog";
 import { FamilyPauseDialog } from "@/components/FamilyPauseDialog";
 import { MoveClassesDialog } from "@/components/MoveClassesDialog";
 import { MakeupRequestsDialog } from "@/components/MakeupRequestsDialog";
+import { OfferedShiftsDialog } from "@/components/OfferedShiftsDialog";
 import { TemplateManagerDialog } from "@/components/TemplateManagerDialog";
 import {
   type ShiftFilters,
@@ -48,6 +50,8 @@ import {
   activeFilterCount,
   applyFilters,
 } from "@/components/ShiftFilterPanel";
+import { type OpenOffer, isOfferOpen } from "@/lib/adminShiftTrades";
+import { loadOpenOffers } from "@/lib/adminShiftTradesClient";
 import { auth } from "@/lib/firebase";
 import { safeTimezone, timezoneAbbreviation } from "@/lib/timezones";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
@@ -170,6 +174,10 @@ export function ShiftsAdmin() {
   const [familyPauseOpen, setFamilyPauseOpen] = useState(false);
   const [moveClassesOpen, setMoveClassesOpen] = useState(false);
   const [makeupRequestsOpen, setMakeupRequestsOpen] = useState(false);
+  const [offeredOpen, setOfferedOpen] = useState(false);
+  // Classes on offer to other teachers; null until the first load.
+  const [offers, setOffers] = useState<OpenOffer[] | null>(null);
+  const [offersError, setOffersError] = useState("");
 
   const refreshShifts = useCallback(async (targetWeek: Date) => {
     setLoading(true);
@@ -218,6 +226,40 @@ export function ShiftsAdmin() {
       return next;
     });
   }, []);
+
+  const refreshOffers = useCallback(async () => {
+    try {
+      setOffers(await loadOpenOffers());
+      setOffersError("");
+    } catch {
+      setOffers((prev) => prev ?? []);
+      setOffersError("Could not load offered classes.");
+    }
+  }, []);
+
+  // An offer, a take-back or an assignment changes one class: pull it fresh
+  // into the cache (and into the details dialog when that is showing it),
+  // and recount the open offers.
+  const reloadTradedShift = useCallback(
+    async (shiftId: string) => {
+      const reloadShift = loadShiftById(shiftId)
+        .then((fresh) => {
+          setShiftMap((prev) => {
+            const next = new Map(prev);
+            if (fresh) next.set(fresh.id, fresh);
+            else next.delete(shiftId);
+            return next;
+          });
+          if (!fresh) return;
+          setEditor((prev) =>
+            prev.open && prev.mode === "details" && prev.shift.id === fresh.id ? { ...prev, shift: fresh } : prev,
+          );
+        })
+        .catch(() => {});
+      await Promise.all([reloadShift, refreshOffers()]);
+    },
+    [refreshOffers],
+  );
 
   // Background full-history hydration (Flutter parity): the current week
   // paints first, then every other shift streams in so search, the list view
@@ -301,6 +343,10 @@ export function ShiftsAdmin() {
   }, [access, weekStart, refreshShifts]);
 
   useEffect(() => {
+    if (access === "allowed") void refreshOffers();
+  }, [access, refreshOffers]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 4000);
     return () => window.clearTimeout(timer);
@@ -362,6 +408,16 @@ export function ShiftsAdmin() {
 
   const studentTimezoneById = useMemo(() => new Map(students.map((s) => [s.id, s.timezone])), [students]);
   const studentCodeById = useMemo(() => new Map(students.map((s) => [s.id, s.studentCode])), [students]);
+
+  // A leadership duty only goes to a leader; a teacher who already holds a
+  // duty counts as one (the same rule the server applies on assignment).
+  const dutyHolderIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const shift of shifts) {
+      if (shift.category === "leadership" || shift.category === "meeting") ids.add(shift.teacherId);
+    }
+    return ids;
+  }, [shifts]);
 
   const filterCount = activeFilterCount(filters);
 
@@ -425,6 +481,24 @@ export function ShiftsAdmin() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                setOfferedOpen(true);
+                void refreshOffers();
+              }}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#DDD6FE] px-3 text-sm font-semibold text-[#6D28D9] hover:bg-[#F5F3FF]"
+              title="Classes offered to other teachers"
+              aria-label={`Offered classes${offers?.length ? ` (${offers.length})` : ""}`}
+            >
+              <ArrowLeftRight size={16} />
+              <span className="hidden sm:inline">Offered Classes</span>
+              {offers?.length ? (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#6D28D9] px-1.5 text-[11px] font-bold text-white">
+                  {offers.length}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
               onClick={() => setFamilyPauseOpen(true)}
               className="grid h-10 w-10 place-items-center rounded-full text-[#C2410C] hover:bg-[#FFF7ED]"
               title="Pause classes for a break"
@@ -443,7 +517,10 @@ export function ShiftsAdmin() {
             </button>
             <button
               type="button"
-              onClick={() => void refreshShifts(weekStart)}
+              onClick={() => {
+                void refreshShifts(weekStart);
+                void refreshOffers();
+              }}
               className="grid h-10 w-10 place-items-center rounded-full text-[#64748B] hover:bg-[#EEF2F7]"
               aria-label="Refresh"
             >
@@ -598,6 +675,19 @@ export function ShiftsAdmin() {
           />
         ) : null}
 
+        {offeredOpen ? (
+          <OfferedShiftsDialog
+            offers={offers}
+            offersError={offersError}
+            staff={staff}
+            dutyHolderIds={dutyHolderIds}
+            adminTimezone={adminTimezone}
+            onRefresh={refreshOffers}
+            onChanged={reloadTradedShift}
+            onClose={() => setOfferedOpen(false)}
+          />
+        ) : null}
+
         {moveClassesOpen ? (
           <MoveClassesDialog
             staff={staff}
@@ -674,6 +764,10 @@ export function ShiftsAdmin() {
               const target = editor.shift;
               setEditor({ open: false });
               setPendingDelete(target);
+            }}
+            onOfferChanged={async (offerMessage) => {
+              await reloadTradedShift(editor.shift.id);
+              setToast(offerMessage);
             }}
             onClose={() => setEditor({ open: false })}
           />
@@ -934,6 +1028,7 @@ function WeeklyGrid({
                 onHoverStart={showHover(shift)}
                 onHoverEnd={hideHover}
                 editable={shift.end.getTime() >= Date.now()}
+                offered={isOfferOpen(shift, today)}
               />
             ))}
             {!isPast ? (
@@ -1116,6 +1211,7 @@ function ShiftChip({
   onHoverStart,
   onHoverEnd,
   editable,
+  offered,
 }: {
   shift: ShiftDoc;
   index: number;
@@ -1128,6 +1224,8 @@ function ShiftChip({
   onHoverStart: (event: React.MouseEvent<HTMLElement>) => void;
   onHoverEnd: () => void;
   editable: boolean;
+  /** On offer to other teachers and still open to take. */
+  offered: boolean;
 }) {
   const subjectKey = (shift.subjectId || shift.subject || "").toLowerCase().replace(/[^a-z]/g, "");
   const subjectColor = SUBJECT_COLORS[subjectKey] ?? null;
@@ -1161,6 +1259,11 @@ function ShiftChip({
         <UserPlus size={11} className={`${total > 1 ? "" : "ml-auto"} mt-px shrink-0 text-[#94A3B8]`} />
       </div>
       <span className="mt-0.5 block truncate font-medium text-[#4B5563]">{label}</span>
+      {offered ? (
+        <span className="mt-0.5 inline-block rounded bg-[#EDE9FE] px-1 text-[9px] font-bold uppercase tracking-[0.04em] text-[#6D28D9]">
+          Offered
+        </span>
+      ) : null}
       {shift.studentNames.length > 0 ? (
         <span className="block truncate text-[10px] text-[#94A3B8]">
           {shift.studentNames.length === 1 ? shift.studentNames[0] : `${shift.studentNames.length} students`}
@@ -1192,6 +1295,7 @@ function ShiftList({ shifts, onShiftClick }: { shifts: ShiftDoc[]; onShiftClick:
   if (shifts.length === 0) {
     return <div className="grid min-h-[360px] place-items-center text-sm font-semibold text-[#64748B]">No shifts this week</div>;
   }
+  const now = new Date();
   return (
     <div className="overflow-x-auto">
       <table className="min-w-[880px] table-fixed border-collapse text-left text-sm">
@@ -1208,6 +1312,7 @@ function ShiftList({ shifts, onShiftClick }: { shifts: ShiftDoc[]; onShiftClick:
           {shifts.map((shift) => {
             const statusKey = shift.status.toLowerCase().replace(/[^a-z]/g, "");
             const fg = PAST_FG[statusKey] ?? "#6B7280";
+            const offered = isOfferOpen(shift, now);
             return (
               <tr key={shift.id} onClick={() => onShiftClick(shift)} className="cursor-pointer border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
                 <td className="truncate px-4 py-3 font-semibold">{shift.title}</td>
@@ -1219,6 +1324,9 @@ function ShiftList({ shifts, onShiftClick }: { shifts: ShiftDoc[]; onShiftClick:
                   <span className="rounded-full px-2 py-1 text-xs font-bold capitalize" style={{ backgroundColor: `${fg}1A`, color: fg }}>
                     {shift.status || "scheduled"}
                   </span>
+                  {offered ? (
+                    <span className="ml-1.5 inline-block rounded-full bg-[#EDE9FE] px-2 py-1 text-xs font-bold text-[#6D28D9]">Offered</span>
+                  ) : null}
                 </td>
               </tr>
             );
