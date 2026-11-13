@@ -25,6 +25,7 @@ import '../../settings/screens/test_role_system.dart';
 import '../../settings/screens/firestore_debug_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/admin_shifts_web_frame.dart';
+import '../../shift_management/screens/available_shifts_screen.dart';
 import '../../shift_management/screens/shift_management_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../website_management/public_site_cms/public_site_cms_screen.dart';
@@ -401,6 +402,9 @@ class _DashboardPageState extends State<DashboardPage> {
         return const DecisionHistoryScreen();
       case 38:
         return const BayanahAdminScreen();
+      case 40:
+        // Offered classes and leadership duties, for a leader to take.
+        return const AvailableShiftsScreen();
       default:
         return const SizedBox.shrink();
     }

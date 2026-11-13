@@ -7531,5 +7531,115 @@
   "paymentErrorCheckoutOpen": "La page de paiement n'a pas pu s'ouvrir. Veuillez réessayer.",
   "paymentErrorFailed": "Le paiement n'a pas abouti. Veuillez réessayer.",
   "paymentErrorStatus": "Le statut du paiement n'a pas pu être vérifié. Veuillez réessayer dans un instant.",
-  "paymentErrorInvoiceLoad": "Cette facture n'a pas pu être chargée. Veuillez réessayer."
+  "paymentErrorInvoiceLoad": "Cette facture n'a pas pu être chargée. Veuillez réessayer.",
+  "shiftTradeAvailableShifts": "Créneaux disponibles",
+  "shiftLeadershipDuty": "Créneau de responsable",
+  "claimShiftErrorLeadersOnly": "Seuls les responsables peuvent prendre un créneau de responsable.",
+  "shiftOfferDutyToLeaders": "Proposer ce créneau aux autres responsables",
+  "shiftOfferWhichDays": "Quels jours ?",
+  "shiftOfferOnlyThis": "Ce jour uniquement",
+  "shiftOfferNextThree": "Les 3 prochains",
+  "shiftOfferThisWeek": "Cette semaine",
+  "shiftOfferAlreadyOffered": "Déjà proposé",
+  "shiftOfferPickADay": "Choisissez au moins un jour à proposer.",
+  "shiftOfferNotSaved": "La proposition n'a pas pu être enregistrée. Veuillez réessayer.",
+  "shiftOfferSomeFailedTitle": "Certains jours n'ont pas pu être proposés",
+  "shiftOfferFailStarted": "Il a déjà commencé.",
+  "shiftOfferFailNotScheduled": "Seul un cours programmé qui n'a pas commencé peut être proposé.",
+  "shiftOfferFailNotYours": "Il est attribué à quelqu'un d'autre.",
+  "shiftOfferFailNotFound": "Il n'existe pas.",
+  "shiftOfferFailOther": "Il n'a pas pu être proposé. Veuillez réessayer.",
+  "shiftOfferPosted": "{count, plural, =1{1 jour proposé.} other{{count} jours proposés.}}",
+  "@shiftOfferPosted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shiftOfferedChip": "Proposé",
+  "shiftOfferedClassHint": "Un autre enseignant peut prendre ce cours.",
+  "shiftOfferedDutyHint": "Un autre responsable peut prendre ce créneau.",
+  "shiftOfferedBy": "Proposé par {name}",
+  "@shiftOfferedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shiftOfferTakeBack": "Retirer la proposition",
+  "shiftOfferTakenBack": "Proposition retirée.",
+  "shiftOfferNotTakenBack": "La proposition n'a pas pu être retirée. Veuillez réessayer.",
+  "taskTradeOfferedTab": "Tâches proposées",
+  "taskTradeOfferedTabCount": "Tâches proposées ({count})",
+  "@taskTradeOfferedTabCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "taskTradeOfferedChip": "Proposée",
+  "taskTradeOffer": "Proposer à un autre responsable",
+  "taskTradeTakeBack": "Retirer la proposition",
+  "taskTradeTake": "Prendre cette tâche",
+  "taskTradeOfferedBy": "Proposée par {name}",
+  "@taskTradeOfferedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeOfferedByYou": "Vous avez proposé cette tâche à un autre responsable.",
+  "taskTradeOfferedToLeaders": "Proposée à un autre responsable.",
+  "taskTradeDue": "Échéance : {date}",
+  "@taskTradeDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeNoOffers": "Aucune tâche n'est proposée.",
+  "taskTradeNoOffersHint": "Une tâche proposée par un autre responsable apparaît ici.",
+  "taskTradeTakeConfirm": "« {title} » devient votre tâche.",
+  "@taskTradeTakeConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeTakeConfirmFrom": "« {title} » devient votre tâche à la place de {name}.",
+  "@taskTradeTakeConfirmFrom": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeOfferPosted": "Tâche proposée aux autres responsables.",
+  "taskTradeOfferTakenBack": "Proposition retirée.",
+  "taskTradeTaken": "La tâche est à vous.",
+  "taskTradeTookComment": "{taker} a repris cette tâche de {offerer}.",
+  "@taskTradeTookComment": {
+    "placeholders": {
+      "taker": {
+        "type": "String"
+      },
+      "offerer": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeNoLongerOffered": "Cette tâche n'est pas proposée.",
+  "taskTradeNotOpen": "Une tâche terminée ou archivée ne peut pas être proposée.",
+  "taskTradeNotAssigned": "Seule une personne à qui cette tâche est attribuée peut la proposer.",
+  "taskTradeNotFound": "Cette tâche n'existe pas.",
+  "taskTradeFailed": "Cela n'a pas fonctionné. Veuillez réessayer."
 }

@@ -12,6 +12,7 @@ import '../../chat/models/chat_user.dart';
 import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
+import '../../shift_management/screens/available_shifts_screen.dart';
 import '../../forms/screens/teacher_forms_screen.dart';
 import '../../forms/screens/parent_forms_screen.dart';
 import '../../forms/screens/student_forms_screen.dart';
@@ -1299,6 +1300,19 @@ class _AdminMoreScreen extends StatelessWidget {
           ),
           body: const AdminFinanceSummaryScreen(),
         ),
+      ),
+      // A leader's own duties, and what others have offered for trade.
+      _MoreItem(
+        icon: Icons.event_available_rounded,
+        label: l10n.sidebarMyshifts,
+        color: const Color(0xff059669),
+        screen: const TeacherShiftScreen(),
+      ),
+      _MoreItem(
+        icon: Icons.swap_horiz_rounded,
+        label: l10n.shiftTradeAvailableShifts,
+        color: const Color(0xff7C3AED),
+        screen: const AvailableShiftsScreen(),
       ),
       _MoreItem(
         icon: Icons.description_rounded,

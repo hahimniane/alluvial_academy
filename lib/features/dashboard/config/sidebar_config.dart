@@ -84,6 +84,15 @@ class SidebarConfig {
             screenIndex: 4,
             colorValue: 0xff059669,
           ),
+          // Classes and leadership duties others have offered; a leader takes
+          // one from here.
+          const SidebarItem(
+            id: 'available_shifts',
+            label: 'Available Shifts',
+            icon: Icons.swap_horiz,
+            screenIndex: 40,
+            colorValue: 0xff7C3AED,
+          ),
           const SidebarItem(
             id: 'time_clock',
             label: 'Time Clock',
@@ -337,6 +346,13 @@ class SidebarConfig {
             icon: Icons.schedule,
             screenIndex: 4,
             colorValue: 0xff059669,
+          ),
+          const SidebarItem(
+            id: 'available_shifts',
+            label: 'Available Shifts',
+            icon: Icons.swap_horiz,
+            screenIndex: 40,
+            colorValue: 0xff7C3AED,
           ),
           const SidebarItem(
             id: 'time_clock',

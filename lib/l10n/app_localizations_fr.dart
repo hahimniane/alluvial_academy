@@ -19425,4 +19425,183 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get paymentErrorInvoiceLoad =>
       'Cette facture n\'a pas pu être chargée. Veuillez réessayer.';
+
+  @override
+  String get shiftTradeAvailableShifts => 'Créneaux disponibles';
+
+  @override
+  String get shiftLeadershipDuty => 'Créneau de responsable';
+
+  @override
+  String get claimShiftErrorLeadersOnly =>
+      'Seuls les responsables peuvent prendre un créneau de responsable.';
+
+  @override
+  String get shiftOfferDutyToLeaders =>
+      'Proposer ce créneau aux autres responsables';
+
+  @override
+  String get shiftOfferWhichDays => 'Quels jours ?';
+
+  @override
+  String get shiftOfferOnlyThis => 'Ce jour uniquement';
+
+  @override
+  String get shiftOfferNextThree => 'Les 3 prochains';
+
+  @override
+  String get shiftOfferThisWeek => 'Cette semaine';
+
+  @override
+  String get shiftOfferAlreadyOffered => 'Déjà proposé';
+
+  @override
+  String get shiftOfferPickADay => 'Choisissez au moins un jour à proposer.';
+
+  @override
+  String get shiftOfferNotSaved =>
+      'La proposition n\'a pas pu être enregistrée. Veuillez réessayer.';
+
+  @override
+  String get shiftOfferSomeFailedTitle =>
+      'Certains jours n\'ont pas pu être proposés';
+
+  @override
+  String get shiftOfferFailStarted => 'Il a déjà commencé.';
+
+  @override
+  String get shiftOfferFailNotScheduled =>
+      'Seul un cours programmé qui n\'a pas commencé peut être proposé.';
+
+  @override
+  String get shiftOfferFailNotYours => 'Il est attribué à quelqu\'un d\'autre.';
+
+  @override
+  String get shiftOfferFailNotFound => 'Il n\'existe pas.';
+
+  @override
+  String get shiftOfferFailOther =>
+      'Il n\'a pas pu être proposé. Veuillez réessayer.';
+
+  @override
+  String shiftOfferPosted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count jours proposés.',
+      one: '1 jour proposé.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shiftOfferedChip => 'Proposé';
+
+  @override
+  String get shiftOfferedClassHint =>
+      'Un autre enseignant peut prendre ce cours.';
+
+  @override
+  String get shiftOfferedDutyHint =>
+      'Un autre responsable peut prendre ce créneau.';
+
+  @override
+  String shiftOfferedBy(String name) {
+    return 'Proposé par $name';
+  }
+
+  @override
+  String get shiftOfferTakeBack => 'Retirer la proposition';
+
+  @override
+  String get shiftOfferTakenBack => 'Proposition retirée.';
+
+  @override
+  String get shiftOfferNotTakenBack =>
+      'La proposition n\'a pas pu être retirée. Veuillez réessayer.';
+
+  @override
+  String get taskTradeOfferedTab => 'Tâches proposées';
+
+  @override
+  String taskTradeOfferedTabCount(int count) {
+    return 'Tâches proposées ($count)';
+  }
+
+  @override
+  String get taskTradeOfferedChip => 'Proposée';
+
+  @override
+  String get taskTradeOffer => 'Proposer à un autre responsable';
+
+  @override
+  String get taskTradeTakeBack => 'Retirer la proposition';
+
+  @override
+  String get taskTradeTake => 'Prendre cette tâche';
+
+  @override
+  String taskTradeOfferedBy(String name) {
+    return 'Proposée par $name';
+  }
+
+  @override
+  String get taskTradeOfferedByYou =>
+      'Vous avez proposé cette tâche à un autre responsable.';
+
+  @override
+  String get taskTradeOfferedToLeaders => 'Proposée à un autre responsable.';
+
+  @override
+  String taskTradeDue(String date) {
+    return 'Échéance : $date';
+  }
+
+  @override
+  String get taskTradeNoOffers => 'Aucune tâche n\'est proposée.';
+
+  @override
+  String get taskTradeNoOffersHint =>
+      'Une tâche proposée par un autre responsable apparaît ici.';
+
+  @override
+  String taskTradeTakeConfirm(String title) {
+    return '« $title » devient votre tâche.';
+  }
+
+  @override
+  String taskTradeTakeConfirmFrom(String title, String name) {
+    return '« $title » devient votre tâche à la place de $name.';
+  }
+
+  @override
+  String get taskTradeOfferPosted => 'Tâche proposée aux autres responsables.';
+
+  @override
+  String get taskTradeOfferTakenBack => 'Proposition retirée.';
+
+  @override
+  String get taskTradeTaken => 'La tâche est à vous.';
+
+  @override
+  String taskTradeTookComment(String taker, String offerer) {
+    return '$taker a repris cette tâche de $offerer.';
+  }
+
+  @override
+  String get taskTradeNoLongerOffered => 'Cette tâche n\'est pas proposée.';
+
+  @override
+  String get taskTradeNotOpen =>
+      'Une tâche terminée ou archivée ne peut pas être proposée.';
+
+  @override
+  String get taskTradeNotAssigned =>
+      'Seule une personne à qui cette tâche est attribuée peut la proposer.';
+
+  @override
+  String get taskTradeNotFound => 'Cette tâche n\'existe pas.';
+
+  @override
+  String get taskTradeFailed => 'Cela n\'a pas fonctionné. Veuillez réessayer.';
 }

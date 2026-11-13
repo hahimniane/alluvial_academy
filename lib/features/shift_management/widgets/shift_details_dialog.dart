@@ -9,6 +9,8 @@ import '../models/teaching_shift.dart';
 import '../enums/shift_enums.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../services/shift_service.dart';
+import '../services/shift_trade_service.dart';
+import '../services/shift_trading.dart';
 import '../../time_clock/services/shift_timesheet_service.dart';
 import '../../../core/services/teacher_metrics_service.dart';
 import '../services/location_service.dart';
@@ -65,6 +67,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   bool?
       _recordingEnabledLocal; // Optimistic value for the admin recording toggle
   bool _recordingToggleBusy = false;
+  bool _withdrawingOffer = false;
 
   // Timer for live elapsed time display
   Timer? _elapsedTimer;
@@ -716,6 +719,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   String _messageForClaimShiftError(Object e, AppLocalizations l10n) {
     if (e is FirebaseFunctionsException) {
+      if (e.code == 'permission-denied' &&
+          ShiftTrading.isLeadershipDuty(_liveShift ?? widget.shift)) {
+        return l10n.claimShiftErrorLeadersOnly;
+      }
       switch (e.code) {
         case 'failed-precondition':
           return l10n.claimShiftErrorUnavailable;
@@ -802,7 +809,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     if (confirmed == true) {
       setState(() => _isLoading = true);
       try {
-        await ShiftService.claimPublishedShift(widget.shift.id);
+        await ShiftService.claimPublishedShift(
+          widget.shift.id,
+          isLeadershipDuty:
+              ShiftTrading.isLeadershipDuty(_liveShift ?? widget.shift),
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -829,6 +840,117 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Takes my own offer back, so the class or duty stays with me.
+  Future<void> _handleWithdrawOffer() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _withdrawingOffer = true);
+    try {
+      final results = await ShiftTradeService.setOffers(
+        shiftIds: [widget.shift.id],
+        offered: false,
+      );
+      final ok = results.isNotEmpty && results.every((r) => r.ok);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              ok ? l10n.shiftOfferTakenBack : l10n.shiftOfferNotTakenBack),
+          backgroundColor:
+              ok ? const Color(0xff10B981) : const Color(0xFFEF4444),
+        ),
+      );
+      if (ok) widget.onRefresh?.call();
+    } catch (e) {
+      AppLogger.error('Error taking the offer back: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.shiftOfferNotTakenBack),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _withdrawingOffer = false);
+    }
+  }
+
+  /// Shown while this class or duty is on offer. Its holder can take the
+  /// offer back from here.
+  Widget _buildOfferedBanner() {
+    final l10n = AppLocalizations.of(context)!;
+    final shift = _liveShift ?? widget.shift;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final isMine = uid != null && shift.teacherId == uid;
+    final isDuty = ShiftTrading.isLeadershipDuty(shift);
+    const color = Color(0xFF7C3AED);
+
+    final String subtitle;
+    if (isMine) {
+      subtitle =
+          isDuty ? l10n.shiftOfferedDutyHint : l10n.shiftOfferedClassHint;
+    } else {
+      final by = (shift.originalTeacherName ?? '').trim().isNotEmpty
+          ? shift.originalTeacherName!.trim()
+          : shift.teacherName;
+      subtitle = l10n.shiftOfferedBy(by);
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.swap_horiz, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.shiftOfferedChip,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isMine) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: _withdrawingOffer ? null : _handleWithdrawOffer,
+              style: TextButton.styleFrom(foregroundColor: color),
+              child: _withdrawingOffer
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      l10n.shiftOfferTakeBack,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   /// Stops the elapsed time timer
@@ -1669,6 +1791,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildStatusBanner(),
+                          if ((_liveShift ?? widget.shift).isPublished) ...[
+                            const SizedBox(height: 12),
+                            _buildOfferedBanner(),
+                          ],
                           const SizedBox(height: 20),
                           _buildShiftInfoSection(),
                           const SizedBox(height: 20),
@@ -1790,8 +1916,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               onPressed: () async {
                 final result = await showDialog<bool>(
                   context: context,
-                  builder: (context) =>
-                      ReportScheduleIssueDialog(shift: widget.shift),
+                  builder: (context) => ReportScheduleIssueDialog(
+                      shift: _liveShift ?? widget.shift),
                 );
                 if (result == true) {
                   // Refresh if timezone was updated

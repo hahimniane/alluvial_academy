@@ -6955,5 +6955,115 @@
   "paymentErrorCheckoutOpen": "تعذر فتح صفحة الدفع. يرجى المحاولة مرة أخرى.",
   "paymentErrorFailed": "لم تتم عملية الدفع. يرجى المحاولة مرة أخرى.",
   "paymentErrorStatus": "تعذر التحقق من حالة الدفع. يرجى المحاولة بعد قليل.",
-  "paymentErrorInvoiceLoad": "تعذر تحميل هذه الفاتورة. يرجى المحاولة مرة أخرى."
+  "paymentErrorInvoiceLoad": "تعذر تحميل هذه الفاتورة. يرجى المحاولة مرة أخرى.",
+  "shiftTradeAvailableShifts": "الحصص المتاحة",
+  "shiftLeadershipDuty": "مهمة قيادية",
+  "claimShiftErrorLeadersOnly": "المهام القيادية يأخذها القادة فقط.",
+  "shiftOfferDutyToLeaders": "إتاحة هذه المهمة للقادة الآخرين",
+  "shiftOfferWhichDays": "أي الأيام؟",
+  "shiftOfferOnlyThis": "هذا اليوم فقط",
+  "shiftOfferNextThree": "الثلاثة القادمة",
+  "shiftOfferThisWeek": "هذا الأسبوع",
+  "shiftOfferAlreadyOffered": "معروضة بالفعل",
+  "shiftOfferPickADay": "اختر يومًا واحدًا على الأقل لعرضه.",
+  "shiftOfferNotSaved": "تعذر حفظ العرض. يرجى المحاولة مرة أخرى.",
+  "shiftOfferSomeFailedTitle": "تعذر عرض بعض الأيام",
+  "shiftOfferFailStarted": "لقد بدأت بالفعل.",
+  "shiftOfferFailNotScheduled": "لا يمكن عرض إلا حصة مجدولة لم تبدأ.",
+  "shiftOfferFailNotYours": "هي مسندة إلى شخص آخر.",
+  "shiftOfferFailNotFound": "غير موجودة.",
+  "shiftOfferFailOther": "تعذر عرضها. يرجى المحاولة مرة أخرى.",
+  "shiftOfferPosted": "{count, plural, =1{تم عرض يوم واحد.} other{تم عرض {count} أيام.}}",
+  "@shiftOfferPosted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shiftOfferedChip": "معروضة",
+  "shiftOfferedClassHint": "يمكن لمعلم آخر أن يأخذ هذه الحصة.",
+  "shiftOfferedDutyHint": "يمكن لقائد آخر أن يأخذ هذه المهمة.",
+  "shiftOfferedBy": "معروضة من {name}",
+  "@shiftOfferedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shiftOfferTakeBack": "سحب العرض",
+  "shiftOfferTakenBack": "تم سحب العرض.",
+  "shiftOfferNotTakenBack": "تعذر سحب العرض. يرجى المحاولة مرة أخرى.",
+  "taskTradeOfferedTab": "المهام المعروضة",
+  "taskTradeOfferedTabCount": "المهام المعروضة ({count})",
+  "@taskTradeOfferedTabCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "taskTradeOfferedChip": "معروضة",
+  "taskTradeOffer": "عرضها على قائد آخر",
+  "taskTradeTakeBack": "سحب العرض",
+  "taskTradeTake": "خذ هذه المهمة",
+  "taskTradeOfferedBy": "معروضة من {name}",
+  "@taskTradeOfferedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeOfferedByYou": "عرضتَ هذه المهمة على قائد آخر.",
+  "taskTradeOfferedToLeaders": "معروضة على قائد آخر.",
+  "taskTradeDue": "تاريخ الاستحقاق: {date}",
+  "@taskTradeDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeNoOffers": "لا توجد مهام معروضة.",
+  "taskTradeNoOffersHint": "المهمة التي يعرضها قائد آخر تظهر هنا.",
+  "taskTradeTakeConfirm": "تصبح «{title}» مهمتك.",
+  "@taskTradeTakeConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeTakeConfirmFrom": "تصبح «{title}» مهمتك بدلًا من {name}.",
+  "@taskTradeTakeConfirmFrom": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeOfferPosted": "تم عرض المهمة على القادة الآخرين.",
+  "taskTradeOfferTakenBack": "تم سحب العرض.",
+  "taskTradeTaken": "المهمة أصبحت لك.",
+  "taskTradeTookComment": "{taker} أخذ هذه المهمة من {offerer}.",
+  "@taskTradeTookComment": {
+    "placeholders": {
+      "taker": {
+        "type": "String"
+      },
+      "offerer": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTradeNoLongerOffered": "هذه المهمة غير معروضة.",
+  "taskTradeNotOpen": "لا يمكن عرض مهمة منتهية أو مؤرشفة.",
+  "taskTradeNotAssigned": "لا يعرض هذه المهمة إلا من أُسندت إليه.",
+  "taskTradeNotFound": "هذه المهمة غير موجودة.",
+  "taskTradeFailed": "لم ينجح ذلك. يرجى المحاولة مرة أخرى."
 }

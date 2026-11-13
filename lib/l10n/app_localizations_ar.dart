@@ -19010,4 +19010,172 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get paymentErrorInvoiceLoad =>
       'تعذر تحميل هذه الفاتورة. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get shiftTradeAvailableShifts => 'الحصص المتاحة';
+
+  @override
+  String get shiftLeadershipDuty => 'مهمة قيادية';
+
+  @override
+  String get claimShiftErrorLeadersOnly => 'المهام القيادية يأخذها القادة فقط.';
+
+  @override
+  String get shiftOfferDutyToLeaders => 'إتاحة هذه المهمة للقادة الآخرين';
+
+  @override
+  String get shiftOfferWhichDays => 'أي الأيام؟';
+
+  @override
+  String get shiftOfferOnlyThis => 'هذا اليوم فقط';
+
+  @override
+  String get shiftOfferNextThree => 'الثلاثة القادمة';
+
+  @override
+  String get shiftOfferThisWeek => 'هذا الأسبوع';
+
+  @override
+  String get shiftOfferAlreadyOffered => 'معروضة بالفعل';
+
+  @override
+  String get shiftOfferPickADay => 'اختر يومًا واحدًا على الأقل لعرضه.';
+
+  @override
+  String get shiftOfferNotSaved => 'تعذر حفظ العرض. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get shiftOfferSomeFailedTitle => 'تعذر عرض بعض الأيام';
+
+  @override
+  String get shiftOfferFailStarted => 'لقد بدأت بالفعل.';
+
+  @override
+  String get shiftOfferFailNotScheduled =>
+      'لا يمكن عرض إلا حصة مجدولة لم تبدأ.';
+
+  @override
+  String get shiftOfferFailNotYours => 'هي مسندة إلى شخص آخر.';
+
+  @override
+  String get shiftOfferFailNotFound => 'غير موجودة.';
+
+  @override
+  String get shiftOfferFailOther => 'تعذر عرضها. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String shiftOfferPosted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم عرض $count أيام.',
+      one: 'تم عرض يوم واحد.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shiftOfferedChip => 'معروضة';
+
+  @override
+  String get shiftOfferedClassHint => 'يمكن لمعلم آخر أن يأخذ هذه الحصة.';
+
+  @override
+  String get shiftOfferedDutyHint => 'يمكن لقائد آخر أن يأخذ هذه المهمة.';
+
+  @override
+  String shiftOfferedBy(String name) {
+    return 'معروضة من $name';
+  }
+
+  @override
+  String get shiftOfferTakeBack => 'سحب العرض';
+
+  @override
+  String get shiftOfferTakenBack => 'تم سحب العرض.';
+
+  @override
+  String get shiftOfferNotTakenBack =>
+      'تعذر سحب العرض. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get taskTradeOfferedTab => 'المهام المعروضة';
+
+  @override
+  String taskTradeOfferedTabCount(int count) {
+    return 'المهام المعروضة ($count)';
+  }
+
+  @override
+  String get taskTradeOfferedChip => 'معروضة';
+
+  @override
+  String get taskTradeOffer => 'عرضها على قائد آخر';
+
+  @override
+  String get taskTradeTakeBack => 'سحب العرض';
+
+  @override
+  String get taskTradeTake => 'خذ هذه المهمة';
+
+  @override
+  String taskTradeOfferedBy(String name) {
+    return 'معروضة من $name';
+  }
+
+  @override
+  String get taskTradeOfferedByYou => 'عرضتَ هذه المهمة على قائد آخر.';
+
+  @override
+  String get taskTradeOfferedToLeaders => 'معروضة على قائد آخر.';
+
+  @override
+  String taskTradeDue(String date) {
+    return 'تاريخ الاستحقاق: $date';
+  }
+
+  @override
+  String get taskTradeNoOffers => 'لا توجد مهام معروضة.';
+
+  @override
+  String get taskTradeNoOffersHint => 'المهمة التي يعرضها قائد آخر تظهر هنا.';
+
+  @override
+  String taskTradeTakeConfirm(String title) {
+    return 'تصبح «$title» مهمتك.';
+  }
+
+  @override
+  String taskTradeTakeConfirmFrom(String title, String name) {
+    return 'تصبح «$title» مهمتك بدلًا من $name.';
+  }
+
+  @override
+  String get taskTradeOfferPosted => 'تم عرض المهمة على القادة الآخرين.';
+
+  @override
+  String get taskTradeOfferTakenBack => 'تم سحب العرض.';
+
+  @override
+  String get taskTradeTaken => 'المهمة أصبحت لك.';
+
+  @override
+  String taskTradeTookComment(String taker, String offerer) {
+    return '$taker أخذ هذه المهمة من $offerer.';
+  }
+
+  @override
+  String get taskTradeNoLongerOffered => 'هذه المهمة غير معروضة.';
+
+  @override
+  String get taskTradeNotOpen => 'لا يمكن عرض مهمة منتهية أو مؤرشفة.';
+
+  @override
+  String get taskTradeNotAssigned => 'لا يعرض هذه المهمة إلا من أُسندت إليه.';
+
+  @override
+  String get taskTradeNotFound => 'هذه المهمة غير موجودة.';
+
+  @override
+  String get taskTradeFailed => 'لم ينجح ذلك. يرجى المحاولة مرة أخرى.';
 }
