@@ -21,6 +21,14 @@ const ROUTING_HEARTBEAT_MARKER = 'Routing snapshot';
 const RECENT_OUTPUT_LINES = 12;
 const pageSilenceMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_PAGE_SILENCE_MS, liveness.DEFAULT_PAGE_SILENCE_MS);
 const ghostHostClearMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_CLEAR_MS, liveness.DEFAULT_GHOST_HOST_CLEAR_MS);
+const sdkSocketLostWindowMs = liveness.positiveNumber(
+  process.env.ZOOM_HUB_BOT_SOCKET_LOST_WINDOW_MS,
+  liveness.DEFAULT_SDK_SOCKET_LOST_WINDOW_MS,
+);
+const sdkSocketLostThreshold = liveness.positiveNumber(
+  process.env.ZOOM_HUB_BOT_SOCKET_LOST_THRESHOLD,
+  liveness.DEFAULT_SDK_SOCKET_LOST_THRESHOLD,
+);
 
 if (!Number.isInteger(lane) || lane < 1) {
   throw new Error('Set ZOOM_HUB_LANE or pass lane number 1/2 as the first argument.');
@@ -182,6 +190,25 @@ async function startHub(directive) {
     // an hour after its routing loop had died, which reads as a healthy page to
     // anything watching mere output.
     if (text.includes(ROUTING_HEARTBEAT_MARKER)) session.lastRoutingAt = Date.now();
+    // A page whose Zoom connection is gone keeps routing and logging, so only
+    // the burst of socket failures shows it. Recycle it like a frozen page.
+    if (text.includes(liveness.SDK_SOCKET_LOST_MARKER) && !session.recycling) {
+      session.sdkSocketFailures = session.sdkSocketFailures || [];
+      const lost = liveness.recordSdkSocketFailure(
+        session.sdkSocketFailures,
+        Date.now(),
+        sdkSocketLostWindowMs,
+        sdkSocketLostThreshold,
+      );
+      if (lost) {
+        session.recycling = true;
+        const why = `Zoom connection lost (${session.sdkSocketFailures.length} socket failures in ${Math.round(sdkSocketLostWindowMs / 60000)} min)`;
+        console.error(`[lane ${lane}] hub ${directive.hubDocId} ${why}; recycling it.`);
+        recycleSession(directive.hubDocId, why).catch((error) => {
+          console.error(`[lane ${lane}] recycle of ${directive.hubDocId} failed: ${serializeError(error)}`);
+        });
+      }
+    }
     // Kept so a freeze leaves evidence behind instead of guesswork.
     session.recentOutput.push(`${new Date().toISOString()} ${message.type()}: ${text.slice(0, 240)}`);
     if (session.recentOutput.length > RECENT_OUTPUT_LINES) session.recentOutput.shift();

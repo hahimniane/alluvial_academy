@@ -24,6 +24,18 @@ const DEFAULT_PAGE_SILENCE_MS = 3 * 60 * 1000;
 const DEFAULT_GHOST_HOST_CLEAR_MS = 150 * 1000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10 * 1000;
 
+// What the Zoom Web SDK prints when its connection to the meeting is gone:
+// every action it tries fails on a null socket. On 2026-11-13 lane 3 lost its
+// socket at 17:45 UTC and printed this ~120 times every 10 minutes for 2h25m
+// while its routing loop kept logging snapshots and its heartbeat kept saying
+// roomsOpen, so every other check saw a healthy hub and teachers sat in the
+// lobby with no host to admit them. A healthy hub prints it now and then while
+// rooms open or people move (at most 20 in any 10 minutes over the 10 days
+// before), so it takes a sustained burst to count.
+const SDK_SOCKET_LOST_MARKER = "reading 'sendSocket'";
+const DEFAULT_SDK_SOCKET_LOST_WINDOW_MS = 10 * 60 * 1000;
+const DEFAULT_SDK_SOCKET_LOST_THRESHOLD = 60;
+
 function positiveNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -64,6 +76,22 @@ function routingHealth(session = {}, now = Date.now(), silenceMs = DEFAULT_PAGE_
 }
 
 /**
+ * Note one socket failure and say whether the page has lost its meeting: at
+ * least `threshold` failures within the last `windowMs`. `failures` is the
+ * session's own list of timestamps and is trimmed in place.
+ */
+function recordSdkSocketFailure(
+  failures,
+  now,
+  windowMs = DEFAULT_SDK_SOCKET_LOST_WINDOW_MS,
+  threshold = DEFAULT_SDK_SOCKET_LOST_THRESHOLD,
+) {
+  failures.push(now);
+  while (failures.length && failures[0] <= now - windowMs) failures.shift();
+  return failures.length >= threshold;
+}
+
+/**
  * Whether the page's main thread still answers. A frozen renderer never settles
  * the evaluation, so it is raced against a timer; a throw counts as no answer.
  */
@@ -98,6 +126,10 @@ function isRejoinBlocked(blockedUntil, hubDocId, now) {
 }
 
 module.exports = {
+  SDK_SOCKET_LOST_MARKER,
+  DEFAULT_SDK_SOCKET_LOST_WINDOW_MS,
+  DEFAULT_SDK_SOCKET_LOST_THRESHOLD,
+  recordSdkSocketFailure,
   DEFAULT_PAGE_SILENCE_MS,
   DEFAULT_GHOST_HOST_CLEAR_MS,
   DEFAULT_PROBE_TIMEOUT_MS,

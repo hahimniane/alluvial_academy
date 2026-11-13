@@ -1,4 +1,8 @@
 const {
+  DEFAULT_SDK_SOCKET_LOST_WINDOW_MS,
+  DEFAULT_SDK_SOCKET_LOST_THRESHOLD,
+  SDK_SOCKET_LOST_MARKER,
+  recordSdkSocketFailure,
   DEFAULT_PAGE_SILENCE_MS,
   DEFAULT_GHOST_HOST_CLEAR_MS,
   positiveNumber,
@@ -119,5 +123,42 @@ describe('routingHealth', () => {
     expect(routingHealth({}, 1000, 3 * MINUTE)).toEqual({
       established: false, silent: false, silentForMs: 0,
     });
+  });
+});
+
+describe('recordSdkSocketFailure', () => {
+  const start = 1_000_000_000;
+
+  test('the marker matches what the Zoom SDK prints', () => {
+    const line = "Error emitting ACTION event: TypeError: Cannot read properties of null (reading 'sendSocket')";
+    expect(line.includes(SDK_SOCKET_LOST_MARKER)).toBe(true);
+  });
+
+  test("a healthy hub's occasional failures never count", () => {
+    // The worst 10 minutes on any lane in the 10 days before 2026-11-13: 20.
+    const failures = [];
+    let lost = false;
+    for (let i = 0; i < 20; i += 1) lost = recordSdkSocketFailure(failures, start + i * 30_000);
+    expect(lost).toBe(false);
+  });
+
+  test('2026-11-13 lane 3: ~120 failures per 10 minutes is a lost connection', () => {
+    const failures = [];
+    let lostAt = null;
+    for (let i = 0; i < 120 && lostAt === null; i += 1) {
+      const now = start + i * 5_000;
+      if (recordSdkSocketFailure(failures, now)) lostAt = now;
+    }
+    expect(lostAt).not.toBeNull();
+    // Caught within ~5 minutes instead of 2h25m.
+    expect(lostAt - start).toBeLessThan(5 * 60 * 1000);
+  });
+
+  test('failures older than the window are dropped', () => {
+    const failures = [];
+    for (let i = 0; i < DEFAULT_SDK_SOCKET_LOST_THRESHOLD - 1; i += 1) recordSdkSocketFailure(failures, start + i);
+    const later = start + DEFAULT_SDK_SOCKET_LOST_WINDOW_MS + 1_000;
+    expect(recordSdkSocketFailure(failures, later)).toBe(false);
+    expect(failures).toEqual([later]);
   });
 });
