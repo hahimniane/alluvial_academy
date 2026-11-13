@@ -38,6 +38,18 @@ void main() {
       );
     });
 
+    test('leaders reach offered shifts from next to My Shifts', () {
+      for (final role in ['admin', 'teacher']) {
+        final items = SidebarConfig.getStructureForRole(role)
+            .expand((section) => section.items)
+            .toList();
+        final myShifts = items.indexWhere((item) => item.id == 'my_shifts');
+        expect(myShifts, isNot(-1), reason: role);
+        expect(items[myShifts + 1].id, 'available_shifts', reason: role);
+        expect(items[myShifts + 1].screenIndex, 40, reason: role);
+      }
+    });
+
     test('admin Finance opens the finance area, not the old invoices hub', () {
       final items = SidebarConfig.getStructureForRole('admin')
           .firstWhere((section) => section.id == 'finance')

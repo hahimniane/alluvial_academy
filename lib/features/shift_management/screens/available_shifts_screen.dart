@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../models/teaching_shift.dart';
 import '../services/shift_service.dart';
+import '../services/shift_trade_service.dart';
+import '../services/shift_trading.dart';
 import '../widgets/shift_details_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -22,9 +24,12 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
   List<TeachingShift> _availableShifts = [];
   bool _isLoading = true;
 
-  String _messageForClaimShiftError(Object e) {
+  String _messageForClaimShiftError(Object e, {bool isDuty = false}) {
     final l10n = AppLocalizations.of(context)!;
     if (e is FirebaseFunctionsException) {
+      if (isDuty && e.code == 'permission-denied') {
+        return l10n.claimShiftErrorLeadersOnly;
+      }
       switch (e.code) {
         case 'failed-precondition':
           return l10n.claimShiftErrorUnavailable;
@@ -86,10 +91,15 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           .limit(100)
           .get();
 
-      final shifts = querySnapshot.docs
-          .map((doc) => TeachingShift.fromFirestore(doc))
-          .where((shift) => !shift.hasExpired && shift.teacherId != currentUser.uid)
-          .toList();
+      // Everyone sees offered classes. A leadership duty goes only to a
+      // leader, so only leaders see those.
+      final isLeader = await ShiftTradeService.isCurrentUserLeader();
+      final shifts = ShiftTrading.visibleOffers(
+        offered:
+            querySnapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)),
+        viewerUid: currentUser.uid,
+        viewerIsLeader: isLeader,
+      );
 
       if (mounted) {
         setState(() {
@@ -212,7 +222,11 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) return;
 
-        await ShiftService.claimPublishedShift(shift.id);
+        // A duty always goes through the server, which checks the leader rule.
+        await ShiftService.claimPublishedShift(
+          shift.id,
+          isLeadershipDuty: ShiftTrading.isLeadershipDuty(shift),
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -248,7 +262,10 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                _messageForClaimShiftError(e),
+                _messageForClaimShiftError(
+                  e,
+                  isDuty: ShiftTrading.isLeadershipDuty(shift),
+                ),
                 style: GoogleFonts.inter(),
               ),
               backgroundColor: const Color(0xffEF4444),
@@ -436,34 +453,75 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  // Original teacher info
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffF8FAFC),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.person_outline,
-                          size: 12,
-                          color: Color(0xff6B7280),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          shift.originalTeacherName ?? shift.teacherName,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: const Color(0xff6B7280),
+                  if (ShiftTrading.isLeadershipDuty(shift)) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff7C3AED).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.shield_outlined,
+                            size: 14,
+                            color: Color(0xff7C3AED),
                           ),
+                          const SizedBox(width: 4),
+                          Text(
+                            AppLocalizations.of(context)!.shiftLeadershipDuty,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff7C3AED),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  // Original teacher info
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      ],
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.person_outline,
+                              size: 12,
+                              color: Color(0xff6B7280),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                shift.originalTeacherName ?? shift.teacherName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: const Color(0xff6B7280),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

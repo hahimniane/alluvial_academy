@@ -4,9 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:alluwalacademyadmin/features/tasks/enums/task_enums.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
+import '../models/task_trade_offer.dart';
 import '../services/task_service.dart';
+import '../services/task_trade_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
 import '../widgets/task_details_view.dart';
+import '../widgets/task_trade_bar.dart';
 import '../widgets/multiple_task_creation_dialog.dart';
 import '../widgets/user_selection_dialog.dart' as task_filters;
 import '../../../core/services/user_role_service.dart';
@@ -41,6 +44,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   late AnimationController _fabAnimationController;
   bool _isAdmin = false;
   Stream<List<Task>>? _taskStream;
+
+  // Tasks on offer between leaders, by task id.
+  Map<String, TaskTradeState> _tradeOffers = const {};
+  StreamSubscription<Map<String, TaskTradeState>>? _tradeOffersSubscription;
+  String? _tradeOffersFor;
+  String? _takingTaskId;
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
 
@@ -170,8 +179,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           if (!isAdmin) {
             _filterAssignedByUserId = null;
             _filterAssignedToUserIds = [];
+            // Offered tasks are a leaders' tab.
+            if (_selectedTab == 'offered') _selectedTab = 'all';
           }
         });
+        _listenToTradeOffers(isAdmin);
 
         AppLogger.error('Tasks loaded successfully. Admin: $isAdmin');
       }
@@ -192,8 +204,73 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
   }
 
+  /// Keeps the "Offered" tags and the leaders' Offered tasks tab up to date.
+  void _listenToTradeOffers(bool asLeader) {
+    final listeningFor =
+        '${FirebaseAuth.instance.currentUser?.uid}|$asLeader';
+    if (_tradeOffersSubscription != null && _tradeOffersFor == listeningFor) {
+      return;
+    }
+    _tradeOffersSubscription?.cancel();
+    _tradeOffersFor = listeningFor;
+    _tradeOffersSubscription =
+        TaskTradeService.watchOffers(isLeader: asLeader).listen(
+      (offers) {
+        if (mounted) setState(() => _tradeOffers = offers);
+      },
+      onError: (Object e) {
+        AppLogger.error('QuickTasks: offered tasks stream failed: $e');
+      },
+    );
+  }
+
+  /// How many offered tasks this leader could take.
+  int get _takeableOfferCount {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || !_isAdmin) return 0;
+    return TaskTradeState.takeableBy(states: _tradeOffers.values, uid: uid)
+        .length;
+  }
+
+  Future<void> _takeOfferedTask(Task task) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final offer = _tradeOffers[task.id]?.offer;
+    final agreed = await confirmTakeTask(
+      context,
+      taskTitle: task.title,
+      offererName: offer?.offeredByName ?? '',
+    );
+    if (!agreed || !mounted) return;
+
+    setState(() => _takingTaskId = task.id);
+    try {
+      await TaskTradeService.takeTask(
+        task.id,
+        commentFor: l10n.taskTradeTookComment,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.taskTradeTaken),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('QuickTasks: taking an offered task failed: $e');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(taskTradeFailureMessage(l10n, e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _takingTaskId = null);
+    }
+  }
+
   @override
   void dispose() {
+    _tradeOffersSubscription?.cancel();
     _fabAnimationController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -235,7 +312,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     }
 
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return _buildNoResultsState();
+                      return _selectedTab == 'offered'
+                          ? _buildNoOfferedTasksState()
+                          : _buildNoResultsState();
                     }
 
                     var tasks = _filterTasks(snapshot.data!);
@@ -243,6 +322,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
                     // Pre-fetch all user names for assignees
                     _prefetchUserNamesForTasks(tasks);
+
+                    // Leaders' tab: what other leaders have put on offer.
+                    if (_selectedTab == 'offered') {
+                      return tasks.isEmpty
+                          ? _buildNoOfferedTasksState()
+                          : _buildOfferedTaskList(tasks);
+                    }
 
                     if (tasks.isEmpty) {
                       return _buildNoResultsState();
@@ -417,6 +503,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   if (_isAdmin)
                     _buildTabItem("Drafts", 'drafts',
                         isActive: _selectedTab == 'drafts'),
+                  if (_isAdmin)
+                    _buildTabItem(
+                        _takeableOfferCount > 0
+                            ? l10n.taskTradeOfferedTabCount(_takeableOfferCount)
+                            : l10n.taskTradeOfferedTab,
+                        'offered',
+                        isActive: _selectedTab == 'offered'),
                 ],
               ),
             ),
@@ -2082,6 +2175,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             .where((t) =>
                 t.isDraft && !t.isArchived && t.createdBy == currentUser.uid)
             .toList(); // Only show drafts created by current user
+      case 'offered':
+        // Tasks another leader has offered, earliest offer first.
+        if (!_isAdmin) return [];
+        final takeable = TaskTradeState.takeableBy(
+          states: _tradeOffers.values,
+          uid: currentUser.uid,
+        );
+        final byId = {for (final t in tasks) t.id: t};
+        return [
+          for (final state in takeable)
+            if (byId[state.taskId] != null) byId[state.taskId]!,
+        ];
       case 'all':
       default:
         return tasks.where((t) => !t.isArchived && !t.isDraft).toList();
@@ -2222,6 +2327,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       children: [
         // Priority pill at top left (ConnectTeam style)
         _buildPriorityIndicator(task.priority),
+        if (_tradeOffers.containsKey(task.id)) ...[
+          const SizedBox(width: 6),
+          const Padding(
+            padding: EdgeInsets.only(top: 3),
+            child: TaskOfferedChip(),
+          ),
+        ],
         const Spacer(),
         // Actions at top right
         _buildTaskActions(task),
@@ -2742,6 +2854,142 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
+  Widget _buildNoOfferedTasksState() {
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.swap_horiz, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              l10n.taskTradeNoOffers,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A202C),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              l10n.taskTradeNoOffersHint,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Tasks other leaders have offered: who offered each, when it is due, and
+  /// the button to take it.
+  Widget _buildOfferedTaskList(List<Task> tasks) {
+    final l10n = AppLocalizations.of(context)!;
+    final dueFormat = DateFormat.yMMMd(l10n.localeName).add_jm();
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 8, bottom: 72),
+      itemCount: tasks.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final offer = _tradeOffers[task.id]?.offer;
+        final offeredBy = (offer?.offeredByName ?? '').isNotEmpty
+            ? offer!.offeredByName
+            : (_userIdToName[offer?.offeredBy] ?? '');
+        final isOverdue = task.dueDate.isBefore(DateTime.now());
+        final isTaking = _takingTaskId == task.id;
+
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showTaskDetailsDialog(task),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          task.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const TaskOfferedChip(),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  if (offeredBy.isNotEmpty)
+                    Text(
+                      l10n.taskTradeOfferedBy(offeredBy),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.taskTradeDue(dueFormat.format(task.dueDate)),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: isOverdue ? Colors.red : Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: ElevatedButton(
+                      onPressed:
+                          isTaking ? null : () => _takeOfferedTask(task),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED),
+                        foregroundColor: Colors.white,
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: isTaking
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(
+                              l10n.taskTradeTake,
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildNoResultsState() {
     return Center(
       child: Padding(
@@ -2947,6 +3195,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (_tradeOffers.containsKey(task.id)) ...[
+                            const TaskOfferedChip(),
+                            const SizedBox(width: 6),
+                          ],
                           if (task.priority == TaskPriority.high)
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -4131,12 +4383,30 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       elevation: 12,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
-        child: TaskDetailsView(
-          task: task,
-          userDisplayNames: _userIdToName,
-          onTaskUpdated: () {
-            setState(() {});
-          },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: TaskDetailsView(
+                task: task,
+                userDisplayNames: _userIdToName,
+                onTaskUpdated: () {
+                  setState(() {});
+                },
+              ),
+            ),
+            // Leaders offer a task to one another, or take one, from here.
+            // Everyone else sees the strip only on a task that is offered.
+            if (_isAdmin || _tradeOffers.containsKey(task.id))
+              TaskTradeBar(
+                taskId: task.id,
+                taskTitle: task.title,
+                isLeader: _isAdmin,
+                // The task has changed hands; these details are out of date.
+                onTaken: () => Navigator.of(context, rootNavigator: true)
+                    .maybePop(),
+              ),
+          ],
         ),
       ),
     );

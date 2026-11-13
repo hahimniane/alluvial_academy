@@ -19066,4 +19066,179 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get paymentErrorInvoiceLoad =>
       'This invoice could not be loaded. Please try again.';
+
+  @override
+  String get shiftTradeAvailableShifts => 'Available shifts';
+
+  @override
+  String get shiftLeadershipDuty => 'Leadership duty';
+
+  @override
+  String get claimShiftErrorLeadersOnly =>
+      'Only leaders can take a leadership duty.';
+
+  @override
+  String get shiftOfferDutyToLeaders => 'Offer this duty to other leaders';
+
+  @override
+  String get shiftOfferWhichDays => 'Which days?';
+
+  @override
+  String get shiftOfferOnlyThis => 'Only this day';
+
+  @override
+  String get shiftOfferNextThree => 'Next 3';
+
+  @override
+  String get shiftOfferThisWeek => 'This week';
+
+  @override
+  String get shiftOfferAlreadyOffered => 'Already offered';
+
+  @override
+  String get shiftOfferPickADay => 'Pick at least one day to offer.';
+
+  @override
+  String get shiftOfferNotSaved =>
+      'The offer could not be saved. Please try again.';
+
+  @override
+  String get shiftOfferSomeFailedTitle => 'Some days could not be offered';
+
+  @override
+  String get shiftOfferFailStarted => 'It has already started.';
+
+  @override
+  String get shiftOfferFailNotScheduled =>
+      'Only a scheduled class that has not started can be offered.';
+
+  @override
+  String get shiftOfferFailNotYours => 'It is assigned to someone else.';
+
+  @override
+  String get shiftOfferFailNotFound => 'It does not exist.';
+
+  @override
+  String get shiftOfferFailOther =>
+      'It could not be offered. Please try again.';
+
+  @override
+  String shiftOfferPosted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days offered.',
+      one: '1 day offered.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shiftOfferedChip => 'Offered';
+
+  @override
+  String get shiftOfferedClassHint => 'Another teacher can take this class.';
+
+  @override
+  String get shiftOfferedDutyHint => 'Another leader can take this duty.';
+
+  @override
+  String shiftOfferedBy(String name) {
+    return 'Offered by $name';
+  }
+
+  @override
+  String get shiftOfferTakeBack => 'Take offer back';
+
+  @override
+  String get shiftOfferTakenBack => 'Offer taken back.';
+
+  @override
+  String get shiftOfferNotTakenBack =>
+      'The offer could not be taken back. Please try again.';
+
+  @override
+  String get taskTradeOfferedTab => 'Offered tasks';
+
+  @override
+  String taskTradeOfferedTabCount(int count) {
+    return 'Offered tasks ($count)';
+  }
+
+  @override
+  String get taskTradeOfferedChip => 'Offered';
+
+  @override
+  String get taskTradeOffer => 'Offer to another leader';
+
+  @override
+  String get taskTradeTakeBack => 'Take the offer back';
+
+  @override
+  String get taskTradeTake => 'Take this task';
+
+  @override
+  String taskTradeOfferedBy(String name) {
+    return 'Offered by $name';
+  }
+
+  @override
+  String get taskTradeOfferedByYou =>
+      'You offered this task to another leader.';
+
+  @override
+  String get taskTradeOfferedToLeaders => 'Offered to another leader.';
+
+  @override
+  String taskTradeDue(String date) {
+    return 'Due $date';
+  }
+
+  @override
+  String get taskTradeNoOffers => 'No tasks are on offer.';
+
+  @override
+  String get taskTradeNoOffersHint =>
+      'A task another leader offers appears here.';
+
+  @override
+  String taskTradeTakeConfirm(String title) {
+    return '\"$title\" becomes your task.';
+  }
+
+  @override
+  String taskTradeTakeConfirmFrom(String title, String name) {
+    return '\"$title\" becomes your task in place of $name.';
+  }
+
+  @override
+  String get taskTradeOfferPosted => 'Task offered to the other leaders.';
+
+  @override
+  String get taskTradeOfferTakenBack => 'Offer taken back.';
+
+  @override
+  String get taskTradeTaken => 'The task is yours.';
+
+  @override
+  String taskTradeTookComment(String taker, String offerer) {
+    return '$taker took this task from $offerer.';
+  }
+
+  @override
+  String get taskTradeNoLongerOffered => 'This task is not on offer.';
+
+  @override
+  String get taskTradeNotOpen =>
+      'A finished or archived task cannot be offered.';
+
+  @override
+  String get taskTradeNotAssigned =>
+      'Only someone assigned to this task can offer it.';
+
+  @override
+  String get taskTradeNotFound => 'This task does not exist.';
+
+  @override
+  String get taskTradeFailed => 'That did not work. Please try again.';
 }

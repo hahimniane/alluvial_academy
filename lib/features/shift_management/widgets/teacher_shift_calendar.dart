@@ -518,15 +518,31 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(
-                  _timeRange(shift.shiftStart, shift.shiftEnd),
-                  onTap: onSelect,
-                  maxLines: 1,
-                  style: GoogleFonts.inter(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: 0.92),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        _timeRange(shift.shiftStart, shift.shiftEnd),
+                        onTap: onSelect,
+                        maxLines: 1,
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
+                      ),
+                    ),
+                    // Offered to others: a mark beside the time, so the cell
+                    // keeps its height.
+                    if (shift.isPublished)
+                      Tooltip(
+                        message:
+                            AppLocalizations.of(context)?.shiftOfferedChip ??
+                                'Offered',
+                        child: const Icon(Icons.swap_horiz,
+                            size: 12, color: Colors.white),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 SelectableText(
@@ -590,6 +606,37 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Marks a class or duty its holder has offered to others.
+  Widget _buildOfferedMarker(BuildContext context, {required double fontSize}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.swap_horiz,
+              size: fontSize + 2, color: const Color(0xFF7C3AED)),
+          const SizedBox(width: 2),
+          Flexible(
+            child: Text(
+              AppLocalizations.of(context)?.shiftOfferedChip ?? 'Offered',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF7C3AED),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -917,6 +964,10 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                           color: Colors.white.withValues(alpha: 0.92),
                         ),
                       ),
+                    ],
+                    if (shift.isPublished) ...[
+                      const SizedBox(height: 4),
+                      _buildOfferedMarker(context, fontSize: 11),
                     ],
                   ],
                 ),

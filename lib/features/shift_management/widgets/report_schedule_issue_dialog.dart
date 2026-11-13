@@ -6,6 +6,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/features/shift_management/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/features/shift_management/enums/shift_enums.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_trade_service.dart';
+import 'package:alluwalacademyadmin/features/shift_management/services/shift_trading.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -14,9 +16,15 @@ import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 class ReportScheduleIssueDialog extends StatefulWidget {
   final TeachingShift shift;
 
+  /// Finds the days of a recurring class that can be offered together.
+  /// Tests pass their own; the app looks them up.
+  final Future<List<TeachingShift>> Function(TeachingShift opened)?
+      offerChoicesLoader;
+
   const ReportScheduleIssueDialog({
     super.key,
     required this.shift,
+    this.offerChoicesLoader,
   });
 
   @override
@@ -32,6 +40,16 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
   final TextEditingController _notesController = TextEditingController();
   bool _isLoading = false;
   String? _currentUserTimezone;
+
+  // Offering a recurring class: the days of the series that can go together.
+  List<TeachingShift> _offerChoices = const [];
+  Set<String> _offerTicked = <String>{};
+  bool _offerChoicesLoading = false;
+  bool _offerChoicesLoaded = false;
+
+  bool get _isDuty => ShiftTrading.isLeadershipDuty(widget.shift);
+
+  bool get _isSeries => (widget.shift.templateId?.trim() ?? '').isNotEmpty;
 
   @override
   void initState() {
@@ -67,6 +85,158 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
     }
   }
 
+  /// Loads the other upcoming days of this recurring class, once.
+  Future<void> _loadOfferChoices() async {
+    if (_offerChoicesLoaded || _offerChoicesLoading) return;
+    setState(() {
+      _offerChoicesLoading = true;
+      _offerChoices = [widget.shift];
+      _offerTicked = ShiftTrading.pickOnlyThis(widget.shift);
+    });
+    final loader =
+        widget.offerChoicesLoader ?? ShiftTradeService.seriesOfferChoices;
+    final choices =
+        _isSeries ? await loader(widget.shift) : <TeachingShift>[widget.shift];
+    if (!mounted) return;
+    setState(() {
+      _offerChoices = choices;
+      _offerChoicesLoading = false;
+      _offerChoicesLoaded = true;
+    });
+  }
+
+  String _offerDayLabel(TeachingShift shift) {
+    final locale = AppLocalizations.of(context)!.localeName;
+    final day = DateFormat('EEE, MMM d', locale).format(shift.shiftStart);
+    final from = DateFormat.jm(locale).format(shift.shiftStart);
+    final to = DateFormat.jm(locale).format(shift.shiftEnd);
+    return '$day · $from – $to';
+  }
+
+  String _offerFailureText(ShiftOfferFailure? failure) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (failure) {
+      case ShiftOfferFailure.alreadyStarted:
+        return l10n.shiftOfferFailStarted;
+      case ShiftOfferFailure.notScheduled:
+        return l10n.shiftOfferFailNotScheduled;
+      case ShiftOfferFailure.notYours:
+        return l10n.shiftOfferFailNotYours;
+      case ShiftOfferFailure.notFound:
+        return l10n.shiftOfferFailNotFound;
+      case ShiftOfferFailure.other:
+      case null:
+        return l10n.shiftOfferFailOther;
+    }
+  }
+
+  /// Offers the ticked days with one call. Returns true when at least one day
+  /// is on offer afterwards, so the caller knows whether to file the report.
+  Future<bool> _submitOffer() async {
+    final l10n = AppLocalizations.of(context)!;
+    final ids = _offerChoicesLoaded
+        ? ShiftTrading.idsToOffer(ticked: _offerTicked, choices: _offerChoices)
+        : <String>[widget.shift.id];
+    if (ids.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.shiftOfferPickADay),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    final List<ShiftOfferResult> results;
+    try {
+      results = await ShiftTradeService.setOffers(shiftIds: ids, offered: true);
+    } catch (e) {
+      AppLogger.error('Error offering shifts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.shiftOfferNotSaved),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+
+    final offeredCount = results.where((r) => r.ok).length;
+    final failed = results.where((r) => !r.ok).toList();
+    if (!mounted) return offeredCount > 0;
+
+    if (failed.isNotEmpty) {
+      final byId = {for (final s in _offerChoices) s.id: s};
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            l10n.shiftOfferSomeFailedTitle,
+            style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final r in failed)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _offerDayLabel(byId[r.shiftId] ?? widget.shift),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                        Text(
+                          _offerFailureText(r.failure),
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFFB91C1C),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.commonOk),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (offeredCount == 0 && mounted) {
+      // Nothing went through: show the days as they stand now.
+      _offerChoicesLoaded = false;
+      _loadOfferChoices();
+    }
+
+    if (offeredCount > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.shiftOfferPosted(offeredCount)),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+    return offeredCount > 0;
+  }
+
   Future<void> _submitReport() async {
     if (_issueType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,6 +253,13 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not authenticated');
+
+      // Offering goes through the server, which checks every day on its own.
+      // The report below is filed only when something is actually on offer.
+      if (_issueType == 'publish') {
+        final offered = await _submitOffer();
+        if (!offered) return;
+      }
 
       final reportData = {
         'shift_id': widget.shift.id,
@@ -139,38 +316,31 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       }
 
       // Save report to Firestore
-      await FirebaseFirestore.instance
-          .collection('schedule_issue_reports')
-          .add(reportData);
-
-      // Special handling for 'publish' issue type - update shift directly
-      if (_issueType == 'publish') {
+      try {
         await FirebaseFirestore.instance
-            .collection('teaching_shifts')
-            .doc(widget.shift.id)
-            .update({
-          'is_published': true,
-          'published_at': FieldValue.serverTimestamp(),
-          'published_by': user.uid,
-          'original_teacher_id': user.uid,
-          'original_teacher_name': widget.shift.teacherName,
-          'last_modified': FieldValue.serverTimestamp(),
-        });
+            .collection('schedule_issue_reports')
+            .add(reportData);
+      } catch (e) {
+        // The offer itself is already posted; a missing report must not make
+        // it look as if it failed.
+        if (_issueType != 'publish') rethrow;
+        AppLogger.error('Error saving the offer report: $e');
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _issueType == 'timezone'
-                  ? 'Timezone updated! Schedule will refresh.'
-                  : (_issueType == 'publish'
-                      ? 'Shift offered to other teachers!'
-                      : 'Issue reported! Admin will review and fix it.'),
+        // An offer has already said what happened, day by day.
+        if (_issueType != 'publish') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _issueType == 'timezone'
+                    ? 'Timezone updated! Schedule will refresh.'
+                    : 'Issue reported! Admin will review and fix it.',
+              ),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
         Navigator.pop(context, true); // Return true to indicate refresh needed
       }
     } catch (e) {
@@ -197,7 +367,8 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         padding: const EdgeInsets.all(20),
-        child: Column(
+        child: SingleChildScrollView(
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -257,13 +428,21 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                 widget.shift.shiftStart.isAfter(DateTime.now())) ...[
               _buildIssueTypeOption(
                   'publish',
-                  AppLocalizations.of(context)!.offerShiftToOtherTeachers,
+                  _isDuty
+                      ? AppLocalizations.of(context)!.shiftOfferDutyToLeaders
+                      : AppLocalizations.of(context)!.offerShiftToOtherTeachers,
                   Icons.public),
               const SizedBox(height: 8),
             ],
             _buildIssueTypeOption('other', 'Other issue', Icons.info_outline),
 
             const SizedBox(height: 20),
+
+            // Which days to offer (a recurring class can go several at once)
+            if (_issueType == 'publish' && _isSeries) ...[
+              _buildOfferDaysPicker(),
+              const SizedBox(height: 12),
+            ],
 
             // Timezone Selection (if timezone issue)
             if (_issueType == 'timezone') ...[
@@ -376,7 +555,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
               ),
             ),
           ],
-        ),
+        )),
       ),
     );
   }
@@ -384,7 +563,10 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
   Widget _buildIssueTypeOption(String value, String label, IconData icon) {
     final isSelected = _issueType == value;
     return InkWell(
-      onTap: () => setState(() => _issueType = value),
+      onTap: () {
+        setState(() => _issueType = value);
+        if (value == 'publish') _loadOfferChoices();
+      },
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -426,6 +608,110 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildOfferDaysPicker() {
+    final l10n = AppLocalizations.of(context)!;
+    final opened = widget.shift;
+    final hasOthers = _offerChoices.length > 1;
+
+    Widget quickPick(String label, Set<String> Function() pick) {
+      return ActionChip(
+        label: Text(label, style: GoogleFonts.inter(fontSize: 12)),
+        visualDensity: VisualDensity.compact,
+        onPressed: () => setState(() => _offerTicked = pick()),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.shiftOfferWhichDays,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_offerChoicesLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else ...[
+          if (hasOthers) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                quickPick(l10n.shiftOfferOnlyThis,
+                    () => ShiftTrading.pickOnlyThis(opened)),
+                quickPick(
+                    l10n.shiftOfferNextThree,
+                    () => ShiftTrading.pickNext(
+                        opened: opened, choices: _offerChoices, count: 3)),
+                quickPick(
+                    l10n.shiftOfferThisWeek,
+                    () => ShiftTrading.pickSameWeek(
+                        opened: opened, choices: _offerChoices)),
+              ],
+            ),
+            const SizedBox(height: 4),
+          ],
+          Container(
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: _offerChoices.length,
+              itemBuilder: (context, index) {
+                final day = _offerChoices[index];
+                final alreadyOffered = day.isPublished;
+                return CheckboxListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  value: alreadyOffered || _offerTicked.contains(day.id),
+                  onChanged: alreadyOffered
+                      ? null
+                      : (ticked) => setState(() {
+                            if (ticked == true) {
+                              _offerTicked.add(day.id);
+                            } else {
+                              _offerTicked.remove(day.id);
+                            }
+                          }),
+                  title: Text(
+                    _offerDayLabel(day),
+                    style: GoogleFonts.inter(fontSize: 13),
+                  ),
+                  subtitle: alreadyOffered
+                      ? Text(
+                          l10n.shiftOfferAlreadyOffered,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        )
+                      : null,
+                );
+              },
+            ),
+          ),
+        ],
+      ],
     );
   }
 

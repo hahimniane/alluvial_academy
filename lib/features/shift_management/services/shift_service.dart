@@ -325,13 +325,45 @@ class ShiftService {
   /// issues often surface as `[firebase_functions/internal]`. The same claim
   /// is allowed by Firestore rules (`canClaimShift` in `firestore.rules`), so
   /// web uses a client [Transaction] that mirrors the callable update.
-  static Future<void> claimPublishedShift(String shiftId) async {
-    if (kIsWeb) {
+  ///
+  /// **Leadership duty:** always the callable, on web too. Only a leader may
+  /// take a duty, and the server is what checks that.
+  static Future<void> claimPublishedShift(
+    String shiftId, {
+    bool isLeadershipDuty = false,
+  }) async {
+    if (kIsWeb && !isLeadershipDuty) {
       await _claimPublishedShiftFirestoreWeb(shiftId);
       return;
     }
     final callable = _functions.httpsCallable('claimShift');
     await callable.call(<String, dynamic>{'shiftId': shiftId});
+  }
+
+  /// The upcoming classes of one recurring series that belong to [teacherId],
+  /// from [from] up to [to]. Used to offer several days of a class at once.
+  static Future<List<TeachingShift>> getUpcomingSeriesShifts({
+    required String teacherId,
+    required String templateId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final snapshot = await _shiftsCollection
+        .where('teacher_id', isEqualTo: teacherId)
+        .where('template_id', isEqualTo: templateId)
+        .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
+        .where('shift_start', isLessThan: Timestamp.fromDate(to))
+        .get();
+    final shifts = <TeachingShift>[];
+    for (final doc in snapshot.docs) {
+      try {
+        shifts.add(TeachingShift.fromFirestore(doc));
+      } catch (e) {
+        AppLogger.error('Error parsing shift document ${doc.id}: $e');
+      }
+    }
+    shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    return shifts;
   }
 
   static Future<void> _claimPublishedShiftFirestoreWeb(String shiftId) async {

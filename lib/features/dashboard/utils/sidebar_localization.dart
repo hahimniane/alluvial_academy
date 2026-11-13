@@ -36,6 +36,8 @@ class SidebarLocalization {
         return AppLocalizations.of(context)!.sidebarMyreport;
       case 'My Shifts':
         return AppLocalizations.of(context)!.sidebarMyshifts;
+      case 'Available Shifts':
+        return AppLocalizations.of(context)!.shiftTradeAvailableShifts;
       case 'Notifications':
         return AppLocalizations.of(context)!.notificationsTitle;
       case 'Operations':

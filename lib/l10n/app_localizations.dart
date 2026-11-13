@@ -34537,6 +34537,294 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This invoice could not be loaded. Please try again.'**
   String get paymentErrorInvoiceLoad;
+
+  /// No description provided for @shiftTradeAvailableShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Available shifts'**
+  String get shiftTradeAvailableShifts;
+
+  /// No description provided for @shiftLeadershipDuty.
+  ///
+  /// In en, this message translates to:
+  /// **'Leadership duty'**
+  String get shiftLeadershipDuty;
+
+  /// No description provided for @claimShiftErrorLeadersOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only leaders can take a leadership duty.'**
+  String get claimShiftErrorLeadersOnly;
+
+  /// No description provided for @shiftOfferDutyToLeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer this duty to other leaders'**
+  String get shiftOfferDutyToLeaders;
+
+  /// No description provided for @shiftOfferWhichDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Which days?'**
+  String get shiftOfferWhichDays;
+
+  /// No description provided for @shiftOfferOnlyThis.
+  ///
+  /// In en, this message translates to:
+  /// **'Only this day'**
+  String get shiftOfferOnlyThis;
+
+  /// No description provided for @shiftOfferNextThree.
+  ///
+  /// In en, this message translates to:
+  /// **'Next 3'**
+  String get shiftOfferNextThree;
+
+  /// No description provided for @shiftOfferThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get shiftOfferThisWeek;
+
+  /// No description provided for @shiftOfferAlreadyOffered.
+  ///
+  /// In en, this message translates to:
+  /// **'Already offered'**
+  String get shiftOfferAlreadyOffered;
+
+  /// No description provided for @shiftOfferPickADay.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick at least one day to offer.'**
+  String get shiftOfferPickADay;
+
+  /// No description provided for @shiftOfferNotSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'The offer could not be saved. Please try again.'**
+  String get shiftOfferNotSaved;
+
+  /// No description provided for @shiftOfferSomeFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Some days could not be offered'**
+  String get shiftOfferSomeFailedTitle;
+
+  /// No description provided for @shiftOfferFailStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'It has already started.'**
+  String get shiftOfferFailStarted;
+
+  /// No description provided for @shiftOfferFailNotScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Only a scheduled class that has not started can be offered.'**
+  String get shiftOfferFailNotScheduled;
+
+  /// No description provided for @shiftOfferFailNotYours.
+  ///
+  /// In en, this message translates to:
+  /// **'It is assigned to someone else.'**
+  String get shiftOfferFailNotYours;
+
+  /// No description provided for @shiftOfferFailNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'It does not exist.'**
+  String get shiftOfferFailNotFound;
+
+  /// No description provided for @shiftOfferFailOther.
+  ///
+  /// In en, this message translates to:
+  /// **'It could not be offered. Please try again.'**
+  String get shiftOfferFailOther;
+
+  /// No description provided for @shiftOfferPosted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day offered.} other{{count} days offered.}}'**
+  String shiftOfferPosted(int count);
+
+  /// No description provided for @shiftOfferedChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered'**
+  String get shiftOfferedChip;
+
+  /// No description provided for @shiftOfferedClassHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Another teacher can take this class.'**
+  String get shiftOfferedClassHint;
+
+  /// No description provided for @shiftOfferedDutyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Another leader can take this duty.'**
+  String get shiftOfferedDutyHint;
+
+  /// No description provided for @shiftOfferedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered by {name}'**
+  String shiftOfferedBy(String name);
+
+  /// No description provided for @shiftOfferTakeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Take offer back'**
+  String get shiftOfferTakeBack;
+
+  /// No description provided for @shiftOfferTakenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer taken back.'**
+  String get shiftOfferTakenBack;
+
+  /// No description provided for @shiftOfferNotTakenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'The offer could not be taken back. Please try again.'**
+  String get shiftOfferNotTakenBack;
+
+  /// No description provided for @taskTradeOfferedTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered tasks'**
+  String get taskTradeOfferedTab;
+
+  /// No description provided for @taskTradeOfferedTabCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered tasks ({count})'**
+  String taskTradeOfferedTabCount(int count);
+
+  /// No description provided for @taskTradeOfferedChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered'**
+  String get taskTradeOfferedChip;
+
+  /// No description provided for @taskTradeOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer to another leader'**
+  String get taskTradeOffer;
+
+  /// No description provided for @taskTradeTakeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the offer back'**
+  String get taskTradeTakeBack;
+
+  /// No description provided for @taskTradeTake.
+  ///
+  /// In en, this message translates to:
+  /// **'Take this task'**
+  String get taskTradeTake;
+
+  /// No description provided for @taskTradeOfferedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered by {name}'**
+  String taskTradeOfferedBy(String name);
+
+  /// No description provided for @taskTradeOfferedByYou.
+  ///
+  /// In en, this message translates to:
+  /// **'You offered this task to another leader.'**
+  String get taskTradeOfferedByYou;
+
+  /// No description provided for @taskTradeOfferedToLeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered to another leader.'**
+  String get taskTradeOfferedToLeaders;
+
+  /// No description provided for @taskTradeDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Due {date}'**
+  String taskTradeDue(String date);
+
+  /// No description provided for @taskTradeNoOffers.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks are on offer.'**
+  String get taskTradeNoOffers;
+
+  /// No description provided for @taskTradeNoOffersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A task another leader offers appears here.'**
+  String get taskTradeNoOffersHint;
+
+  /// No description provided for @taskTradeTakeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{title}\" becomes your task.'**
+  String taskTradeTakeConfirm(String title);
+
+  /// No description provided for @taskTradeTakeConfirmFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{title}\" becomes your task in place of {name}.'**
+  String taskTradeTakeConfirmFrom(String title, String name);
+
+  /// No description provided for @taskTradeOfferPosted.
+  ///
+  /// In en, this message translates to:
+  /// **'Task offered to the other leaders.'**
+  String get taskTradeOfferPosted;
+
+  /// No description provided for @taskTradeOfferTakenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer taken back.'**
+  String get taskTradeOfferTakenBack;
+
+  /// No description provided for @taskTradeTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'The task is yours.'**
+  String get taskTradeTaken;
+
+  /// No description provided for @taskTradeTookComment.
+  ///
+  /// In en, this message translates to:
+  /// **'{taker} took this task from {offerer}.'**
+  String taskTradeTookComment(String taker, String offerer);
+
+  /// No description provided for @taskTradeNoLongerOffered.
+  ///
+  /// In en, this message translates to:
+  /// **'This task is not on offer.'**
+  String get taskTradeNoLongerOffered;
+
+  /// No description provided for @taskTradeNotOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'A finished or archived task cannot be offered.'**
+  String get taskTradeNotOpen;
+
+  /// No description provided for @taskTradeNotAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Only someone assigned to this task can offer it.'**
+  String get taskTradeNotAssigned;
+
+  /// No description provided for @taskTradeNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This task does not exist.'**
+  String get taskTradeNotFound;
+
+  /// No description provided for @taskTradeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'That did not work. Please try again.'**
+  String get taskTradeFailed;
 }
 
 class _AppLocalizationsDelegate
