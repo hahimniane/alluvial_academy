@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { EnrollLoadingFallback } from "@/components/EnrollLoadingFallbacks";
 import { ProgramsOverview } from "@/components/ProgramsOverview";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -7,7 +8,7 @@ export default function EnrollPage() {
     <>
       <SiteHeader />
       <main>
-        <Suspense fallback={<div className="container-shell py-16 text-slate-600">Loading enrollment...</div>}>
+        <Suspense fallback={<EnrollLoadingFallback />}>
           <ProgramsOverview />
         </Suspense>
       </main>

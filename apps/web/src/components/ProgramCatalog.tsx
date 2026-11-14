@@ -26,6 +26,7 @@ import {
   type PublicSitePricingDoc,
 } from "@/lib/publicSiteCms";
 import { MAX_HOURS_PER_WEEK, MIN_HOURS_PER_WEEK, clampHoursPerWeek } from "@/lib/enrollmentHours";
+import { usePublicT } from "@/lib/publicI18n";
 
 type CatalogItem = {
   id: string;
@@ -167,6 +168,7 @@ const aliases: Record<string, string> = {
 };
 
 export function ProgramCatalog() {
+  const t = usePublicT();
   const searchParams = useSearchParams();
   const requestedProgramId = searchParams.get("programId");
   const requestedCategory =
@@ -230,10 +232,10 @@ export function ProgramCatalog() {
       <div className="mx-auto max-w-[780px] px-4 pb-8 pt-[5px] sm:px-6 lg:px-0">
         <div className="-mx-4 bg-gradient-to-br from-[#F0F9FF] via-[#E0F2FE] to-[#DBEAFE] px-6 py-8 text-center sm:mx-0 sm:px-8 sm:py-6">
           <h1 className="text-[28px] font-black leading-tight tracking-normal text-[#111827] md:text-[32px]">
-            Explore our programs
+            {t("Explore our programs")}
           </h1>
           <p className="mx-auto mt-3 max-w-[720px] text-[15px] leading-6 text-slate-600">
-            Choose a program, preview pricing by hours per week, then continue to enrollment — all in one place.
+            {t("Choose a program, preview pricing by hours per week, then continue to enrollment — all in one place.")}
           </p>
           <button
             type="button"
@@ -241,22 +243,22 @@ export function ProgramCatalog() {
             onClick={() => focusCategory(categories[0].id)}
           >
             <ChevronDown size={18} />
-            Browse Programs
+            {t("Browse Programs")}
           </button>
           <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 text-xs font-semibold text-slate-500">
             <span className="inline-flex items-center gap-1.5">
               <GraduationCap size={14} className="text-slate-400" />
-              35+ Programs
+              {t("35+ Programs")}
             </span>
             <span className="text-slate-300">•</span>
             <span className="inline-flex items-center gap-1.5">
               <Clock3 size={14} className="text-slate-400" />
-              Flexible Scheduling
+              {t("Flexible Scheduling")}
             </span>
             <span className="text-slate-300">•</span>
             <span className="inline-flex items-center gap-1.5">
               <Users size={14} className="text-slate-400" />
-              Expert Tutors
+              {t("Expert Tutors")}
             </span>
           </div>
         </div>
@@ -276,7 +278,7 @@ export function ProgramCatalog() {
                   onClick={() => focusCategory(category.id)}
                 >
                   <category.icon size={18} aria-hidden="true" />
-                  {category.title}
+                  {t(category.title)}
                   <span className={selected ? "text-white/75" : "text-slate-400"}>({category.items.length})</span>
                 </button>
               );
@@ -326,6 +328,7 @@ function CategoryCard({
   onCollapse: () => void;
   targetProgramId: string | null;
 }) {
+  const t = usePublicT();
   const hourly = hourlyRate(category.trackId, hoursPerWeek, pricingPlans);
   const monthly = monthlyEstimateRaw(category.trackId, hoursPerWeek, pricingPlans);
   const baseHourly = baseHourlyRate(category.trackId, pricingPlans);
@@ -350,16 +353,16 @@ function CategoryCard({
             <span className="text-[22px] leading-none">{category.emoji}</span>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-black leading-tight text-[#0F172A] sm:text-[17px]">{category.title}</span>
-            <span className="mt-1 block text-xs leading-5 text-slate-500">{category.description}</span>
+            <span className="block text-[16px] font-black leading-tight text-[#0F172A] sm:text-[17px]">{t(category.title)}</span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">{t(category.description)}</span>
           </span>
           <span className="inline-flex rounded-lg px-2 py-1 text-[10px] font-black" style={{ backgroundColor: `${category.color}14`, color: category.color }}>
-            {category.items.length} subjects
+            {t("{count} subjects", { count: category.items.length })}
           </span>
           {selected ? <CircleCheck size={18} className="shrink-0" style={{ color: category.color }} /> : null}
           <span
             role={expanded ? "button" : undefined}
-            aria-label={expanded ? `Collapse ${category.title}` : undefined}
+            aria-label={expanded ? t("Collapse {title}", { title: t(category.title) }) : undefined}
             className="shrink-0 rounded-lg p-1"
             onClick={(event) => {
               if (!expanded) return;
@@ -394,14 +397,14 @@ function CategoryCard({
           >
             <div className="flex items-center gap-3">
               <div className="min-w-[138px] flex-1">
-                <p className="text-xs font-semibold text-slate-900">Hours per week</p>
+                <p className="text-xs font-semibold text-slate-900">{t("Hours per week")}</p>
                 <div className="mt-1 flex items-center gap-1.5">
                   <button
                     type="button"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 disabled:text-slate-300"
                     disabled={hoursPerWeek <= MIN_HOURS_PER_WEEK}
                     onClick={() => onHoursPerWeekChange(Math.max(1, hoursPerWeek - 1))}
-                    aria-label="Decrease hours per week"
+                    aria-label={t("Decrease hours per week")}
                   >
                     <MinusCircle size={20} />
                   </button>
@@ -411,7 +414,7 @@ function CategoryCard({
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 disabled:text-slate-300"
                     disabled={hoursPerWeek >= MAX_HOURS_PER_WEEK}
                     onClick={() => onHoursPerWeekChange(clampHoursPerWeek(hoursPerWeek + 1))}
-                    aria-label="Increase hours per week"
+                    aria-label={t("Increase hours per week")}
                   >
                     <PlusCircle size={20} />
                   </button>
@@ -423,11 +426,11 @@ function CategoryCard({
                     <span className="text-[11px] text-slate-400 line-through">${baseHourly.toFixed(2)}</span>
                   ) : null}
                   <span className="text-sm font-bold text-slate-900">${hourly.toFixed(2)}</span>
-                  <span className="text-[10px] text-slate-400">per hour</span>
+                  <span className="text-[10px] text-slate-400">{t("per hour")}</span>
                 </div>
                 <p className="mt-1 text-[11px] leading-4 text-slate-600">
                   {/* No monthly projection — rates are negotiated per family. */}
-                  {hoursPerWeek} hrs/wk · rates are flexible
+                  {t("{hours} hrs/wk · rates are flexible", { hours: hoursPerWeek })}
                 </p>
               </div>
             </div>
@@ -437,7 +440,7 @@ function CategoryCard({
                 className="inline-flex min-h-10 w-full items-center justify-center rounded-[10px] px-5 text-sm font-bold"
                 style={{ backgroundColor: category.color, color: onAccent }}
               >
-                Continue to enrollment
+                {t("Continue to enrollment")}
               </Link>
             </div>
           </div>
@@ -468,6 +471,7 @@ function ProgramFeatureRow({
   showDivider: boolean;
   targeted: boolean;
 }) {
+  const t = usePublicT();
   return (
     <div>
       <div
@@ -486,18 +490,23 @@ function ProgramFeatureRow({
         <span className="min-w-0 flex-1">
           <span className="flex items-start gap-2">
             <h2 className="min-w-0 flex-1 text-[13px] font-semibold leading-[1.2] text-[#1E293B]">
-              {program.title}
+              {programDisplayTitle(t, program.title)}
             </h2>
             <span className="shrink-0 text-[9px] font-semibold leading-4" style={{ color: program.accentColor }}>
-              {program.age}
+              {t(program.age)}
             </span>
           </span>
-          <p className="mt-1 text-[11.5px] leading-[1.3] text-[#64748B]">{program.description}</p>
+          <p className="mt-1 text-[11.5px] leading-[1.3] text-[#64748B]">{t(program.description)}</p>
         </span>
       </div>
       {showDivider ? <div className="ml-10 mr-2 h-px bg-[#F1F5F9]" /> : null}
     </div>
   );
+}
+
+/** What a catalog program is called on screen. Ids and enrollment links stay English. */
+function programDisplayTitle(t: ReturnType<typeof usePublicT>, title: string) {
+  return t(`${title}|program`);
 }
 
 function categoryIdForProgram(programId: string | null) {
