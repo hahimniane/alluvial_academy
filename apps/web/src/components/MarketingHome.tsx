@@ -25,6 +25,7 @@ import { Reveal } from "@/components/Reveal";
 import { fallbackPricing, loadPublicMarketingBundle, type PublicSiteMarketingBundle } from "@/lib/publicSiteCms";
 import { DEFAULT_TESTIMONIALS, categoryLabel, initialsOf, type TestimonialCategory } from "@/lib/testimonials";
 import { PRICING_HOUR_OPTIONS } from "@/lib/enrollmentHours";
+import { usePublicT } from "@/lib/publicI18n";
 
 function enterDelay(ms: number) {
   return { "--enter-delay": `${ms}ms` } as CSSProperties;
@@ -143,6 +144,7 @@ const aboutCards = [
 
 export function MarketingHome() {
   const router = useRouter();
+  const t = usePublicT();
   const heroRef = useRef<HTMLElement>(null);
   const [bundle, setBundle] = useState<PublicSiteMarketingBundle | null>(null);
   const [query, setQuery] = useState("");
@@ -164,8 +166,10 @@ export function MarketingHome() {
   const suggestions = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
-    return subjects.filter((subject) => subject.toLowerCase().includes(needle));
-  }, [query]);
+    return subjects.filter(
+      (subject) => subject.toLowerCase().includes(needle) || t(subject).toLowerCase().includes(needle),
+    );
+  }, [query, t]);
 
   const selectSubject = (subject: string) => {
     if (subject === "Entrepreneurship") {
@@ -219,19 +223,19 @@ export function MarketingHome() {
           <div>
             <div className="hero-enter mb-5 inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-white/78 px-3.5 py-2 text-sm font-extrabold text-[#1D4ED8] shadow-[0_10px_30px_rgba(37,99,235,0.12)] backdrop-blur" style={enterDelay(0)}>
               <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
-              Live online classes with real tutors
+              {t("Live online classes with real tutors")}
             </div>
             <h1
               className="hero-enter font-display max-w-3xl text-[40px] font-bold leading-[1.08] text-[#0B1B3A] md:text-[62px] md:leading-[1.04]"
               style={enterDelay(90)}
             >
-              Learn with tutors who know your child <span className="headline-accent">by name.</span>
+              {t("Learn with tutors who know your child")} <span className="headline-accent">{t("by name.")}</span>
             </h1>
             <p
               className="hero-enter mt-5 max-w-2xl text-[16px] leading-[1.7] text-[#475569] md:text-[18px]"
               style={enterDelay(180)}
             >
-              Tutoring, languages, math, coding, enterprise, and faith studies in one warm online learning space for families around the world.
+              {t("Tutoring, languages, math, coding, enterprise, and faith studies in one warm online learning space for families around the world.")}
             </p>
 
             <div className="hero-enter mt-8 flex flex-col gap-3 sm:flex-row" style={enterDelay(280)}>
@@ -239,7 +243,7 @@ export function MarketingHome() {
                 href="/enroll/"
                 className="alluwal-button hero-primary-cta w-full rounded-full px-8 text-base sm:w-auto"
               >
-                Enroll a Student
+                {t("Enroll a Student")}
                 <Rocket size={19} />
               </Link>
               <Link
@@ -247,7 +251,7 @@ export function MarketingHome() {
                 className="alluwal-button w-full rounded-full border border-[#CBD5E1] bg-white/82 px-8 text-base text-[#0F172A] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur hover:bg-white sm:w-auto"
               >
                 <Grid3X3 size={21} />
-                Explore Programs
+                {t("Explore Programs")}
               </Link>
             </div>
 
@@ -264,13 +268,13 @@ export function MarketingHome() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   className="h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[14px] text-slate-900 outline-none placeholder:text-[#9CA3AF] md:px-6 md:text-[15px]"
-                  placeholder="What would you like to learn?"
-                  aria-label="What would you like to learn?"
+                  placeholder={t("What would you like to learn?")}
+                  aria-label={t("What would you like to learn?")}
                 />
                 <button
                   type="submit"
                   className="mr-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#EFF6FF] text-[#2563EB] transition hover:bg-[#DBEAFE]"
-                  aria-label="Search programs"
+                  aria-label={t("Search programs")}
                 >
                   <Search size={22} />
                 </button>
@@ -286,7 +290,7 @@ export function MarketingHome() {
                       onClick={() => selectSubject(subject)}
                     >
                       <Search size={18} className="text-slate-400" />
-                      {subject}
+                      {t(subject)}
                     </button>
                   ))}
                 </div>
@@ -299,14 +303,14 @@ export function MarketingHome() {
               style={enterDelay(460)}
             >
               <GraduationCap size={18} />
-              Our Teachers
+              {t("Our Teachers")}
             </Link>
 
             <div className="hero-enter mt-5 flex flex-wrap items-center gap-2 text-sm font-bold text-[#64748B]" style={enterDelay(540)}>
-              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Tutoring</span>
-              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Math</span>
-              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Languages</span>
-              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">Coding</span>
+              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">{t("Tutoring")}</span>
+              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">{t("Math")}</span>
+              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">{t("Languages")}</span>
+              <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">{t("Coding")}</span>
             </div>
           </div>
 
@@ -325,8 +329,8 @@ export function MarketingHome() {
                     <Sparkles size={19} />
                   </span>
                   <span>
-                    <span className="block text-[13px] font-black text-[#0B1B3A]">Six subjects</span>
-                    <span className="block text-[11px] font-semibold text-[#64748B]">One trusted place</span>
+                    <span className="block text-[13px] font-black text-[#0B1B3A]">{t("Six subjects")}</span>
+                    <span className="block text-[11px] font-semibold text-[#64748B]">{t("One trusted place")}</span>
                   </span>
                 </div>
               </div>
@@ -335,22 +339,22 @@ export function MarketingHome() {
                   <Star size={16} fill="currentColor" />
                 </span>
                 <span>
-                  <span className="block text-[13px] font-black text-[#0B1B3A]">“She nailed it today.”</span>
-                  <span className="block text-[11px] font-semibold text-[#64748B]">Mariama, tutor · just now</span>
+                  <span className="block text-[13px] font-black text-[#0B1B3A]">{t("“She nailed it today.”")}</span>
+                  <span className="block text-[11px] font-semibold text-[#64748B]">{t("Mariama, tutor · just now")}</span>
                 </span>
               </div>
               <div className="hero-badge-float absolute bottom-0 right-2 z-30 rounded-2xl border border-white bg-[#0B1B3A] px-4 py-3 text-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:right-4">
                 <div className="flex items-center gap-1 text-[22px] font-black leading-none">
                   5<Star size={17} className="text-[#FBBF24]" fill="currentColor" />
                 </div>
-                <div className="mt-1 text-[11px] font-bold text-white/72">family-rated classes</div>
+                <div className="mt-1 text-[11px] font-bold text-white/72">{t("family-rated classes")}</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-slate-100 bg-white py-9 md:py-11" aria-label="Alluwal community at a glance">
+      <section className="border-y border-slate-100 bg-white py-9 md:py-11" aria-label={t("Alluwal community at a glance")}>
         <div className="container-shell">
           <Reveal>
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 md:grid-cols-4">
@@ -360,7 +364,7 @@ export function MarketingHome() {
                     <CountUp target={value} />
                     <span className="text-[#F59E0B]">{suffix}</span>
                   </div>
-                  <div className="mx-auto mt-2 max-w-[170px] text-[13px] font-semibold leading-snug text-[#64748B]">{label}</div>
+                  <div className="mx-auto mt-2 max-w-[170px] text-[13px] font-semibold leading-snug text-[#64748B]">{t(label)}</div>
                 </div>
               ))}
             </div>
@@ -371,10 +375,10 @@ export function MarketingHome() {
       <section id="programs" className="bg-[#F8FAFC] py-14 md:py-16">
         <div className="container-shell text-center">
           <Reveal>
-            <span className="section-eyebrow">Programs</span>
-            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Explore Our Main Courses</h2>
+            <span className="section-eyebrow">{t("Programs")}</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">{t("Explore Our Main Courses")}</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
-              Discover comprehensive learning paths across tutoring, languages, enterprise, and faith studies — built for learners of every background.
+              {t("Discover comprehensive learning paths across tutoring, languages, enterprise, and faith studies — built for learners of every background.")}
             </p>
           </Reveal>
 
@@ -383,7 +387,7 @@ export function MarketingHome() {
               <Reveal key={column.title} delay={columnIndex * 140}>
                 <div className="hover-lift overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
                   <div className="px-5 py-4 text-base font-bold text-white" style={{ background: column.gradient }}>
-                    {column.title}
+                    {t(column.title)}
                   </div>
                   <div>
                     {column.items.map(({ title, subtitle, href, icon: Icon }, index) => (
@@ -400,8 +404,8 @@ export function MarketingHome() {
                           style={{ color: column.color }}
                         />
                         <span className="ml-3.5 min-w-0 flex-1">
-                          <span className="block truncate text-[15px] font-semibold text-[#1f2937]">{title}</span>
-                          <span className="mt-1 block line-clamp-2 text-xs leading-[1.35] text-[#6b7280]">{subtitle}</span>
+                          <span className="block truncate text-[15px] font-semibold text-[#1f2937]">{t(title)}</span>
+                          <span className="mt-1 block line-clamp-2 text-xs leading-[1.35] text-[#6b7280]">{t(subtitle)}</span>
                         </span>
                         <ChevronRight
                           size={20}
@@ -420,10 +424,10 @@ export function MarketingHome() {
       <section id="pricing" className="bg-[#F7F5F2] py-12 md:py-[52px]">
         <div className="container-shell text-center">
           <Reveal>
-            <span className="section-eyebrow">Pricing</span>
-            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">Transparent & Affordable Rates</h2>
+            <span className="section-eyebrow">{t("Pricing")}</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">{t("Transparent & Affordable Rates")}</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b6560]">
-              Choose the plan that fits your schedule. All prices are informational - contact us to enroll.
+              {t("Choose the plan that fits your schedule. All prices are informational - contact us to enroll.")}
             </p>
           </Reveal>
 
@@ -441,7 +445,7 @@ export function MarketingHome() {
                   }`}
                   onClick={() => setHoursPerWeek(hour)}
                 >
-                  {hour} hrs/wk
+                  {t("{hours} hrs/wk", { hours: hour })}
                 </button>
               );
             })}
@@ -466,44 +470,44 @@ export function MarketingHome() {
             </span>
             <div>
               <p className="text-[15px] font-extrabold text-[#92400E]">
-                Payment is due at the beginning of each month, not at the end.
+                {t("Payment is due at the beginning of each month, not at the end.")}
               </p>
               <p className="mt-1.5 text-sm leading-[1.6] text-[#78350F]/80">
-                Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.
+                {t("Payment methods: Zelle (646-338-1286), MoneyGram, Bank Transfer, CashApp, or Western Union.")}
               </p>
             </div>
           </div>
 
           <div className="mt-4 inline-flex rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-5 py-2.5 text-[13px] font-semibold text-[#1e40af]">
-            WhatsApp: (+1) 646-872-8590 | alluwalacademy@gmail.com
+            {t("WhatsApp: (+1) 646-872-8590 | alluwalacademy@gmail.com")}
           </div>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/enroll/" className="alluwal-button alluwal-button-primary w-full sm:w-[300px]">
-              Enroll Now
+              {t("Enroll Now")}
             </Link>
           </div>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <Link href="/teacher-application/" className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-[#2563EB]">
               <School size={18} />
-              Apply to Teach
+              {t("Apply to Teach")}
             </Link>
             <Link href="/enroll/?students=multiple" className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-[#2563EB]">
               <UsersRound size={18} />
-              Enroll multiple students
+              {t("Enroll multiple students")}
             </Link>
           </div>
           </Reveal>
         </div>
       </section>
 
-      <section id="testimonials" className="testimonials-band py-14 md:py-16" aria-label="Testimonials">
+      <section id="testimonials" className="testimonials-band py-14 md:py-16" aria-label={t("Testimonials")}>
         <div className="container-shell text-center">
           <Reveal>
-            <span className="section-eyebrow">Testimonials</span>
-            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">What families and teachers say</h2>
+            <span className="section-eyebrow">{t("Testimonials")}</span>
+            <h2 className="font-display mt-4 text-[30px] font-bold text-[#0B1B3A] md:text-[40px]">{t("What families and teachers say")}</h2>
             <p className="mx-auto mt-3 max-w-[700px] text-base leading-[1.6] text-[#6b7280]">
-              In their own words: the parents, students and teachers who make Alluwal what it is.
+              {t("In their own words: the parents, students and teachers who make Alluwal what it is.")}
             </p>
           </Reveal>
           <div className="mt-9 grid gap-5 text-left md:grid-cols-3">
@@ -514,7 +518,7 @@ export function MarketingHome() {
                     <span className="font-display text-[44px] font-bold leading-none text-[#F59E0B]" aria-hidden="true">
                       “
                     </span>
-                    <span className={`testimonial-tag testimonial-tag--${category}`}>{categoryLabel(category as TestimonialCategory)}</span>
+                    <span className={`testimonial-tag testimonial-tag--${category}`}>{t(categoryLabel(category as TestimonialCategory))}</span>
                   </div>
                   <blockquote className="mt-1 flex-1 text-[15px] leading-[1.7] text-[#334155]">{quote}</blockquote>
                   <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-200 pt-4">
@@ -536,12 +540,12 @@ export function MarketingHome() {
       <section id="about" className="bg-white px-6 py-14">
         <div className="mx-auto max-w-[1200px] text-center">
           <Reveal>
-            <span className="section-eyebrow">Who We Are</span>
+            <span className="section-eyebrow">{t("Who We Are")}</span>
             <h2 className="font-display mt-4 text-[32px] font-bold leading-tight text-[#0B1B3A] md:text-[42px]">
-              About Alluwal Education Hub
+              {t("About Alluwal Education Hub")}
             </h2>
             <p className="mx-auto mt-4 max-w-[700px] text-[18px] leading-[1.6] text-[#6B7280]">
-              We are building a learning community where Islamic, African, and Western knowledge come together to equip students with the understanding and skills they need to thrive in today’s world.
+              {t("We are building a learning community where Islamic, African, and Western knowledge come together to equip students with the understanding and skills they need to thrive in today’s world.")}
             </p>
           </Reveal>
 
@@ -555,8 +559,8 @@ export function MarketingHome() {
                   >
                     <Icon size={34} />
                   </span>
-                  <h3 className="font-display mt-7 text-2xl font-bold text-[#0B1B3A]">{title}</h3>
-                  <p className="mt-4 text-[16px] leading-[1.7] text-[#6B7280]">{body}</p>
+                  <h3 className="font-display mt-7 text-2xl font-bold text-[#0B1B3A]">{t(title)}</h3>
+                  <p className="mt-4 text-[16px] leading-[1.7] text-[#6B7280]">{t(body)}</p>
                 </article>
               </Reveal>
             ))}
@@ -567,7 +571,7 @@ export function MarketingHome() {
               href="/about/"
               className="mt-10 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#001E4E] px-10 text-base font-bold text-white shadow-[0_6px_14px_rgba(0,30,78,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(0,30,78,0.32)]"
             >
-              Learn More About Us
+              {t("Learn More About Us")}
             </Link>
           </Reveal>
         </div>
@@ -577,14 +581,14 @@ export function MarketingHome() {
         <div className="hero-blob right-[-120px] top-[-120px] h-[300px] w-[300px] bg-[#0386ff]/30" aria-hidden="true" />
         <div className="container-shell relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <Reveal>
-            <h2 className="font-display text-[32px] font-bold leading-tight md:text-[42px]">Ready to start learning?</h2>
+            <h2 className="font-display text-[32px] font-bold leading-tight md:text-[42px]">{t("Ready to start learning?")}</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-white/82">
-              Explore our programs and get in touch when you are ready to enroll.
+              {t("Explore our programs and get in touch when you are ready to enroll.")}
             </p>
           </Reveal>
           <Reveal delay={140}>
             <Link href="/programs/" className="alluwal-button bg-white text-[#001E4E] hover:bg-white/92">
-              Explore Our Programs
+              {t("Explore Our Programs")}
             </Link>
           </Reveal>
         </div>
@@ -658,6 +662,7 @@ const todaysClasses = [
 ];
 
 function LiveScheduleBoard() {
+  const t = usePublicT();
   return (
     // Sits below the floating badge above it so the board's own header stays legible.
     <div className="hero-photo-card absolute right-0 top-[52px] z-20 w-[88%] max-w-[420px] rounded-[26px] border border-white/70 bg-white/85 p-2 shadow-[0_30px_90px_rgba(15,23,42,0.2)] backdrop-blur lg:top-[58px]">
@@ -665,9 +670,9 @@ function LiveScheduleBoard() {
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
           <div className="flex items-center gap-2 text-[12px] font-extrabold tracking-wide text-white">
             <span className="live-dot" aria-hidden="true" />
-            TODAY&rsquo;S CLASSES
+            {t("TODAY’S CLASSES")}
           </div>
-          <span className="text-[11px] font-semibold text-white/60">6 subjects</span>
+          <span className="text-[11px] font-semibold text-white/60">{t("6 subjects")}</span>
         </div>
 
         <ul className="m-0 list-none p-2">
@@ -688,13 +693,13 @@ function LiveScheduleBoard() {
                 {initials}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-bold leading-tight text-white">{subject}</span>
+                <span className="block truncate text-[13px] font-bold leading-tight text-white">{t(subject)}</span>
                 <span className="block text-[10.5px] font-semibold uppercase tracking-[0.07em]" style={{ color: tint }}>
-                  {track}
+                  {t(track)}
                 </span>
               </span>
               <span className="schedule-live shrink-0 rounded-full bg-[#22C55E]/15 px-2 py-[3px] text-[9.5px] font-black uppercase tracking-[0.08em] text-[#4ADE80]">
-                Live
+                {t("Live")}
               </span>
             </li>
           ))}
@@ -748,12 +753,16 @@ function PricingCard({
   hoursPerWeek: number;
   pricing: typeof fallbackPricing;
 }) {
+  const t = usePublicT();
   const plan = pricing.plans[track.id] ?? { bullets: track.defaults };
   const hourly = hourlyPrice(track.id, hoursPerWeek, plan);
   const monthlyMultiplier = track.id === "group" ? 4.33 : 4;
   const monthly = hourly * hoursPerWeek * monthlyMultiplier;
   const Icon = track.icon;
   const features = plan.bullets.length > 0 ? plan.bullets : track.defaults;
+  // Only the copy written into the site is translated; bullets an admin
+  // typed into the pricing editor are shown as they wrote them.
+  const builtInFeatures = pricing === fallbackPricing || features === track.defaults;
   const showDiscountBadge = track.id !== "group";
   const discountApplied = showDiscountBadge && hoursPerWeek > Number(
     track.id === "islamic"
@@ -766,10 +775,10 @@ function PricingCard({
       <div className="h-2" style={{ backgroundColor: track.accent }} />
       <div className="flex min-h-0 flex-1 flex-col p-4 pb-2">
         <Icon size={24} style={{ color: track.accent }} />
-        <h3 className="font-display mt-2.5 text-lg font-bold text-[#111827]">{track.title}</h3>
-        <p className="mt-1 text-xs font-medium text-[#6b7280]">{track.subtitle}</p>
+        <h3 className="font-display mt-2.5 text-lg font-bold text-[#111827]">{t(track.title)}</h3>
+        <p className="mt-1 text-xs font-medium text-[#6b7280]">{t(track.subtitle)}</p>
         <div className="mt-2.5 text-[28px] font-extrabold" style={{ color: track.accent }}>
-          ${hourly.toFixed(2)}/hr
+          {t("{price}/hr", { price: `$${hourly.toFixed(2)}` })}
         </div>
         {showDiscountBadge ? (
           <div
@@ -777,21 +786,21 @@ function PricingCard({
               discountApplied ? "bg-[#ecfdf3] text-[#15803d]" : "bg-[#f3f4f6] text-[#6b7280]"
             }`}
           >
-            Lower rate for over 4 hrs/week
+            {t("Lower rate for over 4 hrs/week")}
           </div>
         ) : null}
         <ul className="mt-3 grid gap-1.5">
           {features.slice(0, 3).map((feature) => (
             <li key={feature} className="flex items-start gap-2 text-xs text-[#4b5563]">
               <CheckCircle2 size={16} className="mt-0.5 shrink-0" style={{ color: track.accent }} />
-              <span>{feature}</span>
+              <span>{builtInFeatures ? t(feature) : feature}</span>
             </li>
           ))}
         </ul>
         <div className="mt-auto pt-3 text-xs font-semibold text-[#374151]">
           {/* Hourly rate only. Projecting it to a monthly total made the plan
               look like a bill, and rates are negotiated with each family. */}
-          {hoursPerWeek} hrs/week · rates are flexible
+          {t("{hours} hrs/week · rates are flexible", { hours: hoursPerWeek })}
         </div>
       </div>
       <div className="p-3.5 pt-0">
@@ -800,7 +809,7 @@ function PricingCard({
           className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
           style={{ backgroundColor: track.accent }}
         >
-          Continue with this plan
+          {t("Continue with this plan")}
         </Link>
       </div>
     </div>

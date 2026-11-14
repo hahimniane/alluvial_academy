@@ -2,9 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import { submitContactMessage } from "@/lib/forms";
+import { usePublicT } from "@/lib/publicI18n";
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const t = usePublicT();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,35 +31,35 @@ export function ContactForm() {
       onSubmit={onSubmit}
       className="grid gap-6 rounded-[24px] border border-slate-100 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)] sm:p-10"
     >
-      <h2 className="text-2xl font-bold text-[#111827]">Send Message</h2>
+      <h2 className="text-2xl font-bold text-[#111827]">{t("Send Message")}</h2>
       <label className="grid gap-2 text-sm font-semibold text-[#374151]">
-        Name
+        {t("Name")}
         <input
           name="name"
           className="min-h-12 rounded-xl border-0 bg-[#F9FAFB] px-4 text-base text-[#111827] outline outline-1 outline-slate-200 transition placeholder:text-[#9CA3AF] focus:outline-2 focus:outline-[#3B82F6]"
           required
-          placeholder="Your full name"
+          placeholder={t("Your full name")}
           autoComplete="name"
         />
       </label>
       <label className="grid gap-2 text-sm font-semibold text-[#374151]">
-        Email
+        {t("Email")}
         <input
           name="email"
           className="min-h-12 rounded-xl border-0 bg-[#F9FAFB] px-4 text-base text-[#111827] outline outline-1 outline-slate-200 transition placeholder:text-[#9CA3AF] focus:outline-2 focus:outline-[#3B82F6]"
           required
           type="email"
-          placeholder="you@example.com"
+          placeholder={t("you@example.com")}
           autoComplete="email"
         />
       </label>
       <label className="grid gap-2 text-sm font-semibold text-[#374151]">
-        Message
+        {t("Message")}
         <textarea
           name="message"
           className="min-h-[120px] resize-y rounded-xl border-0 bg-[#F9FAFB] px-4 py-4 text-base text-[#111827] outline outline-1 outline-slate-200 transition placeholder:text-[#9CA3AF] focus:outline-2 focus:outline-[#3B82F6]"
           required
-          placeholder="How can we help you?"
+          placeholder={t("How can we help you?")}
         />
       </label>
       <button
@@ -65,10 +67,10 @@ export function ContactForm() {
         className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#3B82F6] px-5 text-base font-semibold text-white transition hover:bg-[#2563EB] disabled:cursor-wait disabled:opacity-75"
         disabled={status === "saving"}
       >
-        {status === "saving" ? "Sending..." : "Send Message"}
+        {status === "saving" ? t("Sending...") : t("Send Message")}
       </button>
-      {status === "success" ? <p className="text-sm font-bold text-emerald-700">Message sent successfully. We will contact you soon.</p> : null}
-      {status === "error" ? <p className="text-sm font-bold text-red-700">We could not send the message. Please try again.</p> : null}
+      {status === "success" ? <p className="text-sm font-bold text-emerald-700">{t("Message sent successfully. We will contact you soon.")}</p> : null}
+      {status === "error" ? <p className="text-sm font-bold text-red-700">{t("We could not send the message. Please try again.")}</p> : null}
     </form>
   );
 }
