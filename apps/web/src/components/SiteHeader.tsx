@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { flutterLoginUrl } from "@/lib/flutterApp";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
 import {
   BookOpen,
   ChevronDown,
@@ -221,6 +222,8 @@ export function SiteHeader() {
               );
             })}
 
+            <LanguageSwitch />
+
             <a
               href={flutterLoginUrl}
               className="ml-1 inline-flex min-h-[42px] items-center rounded-[10px] bg-[#111827] px-[18px] text-[13px] font-semibold text-white transition hover:bg-[#0b1220]"
@@ -230,7 +233,8 @@ export function SiteHeader() {
             </a>
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 xl:hidden">
+          <div className="ml-auto flex items-center gap-2 xl:hidden">
+            <LanguageSwitch />
             <a
               href={flutterLoginUrl}
               className="rounded-md px-2 py-1 text-[13px] font-bold tracking-[0.2px] text-[#111827]"
