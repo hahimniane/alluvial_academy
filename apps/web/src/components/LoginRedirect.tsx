@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { flutterLoginUrl } from "@/lib/flutterApp";
+import { usePublicT } from "@/lib/publicI18n";
 
 /**
  * Forwards to the Flutter login on the main domain.
@@ -15,18 +16,19 @@ import { flutterLoginUrl } from "@/lib/flutterApp";
  * slow, the person still has something to click rather than a blank page.
  */
 export function LoginRedirect() {
+  const t = usePublicT();
   useEffect(() => {
     window.location.replace(flutterLoginUrl);
   }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F8FAFC] px-5 py-8 text-center">
-      <p className="text-sm font-medium text-[#6B7280]">Taking you to the login page…</p>
+      <p className="text-sm font-medium text-[#6B7280]">{t("Taking you to the login page…")}</p>
       <a
         href={flutterLoginUrl}
         className="rounded-xl bg-[#001E4E] px-5 py-3 text-sm font-semibold text-white"
       >
-        Continue to login
+        {t("Continue to login")}
       </a>
     </main>
   );

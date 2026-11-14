@@ -26,6 +26,9 @@ import {
   photoAssetToPath,
   type PublicSiteTeamMember,
 } from "@/lib/publicSiteCms";
+import { usePublicT } from "@/lib/publicI18n";
+
+type PublicT = ReturnType<typeof usePublicT>;
 
 const navy = "#001E4E";
 const gold = "#C9A84C";
@@ -140,19 +143,26 @@ export function TeamDirectory() {
   );
 }
 
+/** What the /team page shows while the directory loads. */
+export function TeamDirectoryFallback() {
+  const t = usePublicT();
+  return <div className="container-shell py-16 text-slate-600">{t("Loading team...")}</div>;
+}
+
 function TeamHero({ members }: { members: PublicSiteTeamMember[] }) {
+  const t = usePublicT();
   const preview = members.slice(0, 5);
   return (
     <section className="bg-[#001E4E] px-5 pb-14 pt-20 text-white md:pb-14 md:pt-20">
       <div className="mx-auto flex max-w-[920px] flex-col items-center text-center">
         <div className="rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/15 px-4 py-2 text-[13px] font-bold uppercase tracking-[1.5px] text-[#C9A84C]">
-          Our Global Team
+          {t("Our Global Team")}
         </div>
         <h1 className="mt-8 text-[28px] font-extrabold leading-[1.15] text-white md:text-[48px] md:leading-[1.1]">
-          Meet the People Behind Alluwal
+          {t("Meet the People Behind Alluwal")}
         </h1>
         <p className="mt-5 max-w-[650px] text-[15px] leading-[1.55] text-white/88 md:mt-6 md:text-[18px]">
-          Educators, leaders, and innovators united by a shared mission — to make quality religious and academic education accessible to every learner, everywhere.
+          {t("Educators, leaders, and innovators united by a shared mission — to make quality religious and academic education accessible to every learner, everywhere.")}
         </p>
         {preview.length > 0 ? (
           <div className="mt-9 flex items-center justify-center">
@@ -180,6 +190,7 @@ function FilterBar({
   selectedCategory: CategoryId;
   onSelect: (category: CategoryId) => void;
 }) {
+  const t = usePublicT();
   return (
     <section className="px-6 pt-9">
       <div className="mx-auto flex max-w-[1400px] justify-start overflow-x-auto pb-1 md:justify-center">
@@ -214,13 +225,13 @@ function FilterBar({
                     className="block truncate text-[13px] font-bold leading-tight"
                     style={{ color: selected ? "#FFFFFF" : "#111827" }}
                   >
-                    {theme.label}
+                    {t(theme.label)}
                   </span>
                   <span
                     className="mt-1 block max-w-[116px] text-[10px] leading-[1.25]"
                     style={{ color: selected ? "rgba(255,255,255,0.82)" : "#6B7280" }}
                   >
-                    {theme.tagline}
+                    {t(theme.tagline)}
                   </span>
                 </span>
                 <span
@@ -242,6 +253,7 @@ function FilterBar({
 }
 
 function CategoryContext({ theme }: { theme: CategoryTheme }) {
+  const t = usePublicT();
   const Icon = theme.icon;
   return (
     <section className="px-6 pt-4">
@@ -256,9 +268,9 @@ function CategoryContext({ theme }: { theme: CategoryTheme }) {
           <Icon size={18} color={theme.accent} />
         </span>
         <span className="ml-3.5 min-w-0">
-          <span className="block text-[14px] font-bold text-[#111827]">{theme.label}</span>
+          <span className="block text-[14px] font-bold text-[#111827]">{t(theme.label)}</span>
           <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-[#4B5563]">
-            {theme.description}
+            {t(theme.description)}
           </span>
         </span>
       </div>
@@ -342,6 +354,7 @@ function CategoryGroup({
   members: PublicSiteTeamMember[];
   onSelectMember: (member: PublicSiteTeamMember) => void;
 }) {
+  const t = usePublicT();
   const theme = getTheme(category);
   const Icon = theme.icon;
   return (
@@ -353,7 +366,7 @@ function CategoryGroup({
         >
           <Icon size={16} color={theme.accent} />
         </span>
-        <h2 className="ml-3 text-[22px] font-extrabold text-[#111827]">{theme.label}</h2>
+        <h2 className="ml-3 text-[22px] font-extrabold text-[#111827]">{t(theme.label)}</h2>
         <span
           className="ml-2.5 rounded-[10px] px-[9px] py-1 text-[12px] font-extrabold"
           style={{ backgroundColor: theme.accentLight, color: theme.accent }}
@@ -377,6 +390,7 @@ function FounderSpotlight({
   member: PublicSiteTeamMember;
   onSelect: () => void;
 }) {
+  const t = usePublicT();
   return (
     <button
       type="button"
@@ -393,7 +407,7 @@ function FounderSpotlight({
               </div>
             </div>
             <span className="mt-5 rounded-full border border-[#C9A84C]/50 bg-[#C9A84C]/12 px-3.5 py-[7px] text-[11px] font-extrabold uppercase tracking-[2.5px] text-[#C9A84C]">
-              Founder
+              {t("Founder")}
             </span>
           </div>
           <div className="text-center md:text-left">
@@ -408,11 +422,11 @@ function FounderSpotlight({
               "{truncate(member.bio, 200)}"
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5 md:justify-start">
-              <FounderChip icon={MapPin} label={cityLabel(member)} />
+              <FounderChip icon={MapPin} label={cityLabel(member, t)} />
               <FounderChip icon={School} label={truncate(member.education, 32)} />
             </div>
             <span className="mt-7 inline-flex items-center rounded-full bg-[#C9A84C] px-6 py-3 text-[14px] font-bold text-[#001E4E] shadow-[0_8px_18px_rgba(201,168,76,0.4)]">
-              View Full Profile
+              {t("View Full Profile")}
               <ArrowRight size={16} className="ml-2" />
             </span>
           </div>
@@ -454,6 +468,7 @@ function StaffCard({
   member: PublicSiteTeamMember;
   onSelect: () => void;
 }) {
+  const t = usePublicT();
   const theme = getTheme(member.category as CategoryId);
   return (
     <button
@@ -481,10 +496,10 @@ function StaffCard({
         </span>
         <div className="mt-2 flex max-w-full items-start justify-center text-[10px] text-[#6B7280]">
           <MapPin size={11} className="mr-0.5 mt-[1px] shrink-0" />
-          <span className="line-clamp-2">{cityLabel(member)}</span>
+          <span className="line-clamp-2">{cityLabel(member, t)}</span>
         </div>
         <p className="mt-2.5 line-clamp-3 w-full flex-1 rounded-[10px] bg-[#F8FAFC] p-2.5 text-left text-[10.5px] leading-[1.55] text-[#6B7280] group-hover:bg-[var(--team-light)]" style={{ "--team-light": theme.accentLight } as React.CSSProperties}>
-          {cardSnippet(member)}
+          {cardSnippet(member, t)}
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-1">
           {member.languages.slice(0, 3).map((language) => (
@@ -495,7 +510,7 @@ function StaffCard({
         </div>
       </div>
       <div className="flex h-[30px] items-center justify-center text-[10.5px] font-bold text-[#6B7280]/40 transition group-hover:bg-slate-50 group-hover:text-[#6B7280]">
-        View Profile
+        {t("View Profile")}
         <ArrowRight size={10} className="ml-1" />
       </div>
     </button>
@@ -525,6 +540,7 @@ function TeacherRosterCard({
   member: PublicSiteTeamMember;
   onSelect: () => void;
 }) {
+  const t = usePublicT();
   return (
     <button
       type="button"
@@ -546,7 +562,7 @@ function TeacherRosterCard({
             {member.id === "aliou_diallo" ? (
               <div className="mt-1 flex text-[9px] leading-[1.25] text-[#6B7280]">
                 <Code2 size={9} className="mr-1 mt-[1px] shrink-0 text-[#6366F1]/80" />
-                <span className="line-clamp-3">Part of the team that builds the platform.</span>
+                <span className="line-clamp-3">{t("Part of the team that builds the platform.")}</span>
               </div>
             ) : null}
           </div>
@@ -557,7 +573,7 @@ function TeacherRosterCard({
         <div className="mt-2">
           <div className="flex items-start text-[10.5px] font-medium text-[#6B7280]">
             <MapPin size={11} className="mr-1 mt-[1px] shrink-0 text-[#6366F1]/70" />
-            <span className="line-clamp-2">{cityLabel(member)}</span>
+            <span className="line-clamp-2">{cityLabel(member, t)}</span>
           </div>
           {member.education ? (
             <span className="mt-1.5 inline-flex rounded-md border border-[#86EFAC] bg-[#F0FDF4] px-1.5 py-0.5 text-[9px] font-semibold text-[#16A34A]">
@@ -566,7 +582,7 @@ function TeacherRosterCard({
           ) : null}
         </div>
         <p className="mt-2 line-clamp-4 text-[10.5px] leading-[1.45] text-[#6B7280]">
-          {cardSnippet(member)}
+          {cardSnippet(member, t)}
         </p>
         <div className="mt-2 flex flex-wrap gap-1">
           {member.languages.slice(0, 4).map((language) => (
@@ -582,13 +598,14 @@ function TeacherRosterCard({
 }
 
 function JoinTeamCta() {
+  const t = usePublicT();
   return (
     <section className="mt-12 bg-gradient-to-r from-[#3B82F6] to-[#1E40AF] px-6 py-20 text-center text-white">
       <h2 className="text-[30px] font-extrabold leading-tight md:text-[36px]">
-        Want to Join Our Team?
+        {t("Want to Join Our Team?")}
       </h2>
       <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-white/90">
-        We are always looking for passionate educators and professionals who share our vision. Join us in making a difference.
+        {t("We are always looking for passionate educators and professionals who share our vision. Join us in making a difference.")}
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link
@@ -596,14 +613,14 @@ function JoinTeamCta() {
           className="inline-flex min-h-[54px] items-center rounded-xl bg-white px-7 text-[15px] font-bold text-[#3B82F6]"
         >
           <GraduationCap size={20} className="mr-2" />
-          Apply to Teach
+          {t("Apply to Teach")}
         </Link>
         <Link
           href="/contact/"
           className="inline-flex min-h-[54px] items-center rounded-xl border-2 border-white px-7 text-[15px] font-bold text-white"
         >
           <Mail size={20} className="mr-2" />
-          Contact Us
+          {t("Contact Us")}
         </Link>
       </div>
     </section>
@@ -617,18 +634,20 @@ function StaffDetailSheet({
   member: PublicSiteTeamMember;
   onClose: () => void;
 }) {
+  const t = usePublicT();
   const theme = getTheme(member.category as CategoryId);
   const Icon = theme.icon;
+  const firstName = member.name.split(" ")[0];
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-950/45" role="dialog" aria-modal="true" aria-label={`${member.name} profile`}>
-      <button type="button" className="absolute inset-0 h-full w-full cursor-default" aria-label="Close profile" onClick={onClose} />
+    <div className="fixed inset-0 z-[80] bg-slate-950/45" role="dialog" aria-modal="true" aria-label={t("{name} profile", { name: member.name })}>
+      <button type="button" className="absolute inset-0 h-full w-full cursor-default" aria-label={t("Close profile")} onClick={onClose} />
       <div className="absolute inset-x-0 bottom-0 mx-auto max-h-[96vh] max-w-[860px] overflow-y-auto rounded-t-[28px] bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex justify-center bg-white pt-2">
           <span className="h-1 w-10 rounded-full bg-slate-300" />
           <button
             type="button"
             className="absolute right-4 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
-            aria-label="Close profile"
+            aria-label={t("Close profile")}
             onClick={onClose}
           >
             <X size={18} />
@@ -645,7 +664,7 @@ function StaffDetailSheet({
             style={{ backgroundColor: theme.accentLight, borderColor: hexToRgba(theme.accent, 0.25), color: theme.accent }}
           >
             <Icon size={11} className="mr-1.5" />
-            {theme.label}
+            {t(theme.label)}
           </span>
           <div className="mt-4 flex justify-center">
             <StaffAvatar member={member} size={104} borderClassName="border-white" />
@@ -663,7 +682,7 @@ function StaffDetailSheet({
             {member.role}
           </span>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <DetailChip icon={MapPin} label={cityLabel(member)} />
+            <DetailChip icon={MapPin} label={cityLabel(member, t)} />
             {member.education ? <DetailChip icon={School} label={member.education} /> : null}
           </div>
           <div className="my-4 flex items-center">
@@ -679,15 +698,15 @@ function StaffDetailSheet({
           <div className="grid gap-3 text-left md:grid-cols-2">
             <DetailSection
               icon={UserRound}
-              title={`About ${member.name.split(" ")[0]}`}
-              content={member.bio || "Profile details are coming soon."}
+              title={t("About {name}", { name: firstName })}
+              content={member.bio || t("Profile details are coming soon.")}
               accent={theme.accent}
               light={theme.accentLight}
             />
             <DetailSection
               icon={Heart}
-              title="Why Alluwal"
-              content={member.whyAlluwal || "This team member is part of Alluwal's mission to support learners and families."}
+              title={t("Why Alluwal")}
+              content={member.whyAlluwal || t("This team member is part of Alluwal's mission to support learners and families.")}
               accent={teal}
               light="#E6F6F5"
               quote
@@ -696,7 +715,7 @@ function StaffDetailSheet({
           <div className="mt-5 text-left">
             <div className="mb-2 flex items-center text-[14px] font-bold text-[#111827]">
               <Languages size={15} className="mr-1.5 text-[#6B7280]" />
-              Languages
+              {t("Languages")}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {member.languages.map((language) => (
@@ -716,7 +735,7 @@ function StaffDetailSheet({
             style={{ backgroundColor: theme.accent }}
           >
             <Mail size={18} className="mr-2" />
-            Contact {member.name.split(" ")[0]}
+            {t("Contact {name}", { name: firstName })}
           </a>
         </div>
       </div>
@@ -837,12 +856,12 @@ function avatarGradient(name: string) {
   return gradientPalette[total % gradientPalette.length];
 }
 
-function cityLabel(member: PublicSiteTeamMember) {
-  return member.city || "Location to be announced";
+function cityLabel(member: PublicSiteTeamMember, t: PublicT) {
+  return member.city || t("Location to be announced");
 }
 
-function cardSnippet(member: PublicSiteTeamMember) {
-  return member.bio || member.whyAlluwal || "Profile details are coming soon.";
+function cardSnippet(member: PublicSiteTeamMember, t: PublicT) {
+  return member.bio || member.whyAlluwal || t("Profile details are coming soon.");
 }
 
 function truncate(value: string, length: number) {

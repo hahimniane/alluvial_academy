@@ -13,9 +13,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { submitLeadershipApplication, submitTeacherApplication } from "@/lib/forms";
+import { usePublicT } from "@/lib/publicI18n";
 
 type Status = "idle" | "saving" | "success" | "error";
 type Option = { value: string; label: string };
+type PublicT = ReturnType<typeof usePublicT>;
 
 const currentStatusOptions: Option[] = [
   { value: "university_student", label: "University Student" },
@@ -210,6 +212,7 @@ function TextArea({
   rows?: number;
   placeholder?: string;
 }) {
+  const t = usePublicT();
   const count = wordCount(value);
   const invalidMin = Boolean(minWords && value.trim() && count < minWords);
   const invalidMax = Boolean(maxWords && count > maxWords);
@@ -233,9 +236,11 @@ function TextArea({
       />
       {minWords || maxWords ? (
         <span className={`text-xs font-bold ${invalidMin || invalidMax ? "text-red-700" : "text-slate-500"}`}>
-          {count} words
-          {minWords ? ` / minimum ${minWords}` : ""}
-          {maxWords ? ` / maximum ${maxWords}` : ""}
+          {minWords && maxWords
+            ? t("{count} words / minimum {min} / maximum {max}", { count, min: minWords, max: maxWords })
+            : minWords
+              ? t("{count} words / minimum {min}", { count, min: minWords })
+              : t("{count} words / maximum {max}", { count, max: maxWords ?? 0 })}
         </span>
       ) : null}
     </label>
@@ -257,6 +262,7 @@ function SelectField({
   options: Option[];
   required?: boolean;
 }) {
+  const t = usePublicT();
   return (
     <label className="grid gap-3 text-[15px] font-semibold leading-[1.4] text-[#111827]">
       <span>
@@ -270,10 +276,10 @@ function SelectField({
         className="min-h-[54px] w-full rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4 text-sm text-[#111827] outline-none transition focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/20"
         required={required}
       >
-        <option value="">Select an option</option>
+        <option value="">{t("Select an option")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {t(option.label)}
           </option>
         ))}
       </select>
@@ -292,6 +298,7 @@ function PhoneField({
   onChange: (name: string, value: string) => void;
   tone?: "purple" | "green";
 }) {
+  const t = usePublicT();
   const focusClass =
     tone === "green"
       ? "focus-within:border-[#10B981] focus-within:ring-[#10B981]/20"
@@ -300,7 +307,7 @@ function PhoneField({
   return (
     <label className="grid gap-3 text-[15px] font-semibold leading-[1.4] text-[#111827]">
       <span>
-        WhatsApp Number <span className="ml-1 text-red-600">*</span>
+        {t("WhatsApp Number")} <span className="ml-1 text-red-600">*</span>
       </span>
       <span
         className={`flex min-h-[54px] overflow-hidden rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] text-sm text-[#111827] transition focus-within:ring-2 ${focusClass}`}
@@ -313,7 +320,7 @@ function PhoneField({
           required
           placeholder="+1"
           autoComplete="tel-country-code"
-          aria-label="Country code"
+          aria-label={t("Country code")}
         />
         <input
           name="phoneNumber"
@@ -323,7 +330,7 @@ function PhoneField({
           required
           placeholder="6468728590"
           autoComplete="tel"
-          aria-label="WhatsApp Number"
+          aria-label={t("WhatsApp Number")}
         />
       </span>
     </label>
@@ -342,6 +349,7 @@ function SectionTitle({ icon: Icon, title }: { icon: typeof UserRound; title: st
 }
 
 function Progress({ page, total }: { page: number; total: number }) {
+  const t = usePublicT();
   return (
     <div>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
@@ -353,13 +361,13 @@ function Progress({ page, total }: { page: number; total: number }) {
         ))}
       </div>
       <p className="mt-2 text-center text-xs font-semibold text-slate-500">
-        Step {page + 1} of {total}
+        {t("Step {current} of {total}", { current: page + 1, total })}
       </p>
     </div>
   );
 }
 
-function validateVisibleForm(form: HTMLFormElement) {
+function validateVisibleForm(form: HTMLFormElement, t: PublicT) {
   if (!form.reportValidity()) return false;
   const textareas = Array.from(form.querySelectorAll("textarea")) as HTMLTextAreaElement[];
   for (const textarea of textareas) {
@@ -367,13 +375,13 @@ function validateVisibleForm(form: HTMLFormElement) {
     const min = Number(textarea.dataset.minWords ?? 0);
     const max = Number(textarea.dataset.maxWords ?? 0);
     if (min && count < min) {
-      textarea.setCustomValidity(`Please write at least ${min} words.`);
+      textarea.setCustomValidity(t("Please write at least {min} words.", { min }));
       textarea.reportValidity();
       textarea.setCustomValidity("");
       return false;
     }
     if (max && count > max) {
-      textarea.setCustomValidity(`Please limit this answer to ${max} words.`);
+      textarea.setCustomValidity(t("Please limit this answer to {max} words.", { max }));
       textarea.reportValidity();
       textarea.setCustomValidity("");
       return false;
@@ -383,6 +391,7 @@ function validateVisibleForm(form: HTMLFormElement) {
 }
 
 export function TeacherApplicationForm() {
+  const t = usePublicT();
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
@@ -412,7 +421,7 @@ export function TeacherApplicationForm() {
 
   function goNext(form: HTMLFormElement) {
     setError("");
-    if (!validateVisibleForm(form)) return;
+    if (!validateVisibleForm(form, t)) return;
     if (page === 1 && selectedPrograms.length === 0) {
       setError("Please select at least one teaching program.");
       return;
@@ -432,7 +441,7 @@ export function TeacherApplicationForm() {
       return;
     }
     setError("");
-    if (!validateVisibleForm(form)) return;
+    if (!validateVisibleForm(form, t)) return;
     setStatus("saving");
     try {
       await submitTeacherApplication({
@@ -463,11 +472,11 @@ export function TeacherApplicationForm() {
     >
       <div className="text-center">
         <span className="inline-flex rounded-full border border-[#8B5CF6]/20 bg-[#8B5CF6]/10 px-4 py-2 text-sm font-semibold text-[#8B5CF6]">
-          Join Our Team
+          {t("Join Our Team")}
         </span>
-        <h1 className="mt-5 text-[32px] font-extrabold leading-tight text-[#111827]">Teacher Application</h1>
+        <h1 className="mt-5 text-[32px] font-extrabold leading-tight text-[#111827]">{t("Teacher Application")}</h1>
         <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-[#6B7280]">
-          Thank you for your interest in teaching with us. Please complete every step so we can review your application properly.
+          {t("Thank you for your interest in teaching with us. Please complete every step so we can review your application properly.")}
         </p>
       </div>
 
@@ -478,25 +487,25 @@ export function TeacherApplicationForm() {
       <div className="mt-8 min-h-[600px]">
         {page === 0 ? (
           <div className="grid gap-4">
-            <SectionTitle title="Personal Information" icon={UserRound} />
-            <Field label="First Name" name="firstName" value={values.firstName} onChange={update} required placeholder="Mahmoud" autoComplete="given-name" />
-            <Field label="Last Name" name="lastName" value={values.lastName} onChange={update} required placeholder="Barry" autoComplete="family-name" />
-            <Field label="Email" name="email" value={values.email} onChange={update} required type="email" placeholder="Mahmoud.barry@example.com" autoComplete="email" />
-            <Field label="Current Location (Country and City)" name="currentLocation" value={values.currentLocation} onChange={update} required placeholder="United States, New York" />
-            <SelectField label="Gender" name="gender" value={values.gender} onChange={update} options={genderOptions} required />
+            <SectionTitle title={t("Personal Information")} icon={UserRound} />
+            <Field label={t("First Name")} name="firstName" value={values.firstName} onChange={update} required placeholder="Mahmoud" autoComplete="given-name" />
+            <Field label={t("Last Name")} name="lastName" value={values.lastName} onChange={update} required placeholder="Barry" autoComplete="family-name" />
+            <Field label={t("Email")} name="email" value={values.email} onChange={update} required type="email" placeholder="Mahmoud.barry@example.com" autoComplete="email" />
+            <Field label={t("Current Location (Country and City)")} name="currentLocation" value={values.currentLocation} onChange={update} required placeholder={t("United States, New York")} />
+            <SelectField label={t("Gender")} name="gender" value={values.gender} onChange={update} options={genderOptions} required />
             <PhoneField countryCode={values.countryCode} phoneNumber={values.phoneNumber} onChange={update} />
-            <Field label="Nationality" name="nationality" value={values.nationality} onChange={update} required placeholder="American" />
-            <SelectField label="I am currently a..." name="currentStatus" value={values.currentStatus} onChange={update} options={currentStatusOptions} required />
+            <Field label={t("Nationality")} name="nationality" value={values.nationality} onChange={update} required placeholder={t("American")} />
+            <SelectField label={t("I am currently a...")} name="currentStatus" value={values.currentStatus} onChange={update} options={currentStatusOptions} required />
             {values.currentStatus === "other" ? (
-              <Field label="Please specify" name="currentStatusOther" value={values.currentStatusOther} onChange={update} required placeholder="Your current status" />
+              <Field label={t("Please specify")} name="currentStatusOther" value={values.currentStatusOther} onChange={update} required placeholder={t("Your current status")} />
             ) : null}
           </div>
         ) : null}
 
         {page === 1 ? (
           <div className="grid gap-4">
-            <SectionTitle title="Teaching Programs" icon={BookOpen} />
-            <p className="text-sm text-[#6B7280]">Select the program(s) you are interested in teaching.</p>
+            <SectionTitle title={t("Teaching Programs")} icon={BookOpen} />
+            <p className="text-sm text-[#6B7280]">{t("Select the program(s) you are interested in teaching.")}</p>
             <div className="grid gap-3">
               {teachingPrograms.map(({ value, label, icon: Icon, color }) => {
                 const selected = selectedPrograms.includes(value);
@@ -512,13 +521,13 @@ export function TeacherApplicationForm() {
                       backgroundColor: selected ? `${color}18` : "white",
                     }}
                     aria-pressed={selected}
-                    aria-label={label}
+                    aria-label={t(label)}
                   >
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: selected ? `${color}2e` : "#F3F4F6", color }}>
                       <Icon size={20} />
                     </span>
                     <span className="flex-1 text-sm font-semibold" style={{ color: selected ? color : "#374151" }}>
-                      {label}
+                      {t(label)}
                     </span>
                     <CheckCircle2 size={24} className={selected ? "" : "opacity-25"} style={{ color }} />
                   </button>
@@ -526,23 +535,23 @@ export function TeacherApplicationForm() {
               })}
             </div>
             {selectedPrograms.includes("other") ? (
-              <Field label="Please specify other program" name="teachingProgramOther" value={values.teachingProgramOther} onChange={update} required placeholder="Your program" />
+              <Field label={t("Please specify other program")} name="teachingProgramOther" value={values.teachingProgramOther} onChange={update} required placeholder={t("Your program")} />
             ) : null}
             {isEnglishSelected ? (
               <TextArea
-                label="If interested in the After School English track, list subjects you can teach"
+                label={t("If interested in the After School English track, list subjects you can teach")}
                 name="englishSubjects"
                 value={values.englishSubjects}
                 onChange={update}
                 rows={3}
-                placeholder="Reading, Writing, Grammar, Vocabulary..."
+                placeholder={t("Reading, Writing, Grammar, Vocabulary...")}
               />
             ) : null}
             {isIslamicSelected ? (
               <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h3 className="font-bold text-[#374151]">Religious Studies Qualifications</h3>
+                <h3 className="font-bold text-[#374151]">{t("Religious Studies Qualifications")}</h3>
                 <SelectField
-                  label="Are you excellent in Tajwid Rules?"
+                  label={t("Are you excellent in Tajwid Rules?")}
                   name="tajwidLevel"
                   value={values.tajwidLevel}
                   onChange={update}
@@ -554,7 +563,7 @@ export function TeacherApplicationForm() {
                   ]}
                 />
                 <SelectField
-                  label="What is your level of Quran Memorization?"
+                  label={t("What is your level of Quran Memorization?")}
                   name="quranMemorization"
                   value={values.quranMemorization}
                   onChange={update}
@@ -567,7 +576,7 @@ export function TeacherApplicationForm() {
                   ]}
                 />
                 <SelectField
-                  label="How perfectly do you read and write Arabic?"
+                  label={t("How perfectly do you read and write Arabic?")}
                   name="arabicProficiency"
                   value={values.arabicProficiency}
                   onChange={update}
@@ -581,7 +590,7 @@ export function TeacherApplicationForm() {
               </div>
             ) : null}
             <div>
-              <h3 className="mb-3 font-bold text-[#374151]">Languages You Fluently Speak</h3>
+              <h3 className="mb-3 font-bold text-[#374151]">{t("Languages You Fluently Speak")}</h3>
               <div className="flex flex-wrap gap-2">
                 {languages.map((language) => {
                   const selected = selectedLanguages.includes(language);
@@ -597,7 +606,7 @@ export function TeacherApplicationForm() {
                       }`}
                       aria-pressed={selected}
                     >
-                      {language}
+                      {t(`${language}|language`)}
                     </button>
                   );
                 })}
@@ -608,9 +617,9 @@ export function TeacherApplicationForm() {
 
         {page === 2 ? (
           <div className="grid gap-4">
-            <SectionTitle title="Experience & Commitment" icon={ShieldCheck} />
+            <SectionTitle title={t("Experience & Commitment")} icon={ShieldCheck} />
             <SelectField
-              label="How disciplined are you with time, especially working late at night?"
+              label={t("How disciplined are you with time, especially working late at night?")}
               name="timeDiscipline"
               value={values.timeDiscipline}
               onChange={update}
@@ -623,7 +632,7 @@ export function TeacherApplicationForm() {
               ]}
             />
             <SelectField
-              label="How well can you balance school/personal schedule with teaching (6 hrs/week required)?"
+              label={t("How well can you balance school/personal schedule with teaching (6 hrs/week required)?")}
               name="scheduleBalance"
               value={values.scheduleBalance}
               onChange={update}
@@ -637,7 +646,7 @@ export function TeacherApplicationForm() {
               ]}
             />
             <TextArea
-              label="Why are you interested in applying for a teaching role with us? (100-400 words)"
+              label={t("Why are you interested in applying for a teaching role with us? (100-400 words)")}
               name="interestReason"
               value={values.interestReason}
               onChange={update}
@@ -645,10 +654,10 @@ export function TeacherApplicationForm() {
               minWords={100}
               maxWords={400}
               rows={6}
-              placeholder="Describe your motivation..."
+              placeholder={t("Describe your motivation...")}
             />
             <SelectField
-              label="How often do you have electricity/energy at home?"
+              label={t("How often do you have electricity/energy at home?")}
               name="electricityAccess"
               value={values.electricityAccess}
               onChange={update}
@@ -661,7 +670,7 @@ export function TeacherApplicationForm() {
               ]}
             />
             <SelectField
-              label="How comfortable are you teaching teenagers, adults, and children online?"
+              label={t("How comfortable are you teaching teenagers, adults, and children online?")}
               name="teachingComfort"
               value={values.teachingComfort}
               onChange={update}
@@ -674,7 +683,7 @@ export function TeacherApplicationForm() {
               ]}
             />
             <SelectField
-              label="Do you guarantee responsible, legal, and moral interaction with students, especially minors?"
+              label={t("Do you guarantee responsible, legal, and moral interaction with students, especially minors?")}
               name="studentInteractionGuarantee"
               value={values.studentInteractionGuarantee}
               onChange={update}
@@ -686,18 +695,18 @@ export function TeacherApplicationForm() {
                 { value: "no_cant", label: "No, I can't" },
               ]}
             />
-            <SelectField label="How soon are you available to start teaching?" name="availabilityStart" value={values.availabilityStart} onChange={update} options={availabilityOptions} required />
+            <SelectField label={t("How soon are you available to start teaching?")} name="availabilityStart" value={values.availabilityStart} onChange={update} options={availabilityOptions} required />
             {values.availabilityStart === "other" ? (
-              <Field label="Please specify availability" name="availabilityStartOther" value={values.availabilityStartOther} onChange={update} required placeholder="Your availability" />
+              <Field label={t("Please specify availability")} name="availabilityStartOther" value={values.availabilityStartOther} onChange={update} required placeholder={t("Your availability")} />
             ) : null}
           </div>
         ) : null}
 
         {page === 3 ? (
           <div className="grid gap-4">
-            <SectionTitle title="Technical Requirements" icon={Computer} />
+            <SectionTitle title={t("Technical Requirements")} icon={Computer} />
             <SelectField
-              label="What device do you intend to use to teach classes?"
+              label={t("What device do you intend to use to teach classes?")}
               name="teachingDevice"
               value={values.teachingDevice}
               onChange={update}
@@ -710,7 +719,7 @@ export function TeacherApplicationForm() {
               ]}
             />
             <SelectField
-              label="How often do you have access to the internet?"
+              label={t("How often do you have access to the internet?")}
               name="internetAccess"
               value={values.internetAccess}
               onChange={update}
@@ -727,9 +736,9 @@ export function TeacherApplicationForm() {
 
         {page === 4 ? (
           <div className="grid gap-4">
-            <SectionTitle title="Teaching Scenarios" icon={PersonStanding} />
+            <SectionTitle title={t("Teaching Scenarios")} icon={PersonStanding} />
             <TextArea
-              label="Scenario: What would you do if a student (child) does not want to participate/read during class? (100-300 words)"
+              label={t("Scenario: What would you do if a student (child) does not want to participate/read during class? (100-300 words)")}
               name="scenarioNonParticipatingStudent"
               value={values.scenarioNonParticipatingStudent}
               onChange={update}
@@ -737,24 +746,24 @@ export function TeacherApplicationForm() {
               minWords={100}
               maxWords={300}
               rows={6}
-              placeholder="Describe your approach..."
+              placeholder={t("Describe your approach...")}
             />
-            <SectionTitle title="Feedback" icon={Send} />
+            <SectionTitle title={t("Feedback")} icon={Send} />
             <TextArea
-              label="Any feedback on this application form? What didn't you like? (Optional)"
+              label={t("Any feedback on this application form? What didn't you like? (Optional)")}
               name="feedbackOnForm"
               value={values.feedbackOnForm}
               onChange={update}
               rows={4}
-              placeholder="Your feedback helps us improve..."
+              placeholder={t("Your feedback helps us improve...")}
             />
           </div>
         ) : null}
       </div>
 
-      {error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
-      {status === "success" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">Application submitted successfully.</p> : null}
-      {status === "error" ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">We could not submit the application. Please try again.</p> : null}
+      {error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{t(error)}</p> : null}
+      {status === "success" ? <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{t("Application submitted successfully.")}</p> : null}
+      {status === "error" ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{t("We could not submit the application. Please try again.")}</p> : null}
 
       <div className="mt-8 flex items-center justify-between gap-3">
         {page > 0 ? (
@@ -763,7 +772,7 @@ export function TeacherApplicationForm() {
             className="min-h-12 rounded-xl border border-[#E5E7EB] bg-white px-6 py-4 font-semibold text-[#374151] transition hover:bg-[#F9FAFB]"
             onClick={() => setPage((current) => Math.max(0, current - 1))}
           >
-            Previous
+            {t("Previous")}
           </button>
         ) : (
           <span />
@@ -773,7 +782,7 @@ export function TeacherApplicationForm() {
           className="min-h-12 min-w-[180px] rounded-xl bg-[#8B5CF6] px-6 py-4 font-semibold text-white transition hover:bg-[#7C3AED] disabled:cursor-wait disabled:opacity-75"
           disabled={status === "saving"}
         >
-          {status === "saving" ? "Submitting..." : page < totalPages - 1 ? "Next" : "Submit Application"}
+          {status === "saving" ? t("Submitting...") : page < totalPages - 1 ? t("Next") : t("Submit Application")}
         </button>
       </div>
     </form>
@@ -781,6 +790,7 @@ export function TeacherApplicationForm() {
 }
 
 export function LeadershipApplicationForm() {
+  const t = usePublicT();
   const [status, setStatus] = useState<Status>("idle");
   const [values, setValues] = useState({ ...leadershipInitial });
 
@@ -791,7 +801,7 @@ export function LeadershipApplicationForm() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    if (!validateVisibleForm(form)) return;
+    if (!validateVisibleForm(form, t)) return;
     setStatus("saving");
     try {
       await submitLeadershipApplication({
@@ -813,34 +823,34 @@ export function LeadershipApplicationForm() {
     >
       <div className="text-center">
         <span className="inline-flex rounded-full border border-[#10B981]/20 bg-[#10B981]/10 px-4 py-2 text-sm font-semibold text-[#10B981]">
-          Join Our Leadership Team
+          {t("Join Our Leadership Team")}
         </span>
-        <h1 className="mt-5 text-[32px] font-extrabold leading-tight text-[#111827]">Join Our Leadership Team</h1>
+        <h1 className="mt-5 text-[32px] font-extrabold leading-tight text-[#111827]">{t("Join Our Leadership Team")}</h1>
         <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-[#6B7280]">
-          Lead, inspire, and make a lasting impact by helping Alluwal grow with care and structure.
+          {t("Lead, inspire, and make a lasting impact by helping Alluwal grow with care and structure.")}
         </p>
       </div>
 
-      <h2 className="text-xl font-bold text-[#111827]">Personal Information</h2>
+      <h2 className="text-xl font-bold text-[#111827]">{t("Personal Information")}</h2>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="First Name" name="firstName" value={values.firstName} onChange={update} required autoComplete="given-name" />
-        <Field label="Last Name" name="lastName" value={values.lastName} onChange={update} required autoComplete="family-name" />
+        <Field label={t("First Name")} name="firstName" value={values.firstName} onChange={update} required autoComplete="given-name" />
+        <Field label={t("Last Name")} name="lastName" value={values.lastName} onChange={update} required autoComplete="family-name" />
       </div>
-      <Field label="Email" name="email" value={values.email} onChange={update} required type="email" autoComplete="email" />
-      <Field label="Current Location (Country and City)" name="currentLocation" value={values.currentLocation} onChange={update} required />
+      <Field label={t("Email")} name="email" value={values.email} onChange={update} required type="email" autoComplete="email" />
+      <Field label={t("Current Location (Country and City)")} name="currentLocation" value={values.currentLocation} onChange={update} required />
       <div className="grid gap-4 md:grid-cols-[2fr_3fr]">
-        <SelectField label="Gender" name="gender" value={values.gender} onChange={update} options={genderOptions} required />
+        <SelectField label={t("Gender")} name="gender" value={values.gender} onChange={update} options={genderOptions} required />
         <PhoneField countryCode={values.countryCode} phoneNumber={values.phoneNumber} onChange={update} tone="green" />
       </div>
-      <Field label="Nationality" name="nationality" value={values.nationality} onChange={update} required />
-      <SelectField label="I am currently a..." name="currentStatus" value={values.currentStatus} onChange={update} options={leadershipStatusOptions} required />
+      <Field label={t("Nationality")} name="nationality" value={values.nationality} onChange={update} required />
+      <SelectField label={t("I am currently a...")} name="currentStatus" value={values.currentStatus} onChange={update} options={leadershipStatusOptions} required />
       {values.currentStatus === "other" ? (
-        <Field label="Please specify" name="currentStatusOther" value={values.currentStatusOther} onChange={update} required />
+        <Field label={t("Please specify")} name="currentStatusOther" value={values.currentStatusOther} onChange={update} required />
       ) : null}
 
-      <h2 className="text-xl font-bold text-[#111827]">Leadership Interest</h2>
+      <h2 className="text-xl font-bold text-[#111827]">{t("Leadership Interest")}</h2>
       <TextArea
-        label="Why are you interested in a leadership role?"
+        label={t("Why are you interested in a leadership role?")}
         name="interestReason"
         value={values.interestReason}
         onChange={update}
@@ -848,15 +858,15 @@ export function LeadershipApplicationForm() {
         rows={4}
       />
       <TextArea
-        label="Relevant Leadership/Management Experience (Optional)"
+        label={t("Relevant Leadership/Management Experience (Optional)")}
         name="relevantExperience"
         value={values.relevantExperience}
         onChange={update}
         rows={4}
       />
-      <SelectField label="How soon are you available to start?" name="availabilityStart" value={values.availabilityStart} onChange={update} options={availabilityOptions} required />
+      <SelectField label={t("How soon are you available to start?")} name="availabilityStart" value={values.availabilityStart} onChange={update} options={availabilityOptions} required />
       {values.availabilityStart === "other" ? (
-        <Field label="Please specify availability" name="availabilityStartOther" value={values.availabilityStartOther} onChange={update} required />
+        <Field label={t("Please specify availability")} name="availabilityStartOther" value={values.availabilityStartOther} onChange={update} required />
       ) : null}
 
       <button
@@ -865,10 +875,10 @@ export function LeadershipApplicationForm() {
         disabled={status === "saving"}
       >
         <Send size={18} />
-        {status === "saving" ? "Submitting..." : "Submit Application"}
+        {status === "saving" ? t("Submitting...") : t("Submit Application")}
       </button>
-      {status === "success" ? <p className="text-sm font-bold text-emerald-700">Application submitted successfully.</p> : null}
-      {status === "error" ? <p className="text-sm font-bold text-red-700">We could not submit the application. Please try again.</p> : null}
+      {status === "success" ? <p className="text-sm font-bold text-emerald-700">{t("Application submitted successfully.")}</p> : null}
+      {status === "error" ? <p className="text-sm font-bold text-red-700">{t("We could not submit the application. Please try again.")}</p> : null}
     </form>
   );
 }
