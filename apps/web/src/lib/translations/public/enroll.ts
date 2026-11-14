@@ -52,7 +52,7 @@ export const FR_PUBLIC_ENROLL: Record<string, string> = {
   // ------------------------------------------ enroll: student details --
   "Student's Information": "Informations sur l'élève",
   "Your Information": "Vos informations",
-  "Names, ages, and genders for each learner.": "Nom, âge et sexe de chaque apprenant.",
+  "Names, ages, and genders for each learner.": "Nom, âge et genre de chaque apprenant.",
   "Student {number}": "Élève {number}",
   "Full Name": "Nom complet",
   "Student {number} name": "Nom de l'élève {number}",
@@ -60,9 +60,9 @@ export const FR_PUBLIC_ENROLL: Record<string, string> = {
   "Student {number} full name": "Nom complet de l'élève {number}",
   "Age": "Âge",
   "Years": "En années",
-  "Gender": "Sexe",
-  "Male": "Masculin",
-  "Female": "Féminin",
+  "Gender": "Genre",
+  "Male": "Homme",
+  "Female": "Femme",
   "Stay in touch while you apply (optional)": "Restons en contact pendant votre inscription (facultatif)",
   "Leave an email or WhatsApp number and our team can help you finish enrolling if you get interrupted.":
     "Laissez une adresse e-mail ou un numéro WhatsApp : notre équipe pourra vous aider à terminer l'inscription si vous êtes interrompu.",

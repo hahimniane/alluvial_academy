@@ -8,4 +8,6 @@ export const FR_PUBLIC_SHARED: Record<string, string> = {
   "Français": "Français",
   "Switch to French": "Passer en français",
   "Switch to English": "Passer en anglais",
+  "Chat with us": "Écrivez-nous",
+  "Chat with us on WhatsApp": "Écrivez-nous sur WhatsApp",
 };
