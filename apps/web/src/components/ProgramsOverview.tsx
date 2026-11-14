@@ -65,7 +65,9 @@ import {
   type PublicSitePlanPricing,
   type PublicSitePricingDoc,
 } from "@/lib/publicSiteCms";
+import { usePublicT } from "@/lib/publicI18n";
 
+type PublicT = ReturnType<typeof usePublicT>;
 type Status = "idle" | "saving" | "success" | "error";
 type LinkedParent = {
   userId?: string;
@@ -251,6 +253,7 @@ const initialContact = {
 };
 
 export function ProgramsOverview() {
+  const t = usePublicT();
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get("category") ?? "";
   const initialTrack = searchParams.get("track") ?? "";
@@ -357,9 +360,9 @@ export function ProgramsOverview() {
     student.programs.map((program) => {
       const subject = subjectFor(program.subjectId);
       return {
-        title: student.name.trim() || `Student ${index + 1}`,
+        title: student.name.trim() || t("Student {number}", { number: index + 1 }),
         // Program and hours only — the monthly figure is settled with the family.
-        detail: `${subject?.shortLabel ?? "—"} · ${program.hoursPerWeek} hrs/wk`,
+        detail: `${subject ? subjectDisplayName(t, subject.shortLabel) : "—"} · ${t("{hours} hrs/wk", { hours: program.hoursPerWeek })}`,
       };
     }),
   );
@@ -502,7 +505,7 @@ export function ProgramsOverview() {
   async function onParentLookup() {
     const identifier = parentIdentifier.trim();
     if (!identifier) {
-      setParentLookupMessage("Please enter an email or kiosque code to link account.");
+      setParentLookupMessage(t("Please enter an email or kiosque code to link account."));
       return;
     }
     setCheckingParent(true);
@@ -519,12 +522,12 @@ export function ProgramsOverview() {
           email: parent.email || current.email,
           phoneNumber: parent.phone || current.phoneNumber,
         }));
-        setParentLookupMessage("Account linked successfully.");
+        setParentLookupMessage(t("Account linked successfully."));
       } else {
-        setParentLookupMessage("No parent account found with that email or kiosque code.");
+        setParentLookupMessage(t("No parent account found with that email or kiosque code."));
       }
     } catch {
-      setParentLookupMessage("Could not verify account right now. Please try again.");
+      setParentLookupMessage(t("Could not verify account right now. Please try again."));
     } finally {
       setCheckingParent(false);
     }
@@ -533,27 +536,27 @@ export function ProgramsOverview() {
   function validateStep(form: HTMLFormElement) {
     setError("");
     if (!form.reportValidity()) return false;
-    if (step === 0 && !role) return fail("Please select who you are (Student, Parent, or Guardian).");
+    if (step === 0 && !role) return fail(t("Please select who you are (Student, Parent, or Guardian)."));
     if (step === 1) {
       const missingIndex = students.findIndex((student) => !student.name.trim());
-      if (missingIndex >= 0) return fail(`Please enter name for Student ${missingIndex + 1}.`);
+      if (missingIndex >= 0) return fail(t("Please enter name for Student {number}.", { number: missingIndex + 1 }));
     }
     if (step === 2) {
       for (let index = 0; index < students.length; index += 1) {
         const student = students[index];
-        const who = student.name.trim() || `Student ${index + 1}`;
+        const who = student.name.trim() || t("Student {number}", { number: index + 1 });
         for (let p = 0; p < student.programs.length; p += 1) {
           const program = student.programs[p];
-          const which = student.programs.length > 1 ? `${who}, program ${p + 1}` : who;
+          const which = student.programs.length > 1 ? t("{who}, program {number}", { who, number: p + 1 }) : who;
           const subject = subjectFor(program.subjectId);
-          if (!subject) return fail(`Please select a program for ${which}.`);
+          if (!subject) return fail(t("Please select a program for {which}.", { which }));
           if (subject.id === "languages" && !program.specificLanguage) {
-            return fail(`Please select a specific language for ${which}.`);
+            return fail(t("Please select a specific language for {which}.", { which }));
           }
-          if (!program.level) return fail(`Please select a level for ${which}.`);
-          if (!program.classType) return fail(`Please select a class type for ${which}.`);
+          if (!program.level) return fail(t("Please select a level for {which}.", { which }));
+          if (!program.classType) return fail(t("Please select a class type for {which}.", { which }));
           if (!hoursMatchSessions(program.hoursPerWeek, program.sessionsPerWeek, program.sessionMinutes)) {
-            return fail(`${which}: sessions and weekly hours don't match yet.`);
+            return fail(t("{which}: sessions and weekly hours don't match yet.", { which }));
           }
         }
       }
@@ -561,16 +564,20 @@ export function ProgramsOverview() {
     if (step === 3) {
       for (let index = 0; index < students.length; index += 1) {
         const student = students[index];
-        const who = student.name.trim() || `Student ${index + 1}`;
+        const who = student.name.trim() || t("Student {number}", { number: index + 1 });
         for (let p = 0; p < student.programs.length; p += 1) {
           const program = student.programs[p];
-          const which = student.programs.length > 1 ? `${who}, program ${p + 1}` : who;
-          if (program.preferredDays.length === 0) return fail(`${which}: please select at least one preferred day.`);
+          const which = student.programs.length > 1 ? t("{who}, program {number}", { who, number: p + 1 }) : who;
+          if (program.preferredDays.length === 0) return fail(t("{which}: please select at least one preferred day.", { which }));
           const block = blockById(program.timeOfDayPreference);
-          if (!block) return fail(`${which}: please choose a part of the day.`);
+          if (!block) return fail(t("{which}: please choose a part of the day.", { which }));
           if (!sessionFitsBlock(block, program.sessionMinutes)) {
             return fail(
-              `${which}: a ${sessionLabel(program.sessionMinutes)} session doesn't fit inside ${block.label.toLowerCase()}.`,
+              t("{which}: a {duration} session doesn't fit inside {block}.", {
+                which,
+                duration: t(sessionLabel(program.sessionMinutes)),
+                block: t(block.label).toLowerCase(),
+              }),
             );
           }
         }
@@ -578,7 +585,7 @@ export function ProgramsOverview() {
     }
     if (step === 4) {
       if (isParentGuardian && !linkedParent && !contact.parentName.trim()) {
-        return fail("Please enter the parent or guardian name.");
+        return fail(t("Please enter the parent or guardian name."));
       }
     }
     return true;
@@ -667,10 +674,10 @@ export function ProgramsOverview() {
           <div className="rounded-full bg-[#10B981]/10 p-6">
             <CheckCircle2 size={80} className="text-[#10B981]" strokeWidth={2.4} />
           </div>
-          <h1 className="mt-8 text-[32px] font-extrabold leading-tight text-[#111827]">Request Received</h1>
-          <p className="mt-4 text-lg leading-[1.6] text-[#6B7280]">Thank You For Your Interest In</p>
+          <h1 className="mt-8 text-[32px] font-extrabold leading-tight text-[#111827]">{t("Request Received")}</h1>
+          <p className="mt-4 text-lg leading-[1.6] text-[#6B7280]">{t("Thank You For Your Interest In")}</p>
           <Link href="/" className="alluwal-button alluwal-button-primary mt-12 min-h-[52px] px-8 text-base font-semibold">
-            Back To Home
+            {t("Back To Home")}
           </Link>
         </div>
       </section>
@@ -684,7 +691,7 @@ export function ProgramsOverview() {
         <form onSubmit={onSubmit} className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-sm">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-4">
             {step === 0 ? (
-              <StepCard title="Who's enrolling" subtitle="Student, parent, or guardian — and how many children if applicable.">
+              <StepCard title={t("Who's enrolling")} subtitle={t("Student, parent, or guardian — and how many children if applicable.")}>
                 <div className="grid gap-1.5">
                   {roles.map(({ value, title, subtitle, icon: Icon }) => (
                     <button
@@ -697,8 +704,8 @@ export function ProgramsOverview() {
                     >
                       <Icon size={22} className={role === value ? "text-[#4338CA]" : "text-slate-500"} />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-slate-900">{title}</span>
-                        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{subtitle}</span>
+                        <span className="block text-sm font-bold text-slate-900">{t(title)}</span>
+                        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{t(subtitle)}</span>
                       </span>
                       {role === value ? <CheckCircle2 size={20} className="text-[#4F46E5]" /> : null}
                     </button>
@@ -709,12 +716,12 @@ export function ProgramsOverview() {
                   <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#F0F9FF] px-3.5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-slate-900">Children</p>
-                        <p className="text-[11px] leading-4 text-slate-500">You can add multiple students in this enrollment.</p>
+                        <p className="text-[13px] font-bold text-slate-900">{t("Children")}</p>
+                        <p className="text-[11px] leading-4 text-slate-500">{t("You can add multiple students in this enrollment.")}</p>
                       </div>
                       <button
                         type="button"
-                        aria-label="Remove student"
+                        aria-label={t("Remove student")}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 disabled:text-slate-300"
                         onClick={removeLastStudent}
                         disabled={students.length <= 1}
@@ -724,7 +731,7 @@ export function ProgramsOverview() {
                       <span className="w-7 text-center text-xl font-black text-slate-900">{students.length}</span>
                       <button
                         type="button"
-                        aria-label="Add student"
+                        aria-label={t("Add student")}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600"
                         onClick={addStudent}
                       >
@@ -754,8 +761,8 @@ export function ProgramsOverview() {
 
             {step === 1 ? (
               <StepCard
-                title={isParentGuardian ? "Student's Information" : "Your Information"}
-                subtitle="Names, ages, and genders for each learner."
+                title={isParentGuardian ? t("Student's Information") : t("Your Information")}
+                subtitle={t("Names, ages, and genders for each learner.")}
               >
                 {students.length > 1 ? (
                   <StudentTabs
@@ -771,22 +778,22 @@ export function ProgramsOverview() {
                   onChange={(patch) => updateStudent(activeStudentIndex, patch)}
                 />
                 <div className="mt-4 rounded-xl border border-[#BAE6FD] bg-[#F0F9FF] px-3.5 py-3">
-                  <p className="text-[12px] font-bold text-slate-900">Stay in touch while you apply (optional)</p>
+                  <p className="text-[12px] font-bold text-slate-900">{t("Stay in touch while you apply (optional)")}</p>
                   <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-                    Leave an email or WhatsApp number and our team can help you finish enrolling if you get interrupted.
+                    {t("Leave an email or WhatsApp number and our team can help you finish enrolling if you get interrupted.")}
                   </p>
                   <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
                     <IconField
-                      label="Email"
+                      label={t("Email")}
                       name="earlyEmail"
                       value={contact.email}
-                      placeholder="your@email.com"
+                      placeholder={t("your@email.com")}
                       icon={<Mail size={17} />}
                       onChange={(value) => updateContact("email", value)}
                       type="email"
                     />
                     <IconField
-                      label="WhatsApp / phone"
+                      label={t("WhatsApp / phone")}
                       name="earlyWhatsApp"
                       value={contact.whatsAppNumber}
                       placeholder="+1 555 000 0000"
@@ -799,10 +806,10 @@ export function ProgramsOverview() {
             ) : null}
 
             {step === 2 ? (
-              <StepCard title="Program Details" subtitle={students.length > 1 && !applyProgramToAll ? "Each student can have a separate program and hours." : "Choose a program track, class preferences, and weekly hours."}>
+              <StepCard title={t("Program Details")} subtitle={students.length > 1 && !applyProgramToAll ? t("Each student can have a separate program and hours.") : t("Choose a program track, class preferences, and weekly hours.")}>
                 {isParentGuardian && students.length > 1 ? (
                   <label className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-800">
-                    Customize per student
+                    {t("Customize per student")}
                     <input
                       type="checkbox"
                       checked={!applyProgramToAll}
@@ -816,10 +823,11 @@ export function ProgramsOverview() {
                   const student = students[editingIndex] ?? primaryStudent;
                   const scope =
                     applyProgramToAll && students.length > 1
-                      ? "All children"
+                      ? t("All children")
                       : students.length > 1
-                        ? student.name.trim() || `Student ${editingIndex + 1}`
+                        ? student.name.trim() || t("Student {number}", { number: editingIndex + 1 })
                         : "";
+                  const addProgramName = applyProgramToAll && students.length > 1 ? "" : scope || student.name.trim();
                   return (
                     <div className="grid gap-3">
                       {!applyProgramToAll && students.length > 1 ? (
@@ -846,7 +854,11 @@ export function ProgramsOverview() {
                         onClick={() => addProgram(editingIndex)}
                         className="w-full rounded-lg border-[1.5px] border-dashed border-[#BFDBFE] bg-[#FAFBFC] px-3 py-2.5 text-[11px] font-semibold text-[#3B82F6] hover:bg-[#EFF6FF]"
                       >
-                        + Add another program for {scope || student.name.trim() || "this student"}
+                        {addProgramName
+                          ? t("+ Add another program for {name}", { name: addProgramName })
+                          : applyProgramToAll && students.length > 1
+                            ? t("+ Add another program for All children")
+                            : t("+ Add another program for this student")}
                       </button>
                     </div>
                   );
@@ -855,7 +867,7 @@ export function ProgramsOverview() {
             ) : null}
 
             {step === 3 ? (
-              <StepCard title="Schedule Preferences" subtitle="Choose the days and the part of the day that suit you. We confirm exact times with you afterwards.">
+              <StepCard title={t("Schedule Preferences")} subtitle={t("Choose the days and the part of the day that suit you. We confirm exact times with you afterwards.")}>
                 {students.length > 1 ? (
                   <StudentTabs students={students} activeIndex={activeStudentIndex} onSelect={setActiveStudentIndex} />
                 ) : null}
@@ -874,7 +886,7 @@ export function ProgramsOverview() {
             ) : null}
 
             {step === 4 ? (
-              <StepCard title="Contact & review" subtitle="Review your selections, enter contact details, then submit." centerHeader>
+              <StepCard title={t("Contact & review")} subtitle={t("Review your selections, enter contact details, then submit.")} centerHeader>
                 <ReviewPanel
                   students={students}
                   onEditStep={setStep}
@@ -889,7 +901,7 @@ export function ProgramsOverview() {
             ) : null}
 
             {error ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
-            {status === "error" ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">We could not submit the enrollment request. Please try again.</p> : null}
+            {status === "error" ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{t("We could not submit the enrollment request. Please try again.")}</p> : null}
             {step <= 3 ? (
               <div className="mt-2">
                 {step >= 1 ? (
@@ -925,6 +937,7 @@ export function ProgramsOverview() {
 }
 
 function StepBar({ currentStep }: { currentStep: number }) {
+  const t = usePublicT();
   return (
     <div className="overflow-x-auto bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-2 py-1.5">
       <div className="flex min-w-max items-center justify-center">
@@ -940,7 +953,7 @@ function StepBar({ currentStep }: { currentStep: number }) {
                 }`}>
                   {complete ? <Check size={13} /> : current ? <Icon size={13} /> : index + 1}
                 </span>
-                <span className={`mt-0.5 whitespace-nowrap text-[8.5px] ${current ? "font-bold text-white" : "text-slate-400"}`}>{title}</span>
+                <span className={`mt-0.5 whitespace-nowrap text-[8.5px] ${current ? "font-bold text-white" : "text-slate-400"}`}>{t(title)}</span>
               </div>
             </div>
           );
@@ -961,11 +974,12 @@ function EnrollmentActions({
   disabled: boolean;
   onPrevious: () => void;
 }) {
+  const t = usePublicT();
   const isFirstStep = step === 0;
   const compactActions = step <= 4;
   const isFinalStep = step >= 4;
-  const previousLabel = step <= 4 ? "Back" : "Previous";
-  const actionLabel = status === "saving" ? "Submitting..." : isFinalStep ? "Submit Request" : "Continue";
+  const previousLabel = step <= 4 ? t("Back") : t("Previous");
+  const actionLabel = status === "saving" ? t("Submitting...") : isFinalStep ? t("Submit Request") : t("Continue");
 
   return (
     <div className={`flex items-center gap-3 ${compactActions ? "justify-start" : "justify-between"}`}>
@@ -992,10 +1006,11 @@ function EnrollmentActions({
 }
 
 function EnrollmentInlineSummary({ students, totalHours }: { students: number; totalHours: number }) {
+  const t = usePublicT();
   return (
     <div className="mb-2 border-t border-slate-200 pt-2">
       <div className="flex items-center justify-between text-[11px] text-slate-500">
-        <span>{students} student{students > 1 ? "s" : ""} · {totalHours} hrs/wk</span>
+        <span>{students > 1 ? t("{count} students", { count: students }) : t("{count} student", { count: students })} · {t("{hours} hrs/wk", { hours: totalHours })}</span>
         <span className="h-0.5 w-3 rounded bg-emerald-500" aria-hidden="true" />
       </div>
     </div>
@@ -1003,9 +1018,10 @@ function EnrollmentInlineSummary({ students, totalHours }: { students: number; t
 }
 
 function EnrollmentSelectionSummary({ lines }: { lines: { title: string; detail: string }[] }) {
+  const t = usePublicT();
   return (
     <div className="mb-2 rounded-t-md border-t border-slate-200 bg-[#F8FAFC] px-3 py-2">
-      <p className="text-[11px] font-bold text-[#4F46E5]">Your selections</p>
+      <p className="text-[11px] font-bold text-[#4F46E5]">{t("Your selections")}</p>
       <div className="mt-2 grid gap-1">
         {lines.map((line) => (
           <div key={line.title} className="text-[11px] leading-4">
@@ -1084,6 +1100,7 @@ function IconField({
 }
 
 function GenderSegment({ name, value, onChange }: { name: string; value: string; onChange: (value: string) => void }) {
+  const t = usePublicT();
   const options = [
     { value: "Male", icon: Mars },
     { value: "Female", icon: Venus },
@@ -1091,7 +1108,7 @@ function GenderSegment({ name, value, onChange }: { name: string; value: string;
 
   return (
     <div className="grid gap-1.5">
-      <p className="text-[12px] font-bold text-slate-700">Gender</p>
+      <p className="text-[12px] font-bold text-slate-700">{t("Gender")}</p>
       <input type="hidden" name={name} value={value} />
       <div className="inline-flex w-fit overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#FAFBFC] shadow-[0_1px_4px_rgba(15,23,42,0.02)]">
         {options.map(({ value: optionValue, icon: Icon }, index) => {
@@ -1107,7 +1124,7 @@ function GenderSegment({ name, value, onChange }: { name: string; value: string;
               onClick={() => onChange(selected ? "" : optionValue)}
             >
               <Icon size={14} />
-              {optionValue}
+              {t(optionValue)}
             </button>
           );
         })}
@@ -1134,9 +1151,10 @@ function ProgramClassTypeSegment({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = usePublicT();
   return (
     <div className="grid gap-1.5">
-      <p className="text-[11px] font-semibold text-slate-700">Class Type</p>
+      <p className="text-[11px] font-semibold text-slate-700">{t("Class Type")}</p>
       <input type="hidden" name={name} value={value} />
       <div className="grid gap-1.5">
         {classTypes.map(({ value: optionValue, label, hint, icon: Icon }) => {
@@ -1156,9 +1174,9 @@ function ProgramClassTypeSegment({
               <Icon size={15} className={`mt-px shrink-0 ${selected ? "text-[#4F46E5]" : "text-[#64748B]"}`} />
               <span className="min-w-0">
                 <span className={`block text-[11px] font-semibold ${selected ? "text-[#4F46E5]" : "text-[#475569]"}`}>
-                  {label}
+                  {t(label)}
                 </span>
-                <span className="mt-0.5 block text-[10px] font-medium leading-[1.25] text-[#64748B]">{hint}</span>
+                <span className="mt-0.5 block text-[10px] font-medium leading-[1.25] text-[#64748B]">{t(hint)}</span>
               </span>
             </button>
           );
@@ -1185,6 +1203,7 @@ function ParentLookup({
   message: string;
   onUnlink: () => void;
 }) {
+  const t = usePublicT();
   return (
     <div className={`mt-3 rounded-2xl border p-4 ${linkedParent ? "border-emerald-200 bg-emerald-50" : "border-blue-100 bg-blue-50"}`}>
       <div className="flex items-start gap-3">
@@ -1192,14 +1211,14 @@ function ParentLookup({
           {linkedParent ? <CheckCircle2 size={20} /> : <Link2 size={20} />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-bold ${linkedParent ? "text-emerald-800" : "text-blue-900"}`}>{linkedParent ? "Account linked" : "Already have a child enrolled?"}</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Link your account to manage all students together.</p>
+          <p className={`text-sm font-bold ${linkedParent ? "text-emerald-800" : "text-blue-900"}`}>{linkedParent ? t("Account linked") : t("Already have a child enrolled?")}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{t("Link your account to manage all students together.")}</p>
         </div>
       </div>
       {linkedParent ? (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-white p-3 text-sm">
-          <span className="font-bold text-slate-900">{[linkedParent.firstName, linkedParent.lastName].filter(Boolean).join(" ") || linkedParent.email || "Linked parent"}</span>
-          <button type="button" className="text-xs font-bold text-slate-500" onClick={onUnlink}>Unlink</button>
+          <span className="font-bold text-slate-900">{[linkedParent.firstName, linkedParent.lastName].filter(Boolean).join(" ") || linkedParent.email || t("Linked parent")}</span>
+          <button type="button" className="text-xs font-bold text-slate-500" onClick={onUnlink}>{t("Unlink")}</button>
         </div>
       ) : (
         <div className="mt-3 flex gap-2">
@@ -1207,11 +1226,11 @@ function ParentLookup({
             value={identifier}
             onChange={(event) => onIdentifierChange(event.target.value)}
             className="field-input min-h-[42px] flex-1"
-            placeholder="Email or kiosque code"
-            aria-label="Parent email or kiosque code"
+            placeholder={t("Email or kiosque code")}
+            aria-label={t("Parent email or kiosque code")}
           />
           <button type="button" className="alluwal-button alluwal-button-primary min-h-[42px]" onClick={onLookup} disabled={checking}>
-            {checking ? "Checking..." : "Link"}
+            {checking ? t("Checking...") : t("Link|verb")}
           </button>
         </div>
       )}
@@ -1221,6 +1240,7 @@ function ParentLookup({
 }
 
 function StudentTabs({ students, activeIndex, onSelect }: { students: StudentDraft[]; activeIndex: number; onSelect: (index: number) => void }) {
+  const t = usePublicT();
   return (
     <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
       {students.map((student, index) => (
@@ -1232,7 +1252,7 @@ function StudentTabs({ students, activeIndex, onSelect }: { students: StudentDra
           }`}
           onClick={() => onSelect(index)}
         >
-          {student.name || `Student ${index + 1}`}
+          {student.name || t("Student {number}", { number: index + 1 })}
         </button>
       ))}
     </div>
@@ -1250,8 +1270,9 @@ function StudentProfileFields({
   isSelfEnrollment: boolean;
   onChange: (patch: Partial<StudentDraft>) => void;
 }) {
-  const nameLabel = isSelfEnrollment && index === 0 ? "Full Name" : `Student ${index + 1} name`;
-  const namePlaceholder = isSelfEnrollment && index === 0 ? "Enter your full name" : `Student ${index + 1} full name`;
+  const t = usePublicT();
+  const nameLabel = isSelfEnrollment && index === 0 ? t("Full Name") : t("Student {number} name", { number: index + 1 });
+  const namePlaceholder = isSelfEnrollment && index === 0 ? t("Enter your full name") : t("Student {number} full name", { number: index + 1 });
 
   return (
     <div className="grid gap-4">
@@ -1266,10 +1287,10 @@ function StudentProfileFields({
       />
       <div className="grid items-start gap-3 sm:grid-cols-[1fr_1fr]">
         <IconField
-          label="Age"
+          label={t("Age")}
           name={index === 0 ? "age" : `student${index + 1}Age`}
           value={student.age}
-          placeholder="Years"
+          placeholder={t("Years")}
           icon={<Cake size={17} />}
           onChange={(value) => onChange({ age: value })}
           required
@@ -1310,6 +1331,7 @@ function ProgramEditor({
   onPreferredLanguageChange: (value: string) => void;
   pricingPlans: PricingPlans;
 }) {
+  const t = usePublicT();
   const subject = subjectFor(program.subjectId);
   const levels = levelsForSubject(subject?.id ?? "");
   const selectedTrackId = subject?.trackId ?? "";
@@ -1323,17 +1345,17 @@ function ProgramEditor({
     <div className="overflow-hidden rounded-lg border-[1.5px] border-[#E2E8F0]">
       <div className="flex items-center gap-2 border-b-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
         <p className="text-[11px] font-bold text-slate-800">
-          {programCount > 1 ? `Program ${programIndex + 1}` : "Program details"}
+          {programCount > 1 ? t("Program {number}", { number: programIndex + 1 }) : t("Program details")}
         </p>
         <span className="flex-1" />
         <span className="text-[10px] font-medium text-[#64748B]">
-          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)} · {program.hoursPerWeek} hrs/wk
+          {program.sessionsPerWeek} × {t(sessionLabel(program.sessionMinutes))} · {t("{hours} hrs/wk", { hours: program.hoursPerWeek })}
         </span>
         {programCount > 1 ? (
           <button
             type="button"
             onClick={onRemove}
-            aria-label={`Remove program ${programIndex + 1}`}
+            aria-label={t("Remove program {number}", { number: programIndex + 1 })}
             className="grid h-6 w-6 shrink-0 place-items-center rounded text-[#94A3B8] hover:bg-[#FEE2E2] hover:text-[#DC2626]"
           >
             <Trash2 size={14} />
@@ -1342,33 +1364,33 @@ function ProgramEditor({
       </div>
 
       <div className="grid gap-4 p-3">
-        <EnrollmentSubCard title="1. Choose a Program">
-          <p className="mb-2 text-[11px] font-semibold text-slate-700">Select a learning track</p>
+        <EnrollmentSubCard title={t("1. Choose a Program")}>
+          <p className="mb-2 text-[11px] font-semibold text-slate-700">{t("Select a learning track")}</p>
           <TrackSelector
             selectedTrackId={selectedTrackId}
             onTrackSelected={(trackId) => onSubjectChange(defaultSubjectIdForTrack(trackId))}
           />
         </EnrollmentSubCard>
 
-        <EnrollmentSubCard title="2. Class Preferences">
+        <EnrollmentSubCard title={t("2. Class Preferences")}>
           <div className="grid gap-3">
             {subject?.id === "languages" ? (
               <SelectField
-                label="Specific Language"
+                label={t("Specific Language")}
                 name={fieldName("specificLanguage")}
                 value={program.specificLanguage}
                 onChange={(_, value) => onProgramChange({ specificLanguage: value })}
-                options={africanLanguages.map((value) => ({ value, label: value }))}
+                options={africanLanguages.map((value) => ({ value, label: languageDisplayName(t, value) }))}
                 required
               />
             ) : null}
             {subject ? (
               <SelectField
-                label={subject.id === "after-school" ? "Grade Level" : "Proficiency Level"}
+                label={subject.id === "after-school" ? t("Grade Level") : t("Proficiency Level")}
                 name={fieldName("level")}
                 value={program.level}
                 onChange={(_, value) => onProgramChange({ level: value })}
-                options={levels.map((value) => ({ value, label: value }))}
+                options={levels.map((value) => ({ value, label: t(value) }))}
                 required
               />
             ) : null}
@@ -1381,18 +1403,18 @@ function ProgramEditor({
                 not a property of any single class. */}
             {studentIndex === 0 && programIndex === 0 ? (
               <SelectField
-                label="Preferred Language"
+                label={t("Preferred Language")}
                 name="preferredLanguage"
                 value={preferredLanguage}
                 onChange={(_, value) => onPreferredLanguageChange(value)}
-                options={languages.map((value) => ({ value, label: value }))}
+                options={languages.map((value) => ({ value, label: languageDisplayName(t, value) }))}
                 required
               />
             ) : null}
           </div>
         </EnrollmentSubCard>
 
-        <EnrollmentSubCard title="3. Pricing & Hours">
+        <EnrollmentSubCard title={t("3. Pricing & Hours")}>
           <SessionShapeFields program={program} onProgramChange={onProgramChange} />
           <HoursSummary program={program} trackId={subject?.trackId ?? ""} />
         </EnrollmentSubCard>
@@ -1417,6 +1439,7 @@ function SessionShapeFields({
   program: ProgramDraft;
   onProgramChange: (patch: Partial<ProgramDraft>) => void;
 }) {
+  const t = usePublicT();
   // Hours per week follow from these two answers. A family that picks 2-hour
   // classes four times a week has said "8 hours"; asking them to type it again
   // and then warning them when the numbers disagree was friction, not safety.
@@ -1430,7 +1453,7 @@ function SessionShapeFields({
   return (
     <div className="grid gap-2.5 pb-3">
       <div>
-        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How long is each class?</p>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">{t("How long is each class?")}</p>
         <div className="flex flex-wrap gap-1.5">
           {SESSION_MINUTES.map((minutes) => {
             const selected = program.sessionMinutes === minutes;
@@ -1446,7 +1469,7 @@ function SessionShapeFields({
                     : "bg-[#F1F5F9] text-[#64748B] hover:bg-slate-200"
                 }`}
               >
-                {sessionLabel(minutes)}
+                {t(sessionLabel(minutes))}
               </button>
             );
           })}
@@ -1454,11 +1477,11 @@ function SessionShapeFields({
       </div>
 
       <div>
-        <p className="mb-1.5 text-[13px] font-bold text-slate-800">How many classes a week?</p>
+        <p className="mb-1.5 text-[13px] font-bold text-slate-800">{t("How many classes a week?")}</p>
         <div className="inline-flex items-center gap-3 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
           <button
             type="button"
-            aria-label="Fewer classes per week"
+            aria-label={t("Fewer classes per week")}
             onClick={() => setShape(program.sessionMinutes, Math.max(1, program.sessionsPerWeek - 1))}
             className="text-[#3B82F6] disabled:text-[#CBD5E1]"
             disabled={program.sessionsPerWeek <= 1}
@@ -1470,7 +1493,7 @@ function SessionShapeFields({
           </span>
           <button
             type="button"
-            aria-label="More classes per week"
+            aria-label={t("More classes per week")}
             onClick={() => setShape(program.sessionMinutes, Math.min(14, program.sessionsPerWeek + 1))}
             className="text-[#3B82F6] disabled:text-[#CBD5E1]"
             disabled={program.sessionsPerWeek >= 14}
@@ -1490,13 +1513,14 @@ function HoursSummary({
   program: ProgramDraft;
   trackId: string;
 }) {
+  const t = usePublicT();
   const hours = weeklyHoursFor(program.sessionsPerWeek, program.sessionMinutes);
   return (
     <div className="rounded-xl border border-slate-200 bg-[#FAFBFC] p-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-bold text-slate-700">Hours per week</span>
+        <span className="text-[11px] font-bold text-slate-700">{t("Hours per week")}</span>
         <span className="text-sm font-black text-slate-900">
-          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)} = {hours} {hours === 1 ? "hr" : "hrs"}
+          {program.sessionsPerWeek} × {t(sessionLabel(program.sessionMinutes))} = {hours} {hours === 1 ? t("hr") : t("hrs")}
         </span>
       </div>
       {trackId ? (
@@ -1504,7 +1528,7 @@ function HoursSummary({
         // hard number at this step reads as a bill and puts people off before
         // anyone has spoken to them.
         <p className="mt-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-600">
-          We&rsquo;ll confirm pricing with you after this — schedules and rates are flexible.
+          {t("We’ll confirm pricing with you after this — schedules and rates are flexible.")}
         </p>
       ) : null}
     </div>
@@ -1529,6 +1553,7 @@ function TrackSelector({
   selectedTrackId: string;
   onTrackSelected: (trackId: string) => void;
 }) {
+  const t = usePublicT();
   return (
     <div className="flex flex-wrap gap-1.5">
       {trackOptions.map(({ id, title, icon: Icon }) => {
@@ -1538,7 +1563,7 @@ function TrackSelector({
           <button
             key={id}
             type="button"
-            aria-label={accessibleLabel}
+            aria-label={t(accessibleLabel)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition ${
               selected
                 ? "border-[#4F46E5] bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white"
@@ -1547,7 +1572,7 @@ function TrackSelector({
             onClick={() => onTrackSelected(id)}
           >
             <Icon size={14} />
-            {title}
+            {t(title)}
           </button>
         );
       })}
@@ -1566,6 +1591,7 @@ function ScheduleEditor({
   onProgramChange: (patch: Partial<ProgramDraft>) => void;
   onDayToggle: (day: string) => void;
 }) {
+  const t = usePublicT();
   const subject = subjectFor(program.subjectId);
   // Only this class type takes the timetable out of the family's hands.
   const placedInGroup = program.classType === "With Other Students";
@@ -1578,10 +1604,10 @@ function ScheduleEditor({
           style={{ backgroundColor: trackById(subject?.trackId ?? "")?.color ?? "#94A3B8" }}
         />
         <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-slate-800">
-          {subject?.shortLabel ?? "Program"}
+          {subject ? subjectDisplayName(t, subject.shortLabel) : t("Program")}
         </p>
         <span className="shrink-0 rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-bold text-[#4338CA]">
-          {program.sessionsPerWeek} × {sessionLabel(program.sessionMinutes)}
+          {program.sessionsPerWeek} × {t(sessionLabel(program.sessionMinutes))}
         </span>
       </div>
 
@@ -1590,17 +1616,18 @@ function ScheduleEditor({
           <Users size={15} className="mt-px shrink-0 text-[#1D4ED8]" />
           <div>
             <p className="text-[11px] font-semibold text-[#1D4ED8]">
-              We&apos;ll place {studentName.trim() || "this student"} in a group
+              {studentName.trim()
+                ? t("We'll place {name} in a group", { name: studentName.trim() })
+                : t("We'll place this student in a group")}
             </p>
             <p className="mt-0.5 text-[10px] font-medium leading-[1.3] text-[#1E40AF]">
-              Group classes run on a set timetable. Tell us the days and part of the day that suit
-              you and we&apos;ll find the closest group.
+              {t("Group classes run on a set timetable. Tell us the days and part of the day that suit you and we'll find the closest group.")}
             </p>
           </div>
         </div>
       ) : null}
 
-      <ChipGroup title="Which days work best?" items={days} selected={program.preferredDays} onToggle={onDayToggle} />
+      <ChipGroup title={t("Which days work best?")} items={days} selected={program.preferredDays} onToggle={onDayToggle} />
       <TimeOfDayCards
         value={program.timeOfDayPreference}
         onChange={(value) => onProgramChange({ timeOfDayPreference: value })}
@@ -1615,9 +1642,10 @@ function ScheduleEditor({
  * back exactly what we will book inside it, or that the session cannot fit.
  */
 function ScheduleConfirmationLine({ program }: { program: ProgramDraft }) {
+  const t = usePublicT();
   const block = blockById(program.timeOfDayPreference);
   const sessionMinutes = program.sessionMinutes;
-  const dayList = program.preferredDays.join(", ");
+  const dayList = program.preferredDays.map((day) => t(day)).join(", ");
 
   if (!block || program.preferredDays.length === 0) return null;
 
@@ -1626,8 +1654,11 @@ function ScheduleConfirmationLine({ program }: { program: ProgramDraft }) {
       <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2">
         <AlertCircle size={15} className="mt-px shrink-0 text-[#B45309]" />
         <p className="text-[10px] font-medium leading-[1.3] text-[#92400E]">
-          A {sessionLabel(sessionMinutes)} session doesn&apos;t fit inside {block.label.toLowerCase()} (
-          {blockRangeLabel(block)}). Choose a shorter session or another part of the day.
+          {t("A {duration} session doesn't fit inside {block} ({range}). Choose a shorter session or another part of the day.", {
+            duration: t(sessionLabel(sessionMinutes)),
+            block: t(block.label).toLowerCase(),
+            range: blockRangeLabel(block),
+          })}
         </p>
       </div>
     );
@@ -1637,8 +1668,12 @@ function ScheduleConfirmationLine({ program }: { program: ProgramDraft }) {
     <div className="flex items-start gap-2 rounded-lg border-[1.5px] border-[#E2E8F0] bg-[#FAFBFC] px-2.5 py-2">
       <Clock size={15} className="mt-px shrink-0 text-[#64748B]" />
       <p className="text-[10px] font-medium leading-[1.3] text-[#64748B]">
-        We&apos;ll book {program.sessionsPerWeek} × {sessionLabel(sessionMinutes)} somewhere between{" "}
-        {blockRangeLabel(block)} on {dayList}, and confirm the exact times with you.
+        {t("We'll book {count} × {duration} somewhere between {range} on {days}, and confirm the exact times with you.", {
+          count: program.sessionsPerWeek,
+          duration: t(sessionLabel(sessionMinutes)),
+          range: blockRangeLabel(block),
+          days: dayList,
+        })}
       </p>
     </div>
   );
@@ -1651,56 +1686,58 @@ function ReviewPanel({
   students: StudentDraft[];
   onEditStep: (step: number) => void;
 }) {
+  const t = usePublicT();
   const enrollmentRows: [string, string][] = [];
   const scheduleRows: [string, string][] = [];
   const single = students.length === 1 && students[0].programs.length === 1;
 
   students.forEach((student, index) => {
-    const who = student.name.trim() || `Student ${index + 1}`;
-    enrollmentRows.push([`Student ${index + 1}`, `${who}${student.age ? `, ${student.age}` : ""}`]);
+    const who = student.name.trim() || t("Student {number}", { number: index + 1 });
+    enrollmentRows.push([t("Student {number}", { number: index + 1 }), `${who}${student.age ? `, ${student.age}` : ""}`]);
 
     student.programs.forEach((program, programIndex) => {
       const subject = subjectFor(program.subjectId);
       // One row per program, named so two programs for the same child are
       // told apart at a glance.
-      const label = student.programs.length > 1 ? `${who} · program ${programIndex + 1}` : `${who} program`;
+      const label = student.programs.length > 1 ? t("{who} · program {number}", { who, number: programIndex + 1 }) : t("{who} program", { who });
 
       if (single) {
-        if (subject) enrollmentRows.push(["Program", subject.shortLabel]);
-        if (program.level) enrollmentRows.push(["Level", program.level]);
-        if (program.classType) enrollmentRows.push(["Format", classTypeReviewLabel(program.classType)]);
-        if (program.hoursPerWeek > 0) enrollmentRows.push(["Hours/week", `${program.hoursPerWeek}h`]);
+        if (subject) enrollmentRows.push([t("Program"), subjectDisplayName(t, subject.shortLabel)]);
+        if (program.level) enrollmentRows.push([t("Level"), t(program.level)]);
+        if (program.classType) enrollmentRows.push([t("Format"), t(classTypeReviewLabel(program.classType))]);
+        if (program.hoursPerWeek > 0) enrollmentRows.push([t("Hours/week"), `${program.hoursPerWeek}h`]);
       } else {
         enrollmentRows.push([
           label,
-          `${subject?.shortLabel ?? "Program?"} · ${program.level || "—"} · ${classTypeReviewLabel(program.classType) || "—"} · ${program.hoursPerWeek}h`,
+          `${subject ? subjectDisplayName(t, subject.shortLabel) : t("Program?")} · ${t(program.level) || "—"} · ${t(classTypeReviewLabel(program.classType)) || "—"} · ${program.hoursPerWeek}h`,
         ]);
       }
 
       const prefix = single ? "" : `${label} — `;
-      if (program.preferredDays.length > 0) scheduleRows.push([`${prefix}Days`, program.preferredDays.join(", ")]);
+      if (program.preferredDays.length > 0) scheduleRows.push([`${prefix}${t("Days")}`, program.preferredDays.map((day) => t(day)).join(", ")]);
       const reviewBlock = blockById(program.timeOfDayPreference);
       if (reviewBlock) {
-        scheduleRows.push([`${prefix}Window`, `${reviewBlock.label} (${blockRangeLabel(reviewBlock)})`]);
+        scheduleRows.push([`${prefix}${t("Window")}`, `${t(reviewBlock.label)} (${blockRangeLabel(reviewBlock)})`]);
       }
       scheduleRows.push([
-        `${prefix}Sessions`,
-        `${program.sessionsPerWeek} × ${sessionLabel(program.sessionMinutes)} · ${program.hoursPerWeek} hrs/wk`,
+        `${prefix}${t("Sessions")}`,
+        `${program.sessionsPerWeek} × ${t(sessionLabel(program.sessionMinutes))} · ${t("{hours} hrs/wk", { hours: program.hoursPerWeek })}`,
       ]);
     });
   });
 
   return (
     <div className="grid gap-1.5">
-      <ReviewSection title="Enrollment Details" icon="📋" action={() => onEditStep(1)} rows={enrollmentRows} />
+      <ReviewSection title={t("Enrollment Details")} icon="📋" action={() => onEditStep(1)} rows={enrollmentRows} />
       {scheduleRows.length > 0 ? (
-        <ReviewSection title="Schedule" icon="📅" action={() => onEditStep(3)} rows={scheduleRows} />
+        <ReviewSection title={t("Schedule")} icon="📅" action={() => onEditStep(3)} rows={scheduleRows} />
       ) : null}
     </div>
   );
 }
 
 function ReviewSection({ title, icon, rows, action }: { title: string; icon: string; rows: [string, string][]; action: () => void }) {
+  const t = usePublicT();
   return (
     <section className="rounded-[10px] border border-[#334155] bg-gradient-to-br from-[#1E293B] to-[#0F172A] p-[11px]">
       <div className="flex items-center justify-between">
@@ -1708,7 +1745,7 @@ function ReviewSection({ title, icon, rows, action }: { title: string; icon: str
           <span className="text-sm" aria-hidden="true">{icon}</span>
           <h2 className="truncate text-[10px] font-black uppercase tracking-[0.08em] text-[#94A3B8]">{title}</h2>
         </div>
-        <button type="button" className="rounded-lg bg-[#334155] px-2 py-1 text-[10px] font-semibold text-[#F59E0B]" onClick={action}>Edit</button>
+        <button type="button" className="rounded-lg bg-[#334155] px-2 py-1 text-[10px] font-semibold text-[#F59E0B]" onClick={action}>{t("Edit")}</button>
       </div>
       <div className="mt-2 grid gap-1">
         {rows.map(([label, value]) => (
@@ -1733,48 +1770,49 @@ function ContactPanel({
   contact: typeof initialContact;
   onChange: (name: string, value: string) => void;
 }) {
+  const t = usePublicT();
   return (
     <div className="mt-4 rounded-2xl border border-[#334155] bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-[18px] shadow-[0_8px_22px_rgba(0,0,0,0.12)]">
-      <h2 className="text-lg font-bold text-white">Your contact info</h2>
+      <h2 className="text-lg font-bold text-white">{t("Your contact info")}</h2>
       <p className="mt-1.5 text-xs font-medium leading-5 text-[#94A3B8]">
-        We use this to confirm enrollment and reach you about scheduling.
+        {t("We use this to confirm enrollment and reach you about scheduling.")}
       </p>
 
       <div className="mt-4 grid gap-4">
         {isParentGuardian ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <DarkField
-              label="Parent / guardian name"
+              label={t("Parent / guardian name")}
               name="parentName"
               value={contact.parentName}
               onChange={onChange}
               required={!linkedParent}
-              placeholder="As on ID or school records"
+              placeholder={t("As on ID or school records")}
               disabled={Boolean(linkedParent)}
             />
-            <DarkField label="Email" name="email" value={contact.email} onChange={onChange} required type="email" placeholder="your@email.com" disabled={Boolean(linkedParent)} />
+            <DarkField label={t("Email")} name="email" value={contact.email} onChange={onChange} required type="email" placeholder={t("your@email.com")} disabled={Boolean(linkedParent)} />
           </div>
         ) : (
-          <DarkField label="Email" name="email" value={contact.email} onChange={onChange} required type="email" placeholder="your@email.com" />
+          <DarkField label={t("Email")} name="email" value={contact.email} onChange={onChange} required type="email" placeholder={t("your@email.com")} />
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <DarkField label="Whatsapp Number" name="whatsAppNumber" value={contact.whatsAppNumber} onChange={onChange} placeholder="Whatsapp Number" />
-          <DarkField label="Phone Number" name="phoneNumber" value={contact.phoneNumber} onChange={onChange} required placeholder="Phone Number" />
+          <DarkField label={t("Whatsapp Number")} name="whatsAppNumber" value={contact.whatsAppNumber} onChange={onChange} placeholder={t("Whatsapp Number")} />
+          <DarkField label={t("Phone Number")} name="phoneNumber" value={contact.phoneNumber} onChange={onChange} required placeholder={t("Phone Number")} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[90px_2fr_1fr]">
-          <DarkField label="Code" name="countryCode" value={contact.countryCode} onChange={onChange} required placeholder="US" />
-          <DarkField label="Select Country" name="countryName" value={contact.countryName} onChange={onChange} required placeholder="Select Country" />
-          <DarkField label="City" name="city" value={contact.city} onChange={onChange} required placeholder="City" />
+          <DarkField label={t("Code")} name="countryCode" value={contact.countryCode} onChange={onChange} required placeholder="US" />
+          <DarkField label={t("Select Country")} name="countryName" value={contact.countryName} onChange={onChange} required placeholder={t("Select Country")} />
+          <DarkField label={t("City")} name="city" value={contact.city} onChange={onChange} required placeholder={t("City")} />
         </div>
 
         <DarkTextarea
-          label="Scheduling notes (optional)"
+          label={t("Scheduling notes (optional)")}
           name="schedulingNotes"
           value={contact.schedulingNotes}
           onChange={(value) => onChange("schedulingNotes", value)}
-          placeholder="e.g. prefer after 4pm weekdays, avoid Fridays..."
+          placeholder={t("e.g. prefer after 4pm weekdays, avoid Fridays...")}
         />
       </div>
     </div>
@@ -1860,6 +1898,7 @@ function ChipGroup({
   onToggle: (value: string) => void;
   tone?: "blue" | "green";
 }) {
+  const t = usePublicT();
   return (
     <div>
       {title ? <p className="mb-2 text-[13px] font-bold text-slate-800">{title}</p> : null}
@@ -1877,7 +1916,7 @@ function ChipGroup({
             }`}
             onClick={() => onToggle(item)}
           >
-            {item}
+            {t(item)}
           </button>
         ))}
       </div>
@@ -1894,9 +1933,10 @@ const BLOCK_ICONS: Record<string, typeof Sun> = {
 };
 
 function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const t = usePublicT();
   return (
     <div>
-      <p className="mb-1.5 text-[13px] font-bold text-slate-800">Preferred Time of Day</p>
+      <p className="mb-1.5 text-[13px] font-bold text-slate-800">{t("Preferred Time of Day")}</p>
       <div className="flex flex-wrap gap-1.5">
         {TIME_BLOCKS.map((block) => {
           const Icon = BLOCK_ICONS[block.id] ?? Clock;
@@ -1916,7 +1956,7 @@ function TimeOfDayCards({ value, onChange }: { value: string; onChange: (value: 
             >
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold">
                 <Icon size={15} />
-                {block.label}
+                {t(block.label)}
               </span>
               <span className="text-[9px] font-medium text-[#94A3B8]">{blockRangeLabel(block)}</span>
             </button>
@@ -1965,11 +2005,12 @@ function SelectField({
   options: { value: string; label: string }[];
   required?: boolean;
 }) {
+  const t = usePublicT();
   return (
     <label className="field-label mt-3">
       <span>{label}{required ? <span className="ml-1 text-red-600">*</span> : null}</span>
       <select name={name} value={value} onChange={(event) => onChange(name, event.target.value)} required={required} className="field-input">
-        <option value="">Select an option</option>
+        <option value="">{t("Select an option")}</option>
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
     </label>
@@ -2030,6 +2071,16 @@ function levelsForSubject(subjectId: string) {
 function classTypeReviewLabel(value: string) {
   if (value === "One-on-One") return "1-on-1";
   return value;
+}
+
+/** What a subject is called on screen. The stored subject stays English. */
+function subjectDisplayName(t: PublicT, shortLabel: string) {
+  return t(`${shortLabel}|subject`);
+}
+
+/** What a language is called on screen. The stored language stays English. */
+function languageDisplayName(t: PublicT, language: string) {
+  return t(`${language}|language`);
 }
 
 
