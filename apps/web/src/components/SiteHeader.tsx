@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { flutterLoginUrl } from "@/lib/flutterApp";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { usePublicT } from "@/lib/publicI18n";
 import {
   BookOpen,
   ChevronDown,
@@ -79,6 +81,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
   const pathname = usePathname();
+  const t = usePublicT();
 
   const closeAll = () => {
     setOpen(false);
@@ -97,25 +100,25 @@ export function SiteHeader() {
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11.5px] font-extrabold tracking-[0.2px] text-[#0B1B3A] shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-[#FEF3C7] md:px-4 md:py-1.5 md:text-[13px]"
           >
             <BookOpen size={14} aria-hidden="true" />
-            Sign Up For New Class
+            {t("Sign Up For New Class")}
           </Link>
           <Link
             href="/teacher-application/"
             className="inline-flex items-center gap-1.5 rounded-full border border-[#F59E0B] bg-[#F59E0B]/15 px-3 py-1 text-[11.5px] font-extrabold tracking-[0.2px] text-white transition hover:bg-[#F59E0B]/30 md:px-4 md:py-1.5 md:text-[13px]"
           >
             <UsersRound size={14} aria-hidden="true" />
-            Apply to Teach
+            {t("Apply to Teach")}
           </Link>
           <div className="ml-auto hidden text-right text-[10px] font-semibold leading-tight text-white/90 xl:block">
-            <div>Live online learning for every family.</div>
-            <div className="font-medium text-white/75">Academic, language, enterprise & faith paths.</div>
+            <div>{t("Live online learning for every family.")}</div>
+            <div className="font-medium text-white/75">{t("Academic, language, enterprise & faith paths.")}</div>
           </div>
         </div>
       </div>
 
       <div className="border-b border-slate-100 bg-white/95 backdrop-blur">
         <div className="flex min-h-[55px] items-center gap-3 px-3 py-1.5 md:px-5">
-          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Alluwal Education Hub home">
+          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label={t("Alluwal Education Hub home")}>
             <img
               src="/assets/Alluwal_Education_Hub_Logo.png"
               alt=""
@@ -127,13 +130,13 @@ export function SiteHeader() {
             </div>
           </Link>
 
-          <nav className="ml-3 hidden items-center gap-3 xl:flex" aria-label="Primary navigation">
+          <nav className="ml-3 hidden items-center gap-3 xl:flex" aria-label={t("Primary navigation")}>
             <Link
               href="/"
               className="link-underline text-[13.5px] font-semibold text-[#111827] transition hover:text-[#1D4ED8]"
               onClick={closeAll}
             >
-              Home
+              {t("Home")}
             </Link>
 
             <div
@@ -147,7 +150,7 @@ export function SiteHeader() {
                 onClick={() => setMegaOpen((value) => !value)}
                 aria-expanded={megaOpen}
               >
-                Courses
+                {t("Courses")}
                 <ChevronDown
                   size={17}
                   className={`transition-transform ${megaOpen ? "rotate-180" : ""}`}
@@ -172,8 +175,8 @@ export function SiteHeader() {
                             <Icon size={22} />
                           </span>
                           <span>
-                            <span className="block text-sm font-extrabold text-[#111827]">{title}</span>
-                            <span className="mt-1 block text-xs leading-5 text-slate-500">{subtitle}</span>
+                            <span className="block text-sm font-extrabold text-[#111827]">{t(title)}</span>
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">{t(subtitle)}</span>
                           </span>
                         </Link>
                       ))}
@@ -186,14 +189,14 @@ export function SiteHeader() {
                           onClick={closeAll}
                         >
                           <UsersRound size={20} />
-                          Our Teachers
+                          {t("Our Teachers")}
                         </Link>
                         <Link
                           href="/teacher-application/"
                           className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-[#4F46E5] hover:bg-slate-50"
                           onClick={closeAll}
                         >
-                          Become a Tutor
+                          {t("Become a Tutor")}
                         </Link>
                       </div>
                     </div>
@@ -216,32 +219,35 @@ export function SiteHeader() {
                   }`}
                   onClick={closeAll}
                 >
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               );
             })}
+
+            <LanguageSwitch />
 
             <a
               href={flutterLoginUrl}
               className="ml-1 inline-flex min-h-[42px] items-center rounded-[10px] bg-[#111827] px-[18px] text-[13px] font-semibold text-white transition hover:bg-[#0b1220]"
               onClick={closeAll}
             >
-              Log In
+              {t("Log In")}
             </a>
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 xl:hidden">
+          <div className="ml-auto flex items-center gap-2 xl:hidden">
+            <LanguageSwitch />
             <a
               href={flutterLoginUrl}
               className="rounded-md px-2 py-1 text-[13px] font-bold tracking-[0.2px] text-[#111827]"
               onClick={closeAll}
             >
-              Log In
+              {t("Log In")}
             </a>
             <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#111827]"
-                aria-label="Open navigation menu"
+                aria-label={t("Open navigation menu")}
               aria-expanded={open}
               onClick={() => setOpen((value) => !value)}
             >
@@ -253,12 +259,12 @@ export function SiteHeader() {
 
       {open ? (
         <div className="menu-pop border-b border-slate-200 bg-white xl:hidden">
-          <nav className="grid gap-1 px-3 py-4" aria-label="Mobile navigation">
+          <nav className="grid gap-1 px-3 py-4" aria-label={t("Mobile navigation")}>
             <Link href="/" className="rounded-md px-3 py-3 text-base font-extrabold text-slate-900" onClick={closeAll}>
-              Home
+              {t("Home")}
             </Link>
             <div className="rounded-md bg-slate-50 p-2">
-              <div className="px-2 pb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">Courses</div>
+              <div className="px-2 pb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{t("Courses")}</div>
               {mobileProgramLinks.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={label}
@@ -267,7 +273,7 @@ export function SiteHeader() {
                   onClick={closeAll}
                 >
                   <Icon size={18} className="text-[#1D4ED8]" />
-                  {label}
+                  {t(label)}
                 </Link>
               ))}
             </div>
@@ -278,7 +284,7 @@ export function SiteHeader() {
                 className="rounded-md px-3 py-3 text-base font-extrabold text-slate-900"
                 onClick={closeAll}
               >
-                {item.label}
+                {t(item.label)}
               </Link>
             ))}
             <Link
@@ -286,14 +292,14 @@ export function SiteHeader() {
               className="rounded-md px-3 py-3 text-base font-extrabold text-slate-900"
               onClick={closeAll}
             >
-              Become a Tutor
+              {t("Become a Tutor")}
             </Link>
             <Link
               href="/team/?category=teacher"
               className="rounded-md px-3 py-3 text-base font-extrabold text-slate-900"
               onClick={closeAll}
             >
-              Our Teachers
+              {t("Our Teachers")}
             </Link>
           </nav>
         </div>

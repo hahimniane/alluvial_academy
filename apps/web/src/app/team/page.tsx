@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { PageShell } from "@/components/PageShell";
-import { TeamDirectory } from "@/components/TeamDirectory";
+import { TeamDirectory, TeamDirectoryFallback } from "@/components/TeamDirectory";
 
 export default function TeamPage() {
   return (
     <PageShell>
-      <Suspense fallback={<div className="container-shell py-16 text-slate-600">Loading team...</div>}>
+      <Suspense fallback={<TeamDirectoryFallback />}>
         <TeamDirectory />
       </Suspense>
     </PageShell>
