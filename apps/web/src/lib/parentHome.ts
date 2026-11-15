@@ -89,7 +89,20 @@ export type ParentShift = {
   clockInTime: Date | null;
   clockOutTime: Date | null;
   notes: string | null;
+  teacherId: string;
+  subjectId: string | null;
+  livekitRoomName: string | null;
+  zoomMeetingId: string | null;
+  hubMeetingId: string | null;
+  breakoutRoomName: string | null;
+  breakoutRoomKey: string | null;
+  /** TeachingShift.videoProvider: non-teaching or student-less → realtimekit, else the stored value, default zoom. */
+  videoProvider: "zoom" | "realtimekit" | "livekit";
 };
+
+function optionalString(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
 
 /**
  * TeachingShift.fromFirestore. Flutter throws on a class without Timestamp
@@ -125,7 +138,22 @@ export function parseShift(id: string, data: Data): ParentShift | null {
     clockInTime: timestampDate(data.clock_in_time),
     clockOutTime: timestampDate(data.clock_out_time),
     notes: data.notes == null ? null : String(data.notes),
+    teacherId: str(data.teacher_id ?? ""),
+    subjectId: optionalString(data.subject_id),
+    livekitRoomName: optionalString(data.livekit_room_name),
+    zoomMeetingId: optionalString(data.zoom_meeting_id ?? data.zoomMeetingId),
+    hubMeetingId: optionalString(data.hubMeetingId ?? data.hub_meeting_id ?? data.hubMeetingID),
+    breakoutRoomName: optionalString(data.breakoutRoomName ?? data.breakout_room_name),
+    breakoutRoomKey: optionalString(data.breakoutRoomKey ?? data.breakout_room_key),
+    videoProvider: videoProviderOf(category, strList(data.student_ids).length > 0, data.video_provider ?? data.videoProvider),
   };
+}
+
+function videoProviderOf(category: string, hasStudents: boolean, raw: unknown): ParentShift["videoProvider"] {
+  if (category !== "teaching" || !hasStudents) return "realtimekit";
+  const value = raw == null ? "" : String(raw).trim().toLowerCase();
+  if (value === "realtimekit" || value === "zoom" || value === "livekit") return value;
+  return "zoom";
 }
 
 export const isTeaching = (shift: ParentShift) => shift.category === "teaching";
