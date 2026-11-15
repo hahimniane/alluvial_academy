@@ -78,6 +78,11 @@ export async function resolveParentSession(user: User): Promise<ParentSessionRes
   return promise;
 }
 
+/** Keep the cached parent in step after the parent edits their own name or language. */
+export function patchCachedParentSession(patch: Partial<Pick<ParentSession, "displayName" | "greeting" | "language">>) {
+  if (cached) cached = { ...cached, ...patch };
+}
+
 /** Drop the cached parent so the next account cannot inherit it. */
 export function clearParentSession() {
   cached = null;

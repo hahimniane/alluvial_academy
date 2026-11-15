@@ -264,3 +264,59 @@ Leave Group, Forward to Admin Support); wrong-perspective and junk copy replaced
 
 Test note: Flutter showed the dev 1:1 thread as empty because the seeded teacher id
 contains `_`, which Flutter treats as a chat id (C-420); real uids have none.
+
+## Slice 5a — forms, profile, settings
+
+Tested on alluwal-dev with the dev parent and seeded copies of the three forms
+parents see in production (read-only check on 2026-11-15: "Parents Feedback on
+Teachers" monthly/feedback, "Bayana Attendance Form" and "Parent/Student Class
+Complain Form" anytime/other — radio, multi-select, text, dropdown, long text),
+plus a form with every other question type and a teacher-only form. Every write
+was checked with the Admin SDK. The Flutter screens were compared from source
+(teacher_forms_screen.dart parentOnly, parent_forms_screen.dart,
+parent_form_access_policy.dart, form_screen.dart, my_submissions_screen.dart,
+parent_profile_screen.dart, role_settings_screen.dart).
+
+| Item | What | Result | Evidence |
+|---|---|---|---|
+| B-123 | Ways in | pass | sidebar Forms; Profile also in the account menu. |
+| B-124 | Header | pass | indigo gradient, "Family Forms" / subtitle (EN/FR), history icon → My Form Submissions. |
+| B-125 | Which forms | pass | live: parent-audience forms shown, teacher-only hidden, inactive hidden; built-in names/ids shown whatever the audience (unit-tested, including the accent quirk of the French name). |
+| B-126 | Latest copy per name | pass | unit-tested: highest version, then latest update, before the parent filter (as the app). |
+| B-127 | Built-in excuse form | pass | live: always present, EN/FR labels and options from the ARB. |
+| B-128 | Built-in feedback form | pass | live: hidden while "Parents Feedback on Teachers" is active, shown once it is switched off. |
+| B-129 | List cannot load | pass / differs | the two built-ins with no error (unit-tested); a "Try Again" link replaces pull-to-refresh. |
+| B-130 | Grouping and cards | pass | live: TEACHING REPORTS / FEEDBACK & COMPLAINTS / STUDENT ASSESSMENT / ADMINISTRATIVE / OTHER FORMS (the app's real section names), A→Z by code unit, "<n> items" without locked auto-fill fields, frequency word, arrow when it opens. |
+| B-131 | Weekly / monthly lock | pass / fix | live: the monthly feedback form is greyed out on Nov 15. The lock badge now shows on every locked card (the app shows it on Teaching cards only, so parents saw a grey card with no reason). When open, the parent's own form opens — the app swapped in the active TEACHER monthly template here. |
+| B-132 | Search | pass | live: name, section title ("other forms"), no-match state, clear button. |
+| B-133 | Loading / refresh | pass | spinner; each visit reads the server. |
+| B-134 | Opening a form | pass / differs | its own page (/parent/forms/fill/?id=…) with back, purple form styling, title and description. Per-session forms open directly — the app's class picker is a teacher list and is empty for a parent (no parent form uses it). |
+| B-135 | Question types and checks | pass / fix | live: text, long text, email (format check), phone, number, date, dropdown, multi-select, radio, yes/no, image upload, heading and section blocks; "show only if" (live: shown on "Other", hidden answer not sent). The app's messages ("Please enter …", "Please select a …", "Please select a date", "Please enter a valid email address"). A label that is itself an instruction ("Please explain the absence") gets "Please fill in this question" instead of "Please enter Please explain the absence". A video block shows its link (the app drew a text box whose answer it threw away). Labels and options use the app's French dictionary (generated from form_localization.dart). |
+| B-136 | Stored answers | pass | live: date `3/11/2026` (d/M/yyyy), multi-select array, yes/no `true`/`false`, unanswered questions `""`, display blocks and hidden questions left out. |
+| B-137 | Image upload | pass / differs | live: `form_images/{uid}/{millis}_{name}`, `{fileName, downloadURL, size, type: 'image', uploadedAt}` plus `url`, `storagePath`, `contentType`. No compression or "Submit Without Image" dialog: an upload failure stops the send with a message. |
+| B-138 | Submission document | pass | live: formId, formName, formTitle, formType, templateId, frequency, the four owner fields = parent uid, userEmail, names from the user doc, status completed, yearMonth, reportingContext {appSessionId, platform: web, clientTimestamp, recentBreadcrumbs}; no role field. |
+| B-139 | No side effects | pass | only the form_responses row is written. |
+| B-140 | After submitting | pass / fix | the page closes back to the list with "Form submitted successfully!". A failure shows a plain sentence instead of the raw error; 30-second time-out kept. |
+| B-141 | Admin decision | pass | live: "Rejected" set by Admin SDK shows on the submission. |
+| B-142 | My Form Submissions | pass / fix | the teacher page's view, shared (month picker, all time, search, counts, read-only detail). The four owner queries are the app's. Answers of the built-in forms show their questions' labels in order — the app showed raw field ids. |
+| A-086 | Profile loading | pass / fix | spinner; failure shows a plain sentence with Try again ("Failed To Load Profile E" in the app). |
+| A-087 | Header card | pass | person icon, saved name (or "Parent"), e-mail. |
+| A-088 | Fields | pass | live: first/last side by side ("First name is required"), e-mail read-only ("Email cannot be changed"), phone. |
+| A-089 | Save | pass / fix | live: `users/{uid}` first_name, last_name, phone_number (trimmed) + updated_at; green "Profile Updated Successfully"; the top-bar name and greeting follow at once. A failure shows a plain sentence. |
+| A-090 | Back arrow in the tab | differs (decision) | not reproduced, per inventory. |
+| A-091 | Settings header | pass / fix | "Parent Settings"; the junk subtitle "Account Settings Build Info" is now "Language, password and app version". |
+| A-092 | Language | pass | live: English / Français switches the whole area and writes `language_preference` (plus `language_updated_at`, as the student and teacher pages do). |
+| A-093 | Change password | pass / fix | live: the app's checks ("Enter your current password", "Password must be at least 6 characters", "Passwords do not match"), show/hide eyes, wrong current password → "Current password is incorrect." (the app showed the generic message for Firebase's current error code). Success path run live on a throwaway dev parent: "Password changed successfully.", the dialog closes, the new password signs in, and the user document gains no field. An account without e-mail gets a message instead of nothing. |
+| A-094 | Version line | differs (decision) | shown only when the deploy sets NEXT_PUBLIC_WEB_BUILD_VERSION, labelled "Version" (the app's label read "New Version"); hidden otherwise rather than "Not set". |
+| A-095 | Nothing else | pass | no notification settings, photo, theme or delete account. |
+
+Shared code: the teacher "My Form Submissions" page now renders the same view
+from `components/forms/MySubmissionsView.tsx`. Checked live against main with a
+temporary dev teacher: identical text, counts and decisions.
+
+Phone width (375 px): no sideways scroll on all five pages.
+
+Decisions: the Forms lock badge for every locked card; the parent's own form
+opens in its window (not the teacher template); per-session forms open without
+the teacher class picker; "Autre" for the excuse reason (the app's "Autres");
+"Rechercher des formulaires" (the app's "Formulaires de recherche").

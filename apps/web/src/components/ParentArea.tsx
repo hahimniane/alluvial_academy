@@ -40,7 +40,7 @@ import { ConfirmDialog, type ConfirmRequest } from "@/components/ConfirmDialog";
 import { FlutterRedirect } from "@/components/FlutterRedirect";
 import { adoptRemoteLocale, useLocale } from "@/lib/i18n";
 import { allRolesOf } from "@/lib/roles";
-import { clearParentSession, cachedParentSession, resolveParentSession, type ParentSession } from "@/lib/parentSession";
+import { clearParentSession, cachedParentSession, patchCachedParentSession, resolveParentSession, type ParentSession } from "@/lib/parentSession";
 import {
   PARENT_SIDEBAR_SECTIONS,
   PARENT_WEB_SCREENS,
@@ -67,6 +67,13 @@ import {
 // ─── Session context ───────────────────────────────────────────────────────
 
 const ParentSessionContext = createContext<ParentSession | null>(null);
+type SessionPatch = Partial<Pick<ParentSession, "displayName" | "greeting" | "language">>;
+const ParentSessionUpdateContext = createContext<(patch: SessionPatch) => void>(() => undefined);
+
+/** Updates the signed-in parent's name or language everywhere on screen (top bar, greeting). */
+export function useUpdateParentSession() {
+  return useContext(ParentSessionUpdateContext);
+}
 
 /** The signed-in parent. Only available inside the parent area. */
 export function useParentSession(): ParentSession {
@@ -111,6 +118,11 @@ export function ParentArea({ children }: { children: ReactNode }) {
     });
   }, [attempt]);
 
+  const updateSession = useCallback((patch: SessionPatch) => {
+    patchCachedParentSession(patch);
+    setGate((current) => (current.kind === "ready" ? { kind: "ready", session: { ...current.session, ...patch } } : current));
+  }, []);
+
   const retry = useCallback(() => {
     clearParentSession();
     setGate({ kind: "checking" });
@@ -120,7 +132,9 @@ export function ParentArea({ children }: { children: ReactNode }) {
   if (gate.kind === "ready") {
     return (
       <ParentSessionContext.Provider value={gate.session}>
-        <ParentShell session={gate.session}>{children}</ParentShell>
+        <ParentSessionUpdateContext.Provider value={updateSession}>
+          <ParentShell session={gate.session}>{children}</ParentShell>
+        </ParentSessionUpdateContext.Provider>
       </ParentSessionContext.Provider>
     );
   }
