@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ParentArea } from "@/components/ParentArea";
+import "./parent.css";
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -12,5 +13,9 @@ export const metadata = {
  * while a parent moves between pages.
  */
 export default function ParentLayout({ children }: { children: ReactNode }) {
-  return <ParentArea>{children}</ParentArea>;
+  return (
+    <div className="parent-area">
+      <ParentArea>{children}</ParentArea>
+    </div>
+  );
 }

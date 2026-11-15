@@ -1258,6 +1258,8 @@ export const FR: Record<string, string> = {
   "Your teachers": "Vos enseignants",
   "Call a parent if a student hasn't joined.": "Appelez un parent si un élève n'a pas rejoint le cours.",
   "Call your teacher if you can't reach them in the app.": "Appelez votre enseignant si vous ne parvenez pas à le joindre dans l'application.",
+  "Your children's teachers": "Les enseignants de vos enfants",
+  "Call a teacher if you can't reach them in the app.": "Appelez un enseignant si vous ne parvenez pas à le joindre dans l'application.",
   "Could not load phone numbers.": "Impossible de charger les numéros de téléphone.",
   Parent: "Parent",
   "No phone number on file": "Aucun numéro de téléphone enregistré",

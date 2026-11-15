@@ -241,6 +241,32 @@ export const PARENT_SIDEBAR_SECTIONS: readonly ParentSidebarSection[] = [
  */
 export const PARENT_WEB_SCREENS: ReadonlySet<ParentIconKey> = new Set<ParentIconKey>(["dashboard"]);
 
+/**
+ * Where the parent screens send each other. Flutter pushes these as pages over
+ * the shell; on the web each one is its own URL.
+ */
+export const PARENT_ROUTES = {
+  home: "/parent/",
+  child: (id: string) => `/parent/child/?id=${encodeURIComponent(id)}`,
+  invoices: "/parent/invoices/",
+  invoicesPending: "/parent/invoices/?status=pending",
+  invoice: (id: string) => `/parent/invoices/detail/?id=${encodeURIComponent(id)}`,
+  pay: (id: string) => `/parent/pay/?invoiceId=${encodeURIComponent(id)}`,
+  payments: "/parent/payments/",
+  classroom: (shiftId: string) => `/parent/classroom/?shiftId=${encodeURIComponent(shiftId)}`,
+} as const;
+
+/**
+ * Pages Flutter pushes over the whole shell (no sidebar or top bar): the child
+ * page, and the invoice/payment pages opened from the dashboard.
+ */
+const PUSHED_PREFIXES = ["/parent/child/"];
+
+export function isPushedParentPage(pathname: string) {
+  const path = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return PUSHED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 export function sidebarLabel(entry: { label?: string; title?: string; fr?: string }, locale: string) {
   const en = entry.label ?? entry.title ?? "";
   return locale === "fr" && entry.fr ? entry.fr : en;
