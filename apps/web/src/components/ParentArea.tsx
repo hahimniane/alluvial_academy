@@ -61,6 +61,7 @@ import {
   type ParentIconKey,
   type ParentSidebarItem,
   type SectionState,
+  isPushedParentPage,
 } from "@/lib/parentWeb";
 
 // ─── Session context ───────────────────────────────────────────────────────
@@ -266,6 +267,27 @@ function ParentShell({ session, children }: { session: ParentSession; children: 
       onConfirm: () => void signOutParent(),
     });
 
+  const toastNode = toast ? (
+    <div
+      role="status"
+      className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-xl"
+      style={{ backgroundColor: toast.color }}
+    >
+      {toast.text}
+    </div>
+  ) : null;
+
+  // Flutter pushes the child page (and the pages opened from the dashboard)
+  // over the whole shell; the session watchers above keep running.
+  if (isPushedParentPage(pathname)) {
+    return (
+      <main className="h-screen select-text overflow-y-auto bg-[#F8FAFC] text-[#111827]">
+        {children}
+        {toastNode}
+      </main>
+    );
+  }
+
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-[#F8FAFC] text-[#111827]">
       <header className="flex min-h-14 shrink-0 items-center gap-2 bg-white px-2 min-[900px]:min-h-16 min-[900px]:px-8">
@@ -307,15 +329,7 @@ function ParentShell({ session, children }: { session: ParentSession; children: 
       ) : null}
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
-      {toast ? (
-        <div
-          role="status"
-          className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-xl"
-          style={{ backgroundColor: toast.color }}
-        >
-          {toast.text}
-        </div>
-      ) : null}
+      {toastNode}
     </main>
   );
 }

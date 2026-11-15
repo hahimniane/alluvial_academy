@@ -21,7 +21,7 @@ const RELATIONSHIP_LABELS: Record<ClassContact["relationship"], string> = {
  * with. `teacher` lists each student with their parents; `student` lists the
  * student's own teachers. Renders nothing when there is no one to show.
  */
-export function ClassContactsCard({ variant }: { variant: "teacher" | "student" }) {
+export function ClassContactsCard({ variant }: { variant: "teacher" | "student" | "parent" }) {
   const t = useT();
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<ClassContacts>({ students: [], children: [], teachers: [] });
@@ -48,12 +48,20 @@ export function ClassContactsCard({ variant }: { variant: "teacher" | "student" 
     };
   }, [reloadKey]);
 
-  const title = variant === "teacher" ? t("Contacts") : t("Your teachers");
-  const helper = variant === "teacher" ? t("Call a parent if a student hasn't joined.") : t("Call your teacher if you can't reach them in the app.");
+  const title = variant === "teacher" ? t("Contacts") : variant === "parent" ? t("Your children's teachers") : t("Your teachers");
+  const helper =
+    variant === "teacher"
+      ? t("Call a parent if a student hasn't joined.")
+      : variant === "parent"
+        ? t("Call a teacher if you can't reach them in the app.")
+        : t("Call your teacher if you can't reach them in the app.");
+  // A teacher sees each student with their parents, a parent each child with
+  // their teachers (the callable's `children` groups).
+  const groups = variant === "parent" ? contacts.children : contacts.students;
 
   if (state === "loading") return null;
   if (state === "ready") {
-    const empty = variant === "teacher" ? contacts.students.length === 0 : contacts.teachers.length === 0;
+    const empty = variant === "student" ? contacts.teachers.length === 0 : groups.length === 0;
     if (empty) return null;
   }
 
@@ -76,9 +84,9 @@ export function ClassContactsCard({ variant }: { variant: "teacher" | "student" 
             {t("Try again")}
           </button>
         </div>
-      ) : variant === "teacher" ? (
-        <ul className="grid max-h-96 gap-2 overflow-y-auto sm:grid-cols-2">
-          {contacts.students.map((group, index) => (
+      ) : variant !== "student" ? (
+        <ul className={`grid max-h-96 gap-2 overflow-y-auto ${variant === "parent" ? "" : "sm:grid-cols-2"}`}>
+          {groups.map((group, index) => (
             <li key={`${group.studentName}-${index}`} className="rounded-xl border border-black/5 bg-[#F8FAFC] px-3 py-2.5">
               <p className="truncate text-sm font-bold text-[#0F172A]">{group.studentName || t("Student")}</p>
               {group.contacts.length === 0 ? (

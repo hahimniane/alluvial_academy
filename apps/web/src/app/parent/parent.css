@@ -1,0 +1,10 @@
+/*
+ * globals.css sets `button, input, select, textarea { font: inherit; }` outside
+ * any cascade layer, so it outranks every Tailwind text-size / font-weight
+ * class on those elements. Inside the parent area, hand those elements back to
+ * the layered cascade (Tailwind's base `font: inherit`, then the utilities on
+ * the element), so `text-xs font-bold` on a button means what it says.
+ */
+.parent-area :is(button, input, select, textarea) {
+  font: revert-layer;
+}
