@@ -525,7 +525,29 @@ export type ParentInvoice = {
   periodStart: string | null;
   periodEnd: string | null;
   accessCutoffDate: Date | null;
+  items: InvoiceItem[];
+  createdByUid: string;
+  createdByName: string;
+  createdByEmail: string;
+  createdAt: Date | null;
 };
+
+export type InvoiceItem = { description: string; quantity: number; unitPrice: number; total: number };
+
+function parseItems(value: unknown): InvoiceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is Data => !!entry && typeof entry === "object" && !Array.isArray(entry))
+    .map((item) => {
+      const qty = toNumber(item.quantity);
+      return {
+        description: str(item.description ?? ""),
+        quantity: qty === null ? 1 : Math.trunc(qty),
+        unitPrice: toNumber(item.unit_price ?? item.unitPrice) ?? 0,
+        total: toNumber(item.total) ?? 0,
+      };
+    });
+}
 
 /** Invoice.fromMap. Missing due date = 30 days from now, as Flutter defaults it. */
 export function parseInvoice(id: string, data: Data, now: Date = new Date()): ParentInvoice {
@@ -548,6 +570,11 @@ export function parseInvoice(id: string, data: Data, now: Date = new Date()): Pa
     periodStart: periodStart == null ? null : String(periodStart),
     periodEnd: periodEnd == null ? null : String(periodEnd),
     accessCutoffDate: anyDate(data.access_cutoff_date ?? data.accessCutoffDate),
+    items: parseItems(data.items),
+    createdByUid: str(data.created_by ?? data.createdBy ?? ""),
+    createdByName: str(data.created_by_name ?? data.createdByName ?? ""),
+    createdByEmail: str(data.created_by_email ?? data.createdByEmail ?? ""),
+    createdAt: anyDate(data.created_at ?? data.createdAt),
   };
 }
 
@@ -626,7 +653,7 @@ export function cutoffBadge(inv: ParentInvoice, now: Date): CutoffBadge {
 
 export type PaymentStatus = "pending" | "processing" | "completed" | "failed";
 
-export type ParentPayment = { id: string; invoiceId: string; amount: number; status: PaymentStatus; createdAt: Date | null };
+export type ParentPayment = { id: string; invoiceId: string; amount: number; status: PaymentStatus; createdAt: Date | null; completedAt: Date | null };
 
 export function parsePayment(id: string, data: Data): ParentPayment {
   const raw = str(data.status).trim();
@@ -636,6 +663,7 @@ export function parsePayment(id: string, data: Data): ParentPayment {
     amount: toNumber(data.amount) ?? 0,
     status: (["pending", "processing", "completed", "failed"] as const).find((s) => s === raw) ?? "pending",
     createdAt: anyDate(data.created_at ?? data.createdAt),
+    completedAt: anyDate(data.completed_at ?? data.completedAt),
   };
 }
 
