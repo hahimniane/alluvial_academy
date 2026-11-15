@@ -55,6 +55,8 @@ export function MatchedSetupActions({
   classmates,
   studentUserId,
   accountMissing = false,
+  accountInactive = false,
+  hasUpcomingClasses = true,
   parentLinked,
   hasSchedule,
   isAdult = false,
@@ -74,6 +76,10 @@ export function MatchedSetupActions({
   studentUserId: string;
   /** The application named an account that has since been deleted. */
   accountMissing?: boolean;
+  /** The linked account exists but is switched off, so no class can be booked on it. */
+  accountInactive?: boolean;
+  /** Whether the student still has a class ahead; false after their classes ended. */
+  hasUpcomingClasses?: boolean;
   parentLinked: boolean;
   hasSchedule: boolean;
   /** An adult student pays for themselves, so the monthly amount does not wait for a parent. */
@@ -104,6 +110,13 @@ export function MatchedSetupActions({
   const [linking, setLinking] = useState(false);
   const [pickingAccount, setPickingAccount] = useState(false);
   const [pricing, setPricing] = useState(false);
+  // Why the last press did nothing, shown on the card itself: the page banner
+  // sits at the top of a long list and is out of sight from most cards.
+  const [stepError, setStepError] = useState("");
+  const fail = (text: string) => {
+    setStepError(text);
+    onMessage(text);
+  };
   const lookup = useRef<Promise<ExistingParent | null> | null>(null);
 
   const steps = setupSteps({ hasAccount: studentUserId.trim().length > 0, hasSchedule, hasParent: parentLinked });
@@ -185,11 +198,25 @@ export function MatchedSetupActions({
     const missing = studentIds.filter((id) => !students.some((student) => student.id === id));
     if (studentIds.length === 0 || missing.length > 0) {
       throw new Error(
-        "The student account is not in the student list. If it was just created, try again in a moment; " +
-          "if it was deleted, reload this page and create the account again from step 1.",
+        accountInactive
+          ? "This student's account is switched off, so classes cannot be booked on it. Link their active account, or switch this one back on in Users."
+          : "The student account is not in the student list. If it was just created, try again in a moment; " +
+              "if it was deleted, reload this page and create the account again from step 1.",
       );
     }
+    setStepError("");
     setEditor({ studentIds, staff, students, subjects, adminName: profile.name, adminTimezone: profile.timezone });
+  };
+
+  const openScheduleForThisCard = async () => {
+    setStepError("");
+    try {
+      await openScheduleEditor(
+        (classmates ?? [{ enrollmentId, studentName, studentUserId }]).map((c) => c.studentUserId).filter(Boolean),
+      );
+    } catch (err) {
+      fail(errorText(err, "Could not open the schedule."));
+    }
   };
 
   const user = auth.currentUser;
@@ -207,6 +234,15 @@ export function MatchedSetupActions({
         <p className="mb-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-xs text-[#92400E]">
           The account this application was linked to no longer exists. Create account links the child&apos;s
           current account instead of making a new one.
+        </p>
+      ) : null}
+      {accountInactive && !accountMissing ? (
+        <p className="mb-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-xs text-[#92400E]">
+          This student&apos;s account is switched off, so classes cannot be booked on it.{" "}
+          <button type="button" onClick={() => setPickingAccount(true)} className="font-semibold text-[#0386FF] hover:underline">
+            Link their active account
+          </button>{" "}
+          or switch this one back on in Users.
         </p>
       ) : null}
       <ol className="flex flex-wrap items-stretch gap-2" aria-label="Setup steps">
@@ -244,7 +280,7 @@ export function MatchedSetupActions({
                 onChanged();
                 await openScheduleEditor([...ids]);
               } catch (err) {
-                onMessage(errorText(err, "Could not create the account."));
+                fail(errorText(err, "Could not create the account."));
               }
             }}
           />
@@ -259,22 +295,18 @@ export function MatchedSetupActions({
           )}
         </Step>
 
-        <Step number={2} status={statusOf("schedule")} doneLabel="Schedule confirmed" lockedHint="After the account">
+        <Step
+          number={2}
+          status={statusOf("schedule")}
+          doneLabel={hasUpcomingClasses ? "Schedule confirmed" : "No upcoming classes"}
+          lockedHint="After the account"
+          doneAction={hasUpcomingClasses ? undefined : { label: "Add classes", onClick: () => void openScheduleForThisCard() }}
+        >
           <ActionButton
             label="Finalize schedule"
             busyLabel="Preparing…"
             icon={<CalendarPlus size={16} />}
-            onAction={async () => {
-              try {
-                await openScheduleEditor(
-                  (classmates ?? [{ enrollmentId, studentName, studentUserId }])
-                    .map((c) => c.studentUserId)
-                    .filter(Boolean),
-                );
-              } catch (err) {
-                onMessage(errorText(err, "Could not open the schedule."));
-              }
-            }}
+            onAction={openScheduleForThisCard}
           />
         </Step>
 
@@ -304,6 +336,11 @@ export function MatchedSetupActions({
           />
         </Step>
       </ol>
+      {stepError ? (
+        <p role="alert" className="mt-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]">
+          {stepError}
+        </p>
+      ) : null}
 
       {editor && user ? (
         <ShiftEditorDialog

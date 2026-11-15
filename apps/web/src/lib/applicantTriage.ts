@@ -106,6 +106,34 @@ export const hasScheduleFor = (
   return teachers.has(applicant.matchedTeacherId.trim());
 };
 
+/**
+ * What the class list says about a set of students: the teachers each one has
+ * ever had a class with, and which of them still have a class ahead of them.
+ * A cancelled class is not a class ahead.
+ */
+export type ShiftFact = { teacherId: string; studentIds: string[]; startMs: number; status: string };
+
+export const scheduleFacts = (
+  shifts: ShiftFact[],
+  studentIds: readonly string[],
+  nowMs: number,
+): { teachers: Map<string, Set<string>>; upcoming: Set<string> } => {
+  const wanted = new Set(studentIds);
+  const teachers = new Map<string, Set<string>>();
+  const upcoming = new Set<string>();
+  for (const shift of shifts) {
+    const ahead = shift.startMs > nowMs && shift.status.trim().toLowerCase() !== "cancelled";
+    for (const uid of shift.studentIds) {
+      if (!wanted.has(uid)) continue;
+      const set = teachers.get(uid) ?? new Set<string>();
+      if (shift.teacherId) set.add(shift.teacherId);
+      teachers.set(uid, set);
+      if (ahead) upcoming.add(uid);
+    }
+  }
+  return { teachers, upcoming };
+};
+
 /* ---------------------------------------------------------------- steps -- */
 
 export type SetupStepId = "account" | "schedule" | "parent";

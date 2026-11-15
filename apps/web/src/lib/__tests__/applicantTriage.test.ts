@@ -6,6 +6,7 @@ import {
   daysWaiting,
   groupByTeacher,
   hasScheduleFor,
+  scheduleFacts,
   isStale,
   matchesSearch,
   setupFor,
@@ -265,4 +266,28 @@ test("once the new teacher's classes exist the re-match is ready to teach", () =
   const rematched = applicant({ studentUserId: "uid-2", parentLinked: true });
   const scheduled = hasScheduleFor({ studentUserId: "uid-2", matchedTeacherId: "new-teacher", rematched: true }, index);
   assert.equal(setupFor(rematched, scheduled).stage, "ready");
+});
+
+test("scheduleFacts: teachers ever, and who still has a class ahead", () => {
+  const now = Date.UTC(2026, 10, 14);
+  const day = 864e5;
+  const facts = scheduleFacts(
+    [
+      // Classes that ended in October: a teacher on record, nothing ahead.
+      { teacherId: "t1", studentIds: ["stopped"], startMs: now - 40 * day, status: "fullyCompleted" },
+      // A class tomorrow.
+      { teacherId: "t2", studentIds: ["active", "someone-else"], startMs: now + day, status: "scheduled" },
+      // A cancelled class next week is not a class ahead.
+      { teacherId: "t3", studentIds: ["cancelled-only"], startMs: now + 7 * day, status: "cancelled" },
+    ],
+    ["stopped", "active", "cancelled-only", "never"],
+    now,
+  );
+  assert.deepEqual([...facts.teachers.get("stopped")!], ["t1"]);
+  assert.equal(facts.upcoming.has("stopped"), false);
+  assert.equal(facts.upcoming.has("active"), true);
+  assert.equal(facts.upcoming.has("cancelled-only"), false);
+  assert.equal(facts.teachers.has("never"), false);
+  // Students outside the asked list are ignored.
+  assert.equal(facts.teachers.has("someone-else"), false);
 });
