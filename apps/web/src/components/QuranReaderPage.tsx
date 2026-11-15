@@ -1,11 +1,12 @@
 "use client";
 
 import { onAuthStateChanged } from "firebase/auth";
-import { arrayRemove, arrayUnion, deleteField, doc, getDoc, increment, serverTimestamp, setDoc } from "firebase/firestore";
+import { arrayRemove, arrayUnion, deleteField, doc, getDoc, increment, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, ChevronDown, Circle, Flame, Loader2, Mic, Pause, Play, Repeat, Search, Square, Target, X } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { useT } from "@/lib/i18n";
+import { planDailyLogRepair, readDailyLog } from "@/lib/quranMemorization";
 import { RecitationCheck } from "@/components/RecitationCheck";
 import { RecitationFollowAlong } from "@/components/RecitationFollowAlong";
 
@@ -233,7 +234,20 @@ export function QuranReaderPage({ session, accessPrompt, renderShell }: {
         if (data.plan?.scope) {
           setPlan({ scope: parseScope(String(data.plan.scope)), perDay: Number(data.plan.perDay) || 1, startDate: String(data.plan.startDate || todayStr()) });
         }
-        if (data.daily_log && typeof data.daily_log === "object") setDailyLog(data.daily_log as Record<string, number>);
+        setDailyLog(readDailyLog(data));
+        // Move counts an older web build left in top-level `daily_log.<day>`
+        // fields into the shared map, so the phone app sees them too.
+        if (planDailyLogRepair(data)) {
+          const ref = doc(db, "quran_memorization", uid);
+          void runTransaction(db, async (tx) => {
+            const fresh = await tx.get(ref);
+            const repair = fresh.exists() ? planDailyLogRepair(fresh.data()) : null;
+            if (!repair) return;
+            const update: Record<string, unknown> = { daily_log: repair.dailyLog, updated_at: serverTimestamp() };
+            for (const field of repair.strayFields) update[field] = deleteField();
+            tx.set(ref, update, { merge: true });
+          }).catch(() => undefined);
+        }
       } catch {
         // Progress just shows empty if this read fails.
       }
@@ -266,7 +280,8 @@ export function QuranReaderPage({ session, accessPrompt, renderShell }: {
         doc(db, "quran_memorization", uid),
         {
           memorized: { [surahId]: already ? arrayRemove(ayah) : arrayUnion(ayah) },
-          [`daily_log.${day}`]: increment(already ? -1 : 1),
+          // A nested map, as Flutter writes it: setDoc reads a dotted key as one literal field name.
+          daily_log: { [day]: increment(already ? -1 : 1) },
           updated_at: serverTimestamp(),
         },
         { merge: true },
