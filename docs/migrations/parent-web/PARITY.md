@@ -207,3 +207,60 @@ before it was, and the meeting-page address is pinned by unit tests against
 
 Before cut-over: one real join as a parent in production (a parent account in a
 live class), to confirm the Zoom hand-off end to end.
+
+## Slice 4 — chat
+
+Tested on alluwal-dev with the dev parent, a teacher of the dev child, a 1:1 thread
+(two unread messages, one with a reply quote), a group (parent, teacher, staff
+admin; a system notice; an @All message with a reaction) and the Admin Support
+thread with a staff reply. Flutter (switch off) and Next (switch on) showed the
+same Recent list. Every action below was run live and the written documents were
+checked with the Admin SDK.
+
+Plan default applied: chat actions that fail today are made to work (Clear chat,
+Leave Group, Forward to Admin Support); wrong-perspective and junk copy replaced.
+
+| Item | What | Result | Evidence |
+|---|---|---|---|
+| C-400 / C-401 | Sidebar Chat, no badge | pass | now listed; no unread badge (as today). |
+| C-402 | Phone tab | n/a | phones stay on Flutter. |
+| C-403 | Tabs + search, no Create Group | pass | "Recent Chats" / "My Contacts", one search box. |
+| C-404…C-407 | Recent rows | pass | same rows as Flutter: 2 / 1 / 1 unread, online dot, Teacher / Group Chat + "3 members" / Administrator chips, time chips; live; 1:1 rows dropped when the other user is gone (unit-tested). |
+| C-408 | Unread rule | pass | not read, not mine, not hidden for me (unit-tested). |
+| C-409 | Preview text | pass / fix | deleted variants unit-tested; "You deleted this message" after delete-for-everyone recomputed `last_message` (checked). Hiding the last message now also marks its stored copy for the parent, so the fallback really happens (Flutter never marks it, so the removed text stays as the preview). |
+| C-410 | States | pass / differs | spinner, permission/other errors, empty, no hits. The empty text no longer says "browsing all users" (parents cannot). |
+| C-411 | Search | pass | name, e-mail, id, phone ≥ 7 digits; support card kept for "admin support" substrings (unit-tested). |
+| C-412 | Support card | pass | live: card first; opening creates/repairs the thread. |
+| C-413 | Administrators | pass | admin, super_admin, ceo, founder + admin-teachers (9 on dev incl. a leader title "Operations Director"). |
+| C-414 | Teachers | pass | children from `children_ids`, else guardian_ids; teachers with a non-cancelled class ending in the last 30 days or later; the users lookup is batched by 30 (Flutter's single query fails above 30 — B-3). |
+| C-415 | Contacts states | pass | loading; errors leave only the support card (as today). |
+| C-416 | canMessage | pass | live: own child (student) → red locked bar; teacher of the child → composer; inbound unlock unit-tested. |
+| C-417 | Support thread | pass / differs | header "Administrator", banner "Admin Support"; staff replies on the LEFT with the staff name (Flutter right/teal — B-9). |
+| C-418 | Header | pass | back, avatar, online chip / "Last sent …" / role, ⋮ menu; full page over the shell. |
+| C-419 | Relationship banner | pass / differs | "Your child's teacher" (Flutter shows the teacher's wording "Parent of your student" — B-10). |
+| C-420 / C-421 | Messages + bubbles | pass | newest 50 live; own right blue, others left white with avatar + name; system pills; "edited"; HH:mm / Yesterday / D/M (unit-tested). |
+| C-422 | Read receipts | pass | live: opening marked the teacher's messages read and stamped `last_read_by`; ✓ / ✓✓. |
+| C-423 | Mentions | pass | `@All` styled; links not linkified (as today). |
+| C-424 | Send | pass / differs | same documents as Flutter (checked). Enter sends, Shift+Enter new line; a failed send restores the draft with a message (Flutter loses the text silently). |
+| C-425 | Message menu | pass / differs | live: React, Reply, Copy, Forward, Edit, Delete (own text) / React, Reply, Copy, Forward, Delete (others'). Opens on press-and-hold as in Flutter, and also on right-click / Enter for mouse and keyboard users. |
+| C-426…C-428 | Reply, reactions, copy | pass | reply quote; six quick emojis + "More" grid; toggle/replace; chips; copy toast. |
+| C-429 | Forward | pass / fix | live: forwarded into the REAL Admin Support thread with `forwarded` + `original_sender`; no `chats/admin_support` doc (Flutter B-1). |
+| C-430 | Edit | pass / fix | live: "edited"; the list preview is patched only when the edited message is the last one (Flutter B-5). |
+| C-431 | Delete | pass | live: delete for me + Undo; delete for everyone (own, ≤ 2 days) → placeholder and `last_message` recomputed. |
+| C-432…C-434 | Attachments | pass | menu Photo / Camera / Video / Document / Location; live: photo with caption preview → `chat_images/{uid}/…`, image bubble with caption. Camera = the browser's capture input. |
+| C-435 / C-436 | Voice | differs (decision) | no microphone on the web (Flutter web shows one that always fails — B-8; whether WebM plays on phones is unverified). Received voice notes play with the browser's audio player. |
+| C-437 | Documents | pass | live: `revision-plan.txt` → `chat_files/{uid}/…`, file card with size, opens in a new tab; same extension list. |
+| C-438 | Location | pass (code) | browser location → "Send current location" sheet → pinned-location card linking to Google Maps. Not run live (needs a location permission); no reverse geocoding on the web (Flutter's own fallback: "Current location" + coordinates). |
+| C-439 | Images | pass | viewer with click / ctrl-wheel zoom. |
+| C-440 | Clear chat, Block | pass / fix | live: Block hides the composer with "You blocked …", Unblock restores it. Clear chat now removes every message from the PARENT's view only (6 → 0) and the row leaves Recent; Flutter tries to hard-delete both sides and normally fails (B-4). |
+| C-441 | Absent features | pass | none added. |
+| C-442 | Presence | pass | slice-0 heartbeat. |
+| C-450 | Group conversation | pass | live: @ suggestions (All + members), group menu with the same six entries; "Edit Group" / "Add members" give the same refusal for non-admins. |
+| C-451 / C-452 | Group info, members | pass | live: members with You / Creator / Admin tags. |
+| C-453 | Leave Group | pass / fix | live: participants updated, "Zz Web Parent left" posted (written as the parent so the rules accept it), back to the list; Flutter fails half-way (B-7). |
+| C-460 | Leader titles | pass | shared `leaderTitle`. |
+| C-461…C-465 | Push | unchanged | the same message documents fire the same trigger; no web push (as today). |
+| C-466…C-469 | Data | pass | same documents, Storage folders and limits. |
+
+Test note: Flutter showed the dev 1:1 thread as empty because the seeded teacher id
+contains `_`, which Flutter treats as a chat id (C-420); real uids have none.
