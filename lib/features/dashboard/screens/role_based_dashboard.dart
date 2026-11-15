@@ -16,6 +16,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 import 'package:alluwalacademyadmin/core/services/teacher_web_cutover.dart';
+import 'package:alluwalacademyadmin/core/services/parent_web_cutover.dart';
 import 'package:alluwalacademyadmin/core/utils/web_redirect_stub.dart'
     if (dart.library.html) 'package:alluwalacademyadmin/core/utils/web_redirect_web.dart';
 
@@ -355,8 +356,11 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
         AppLogger.debug('=== Student on web - redirecting to /student/ ===');
         return const _StudentWebRedirect();
       case 'parent':
-        AppLogger.debug('=== Returning ParentDashboard ===');
-        return ParentDashboard(
+        // Parents are moving to the Next.js area at /parent/, in stages:
+        // settings/parent_web_cutover names who goes. Anyone not named — and
+        // every native store app — stays on the Flutter parent dashboard.
+        AppLogger.debug('=== Parent: checking web cutover ===');
+        return _ParentDashboardOrWebRedirect(
           key: const ValueKey('dashboard_parent'),
           onRoleChanged: _onRoleChanged,
         );
@@ -636,6 +640,49 @@ class ParentDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ParentDashboardLayout(onRoleChanged: onRoleChanged);
+  }
+}
+
+/// Decides, once, whether this parent takes the Next.js parent area or the
+/// Flutter parent dashboard. Shows the app's usual spinner while deciding, so
+/// the wrong dashboard never flashes.
+class _ParentDashboardOrWebRedirect extends StatefulWidget {
+  const _ParentDashboardOrWebRedirect({super.key, required this.onRoleChanged});
+
+  final VoidCallback onRoleChanged;
+
+  @override
+  State<_ParentDashboardOrWebRedirect> createState() =>
+      _ParentDashboardOrWebRedirectState();
+}
+
+class _ParentDashboardOrWebRedirectState
+    extends State<_ParentDashboardOrWebRedirect> {
+  bool? _useWeb;
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  Future<void> _decide() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final useWeb = await ParentWebCutover.shouldUseWebArea(uid);
+    if (!mounted) return;
+    if (useWeb) {
+      AppLogger.debug('=== Parent on web - redirecting to /parent/ ===');
+      redirectToParentWebApp();
+    }
+    setState(() => _useWeb = useWeb);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_useWeb == null || _useWeb == true) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return ParentDashboard(onRoleChanged: widget.onRoleChanged);
   }
 }
 

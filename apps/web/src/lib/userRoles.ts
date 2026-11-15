@@ -2,6 +2,8 @@ import type { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { teacherUsesWebConsole } from "@/lib/teacherCutover";
+import { activeRoleOf } from "@/lib/roles";
+import { parentUsesWebAreaSafe, storedActiveRole } from "@/lib/parentCutover";
 
 type UserRecord = Record<string, unknown>;
 
@@ -36,6 +38,19 @@ export async function dashboardPathForUser(user: User) {
   const data = await getUserRecord(user);
   if (!data) return "/app/";
   const roles = availableRoles(data);
+  // A parent opening as parent goes to the parent area once
+  // settings/parent_web_cutover names them. "Opening as parent" is the role the
+  // Flutter app would open with — its switcher's saved role when the account
+  // still holds it, otherwise user_type — so a parent who is also a student
+  // lands where Flutter would have put them. Until the switch names a parent
+  // this branch never fires and they keep today's route.
+  if (
+    roles.has("parent") &&
+    activeRoleOf(data, storedActiveRole()) === "parent" &&
+    (await parentUsesWebAreaSafe(user.uid))
+  ) {
+    return "/parent/";
+  }
   // Students and teachers use the ported Next.js dashboards. Admins, parents
   // and everyone else stay on the Flutter app at /app/ — they are already
   // authenticated by the time this runs, so /app/ (not its login) is correct.
