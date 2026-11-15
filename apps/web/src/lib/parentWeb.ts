@@ -239,7 +239,7 @@ export const PARENT_SIDEBAR_SECTIONS: readonly ParentSidebarSection[] = [
  * parent is never sent to a page that does not exist; each later slice adds
  * its ids here when its parity check passes.
  */
-export const PARENT_WEB_SCREENS: ReadonlySet<ParentIconKey> = new Set<ParentIconKey>(["dashboard"]);
+export const PARENT_WEB_SCREENS: ReadonlySet<ParentIconKey> = new Set<ParentIconKey>(["dashboard", "invoices", "payments"]);
 
 /**
  * Where the parent screens send each other. Flutter pushes these as pages over
@@ -252,6 +252,7 @@ export const PARENT_ROUTES = {
   invoicesPending: "/parent/invoices/?status=pending",
   invoice: (id: string) => `/parent/invoices/detail/?id=${encodeURIComponent(id)}`,
   pay: (id: string) => `/parent/pay/?invoiceId=${encodeURIComponent(id)}`,
+  payReturn: "/parent/pay/return/",
   payments: "/parent/payments/",
   classroom: (shiftId: string) => `/parent/classroom/?shiftId=${encodeURIComponent(shiftId)}`,
 } as const;
@@ -260,7 +261,7 @@ export const PARENT_ROUTES = {
  * Pages Flutter pushes over the whole shell (no sidebar or top bar): the child
  * page, and the invoice/payment pages opened from the dashboard.
  */
-const PUSHED_PREFIXES = ["/parent/child/"];
+const PUSHED_PREFIXES = ["/parent/child/", "/parent/invoices/detail/", "/parent/pay/"];
 
 export function isPushedParentPage(pathname: string) {
   const path = pathname.endsWith("/") ? pathname : `${pathname}/`;

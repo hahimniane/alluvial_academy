@@ -126,3 +126,45 @@ Also fixed in the shell: `globals.css` gives buttons `font: inherit` outside any
 cascade layer, which overrode every Tailwind size/weight class on buttons (the
 role chip and Reset Layout rendered at 16 px). `app/parent/parent.css` restores
 the layered cascade inside `.parent-area` only.
+
+## Slice 2 — money (invoices, details, PDF, pay, payment history)
+
+Tested on alluwal-dev with the dev parent and 5 invoices (pending, late pending,
+stored-overdue in EUR with a cut-off and a range period, paid, cancelled; one with
+three lines incl. a discount and a credit, created by a staff user) and 7 payment
+records. Flutter (dev web build, switch off) and Next (switch on) were compared on
+the same data: the list, pay screen, payment history and invoice details matched.
+alluwal-dev has no Stripe configuration, so the pay button was exercised against the
+dev fallback (a mock checkout address) and Stripe's return + the webhook's writes
+were simulated on dev records.
+
+| Item | What | Result | Evidence |
+|---|---|---|---|
+| B-001 / B-092 | Ways in | pass | sidebar Finance → Invoices / Payments (now listed), dashboard tiles, See all, Pay Now and the suspension banner (`?status=pending`). Both pages sit inside the shell; Flutter pushes them over it from the dashboard. |
+| B-002 / B-003…B-005 | List and queries | pass | parent_id (status in the query, due date desc, 100) + student_id (error = empty), merged, 100 cap (unit-tested); same 5 cards in the same order as Flutter. |
+| B-006 / B-007 | Chips | pass | stored-status filter kept (plan default): the late INV-ZZ-0001 under Pending, only the stored-overdue invoice under Overdue — same as Flutter. Row centred as in Flutter. |
+| B-008 | Search | differs (default) | number only, as today; the hint now says so ("Search by invoice number") instead of promising parent/email/phone. |
+| B-009…B-011 | States | pass / differs | spinner; plain error instead of an endless spinner; "No invoices found." |
+| B-012 | Child name | pass | first + last, raw id when missing (unit-tested); same names as Flutter. |
+| B-013 | Card opens details | differs (fix) | Flutter web: clicking a card does nothing (its text-selection layer takes the click — reproduced live); Next opens the details. |
+| B-014…B-028 | Card | pass | shared card from slice 1 (badges, period incl. ranges, amount in the invoice currency incl. €, due chip, cut-off strip, Pay Now) — identical to Flutter on all 5. |
+| B-029 / B-030 | Details load | differs (fix) | live instead of one read, so totals follow a payment; missing/refused → "This invoice could not be found." |
+| B-031…B-033 | Buttons + pill | pass | Pay Invoice / Paid / disabled for cancelled; Download PDF; OVERDUE pill — same as Flutter. |
+| B-034…B-041 | Invoice sheet | pass | header, FROM / BILLED TO (15 s name cap, placeholders), meta row, 4-column table (2 columns under 560 px, live at 375 px), negative lines, Subtotal / Paid Toward Balance / Amount Due colours, footer — same as Flutter on INV-ZZ-0001 and the EUR invoice. |
+| B-042 | Decision history | pass | fallback row "Created invoice · By Zz Finance Admin · admin · date" (date in the app language, as Flutter); tooltip with email · role · uid. Same as today (owner question B-P3 still open). |
+| B-043 / B-044 | Payments for the invoice | pass | invoice_id + parent_id, live, newest first, same row; plain empty/error. |
+| B-045…B-056 | PDF | pass / differs | same content and wording (A4, "Payment Date" = issue date, "From:", "Received by: Muhammed Barry", rows only when present — unit-tested); opens the browser print dialog with `Invoice_<n>.pdf` as on Flutter web. Differs: built from the live invoice; accented letters kept; a long invoice continues on a second page instead of overflowing. |
+| B-057 | Emailed PDF | unchanged | server renderer untouched. Note: its fixed layout overlaps the footer on long invoices (seen while porting) — not changed here. |
+| B-058…B-061 | Pay page | pass | live invoice box (PAID / OVERDUE / PENDING, never CANCELLED — unit-tested), Total / Paid / Remaining, one button; same as Flutter. |
+| B-062 / B-063 | Start checkout | pass | `createPaymentSession {invoiceId, returnTo:'parent'}`; answer must carry a payment id and an absolute address; same-tab redirect — live against the dev fallback ($60.00, full balance). |
+| B-064 | Return from Stripe | differs (default, needs PR #185) | `/parent/pay/return/`: "Payment submitted" → live flip to "Payment received" when the webhook marks it paid (simulated live); "Payment cancelled — nothing was charged" with Pay again. Payment polled every 2 s × 15 + Check Payment Status, as Flutter's phone flow. Requires the `createPaymentSession` change in its own PR; until it is deployed, Stripe still returns to the home page. |
+| B-065…B-067, B-071, B-073 | Phone sheet | n/a | phones stay on Flutter. |
+| B-068 / B-069 | Status box, success banner | pass | on the return page and the pay page. |
+| B-070 | Error messages | pass | same mapping from the server's code (unit-tested), fixed French for the screen title. |
+| B-072 | Double click | pass | button disabled while starting. |
+| B-074…B-091 | Server, pay links | unchanged | apart from the opt-in return address (PR #185). |
+| B-093…B-097 | Payment History | pass / differs | 100 newest, live, attempts included, tinted icons with processing in blue — identical to Flutter; row opens the invoice; plain error instead of an endless spinner. |
+| B-098 | Adult-student gap | same as today | parent_id only (adult students use the student pages). |
+| B-099…B-102 | Emails | unchanged | "parent dashboard → Invoices / Payments" stays true. |
+| B-103…B-112 | Suspension | pass | banner (slice 1) and cut-off strips; nothing blocks the parent. |
+| B-113…B-122 | Dashboard money | pass | slice 1. |

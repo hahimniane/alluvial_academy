@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertCircle, Loader2, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { AlertCircle, ArrowLeft, Loader2, type LucideIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * Small pieces every parent screen repeats in Flutter: `_emptyCard`,
@@ -52,6 +52,43 @@ export function ParentSpinner({ padding = 12, label }: { padding?: number; label
       <Loader2 size={36} className="animate-spin text-[#0386FF]" />
     </div>
   );
+}
+
+/**
+ * Flutter's white AppBar: centred bold title, and a back arrow on pages pushed
+ * over the shell. Back returns to the previous page, or to `backHref` when the
+ * page was opened directly.
+ */
+export function ParentAppBar({ title, backHref, backLabel }: { title: string; backHref?: string; backLabel?: string }) {
+  const goBack = () => {
+    if (!backHref) return;
+    const cameFromHere = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin);
+    if (cameFromHere && window.history.length > 1) window.history.back();
+    else window.location.assign(backHref);
+  };
+  return (
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center bg-white px-1">
+      {backHref ? (
+        <button type="button" onClick={goBack} aria-label={backLabel} title={backLabel} className="grid h-12 w-12 place-items-center rounded-full text-[#111827] hover:bg-black/5">
+          <ArrowLeft size={24} />
+        </button>
+      ) : (
+        <span className="w-12" />
+      )}
+      <h1 className="min-w-0 flex-1 truncate text-center text-[22px] font-extrabold text-[#111827]">{title}</h1>
+      <span className="w-12" />
+    </header>
+  );
+}
+
+/** The current time, refreshed every `intervalMs` so "overdue" labels keep up. */
+export function useNow(intervalMs = 60_000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(timer);
+  }, [intervalMs]);
+  return now;
 }
 
 /** White card with the soft 0 6 12 shadow most Flutter parent cards use. */
