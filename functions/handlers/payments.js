@@ -6,6 +6,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 const { createPayoneerClient } = require('../services/payoneer/client');
 const stripeCheckout = require('../services/stripe/checkout');
+const { checkoutReturnUrls } = require('../utils/checkout_return');
 const payLinks = require('../services/payment_links');
 const { generateInvoiceFromShifts } = require('../utils/invoice_generator');
 const {applyStudentDiscounts} = require('../utils/student_discounts');
@@ -2015,8 +2016,13 @@ const createPaymentSession = async (request) => {
         paymentId: paymentRef.id,
         invoiceId,
         invoiceNumber,
-        successUrl,
-        cancelUrl,
+        ...checkoutReturnUrls({
+          returnTo: (data.returnTo || '').toString(),
+          successUrl,
+          cancelUrl,
+          invoiceId,
+          paymentId: paymentRef.id,
+        }),
         customerEmail: request.auth.token?.email || undefined
       });
 
