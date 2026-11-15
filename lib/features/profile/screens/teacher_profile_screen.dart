@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
-import 'package:alluwalacademyadmin/features/onboarding/services/onboarding_service.dart';
+import 'package:alluwalacademyadmin/core/services/onboarding_service.dart';
 import '../widgets/teacher_profile_edit_dialog.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
