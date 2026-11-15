@@ -6,3 +6,5 @@ void redirectToWebApp(String path) {}
 void redirectToStudentWebApp() {}
 
 void redirectToTeacherWebApp() {}
+
+void redirectToParentWebApp() {}

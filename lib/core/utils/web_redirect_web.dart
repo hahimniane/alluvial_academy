@@ -17,3 +17,6 @@ void redirectToStudentWebApp() => redirectToWebApp('/student/');
 
 /// The Next.js teacher console.
 void redirectToTeacherWebApp() => redirectToWebApp('/teacher/');
+
+/// The Next.js parent area.
+void redirectToParentWebApp() => redirectToWebApp('/parent/');
