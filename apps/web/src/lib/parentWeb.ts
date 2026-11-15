@@ -239,7 +239,7 @@ export const PARENT_SIDEBAR_SECTIONS: readonly ParentSidebarSection[] = [
  * parent is never sent to a page that does not exist; each later slice adds
  * its ids here when its parity check passes.
  */
-export const PARENT_WEB_SCREENS: ReadonlySet<ParentIconKey> = new Set<ParentIconKey>(["dashboard", "chat", "classes", "invoices", "payments", "forms", "profile", "settings"]);
+export const PARENT_WEB_SCREENS: ReadonlySet<ParentIconKey> = new Set<ParentIconKey>(["dashboard", "chat", "classes", "invoices", "payments", "recordings", "curriculum_books", "quran", "forms", "profile", "settings"]);
 
 /**
  * Where the parent screens send each other. Flutter pushes these as pages over
@@ -255,6 +255,9 @@ export const PARENT_ROUTES = {
   payReturn: "/parent/pay/return/",
   payments: "/parent/payments/",
   classes: "/parent/classes/",
+  recordings: "/parent/recordings/",
+  curriculumBooks: "/parent/curriculum-books/",
+  quran: "/parent/quran/",
   chat: "/parent/chat/",
   conversation: (p: { id: string; kind: "direct" | "group" | "support"; with?: string }) =>
     `/parent/chat/conversation/?id=${encodeURIComponent(p.id)}&kind=${p.kind}${p.with ? `&with=${encodeURIComponent(p.with)}` : ""}`,

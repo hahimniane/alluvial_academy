@@ -320,3 +320,80 @@ Decisions: the Forms lock badge for every locked card; the parent's own form
 opens in its window (not the teacher template); per-session forms open without
 the teacher class picker; "Autre" for the excuse reason (the app's "Autres");
 "Rechercher des formulaires" (the app's "Formulaires de recherche").
+## Slice 5b — recordings, curriculum books, Quran
+
+Tested on alluwal-dev with the dev parent (child A on `guardian_ids`, child B on
+`guardianIds`, both in `children_ids`) against `next dev` on this branch. Flutter
+was compared live with the dev web build (built 2026-11-15 from main; the three
+screens have not changed since) signed in as a second throw-away parent with the
+same two children in `children_ids` and **not** on the cut-over list, so the
+switch was never touched for the comparison. Seed: 11 `class_recordings` docs
+(two fragments of one class with a classmate from another family, a class shared
+by both children, a `shift_start`-only recording, missing file, `starting`,
+merge `pending`, merge `completed` with no merged file, plus failed / expired /
+no-file / other-family ones that must stay hidden), a 25-second test video in the
+dev bucket, and a teacher with e-mail and phone. All removed afterwards.
+
+No shared component changed: `QuranReaderPage`, the student and teacher
+Recordings / Books / Quran pages, `ParentArea` and `ParentUi` have an empty diff
+against main, so the student and teacher pages are unchanged by construction.
+
+| Item | What | Result | Evidence |
+|---|---|---|---|
+| C-200 | Sidebar Learning → Recordings | pass | now listed; page sits inside the shell (not pushed), item highlighted. |
+| C-201 | Not reachable on phones | n/a | phones stay on Flutter. |
+| C-202 | Loading | pass | centred blue spinner; payload captured live: `listClassRecordings {limit: 200, activeRole: "parent"}`. |
+| C-203 | Server authorisation | pass (unchanged) | parent branch of the server: both children (guardian field + `children_ids`) listed; the other family's recording absent. |
+| C-204 | Server filtering / sort / classmate ids | pass | failed, expired, no-file and other-family recordings never shown; the classmate on a shared class does not appear as a child card; same 100 cap, `hasMore` unused (as today). |
+| C-205 | Names | pass | children and teacher looked up 10 ids per read, first+last → name/displayName → e-mail → id; teacher e-mail/phone kept for search (unit-tested aliases). |
+| C-206 | List failed | pass | full-page card replaces the screen; live (forced responses): "Requested role is not available for this user", "internal: failed to load recordings", "Failed to load recordings"; Try Again reloads and recovers. |
+| C-207 | No recordings | pass | live before seeding: "Students / 0 students", "No recordings yet / Class recordings will appear here after sessions are recorded.", no search bar — same as Flutter. |
+| C-208 | Header | pass | back only when drilled in, refresh always; titles and subtitles identical to Flutter at every level, fragments level titled with the class name ("Zz Quran Hifz"). |
+| C-209 | Child cards | pass | Flutter and Next both: Amadou "6 recordings · Latest: Nov 14, 2026", Binta "2 recordings · Latest: Nov 12, 2026"; shared class counted under both; sort unit-tested. |
+| C-210 | Child search | pass | name, e-mail, id, phone (7+ digits) — `AppSearch` ported and unit-tested; live "child_b" → Binta only in both apps; empty → "No students found / Try a different search term." (seen in both). |
+| C-211 | Dates | pass | Binta: "Thursday, Nov 12, 2026" and "Tuesday, Nov 10, 2026" in both apps — the second uses the `shiftStart` fallback the student page lacks; long and short date search unit-tested. |
+| C-212 | Classes on a day | pass | Nov 14: Quran Hifz / Missing File / Still Recording / Merge Missing with the same subtitles and times in both apps; live search by teacher phone "555-010-0222" (all 4), teacher e-mail "zz.fatou" (all 4), class id, class name. |
+| C-213 | Fragments | pass | summary card + "Fragment 1 / Fragment 2" with numbered squares, "Full Recording" for one; screenshots match Flutter. |
+| C-214 | Status chip | pass | Ready green, Processing amber (starting and merge pending), raw/Unknown grey — live + unit-tested. |
+| C-215 | Auto-delete chip | pass | "Auto-deletes in about 2 months · Jan 14, 2027" (teal), "…in 19 hours · Nov 16, 2026" (red), "…in 9 days · Nov 25, 2026" (amber) — identical to Flutter; minutes tier and colours unit-tested. |
+| C-216 | Error line | pass | "Egress ended early: participant left" in red, 2 lines max, both apps. |
+| C-217 | Play button | pass | full width; "Loading..." while fetching, "Play Recording", "Processing..." (disabled), "Not Ready Yet" (disabled) — live. |
+| C-218 | Playback link | pass | `getClassRecordingPlaybackUrl {recordingId, activeRole: "parent"}` captured live; dev cannot sign URLs so the server returned its download-token fallback (inventory item 7, server behaviour). |
+| C-219 | Link failed | pass | live: red floating message "Recording file is not available yet. Please try again shortly.", button back to Play Recording; the list is not reset (the student page put it in the page error card). |
+| C-220 | Inline player | pass / could not test (full screen) | Flutter's player rebuilt: loading box, overlay back 10 s / play-pause / forward 10 s toggled by a click, seek bar, ±10 s, "00:02 / 00:25", full-screen button, "Failed to load video" + Retry, Close Player. Live: play, +10 s (2.5→12.7), −10 s, seek to 80 % (20.0 s), pause. No download: no native controls, `controlsList=nodownload`, right-click menu suppressed (owner Q5 default). The full-screen request is issued (checked) but the test browser pane does not grant full screen. |
+| C-221 | Links remembered | pass | live: close and reopen made no second call. |
+| C-222 | Refresh | pass | live from the fragments level: back to "Students", search cleared, players closed, links forgotten. No pull-to-refresh on the web (refresh button only). |
+| C-223 | Back | pass | one level up, search cleared, player closed when leaving fragments. Differs (fix, inventory item 5): the search box is emptied too (Flutter keeps stale text in the box while the filter is cleared). |
+| C-224 | No other actions | pass | none added. |
+| C-225 | Dual-role | pass | the parent area only opens as parent, so `activeRole: "parent"` is always the active role. |
+| C-226 | Language | pass | English as Flutter; "Try Again" → "Réessayer" in French (unit-tested; French not switched live to avoid changing the shared dev parent's language). |
+| C-300 | Sidebar → Curriculum Books | pass | listed, inside the shell. |
+| C-301 / C-303 / C-307 | Phone entry, phone notice, phone viewer | n/a | phones stay on Flutter. |
+| C-302 | Header panel | pass | badge, heading, paragraph, three chips — same text, colours and sizes as Flutter (screenshots side by side). |
+| C-304 | The four books | pass | same order, titles, subtitles, descriptions, files, colours (unit test pins them); 2 columns from 1100 px window width as Flutter (live 1280 px: 2 × 476 px; 375 px: 1 column, no sideways scroll). All 8 files answer 200 publicly (checked with HEAD requests). |
+| C-305 | Book card | pass | slideshow icon, Arabic title in Cairo 800, coloured subtitle, description, filled Open / outlined Download. |
+| C-306 | Open (web) | pass | `<pdf>#view=Fit` in a new tab, as Flutter web (owner Q7 default: new tab, not the student page's in-page reader); live: a blocked new tab shows "Unable to open this curriculum book right now." |
+| C-308 | Download | pass | the `.pptx` in a new tab; same failure message. |
+| C-309 | Absent features | pass | none added. |
+| C-310 | Language | pass | English as Flutter; "Download" → "Télécharger" (unit-tested). |
+| A-019 / C-330 | Quran item | differs (default) | Flutter web: clicking it does nothing (confirmed live in the dev build). Next: opens the reader at `/parent/quran/` (plan default). |
+| C-331 | Phone entry | n/a | phones stay on Flutter. |
+| C-332…C-342, C-344…C-347, C-350…C-352, C-355, C-356 | Reader | differs (default: the existing web reader) | the shared web reader students and teachers use, unchanged, so every difference the inventory lists between it and the Flutter reader applies as-is (picker grid, pause/resume, word highlight, transliteration, inline tick/mic, goal chip instead of panel, streak = days that met the target, completion message). Live as the parent: Surah 1 loads, Play plays `Alafasy/mp3/001001.mp3` with "Playing verse 1:1", ticking 2 ayahs → "Memorized 2/7", goal created → "Today's goal" with 3 ayahs, Stop plan → back to Surah 1 with ticks kept. |
+| C-341 | Ticking writes | pass / known issue | writes `quran_memorization/{parent uid}` (`memorized.1 = [1, 2]`); no document for either child. Inventory item 20 confirmed live: the count is stored as a literal field `daily_log.2026-11-15`, so "Today 2/3" reads "Today 0/3" after a reload and never reaches the phone. Shared component, carried as-is (owner Q10 default); see decisions. |
+| C-343 | No-goal panel | differs (default) | "Goal" chip (web reader). |
+| C-348 | Stop plan | pass / differs | plan removed, ticks kept (checked in Firestore); the web reader does not reset `reminder` (no reminder on the web). |
+| C-349 | Daily reminder | differs (default) | none on the web (owner Q8 default: no bell). |
+| C-353 | Recitation callables | could not test | `transcribeRecitation` and `checkPronunciation` are not deployed on alluwal-dev; same callables and payloads as the student page (code), which accept any signed-in user. |
+| C-354 | Whose data | pass | the parent's own uid, as on the parent's phone (owner Q2 default). |
+
+Decisions (inventory owner questions, "same as today" unless broken):
+
+1. Quran on parent web: included, opening the existing web reader (plan default), tracking the parent's own progress as on phones (Q1, Q2).
+2. Recordings on phones: unchanged — not reachable (Q3).
+3. List size: the server's 100 newest, no "load more" (Q4).
+4. Playback: no download control, as the Flutter player (Q5).
+5. Teacher e-mail/phone search: kept (Q6).
+6. Books "Open": new tab, as Flutter web (Q7).
+7. No reminder bell on the web (Q8).
+8. Recitation recordings kept server-side for parents too — server unchanged (Q9).
+9. Web daily-goal count (item 20): carried as-is, because fixing it changes the shared reader for students and teachers. Owner decision needed (Q10).
