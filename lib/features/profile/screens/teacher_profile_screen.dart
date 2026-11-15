@@ -260,16 +260,27 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                             // Update password in Firebase Auth
                             await user.updatePassword(newPasswordController.text);
                             
-                            // Also update password in Firestore for child accounts
-                            // This ensures parents can see the password
-                            // Uses 'temp_password' field which is what the admin panel reads
-                            await FirebaseFirestore.instance
+                            // Only student accounts keep their password on the
+                            // user doc: admins' student-credentials view and the
+                            // student password sync read temp_password. Every
+                            // other role's password stays in Firebase Auth only.
+                            final userRef = FirebaseFirestore.instance
                                 .collection('users')
-                                .doc(user.uid)
-                                .update({
-                              'temp_password': newPasswordController.text,
-                              'password_updated_at': FieldValue.serverTimestamp(),
-                            });
+                                .doc(user.uid);
+                            final userData = (await userRef.get()).data();
+                            final userType = (userData?['user_type'] ??
+                                    userData?['role'] ??
+                                    '')
+                                .toString()
+                                .toLowerCase();
+                            if (userType == 'student') {
+                              await userRef.update({
+                                'temp_password': newPasswordController.text,
+                                'password_changed_at':
+                                    FieldValue.serverTimestamp(),
+                                'password_changed_by_self': true,
+                              });
+                            }
                             
                             if (mounted) {
                               Navigator.pop(dialogContext);
