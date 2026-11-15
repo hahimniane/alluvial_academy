@@ -16,6 +16,7 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:alluwalacademyadmin/core/utils/post_sign_out.dart';
 import 'package:alluwalacademyadmin/core/services/teacher_web_cutover.dart';
+import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/core/services/parent_web_cutover.dart';
 import 'package:alluwalacademyadmin/core/utils/web_redirect_stub.dart'
     if (dart.library.html) 'package:alluwalacademyadmin/core/utils/web_redirect_web.dart';
@@ -672,7 +673,8 @@ class _ParentDashboardOrWebRedirectState
     if (!mounted) return;
     if (useWeb) {
       AppLogger.debug('=== Parent on web - redirecting to /parent/ ===');
-      redirectToParentWebApp();
+      // A class link (?joinShift=) not yet opened by the app is carried over.
+      redirectToParentWebApp(joinShiftId: JoinLinkService.consumePendingShiftId());
     }
     setState(() => _useWeb = useWeb);
   }

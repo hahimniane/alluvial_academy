@@ -168,3 +168,42 @@ were simulated on dev records.
 | B-099…B-102 | Emails | unchanged | "parent dashboard → Invoices / Payments" stays true. |
 | B-103…B-112 | Suspension | pass | banner (slice 1) and cut-off strips; nothing blocks the parent. |
 | B-113…B-122 | Dashboard money | pass | slice 1. |
+
+## Slice 3 — classes and joining
+
+Tested on alluwal-dev with the dev parent and two children: 26 classes including a
+live one, one opening in 25 minutes, a cancelled one, a leader shift, ended ones,
+and one class shared by both children (same Zoom meeting and room). Flutter (dev
+web build, switch off) and Next (switch on) showed the same Upcoming list, in the
+same order, with the shared class as one card naming both children.
+
+`getZoomJoinInfo` creates or ensures a real Zoom meeting for a class the parent
+may enter, so the final hand-off was not run live (no Zoom changes); every path
+before it was, and the meeting-page address is pinned by unit tests against
+`ZoomMeetingScreen` (web).
+
+| Item | What | Result | Evidence |
+|---|---|---|---|
+| C-001 | Sidebar Learning → Classes | pass | now listed; page in the shell with "Classes" and a refresh icon. |
+| C-002 | Phone tab | n/a | phones stay on Flutter. |
+| C-003 | Whose classes | pass | the slice-0 children resolver (guardian_ids, then guardianIds). |
+| C-004 / C-005 | Spinner, no children | pass / differs | "No children linked to your account" with the school icon; a failed lookup now says so instead of looking like "no children". |
+| C-006 | Refresh | pass | re-reads the children quietly; listeners rebuilt only when the set changes. |
+| C-007 | Live classes per child | pass | one listener per child, teaching only, no date bound (leader shift hidden; 45-day-old class in History). |
+| C-008 | Siblings share a card | pass | live: "Family Quran circle — Zz Child Amadou, Zz Child Coumba" in both apps; grouping key and "joinable copy wins" unit-tested. |
+| C-009…C-013 | Upcoming / History | pass | live first, then joinable, then start (cancelled kept); History newest first — same order as Flutter on the seeded data. Empty rows as Flutter. |
+| C-014…C-016 | Card | pass | the slice-1 card plus the children line; same status words, Teacher, date; readable subject instead of `IslamicSubject.*`. |
+| C-017 / C-018 | Live panel, details sheet | pass | slice 1 (polls every 15 s; hold opens the sheet). |
+| C-019 | Join button | pass | same window; card and button open `/parent/classroom/?shiftId=`. |
+| C-020 | Checks before the server | pass / differs | live: "Class opens in 14 minutes", "This class has ended", "This class link is no longer available." — shown on the join page with Back to Classes instead of a snackbar on the list. |
+| C-021 | Server + role | pass | `getZoomJoinInfo {shiftId, activeRole: 'parent'}` as Flutter (no clientPlatform on the web); live: the server's refusal for a class that is not the parent's is shown as written. |
+| C-022 / C-023 | Attendance, suspension | pass | unchanged server behaviour; no presence parameters are sent. |
+| C-024 | Zoom meeting page | pass (by design) | the SAME cross-origin-isolated page Flutter web opens, `/app/zoom_meeting.html?join=…#…`, with the same parameters and texts (unit-tested). Leaving returns to `/parent/classes/` (Flutter: the parent home). The Next root copy is not used, so nothing about Zoom changes. |
+| C-025 | Reconnecting waiting room | pass (shared) | the existing `ClassroomReconnecting` + `readClassroomReconnect` (same 15 s retry as Flutter). |
+| C-026 | Join errors | pass | server sentence kept; bare codes → slow-connection / failed sentences (unit-tested); Try again + Back to Classes. |
+| C-027 | RealtimeKit classes | pass (code) | `getRealtimeKitJoinToken {shiftId, activeRole: 'parent'}` and Flutter's `/app/realtimekit_meeting.html` in a frame; unused in production (all classes are Zoom). |
+| C-028 | `?joinShift=` links | pass (code) | Flutter now carries a pending class link through the parent redirect to `/parent/classroom/?shiftId=`. No screen generates these links today. |
+| C-029 / C-030 | Guest links, selectable text | pass | no guest-link control; ordinary web text. |
+
+Before cut-over: one real join as a parent in production (a parent account in a
+live class), to confirm the Zoom hand-off end to end.

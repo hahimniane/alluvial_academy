@@ -45,7 +45,7 @@ const HOLD_MS = 500;
  * Unlike Flutter, polling starts whenever the class becomes live, so a card
  * that turns live while on screen does not stay on a spinner (A-070).
  */
-export function ParentClassCard({ shift, now, text }: { shift: ParentShift; now: Date; text: ParentHomeText }) {
+export function ParentClassCard({ shift, now, text, childNames }: { shift: ParentShift; now: Date; text: ParentHomeText; childNames?: string[] }) {
   const router = useRouter();
   const live = isLive(shift);
   const presence = useLivePresence(shift.id, live);
@@ -125,6 +125,12 @@ export function ParentClassCard({ shift, now, text }: { shift: ParentShift; now:
           <Calendar size={16} className="shrink-0" />
           {formatCardDate(shift.shiftStart)}
         </p>
+        {childNames ? (
+          <p className="mt-1 flex items-center gap-1.5 text-[13px] text-[#64748B]">
+            <Users size={16} className="shrink-0" />
+            <span className="min-w-0">{childNames.join(", ")}</span>
+          </p>
+        ) : null}
 
         {live ? (
           <>

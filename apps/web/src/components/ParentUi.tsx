@@ -59,7 +59,7 @@ export function ParentSpinner({ padding = 12, label }: { padding?: number; label
  * over the shell. Back returns to the previous page, or to `backHref` when the
  * page was opened directly.
  */
-export function ParentAppBar({ title, backHref, backLabel }: { title: string; backHref?: string; backLabel?: string }) {
+export function ParentAppBar({ title, backHref, backLabel, action }: { title: string; backHref?: string; backLabel?: string; action?: ReactNode }) {
   const goBack = () => {
     if (!backHref) return;
     const cameFromHere = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin);
@@ -76,7 +76,7 @@ export function ParentAppBar({ title, backHref, backLabel }: { title: string; ba
         <span className="w-12" />
       )}
       <h1 className="min-w-0 flex-1 truncate text-center text-[22px] font-extrabold text-[#111827]">{title}</h1>
-      <span className="w-12" />
+      {action ?? <span className="w-12" />}
     </header>
   );
 }

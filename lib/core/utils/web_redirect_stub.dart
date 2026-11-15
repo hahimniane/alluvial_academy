@@ -7,4 +7,4 @@ void redirectToStudentWebApp() {}
 
 void redirectToTeacherWebApp() {}
 
-void redirectToParentWebApp() {}
+void redirectToParentWebApp({String? joinShiftId}) {}
