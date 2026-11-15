@@ -122,6 +122,7 @@ import {
   sortApplicants,
   type PeriodId,
   type ScheduleIndex,
+  scheduleFacts,
   type SetupState,
   type SortId,
   type StageFilter,
@@ -240,6 +241,10 @@ export function StudentApplicantsAdmin() {
   const [scheduleIndex, setScheduleIndex] = useState<ScheduleIndex>(new Map());
   /** Student accounts that still exist, or null until the matched list has checked. */
   const [existingStudents, setExistingStudents] = useState<Set<string> | null>(null);
+  /** Students with a class still ahead of them. */
+  const [upcomingStudents, setUpcomingStudents] = useState<Set<string>>(new Set());
+  /** Student accounts that exist but are switched off. */
+  const [inactiveStudents, setInactiveStudents] = useState<Set<string>>(new Set());
   const [discountFor, setDiscountFor] = useState<EnrollmentApplicant | null>(null);
   const [broadcastFor, setBroadcastFor] = useState<EnrollmentApplicant | null>(null);
   const [detailsFor, setDetailsFor] = useState<EnrollmentApplicant | null>(null);
@@ -354,7 +359,7 @@ export function StudentApplicantsAdmin() {
               discount: discounts.get(a.studentUserId) ?? null,
               teacherTimeZone: zones.get(a.matchedTeacherId) ?? "",
             })),
-            new Set(scheduled.keys()),
+            new Set(scheduled.teachers.keys()),
           ),
         );
         sheets.push(draftSheet(everyDraft as ExportDraft[]));
@@ -506,6 +511,8 @@ export function StudentApplicantsAdmin() {
       setupOf={(id) => setups.get(id)}
       tab={activeTabConfig}
       setup={isMatched ? setups.get(applicant.id) ?? null : null}
+      accountInactive={(group.isFamilyClass ? group.members : [applicant]).some((member) => inactiveStudents.has(member.studentUserId))}
+      hasUpcomingClasses={(group.isFamilyClass ? group.members : [applicant]).some((member) => upcomingStudents.has(member.studentUserId))}
       onDiscount={() => setDiscountFor(applicant)}
       onBroadcast={() => setBroadcastFor(applicant)}
       onDetails={() => setDetailsFor(applicant)}
@@ -581,13 +588,17 @@ export function StudentApplicantsAdmin() {
         setApplicants(nextApplicants);
         setCounts(nextCounts);
         const [scheduled, existing, discounts, familyDiscounts] = await Promise.all([
-          status === "matched" ? loadScheduledStudents(nextApplicants) : Promise.resolve(new Map<string, Set<string>>()),
+          status === "matched"
+            ? loadScheduledStudents(nextApplicants)
+            : Promise.resolve({ teachers: new Map<string, Set<string>>(), upcoming: new Set<string>() }),
           status === "matched" ? loadExistingStudents(nextApplicants) : Promise.resolve(null),
           loadDiscounts(nextApplicants),
           loadFamilyDiscounts(nextApplicants),
         ]);
-        setScheduleIndex(scheduled);
-        setExistingStudents(existing);
+        setScheduleIndex(scheduled.teachers);
+        setUpcomingStudents(scheduled.upcoming);
+        setExistingStudents(existing ? existing.existing : null);
+        setInactiveStudents(existing ? existing.inactive : new Set());
         setApplicants(
           nextApplicants.map((applicant) => ({
             ...applicant,
@@ -1458,6 +1469,8 @@ function ApplicantCard({
   setupOf,
   tab,
   setup,
+  accountInactive,
+  hasUpcomingClasses,
   onDiscount,
   onBroadcast,
   onDetails,
@@ -1477,6 +1490,10 @@ function ApplicantCard({
   setupOf: (id: string) => SetupState | undefined;
   tab: ApplicantTab;
   setup: SetupState | null;
+  /** The linked student account exists but is switched off. */
+  accountInactive: boolean;
+  /** The student still has a class ahead of them. */
+  hasUpcomingClasses: boolean;
   onDiscount: () => void;
   onBroadcast: () => void;
   onDetails: () => void;
@@ -1598,6 +1615,8 @@ function ApplicantCard({
               }
               studentUserId={setup.accountMissing ? "" : applicant.studentUserId}
               accountMissing={setup.accountMissing}
+              accountInactive={accountInactive}
+              hasUpcomingClasses={hasUpcomingClasses}
               parentLinked={applicant.parentLinked}
               hasSchedule={setup?.hasSchedule ?? false}
               isAdult={applicant.isAdult}
@@ -1990,27 +2009,34 @@ function timeAgo(date: Date) {
  * per 30 students answers the whole list; asking per card would be a query
  * per row.
  */
-async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise<Map<string, Set<string>>> {
+async function loadScheduledStudents(
+  applicants: EnrollmentApplicant[],
+): Promise<{ teachers: Map<string, Set<string>>; upcoming: Set<string> }> {
   const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
-  const scheduled = new Map<string, Set<string>>();
-  if (uids.length === 0) return scheduled;
+  const teachers = new Map<string, Set<string>>();
+  const upcoming = new Set<string>();
+  if (uids.length === 0) return { teachers, upcoming };
 
+  const nowMs = Date.now();
   for (let i = 0; i < uids.length; i += 30) {
     const chunk = uids.slice(i, i + 30);
     const snapshot = await getDocs(
       query(collection(db, "teaching_shifts"), where("student_ids", "array-contains-any", chunk)),
     );
-    for (const shift of snapshot.docs) {
-      const teacherId = stringValue(shift.data().teacher_id);
-      for (const uid of stringArray(shift.data().student_ids)) {
-        if (!chunk.includes(uid)) continue;
-        const teachers = scheduled.get(uid) ?? new Set<string>();
-        if (teacherId) teachers.add(teacherId);
-        scheduled.set(uid, teachers);
-      }
-    }
+    const facts = scheduleFacts(
+      snapshot.docs.map((shift) => ({
+        teacherId: stringValue(shift.data().teacher_id),
+        studentIds: stringArray(shift.data().student_ids),
+        startMs: dateValue(shift.data().shift_start)?.getTime() ?? 0,
+        status: stringValue(shift.data().status),
+      })),
+      chunk,
+      nowMs,
+    );
+    facts.teachers.forEach((set, uid) => teachers.set(uid, set));
+    facts.upcoming.forEach((uid) => upcoming.add(uid));
   }
-  return scheduled;
+  return { teachers, upcoming };
 }
 
 /**
@@ -2023,17 +2049,24 @@ async function loadScheduledStudents(applicants: EnrollmentApplicant[]): Promise
  * cards sat like that for a month in Oct 2026. One `documentId() in` query per
  * 30 accounts tells the list which ids are real.
  */
-async function loadExistingStudents(applicants: EnrollmentApplicant[]): Promise<Set<string>> {
+async function loadExistingStudents(
+  applicants: EnrollmentApplicant[],
+): Promise<{ existing: Set<string>; inactive: Set<string> }> {
   const uids = [...new Set(applicants.map((a) => a.studentUserId).filter(Boolean))];
   const existing = new Set<string>();
+  // An account that is switched off still exists, but no class can be booked
+  // on it: the schedule editor only lists active students.
+  const inactive = new Set<string>();
   for (let i = 0; i < uids.length; i += 30) {
     const chunk = uids.slice(i, i + 30);
     const snapshot = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
     for (const user of snapshot.docs) {
-      if (stringValue(user.data().user_type).toLowerCase() === "student") existing.add(user.id);
+      if (stringValue(user.data().user_type).toLowerCase() !== "student") continue;
+      existing.add(user.id);
+      if (user.data().is_active === false) inactive.add(user.id);
     }
   }
-  return existing;
+  return { existing, inactive };
 }
 
 function normalizeApplicant(id: string, data: Record<string, unknown>): EnrollmentApplicant {
