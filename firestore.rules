@@ -281,7 +281,8 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isSignedIn() &&
         // Only allow updating metadata fields related to job matching
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['metadata']) &&
+        // affectedKeys(): changedKeys() leaves out added fields.
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['metadata']) &&
         (
           // Case 1: Accepting a job (setting status to 'matched')
           (
@@ -292,7 +293,8 @@ service cloud.firestore {
           (
             request.resource.data.metadata.status == 'broadcasted' &&
             resource.data.metadata.matchedTeacherId == request.auth.uid &&
-            request.resource.data.metadata.matchedTeacherId == null
+            // The app deletes the field, the web nulls it; accept both.
+            request.resource.data.metadata.get('matchedTeacherId', null) == null
           )
         )
       );
@@ -921,7 +923,8 @@ service cloud.firestore {
             resource.data.status == 'accepted' &&
             resource.data.acceptedByTeacherId == request.auth.uid &&
             request.resource.data.status == 'open' &&
-            request.resource.data.acceptedByTeacherId == null &&
+            // The app deletes the field, the web nulls it; accept both.
+            request.resource.data.get('acceptedByTeacherId', null) == null &&
             request.resource.data.enrollmentId == resource.data.enrollmentId
           )
 
@@ -1010,10 +1013,11 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         ownsThisTeacherAudit() && (
-          request.resource.data.diff(resource.data).changedKeys()
+          // affectedKeys(): changedKeys() leaves out added fields.
+          request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['teacherAcknowledgedAt', 'lastUpdated']) ||
           (
-            request.resource.data.diff(resource.data).changedKeys()
+            request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['reviewChain', 'status', 'lastUpdated']) &&
             request.resource.data.status == 'disputed'
           )
@@ -1127,7 +1131,8 @@ service cloud.firestore {
                        (isSignedIn() && 
                         resource.data.parent_id == request.auth.uid &&
                         // Parents can only update payment_method_id field
-                        request.resource.data.diff(resource.data).changedKeys().hasOnly(['payment_method_id']));
+                        // (affectedKeys(): changedKeys() leaves out added fields).
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['payment_method_id']));
       
       // Invoice deletion is callable-only so payment history and paid state
       // are checked transactionally and an audit snapshot is retained.
