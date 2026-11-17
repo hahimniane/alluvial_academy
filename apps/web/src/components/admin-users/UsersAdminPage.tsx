@@ -123,7 +123,7 @@ export function UsersAdminPage() {
       </main>
     );
   }
-  return <UsersDirectory />;
+  return <UsersDirectory viewerUid={user.uid} />;
 }
 
 // ─── Data ──────────────────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ const STATUS_CHIPS: [StatusFilter, string][] = [
   ["never", "Never logged in"],
 ];
 
-function UsersDirectory() {
+function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   const [rows, setRows] = useState<UserRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -207,7 +207,7 @@ function UsersDirectory() {
   const [exportOpen, setExportOpen] = useState(false);
   const [parentOpen, setParentOpen] = useState(false);
   const [moreFilters, setMoreFilters] = useState(false);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   const wide = useMediaQuery("(min-width: 768px)");
@@ -233,10 +233,10 @@ function UsersDirectory() {
   const selected = selectedId ? byId.get(selectedId) ?? null : null;
   const parentName = filters.parentId ? parents.find((p) => p.id === filters.parentId)?.name || filters.parentId : "";
 
-  const say = useCallback((text: string) => {
-    setToast(text);
+  const say = useCallback((text: string, tone: "ok" | "error" = "ok") => {
+    setToast({ text, tone });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(""), 2600);
+    toastTimer.current = window.setTimeout(() => setToast(null), tone === "error" ? 6000 : 3200);
   }, []);
 
   const set = (patch: Partial<UserFilters>) => setFilters((f) => ({ ...f, ...patch }));
@@ -323,7 +323,7 @@ function UsersDirectory() {
   ) : null;
 
   const panel = selected ? (
-    <UserPanel row={selected} byId={byId} links={links} onClose={() => setSelectedId(null)} onSelect={select} />
+    <UserPanel key={selected.id} row={selected} byId={byId} links={links} viewerUid={viewerUid} say={say} onClose={() => setSelectedId(null)} onSelect={select} />
   ) : null;
 
   return (
@@ -493,8 +493,13 @@ function UsersDirectory() {
       ) : null}
 
       {toast ? (
-        <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[#0F172A] px-[18px] py-3 font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)]">
-          {toast}
+        <div
+          role={toast.tone === "error" ? "alert" : "status"}
+          className={`fixed bottom-6 left-1/2 z-[70] w-max max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl px-[18px] py-3 font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)] ${
+            toast.tone === "error" ? "bg-[#B91C1C]" : "bg-[#0F172A]"
+          }`}
+        >
+          {toast.text}
         </div>
       ) : null}
     </div>
