@@ -2575,7 +2575,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allAssociatedDataIncludingTimesheetsForms =>
-      'All Associated Data Including Timesheets Forms';
+      'Form submissions and drafts are removed. Past classes, timesheets and class reports are kept.';
 
   @override
   String get allClasses => 'All Classes';

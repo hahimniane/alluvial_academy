@@ -3,6 +3,7 @@ const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const {onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
+const {credentialRef} = require('../services/student_credentials');
 const {sendWelcomeEmail} = require('../services/email/senders');
 const studentHandlers = require('./students');
 const {
@@ -502,37 +503,29 @@ const _purgePublicSiteTeamProfilesForUserIds = async (db, userIds) => {
   }
 };
 
-const _deleteShiftRelatedDocuments = async ({
-  db,
-  shiftId,
-  queueDelete,
-  summary,
-}) => {
-  // Delete timesheet entries linked to this shift
-  for (const field of ['shift_id', 'shiftId']) {
-    try {
-      const snap = await db.collection('timesheet_entries').where(field, '==', shiftId).get();
-      for (const doc of snap.docs) {
-        await queueDelete(doc.ref);
-        summary.timesheetEntriesDeleted += 1;
-      }
-    } catch (e) {
-      console.log(`[DeleteUserAccount] Error querying timesheet_entries by ${field}:`, e.message);
-    }
+const _shiftStartMillis = (data) => {
+  const raw = data.shift_start ?? data.shiftStart ?? data.start_time ?? data.startTime;
+  if (!raw) return null;
+  if (typeof raw.toMillis === 'function') return raw.toMillis();
+  if (raw instanceof Date) return raw.getTime();
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') {
+    const t = Date.parse(raw);
+    return Number.isNaN(t) ? null : t;
   }
+  if (typeof raw.seconds === 'number') return raw.seconds * 1000;
+  if (typeof raw._seconds === 'number') return raw._seconds * 1000;
+  return null;
+};
 
-  // Delete form responses linked to this shift
-  for (const field of ['shift_id', 'shiftId']) {
-    try {
-      const snap = await db.collection('form_responses').where(field, '==', shiftId).get();
-      for (const doc of snap.docs) {
-        await queueDelete(doc.ref);
-        summary.formResponsesDeleted += 1;
-      }
-    } catch (e) {
-      console.log(`[DeleteUserAccount] Error querying form_responses by ${field}:`, e.message);
-    }
-  }
+/**
+ * "Also delete classes" removes only classes that have not started yet. Past
+ * and running classes stay, and so does every timesheet and class report:
+ * they are the pay and attendance record (owner decision D3).
+ */
+const _isUpcomingShift = (data, nowMs) => {
+  const start = _shiftStartMillis(data);
+  return start != null && start > nowMs;
 };
 
 const _cleanupTeachingShiftsForDeletedUser = async ({
@@ -540,6 +533,7 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
   userType,
   userIdsToRemove,
   userData,
+  nowMs = Date.now(),
 }) => {
   const shiftsRef = db.collection('teaching_shifts');
   const idsToRemove = userIdsToRemove.map(String);
@@ -548,8 +542,7 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
   const summary = {
     shiftsDeleted: 0,
     shiftsUpdated: 0,
-    timesheetEntriesDeleted: 0,
-    formResponsesDeleted: 0,
+    shiftsKept: 0,
   };
 
   // Write batching (keep margin under 500 ops)
@@ -603,16 +596,13 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
       const data = doc.data() || {};
       const assignedTeacherId = String(data.teacher_id || data.teacherId || '');
       if (!idsToRemove.includes(assignedTeacherId)) continue;
+      if (!_isUpcomingShift(data, nowMs)) {
+        summary.shiftsKept += 1;
+        continue;
+      }
 
       await queueDelete(doc.ref);
       summary.shiftsDeleted += 1;
-
-      await _deleteShiftRelatedDocuments({
-        db,
-        shiftId: doc.id,
-        queueDelete,
-        summary,
-      });
     }
 
     await flush();
@@ -645,19 +635,16 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
 
       const hasTarget = ids.some((id) => idsToRemove.includes(id));
       if (!hasTarget) continue;
+      if (!_isUpcomingShift(data, nowMs)) {
+        summary.shiftsKept += 1;
+        continue;
+      }
 
       const remainingIds = ids.filter((id) => !idsToRemove.includes(id));
 
       if (remainingIds.length === 0) {
         await queueDelete(doc.ref);
         summary.shiftsDeleted += 1;
-
-        await _deleteShiftRelatedDocuments({
-          db,
-          shiftId: doc.id,
-          queueDelete,
-          summary,
-        });
         continue;
       }
 
@@ -789,6 +776,7 @@ const deleteUserAccount = async (data, context) => {
   const requestData = (data && data.data) || data || {};
 
   const {email, adminEmail} = requestData;
+  const targetId = String(requestData.userId || requestData.uid || '').trim();
   const deleteClasses =
     requestData.deleteClasses === true ||
     requestData.delete_classes === true ||
@@ -798,48 +786,54 @@ const deleteUserAccount = async (data, context) => {
   console.log('Extracted adminEmail:', adminEmail);
   console.log('Delete classes flag:', deleteClasses);
 
-  if (!email) {
-    console.log('No email provided in request');
-    throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+  if (!targetId && !email) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId is required');
   }
 
   const {callerUid, effectiveAdminEmail} = await _verifyCallableCallerIsAdmin(data, context);
 
-  console.log(`Starting delete process for user: ${email} by caller uid: ${callerUid}`);
-
   try {
-    const usersRef = admin.firestore().collection('users');
-
-    console.log(`Admin ${effectiveAdminEmail || callerUid} (verified) attempting to delete user: ${email}`);
-
-    const userQuery = await admin
-      .firestore()
-      .collection('users')
-      .where('e-mail', '==', email.toLowerCase())
-      .limit(1)
-      .get();
-
-    if (userQuery.empty) {
-      throw new functions.https.HttpsError('not-found', 'User not found in database');
+    // By document id. The email lookup stays for older app builds that only
+    // send an email.
+    let userDoc;
+    if (targetId) {
+      userDoc = await admin.firestore().collection('users').doc(targetId).get();
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found in database');
+      }
+    } else {
+      const userQuery = await admin
+        .firestore()
+        .collection('users')
+        .where('e-mail', '==', String(email).toLowerCase())
+        .limit(1)
+        .get();
+      if (userQuery.empty) {
+        throw new functions.https.HttpsError('not-found', 'User not found in database');
+      }
+      userDoc = userQuery.docs[0];
     }
 
-    const userDoc = userQuery.docs[0];
-    const userData = userDoc.data();
+    const userData = userDoc.data() || {};
     const userId = userDoc.id;
-    let canonicalUserId = userData && userData.uid ? String(userData.uid) : userId;
+    const canonicalUserId = userData.uid ? String(userData.uid) : userId;
+    const targetEmail = String(userData['e-mail'] || userData.email || email || '').trim();
+
+    if (userId === callerUid || canonicalUserId === callerUid) {
+      throw new functions.https.HttpsError('failed-precondition', 'You cannot delete your own account');
+    }
+
+    console.log(`Admin ${callerUid} deleting user ${userId}`);
 
     const isActive = userData.is_active !== false;
     console.log(`User active status: ${userData.is_active} (isActive: ${isActive})`);
 
     if (isActive) {
-      console.log(`User ${email} is still active, cannot delete`);
       throw new functions.https.HttpsError(
         'failed-precondition',
         'User must be deactivated (archived) before deletion'
       );
     }
-
-    console.log(`Deleting user: ${email} (Firestore ID: ${userId}, canonical UID: ${canonicalUserId})`);
 
     let deletedFromAuth = false;
     try {
@@ -853,14 +847,17 @@ const deleteUserAccount = async (data, context) => {
     } catch (authErrorByUid) {
       console.log(`Auth delete by uid failed (uid=${canonicalUserId}):`, authErrorByUid.message);
       try {
-        const authUser = await admin.auth().getUserByEmail(email);
-        console.log(`Found user in Firebase Auth by email: ${authUser.uid}`);
-        canonicalUserId = authUser.uid || canonicalUserId;
+        if (!targetEmail) throw new Error('No email on the profile');
+        const authUser = await admin.auth().getUserByEmail(targetEmail);
+        // Only the sign-in account this profile belongs to, never another
+        // person who shares the address (minors often carry a parent's).
+        if (authUser.uid !== userId && authUser.uid !== canonicalUserId) {
+          throw new Error('The sign-in account with this email belongs to another profile');
+        }
         await admin.auth().deleteUser(authUser.uid);
         deletedFromAuth = true;
-        console.log(`Successfully deleted user from Firebase Auth by email: ${email}`);
       } catch (authError) {
-        console.log(`User not found in Firebase Auth or already deleted: ${email}`, authError.message);
+        console.log(`No sign-in account deleted for ${userId}:`, authError.message);
       }
     }
 
@@ -878,12 +875,13 @@ const deleteUserAccount = async (data, context) => {
       entityId: userId,
       entityLabel:
         `${userData.first_name || ''} ${userData.last_name || ''}`.trim() ||
-        email,
+        targetEmail ||
+        userId,
       action: 'user.deleted',
       actor: deletionActor,
       source: 'deleteUserAccount',
       metadata: {
-        deleted_user_email: email.toLowerCase(),
+        deleted_user_email: targetEmail.toLowerCase(),
         deleted_user_type: (
           userData.user_type ||
           userData.userType ||
@@ -891,6 +889,7 @@ const deleteUserAccount = async (data, context) => {
           ''
         ).toString(),
         delete_associated_classes: deleteClasses,
+        delete_classes_scope: deleteClasses ? 'upcoming' : 'none',
       },
       eventId: `user_deleted_${userId}_${Date.now()}`,
     });
@@ -909,6 +908,7 @@ const deleteUserAccount = async (data, context) => {
     if (userType === 'student') {
       // Remove from students collection (created by createStudentAccount).
       batch.delete(admin.firestore().collection('students').doc(canonicalUserId));
+      for (const id of userIdsToPurge) batch.delete(credentialRef(admin.firestore(), id));
 
       const guardianIds = Array.isArray(userData.guardian_ids)
         ? userData.guardian_ids
@@ -973,11 +973,9 @@ const deleteUserAccount = async (data, context) => {
 	      }
 	    }
 
+	    let classesSummary = null;
 	    if (deleteClasses && (userType === 'teacher' || userType === 'student')) {
-	      console.log(
-	        `[DeleteUserAccount] deleteClasses enabled for ${userType}; cleaning up teaching_shifts...`
-	      );
-	      const classesSummary = await _cleanupTeachingShiftsForDeletedUser({
+	      classesSummary = await _cleanupTeachingShiftsForDeletedUser({
 	        db: admin.firestore(),
 	        userType,
 	        userIdsToRemove: userIdsToPurge,
@@ -986,8 +984,8 @@ const deleteUserAccount = async (data, context) => {
 	      console.log('[DeleteUserAccount] teaching_shifts cleanup summary:', classesSummary);
 	    }
 
+	    // Timesheets are kept: they are pay records (owner decision D3).
 	    const collections = [
-	      {name: 'timesheet_entries', field: 'userId'},
 	      {name: 'form_submissions', field: 'submittedBy'},
 	      {name: 'form_drafts', field: 'createdBy'},
 	    ];
@@ -1067,13 +1065,15 @@ const deleteUserAccount = async (data, context) => {
       await _deleteFileByFirebaseDownloadURL(url);
     }
 
-    console.log(`Successfully deleted user and all associated data: ${email}`);
-
     return {
       success: true,
-      message: `User ${email} and all associated data have been permanently deleted`,
+      message: 'The user has been permanently deleted',
+      userId,
       deletedFromAuth,
       deletedFromFirestore: true,
+      upcomingClassesDeleted: classesSummary ? classesSummary.shiftsDeleted : 0,
+      upcomingClassesUpdated: classesSummary ? classesSummary.shiftsUpdated : 0,
+      classesKept: classesSummary ? classesSummary.shiftsKept : 0,
     };
   } catch (error) {
     console.error('Error in deleteUserAccount:', error);

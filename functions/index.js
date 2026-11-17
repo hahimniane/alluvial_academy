@@ -646,6 +646,7 @@ exports.revertLiveKitMigration =
 // Password Management Functions
 exports.resetStudentPassword = passwordHandlers.resetStudentPassword;
 exports.syncAllStudentPasswords = passwordHandlers.syncAllStudentPasswords;
+exports.recordOwnStudentPassword = passwordHandlers.recordOwnStudentPassword;
 
 // AI Tutor Functions
 exports.getAITutorToken = aiTutorHandlers.getAITutorToken;

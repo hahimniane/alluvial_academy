@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/student_credentials_service.dart';
 import 'package:alluwalacademyadmin/features/profile/services/profile_picture_service.dart';
 import 'package:alluwalacademyadmin/core/services/onboarding_service.dart';
 import '../widgets/teacher_profile_edit_dialog.dart';
@@ -260,26 +261,23 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                             // Update password in Firebase Auth
                             await user.updatePassword(newPasswordController.text);
                             
-                            // Only student accounts keep their password on the
-                            // user doc: admins' student-credentials view and the
-                            // student password sync read temp_password. Every
-                            // other role's password stays in Firebase Auth only.
-                            final userRef = FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(user.uid);
-                            final userData = (await userRef.get()).data();
+                            // Students: the copy admins and the student's
+                            // guardians see is kept server-side (never on the
+                            // user doc). Every other role's password stays in
+                            // Firebase Auth only.
+                            final userData = (await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .get())
+                                .data();
                             final userType = (userData?['user_type'] ??
                                     userData?['role'] ??
                                     '')
                                 .toString()
                                 .toLowerCase();
                             if (userType == 'student') {
-                              await userRef.update({
-                                'temp_password': newPasswordController.text,
-                                'password_changed_at':
-                                    FieldValue.serverTimestamp(),
-                                'password_changed_by_self': true,
-                              });
+                              await StudentCredentialsService.recordOwnPassword(
+                                  newPasswordController.text);
                             }
                             
                             if (mounted) {

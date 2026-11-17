@@ -1,7 +1,24 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { generateRandomPassword } = require('../utils/password');
+const { generateEasyPassword } = require('../utils/password');
 const { sendStudentNotificationEmail } = require('../services/email/senders');
+const { verifyCallableCallerIsAdmin } = require('../utils/callable_admin');
+const {
+  STUDENT_CREDENTIALS,
+  legacyPasswordRemoval,
+  pickStoredPassword,
+  queueCredentialWrite,
+  validatePassword,
+} = require('../services/student_credentials');
+
+const _idList = (...lists) => [
+  ...new Set(
+    lists
+      .flatMap((list) => (Array.isArray(list) ? list : []))
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  ),
+];
 
 const normalizeStudentCodePart = (value) =>
   String(value || '')
@@ -102,13 +119,13 @@ const ensureStudentCode = async ({ studentId, studentData, callerUid }) => {
 
 /**
  * Reset a student's password
- * - Uses provided custom password (optional) or generates a new random password
+ * - Uses provided custom password (optional) or generates an easy-to-type one
  * - Updates Firebase Auth
- * - Updates Firestore temp_password
- * - Optionally emails parent
+ * - Stores it in student_credentials/{uid} (admins + the student's guardians
+ *   only) and removes the legacy plaintext copy from the user doc
+ * - Optionally emails the guardians
  */
 exports.resetStudentPassword = onCall(async (request) => {
-  // Check authentication
   if (!request.auth) {
     throw new HttpsError(
       'unauthenticated',
@@ -130,35 +147,14 @@ exports.resetStudentPassword = onCall(async (request) => {
     );
   }
 
+  // Admins, super admins and admin-teachers (the same gate as creating and
+  // deleting accounts).
+  await verifyCallableCallerIsAdmin(request);
+
   try {
-    // Check if caller is admin
-    const callerDoc = await admin.firestore()
-      .collection('users')
-      .doc(request.auth.uid)
-      .get();
-
-    if (!callerDoc.exists) {
-      throw new HttpsError(
-        'permission-denied',
-        'User not found'
-      );
-    }
-
-    const callerData = callerDoc.data();
-    const isAdmin = callerData.user_type === 'admin' || callerData.is_admin_teacher === true;
-
-    if (!isAdmin) {
-      throw new HttpsError(
-        'permission-denied',
-        'Only admins can reset passwords'
-      );
-    }
-
-    // Get student document
-    const studentDoc = await admin.firestore()
-      .collection('users')
-      .doc(studentId)
-      .get();
+    const db = admin.firestore();
+    const studentRef = db.collection('users').doc(String(studentId));
+    const studentDoc = await studentRef.get();
 
     if (!studentDoc.exists) {
       throw new HttpsError(
@@ -182,28 +178,13 @@ exports.resetStudentPassword = onCall(async (request) => {
 
     let newPassword;
     if (providedPassword.trim().length > 0) {
-      if (providedPassword !== providedPassword.trim()) {
-        throw new HttpsError(
-          'invalid-argument',
-          'Password cannot start or end with spaces'
-        );
-      }
-      if (providedPassword.length < 6) {
-        throw new HttpsError(
-          'invalid-argument',
-          'Password must be at least 6 characters'
-        );
-      }
-      if (providedPassword.length > 128) {
-        throw new HttpsError(
-          'invalid-argument',
-          'Password must be 128 characters or less'
-        );
-      }
+      const problem = validatePassword(providedPassword);
+      if (problem) throw new HttpsError('invalid-argument', problem);
       newPassword = providedPassword;
     } else {
-      // Generate new password
-      newPassword = generateRandomPassword();
+      newPassword = generateEasyPassword({
+        avoid: [studentData.first_name, studentData.last_name, studentData.student_code],
+      });
     }
 
     // Get the alias email for this student (must match login format - lowercase)
@@ -213,8 +194,8 @@ exports.resetStudentPassword = onCall(async (request) => {
       callerUid: request.auth.uid,
     });
     const aliasEmail = buildStudentAliasEmail(studentCode);
-    
-    console.log(`Resetting password for student ${studentCode} (UID: ${studentId}, Email: ${aliasEmail})`);
+
+    console.log(`Resetting password for student ${studentCode} (UID: ${studentId})`);
 
     const normalizedAliasEmail = aliasEmail.toLowerCase();
 
@@ -224,7 +205,6 @@ exports.resetStudentPassword = onCall(async (request) => {
     try {
       authUser = await admin.auth().getUser(studentId);
       authUserExists = true;
-      console.log(`Firebase Auth user exists for UID ${studentId}`);
     } catch (authError) {
       if (authError.code === 'auth/user-not-found') {
         console.log(`Firebase Auth user not found for UID ${studentId}, creating new user...`);
@@ -247,7 +227,6 @@ exports.resetStudentPassword = onCall(async (request) => {
         try {
           await admin.auth().updateUser(studentId, {email: normalizedAliasEmail});
           authUser = await admin.auth().getUser(studentId);
-          console.log(`✅ Updated Firebase Auth email for student UID ${studentId}`);
         } catch (emailUpdateError) {
           // If the alias email is already taken by another account, we can't safely proceed.
           if (emailUpdateError.code === 'auth/email-already-exists') {
@@ -275,20 +254,18 @@ exports.resetStudentPassword = onCall(async (request) => {
 
     // Create or update Firebase Auth user
     if (!authUserExists) {
-      // Create new Firebase Auth user
       try {
-        const userRecord = await admin.auth().createUser({
+        await admin.auth().createUser({
           uid: studentId, // Use the Firestore document ID as the UID
           email: normalizedAliasEmail,
           password: newPassword,
           displayName: `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim(),
           emailVerified: false,
         });
-        console.log(`✅ Created Firebase Auth user for student ${studentCode} with UID ${userRecord.uid}`);
+        console.log(`Created Firebase Auth user for student ${studentCode} with UID ${studentId}`);
       } catch (createError) {
         console.error(`Error creating Firebase Auth user with UID ${studentId}:`, createError);
-        
-        // If email already exists, try to get user by email and update password
+
         if (createError.code === 'auth/email-already-exists' || createError.message?.includes('email')) {
           let conflictUid = null;
           try {
@@ -303,13 +280,10 @@ exports.resetStudentPassword = onCall(async (request) => {
               'Cannot create the student auth account; please contact an administrator.'
           );
         } else if (createError.code === 'auth/uid-already-exists') {
-          // UID exists but getUser failed earlier - try update instead
-          console.log(`UID ${studentId} already exists in Firebase Auth, updating password...`);
           try {
             await admin.auth().updateUser(studentId, {
               password: newPassword,
             });
-            console.log(`Updated password for existing Firebase Auth user ${studentId}`);
           } catch (updateError) {
             throw new HttpsError('internal', `Failed to update Firebase Auth password: ${updateError.message}`);
           }
@@ -318,22 +292,19 @@ exports.resetStudentPassword = onCall(async (request) => {
         }
       }
     } else {
-      // Update existing Firebase Auth user password
       try {
         await admin.auth().updateUser(studentId, {
           password: newPassword,
         });
-        console.log(`Updated password for Firebase Auth user ${studentId}`);
       } catch (updateError) {
         console.error(`Error updating Firebase Auth password: ${updateError}`);
         throw new HttpsError('internal', `Failed to update Firebase Auth password: ${updateError.message}`);
       }
     }
 
-    // Update Firestore
     const existingFirestoreEmail = (studentData['e-mail'] || '').toString().trim();
     const firestoreUpdates = {
-      temp_password: newPassword,
+      ...legacyPasswordRemoval(),
       password_reset_at: admin.firestore.FieldValue.serverTimestamp(),
       password_reset_by: request.auth.uid,
       'e-mail': normalizedAliasEmail,
@@ -348,56 +319,52 @@ exports.resetStudentPassword = onCall(async (request) => {
       firestoreUpdates.legacy_email = existingFirestoreEmail;
     }
 
-    await admin.firestore()
-      .collection('users')
-      .doc(studentId)
-      .update(firestoreUpdates);
+    const batch = db.batch();
+    queueCredentialWrite(db, batch, studentId, newPassword, {source: 'reset', actorUid: request.auth.uid});
+    batch.update(studentRef, firestoreUpdates);
+    await batch.commit();
 
-    console.log(`Password reset completed for student ${studentData.student_code} by ${request.auth.uid}`);
+    console.log(`Password reset completed for student ${studentCode} by ${request.auth.uid}`);
 
-    // Optionally email parent
     let emailSent = false;
-    if (sendEmailToParent && studentData.guardian_ids && studentData.guardian_ids.length > 0) {
-      try {
-        for (const guardianId of studentData.guardian_ids) {
-          const guardianDoc = await admin.firestore()
-            .collection('users')
-            .doc(guardianId)
-            .get();
+    const emailedTo = [];
+    const guardianIds = _idList(studentData.guardian_ids, studentData.guardianIds);
+    if (sendEmailToParent && guardianIds.length > 0) {
+      for (const guardianId of guardianIds) {
+        try {
+          const guardianDoc = await db.collection('users').doc(guardianId).get();
+          if (!guardianDoc.exists) continue;
+          const guardianData = guardianDoc.data() || {};
+          const guardianEmail = guardianData['e-mail'] || guardianData.email;
+          const guardianName = `${guardianData.first_name || ''} ${guardianData.last_name || ''}`.trim();
+          if (!guardianEmail) continue;
 
-          if (guardianDoc.exists) {
-            const guardianData = guardianDoc.data();
-            const guardianEmail = guardianData['e-mail'] || guardianData.email;
-            const guardianName = `${guardianData.first_name || ''} ${guardianData.last_name || ''}`.trim();
+          const studentEmailData = {
+            firstName: studentData.first_name,
+            lastName: studentData.last_name,
+            studentCode,
+            email: aliasEmail,
+            isAdultStudent: studentData.is_adult_student,
+          };
+          const credentials = {
+            email: aliasEmail,
+            tempPassword: newPassword,
+          };
 
-            if (guardianEmail) {
-              const studentEmailData = {
-                firstName: studentData.first_name,
-                lastName: studentData.last_name,
-                studentCode: studentData.student_code,
-                email: `${studentData.student_code}@alluwaleducationhub.org`,
-                isAdultStudent: studentData.is_adult_student,
-              };
-
-              const credentials = {
-                email: `${studentData.student_code}@alluwaleducationhub.org`,
-                tempPassword: newPassword,
-              };
-
-              await sendStudentNotificationEmail(
-                guardianEmail,
-                guardianName,
-                studentEmailData,
-                credentials
-              );
-              emailSent = true;
-              console.log(`Password reset email sent to ${guardianEmail}`);
-            }
+          const sent = await sendStudentNotificationEmail(
+            guardianEmail,
+            guardianName,
+            studentEmailData,
+            credentials
+          );
+          if (sent !== false) {
+            emailSent = true;
+            emailedTo.push(guardianName || 'Guardian');
           }
+        } catch (emailError) {
+          // An email failure never undoes the reset.
+          console.error(`Error emailing guardian ${guardianId}:`, emailError);
         }
-      } catch (emailError) {
-        console.error('Error sending email:', emailError);
-        // Don't fail the whole operation if email fails
       }
     }
 
@@ -405,8 +372,9 @@ exports.resetStudentPassword = onCall(async (request) => {
       success: true,
       message: 'Password reset successfully',
       newPassword,
-      studentCode: studentData.student_code,
+      studentCode,
       emailSent,
+      emailedTo,
     };
 
   } catch (error) {
@@ -419,6 +387,39 @@ exports.resetStudentPassword = onCall(async (request) => {
       error.message || 'Failed to reset password'
     );
   }
+});
+
+/**
+ * A student changed their own password in the app: keep the copy admins and
+ * guardians see in step. Called right after Firebase Auth accepted the new
+ * password. Anyone who is not a student is told nothing was recorded.
+ */
+exports.recordOwnStudentPassword = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Must be authenticated');
+  }
+  const password = request.data && request.data.password;
+  const problem = validatePassword(password);
+  if (problem) throw new HttpsError('invalid-argument', problem);
+
+  const db = admin.firestore();
+  const userRef = db.collection('users').doc(uid);
+  const userDoc = await userRef.get();
+  const userType = String((userDoc.exists && (userDoc.data() || {}).user_type) || '').trim().toLowerCase();
+  if (userType !== 'student') {
+    return {success: true, recorded: false};
+  }
+
+  const batch = db.batch();
+  queueCredentialWrite(db, batch, uid, password, {source: 'self', actorUid: uid});
+  batch.update(userRef, {
+    ...legacyPasswordRemoval(),
+    password_changed_at: admin.firestore.FieldValue.serverTimestamp(),
+    password_changed_by_self: true,
+  });
+  await batch.commit();
+  return {success: true, recorded: true};
 });
 
 /**
@@ -455,14 +456,18 @@ exports.syncAllStudentPasswords = onCall(async (request) => {
       .where('user_type', '==', 'student')
       .get();
 
+    const credentialsSnapshot = await admin.firestore().collection(STUDENT_CREDENTIALS).get();
+    const credentialById = new Map(credentialsSnapshot.docs.map((doc) => [doc.id, doc]));
+
     let synced = 0;
     let skipped = 0;
     let errors = [];
 
     for (const doc of studentsSnapshot.docs) {
       const data = doc.data();
+      const password = pickStoredPassword(credentialById.get(doc.id), data);
 
-      if (!data.student_code || !data.temp_password) {
+      if (!data.student_code || !password) {
         skipped++;
         continue;
       }
@@ -470,7 +475,7 @@ exports.syncAllStudentPasswords = onCall(async (request) => {
       try {
         if (!dryRun) {
           await admin.auth().updateUser(doc.id, {
-            password: data.temp_password,
+            password,
           });
         }
         synced++;

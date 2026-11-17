@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/student_credentials_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -467,7 +468,10 @@ class _MobileUserManagementScreenState
 
       final data = doc.data()!;
       final studentCode = data['student_code'] ?? 'Not set';
-      final tempPassword = data['temp_password'] ?? 'Password not stored';
+      final storedPassword =
+          await StudentCredentialsService.readPassword(doc.id, data);
+      final tempPassword =
+          storedPassword.isNotEmpty ? storedPassword : 'Password not stored';
       final aliasEmail = '$studentCode@alluwaleducationhub.org';
 
       if (!mounted) return;
@@ -1038,8 +1042,8 @@ class _MobileUserManagementScreenState
                       setDialogState(() => deleteClasses = value ?? false),
                   title: Text(
                     userType == 'teacher'
-                        ? 'Also delete this teacher\'s classes'
-                        : 'Also delete this student\'s classes',
+                        ? 'Also delete this teacher\'s upcoming classes'
+                        : 'Also delete this student\'s upcoming classes',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: userType == 'student'

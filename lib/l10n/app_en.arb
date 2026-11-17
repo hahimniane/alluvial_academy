@@ -1139,7 +1139,7 @@
   "aeh": "Aeh",
   "afterSchoolTutoring": "After School Tutoring",
   "allAdmins": "All Admins",
-  "allAssociatedDataIncludingTimesheetsForms": "All Associated Data Including Timesheets Forms",
+  "allAssociatedDataIncludingTimesheetsForms": "Form submissions and drafts are removed. Past classes, timesheets and class reports are kept.",
   "allClasses": "All Classes",
   "allDepartments": "All Departments",
   "allForms": "All Forms",

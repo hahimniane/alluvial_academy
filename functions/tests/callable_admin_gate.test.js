@@ -72,4 +72,12 @@ describe('verifyCallableCallerIsAdmin', () => {
     });
     expect(result.callerUid).toBe('claims_admin');
   });
+
+  test('ignores a caller-supplied adminEmail when the token carries none', async () => {
+    mockUsersByUid.set('admin@school.org', {user_type: 'admin'});
+    await expectRejection(
+      verifyCallableCallerIsAdmin({auth: {uid: 'phone_user', token: {}}, data: {adminEmail: 'admin@school.org'}}),
+      'permission-denied'
+    );
+  });
 });

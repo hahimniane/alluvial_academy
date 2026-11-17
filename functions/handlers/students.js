@@ -1,7 +1,8 @@
 const functions = require('firebase-functions');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const admin = require('firebase-admin');
-const {generateRandomPassword} = require('../utils/password');
+const {generateEasyPassword} = require('../utils/password');
+const {queueCredentialWrite} = require('../services/student_credentials');
 const {sendStudentNotificationEmail} = require('../services/email/senders');
 const {sameChild} = require('../utils/student_identity');
 
@@ -29,8 +30,7 @@ const _aliasTakenInAuth = async (studentCode) => {
 
 const createStudentAccount = async (data, context) => {
   console.log('--- CREATE STUDENT ACCOUNT ---');
-  await verifyCallableCallerIsAdmin(data, context);
-  console.log('Raw data received:', data);
+  const {callerUid} = await verifyCallableCallerIsAdmin(data, context);
 
   try {
     if (!data || typeof data !== 'object') {
@@ -159,7 +159,7 @@ const createStudentAccount = async (data, context) => {
     console.log(`Generated unique Student ID: ${studentCode}`);
 
     const aliasEmail = `${studentCode}@alluwaleducationhub.org`;
-    const tempPassword = generateRandomPassword();
+    const tempPassword = generateEasyPassword({avoid: [firstName, lastName, studentCode]});
 
     console.log(`Creating Firebase Auth user with alias email: ${aliasEmail}`);
 
@@ -210,12 +210,19 @@ const createStudentAccount = async (data, context) => {
       uid: authUserId,
       created_by_admin: true,
       created_by_uid:
-        context?.auth?.uid || studentData.createdByUid || null,
+        callerUid || studentData.createdByUid || null,
       password_reset_required: true,
-      temp_password: tempPassword,
     };
 
-    await admin.firestore().collection('users').doc(authUserId).set(firestoreUserData);
+    // The password goes to student_credentials (admins + guardians only),
+    // never onto the user doc, which every signed-in user can read.
+    const createBatch = admin.firestore().batch();
+    createBatch.set(admin.firestore().collection('users').doc(authUserId), firestoreUserData);
+    queueCredentialWrite(admin.firestore(), createBatch, authUserId, tempPassword, {
+      source: 'created',
+      actorUid: callerUid || studentData.createdByUid || null,
+    });
+    await createBatch.commit();
     console.log(`User document created for Student ID: ${studentCode}`);
 
     const studentDocData = {
@@ -259,7 +266,6 @@ const createStudentAccount = async (data, context) => {
 
           if (guardianDoc.exists) {
             const guardianData = guardianDoc.data();
-            console.log('Guardian data:', JSON.stringify(guardianData, null, 2));
 
             const guardianEmail = guardianData['e-mail'] || guardianData.email;
             const guardianName = `${guardianData.first_name || ''} ${
