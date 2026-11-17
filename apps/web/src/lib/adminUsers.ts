@@ -78,6 +78,25 @@ const dateOf = (value: unknown): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+/** Employee._parseTimestamp: a Timestamp or an ISO-like string. */
+const looseDateOf = (value: unknown): Date | null => {
+  const d = dateOf(value);
+  if (d) return d;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const firstText = (data: Data, keys: readonly string[]): string => {
+  for (const key of keys) {
+    const v = data[key];
+    if (v !== undefined && v !== null) return String(v);
+  }
+  return "";
+};
+
 const stringList = (value: unknown): string[] =>
   Array.isArray(value) ? value.map((v) => (v === null || v === undefined ? "" : String(v).trim())).filter(Boolean) : [];
 
@@ -123,6 +142,12 @@ export type UserRow = {
   guardianIds: string[];
   childrenIds: string[];
   firstClassAt: Date | null;
+  /** Decision-history fallbacks (EditUserScreen's DecisionAuditFallback): who created / archived / restored, and when. */
+  createdByUid: string;
+  deactivatedByUid: string;
+  deactivatedAt: Date | null;
+  activatedByUid: string;
+  activatedAt: Date | null;
   /** Only for documents whose user_type is exactly "parent". */
   parentPick: ParentPickFields | null;
 };
@@ -203,6 +228,11 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     guardianIds: unionLists(stringList(data.guardian_ids), stringList(data.guardianIds)),
     childrenIds: unionLists(stringList(data.children_ids), stringList(data.childrenIds)),
     firstClassAt: dateOf(data.first_class_at),
+    createdByUid: firstText(data, ["created_by_uid", "created_by", "createdBy", "created_by_admin_id"]),
+    deactivatedByUid: firstText(data, ["deactivated_by_uid", "archived_by_uid", "archivedByUid"]),
+    deactivatedAt: looseDateOf(data.deactivated_at ?? data.archived_at ?? data.archivedAt),
+    activatedByUid: firstText(data, ["activated_by_uid", "restored_by_uid", "restoredByUid"]),
+    activatedAt: looseDateOf(data.activated_at ?? data.restored_at ?? data.restoredAt),
     parentPick: userType === "parent" ? parentPickOf(id, data) : null,
   };
 }
