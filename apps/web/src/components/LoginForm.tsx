@@ -11,6 +11,7 @@ import {
 import { ArrowRight, Eye, EyeOff, LogOut, Mail, Phone, LockKeyhole, Badge } from "lucide-react";
 import { auth, ensureAuthPersistence, requireAuth } from "@/lib/firebase";
 import { dashboardPathForUser } from "@/lib/userRoles";
+import { afterSignIn, ARCHIVED_MESSAGE } from "@/lib/signInChecks";
 
 const flutterDashboardLoginPath = "/app/#/login";
 
@@ -46,6 +47,7 @@ export function LoginForm() {
     try {
       await ensureAuthPersistence();
       const credential = await signInWithEmailAndPassword(requireAuth(), loginEmail(), password);
+      await afterSignIn(credential.user);
       window.location.href = await dashboardPathForUser(credential.user);
     } catch (error) {
       setMessage(friendlyAuthError(error));
@@ -81,6 +83,7 @@ export function LoginForm() {
     try {
       await ensureAuthPersistence();
       const credential = await signInWithPopup(requireAuth(), new GoogleAuthProvider());
+      await afterSignIn(credential.user);
       window.location.href = await dashboardPathForUser(credential.user);
     } catch (error) {
       setMessage(friendlyAuthError(error));
@@ -280,6 +283,7 @@ function GoogleMark() {
 
 function friendlyAuthError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
+  if ((error as { code?: unknown })?.code === "user-deactivated") return ARCHIVED_MESSAGE;
   if (message.includes("user-not-found")) return "No account found with this email address. Please check your email or contact an administrator.";
   if (message.includes("wrong-password") || message.includes("invalid-credential")) return "Incorrect password. Please try again or use Forgot Password if needed.";
   if (message.includes("invalid-email")) return "Please enter a valid email address.";

@@ -52,8 +52,10 @@ describe('no plaintext password on user documents', () => {
     expect(source).not.toMatch(/\.(update|set)\(/);
   });
 
-  test('web app: no source names the legacy field', () => {
+  test('web app: only the read-only credential reader names the legacy field', () => {
     const files = walk(path.join(repo, 'apps', 'web', 'src'), ['.ts', '.tsx']);
-    expect(mentions(files)).toEqual([]);
+    expect(mentions(files)).toEqual(['apps/web/src/lib/studentCredentials.ts']);
+    const source = fs.readFileSync(path.join(repo, 'apps/web/src/lib/studentCredentials.ts'), 'utf8');
+    expect(source).not.toMatch(/\b(setDoc|updateDoc|addDoc|deleteDoc|writeBatch|runTransaction)\b/);
   });
 });

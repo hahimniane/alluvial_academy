@@ -18,9 +18,27 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-test("no web client code writes temp_password", () => {
+// Student passwords live in student_credentials/{uid}, written only by Cloud
+// Functions. The one web file allowed to name the legacy user-doc field reads
+// it as a fallback and never writes anything.
+const READER = join(srcRoot, "lib/studentCredentials.ts");
+
+test("only the credential reader names temp_password", () => {
   const offenders = sourceFiles(srcRoot).filter((path) => /temp_password/.test(readFileSync(path, "utf8")));
-  assert.deepEqual(offenders, []);
+  assert.deepEqual(offenders, [READER]);
+});
+
+test("the credential reader never writes", () => {
+  const source = readFileSync(READER, "utf8");
+  assert.doesNotMatch(source, /\b(setDoc|updateDoc|addDoc|deleteDoc|writeBatch|runTransaction)\b/);
+});
+
+test("no web code writes the credential store", () => {
+  const writers = sourceFiles(srcRoot).filter((path) => {
+    const source = readFileSync(path, "utf8");
+    return /student_credentials/.test(source) && /\b(setDoc|updateDoc|addDoc|deleteDoc|writeBatch)\b/.test(source);
+  });
+  assert.deepEqual(writers, []);
 });
 
 test("teacher password change only calls Firebase Auth", () => {
