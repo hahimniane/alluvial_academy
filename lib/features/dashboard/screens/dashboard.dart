@@ -18,7 +18,7 @@ import '../../../core/services/public_site_cms_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/role_switcher.dart';
-import '../../user_management/screens/user_management_screen.dart';
+import '../../user_management/screens/admin_users_entry.dart';
 import '../../forms/screens/form_builder.dart';
 import '../../forms/screens/forms_list_screen.dart';
 import '../../settings/screens/test_role_system.dart';
@@ -296,7 +296,7 @@ class _DashboardPageState extends State<DashboardPage> {
           onNavigate: _onItemTapped,
         );
       case 1:
-        return const UserManagementScreen();
+        return const AdminUsersEntry();
       case 2:
         // Legacy CMS screen removed. Redirect to the unified Public Site CMS
         // so stale navigation state doesn't land on a 404.

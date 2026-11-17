@@ -1,7 +1,8 @@
 "use client";
 
-import { UsersAdmin } from "@/components/UsersAdmin";
+import "./users.css";
+import { UsersAdminPage } from "@/components/admin-users/UsersAdminPage";
 
 export default function UsersPage() {
-  return <UsersAdmin />;
+  return <UsersAdminPage />;
 }

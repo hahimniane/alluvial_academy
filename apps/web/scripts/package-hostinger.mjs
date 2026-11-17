@@ -59,6 +59,7 @@ for (const embeddedRoute of [
   ["admin", "shifts"],
   ["admin", "student-applicants"],
   ["admin", "finance"],
+  ["admin", "users"],
   ["teacher", "job-board"],
 ]) {
   await writeFile(

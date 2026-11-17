@@ -753,6 +753,10 @@ exports.generateMonthlyFamilyInvoices =
 exports.sendInvoiceReminders = financeBillingHandlers.sendInvoiceReminders;
 exports.createFirstInvoiceOnFirstClass =
   financeBillingHandlers.createFirstInvoiceOnFirstClass;
+// Admin Users page "First class" column: keeps users/{studentId}.first_class_at
+// at the student's earliest attended class (see the handler for the definition).
+exports.recordStudentFirstClass =
+  require('./handlers/student_first_class').recordStudentFirstClass;
 const financeInvoiceHandlers = require('./handlers/finance_invoices');
 // Finance: invoice edit / cancel / reminder (admin-only, closed months refused;
 // see docs/finance/SPEC.md). Money changes never go through client writes.
