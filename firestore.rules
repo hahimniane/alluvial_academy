@@ -114,6 +114,66 @@ service cloud.firestore {
 
     }
 
+    // Owner check for an UPDATE, against the document as it is now. The
+    // AfterWrite variant above looks at the written data, so writing your own
+    // address into a not-locked identity field (`email`, `student_code`, ...)
+    // of SOMEONE ELSE's document made you its "owner".
+    function isUserDocOwnerBeforeWrite(userId) {
+
+      return isSignedIn() && (
+
+        request.auth.uid == userId ||
+
+        (resource.data.get('uid', null) != null && resource.data.uid == request.auth.uid) ||
+
+        ((resource.data.get('e-mail', null) is string) && authEmail() != '' && resource.data['e-mail'].lower() == authEmail()) ||
+
+        ((resource.data.get('email', null) is string) && authEmail() != '' && resource.data.email.lower() == authEmail()) ||
+
+        ((resource.data.get('student_code', null) is string) && authEmail() != '' && (resource.data.student_code.lower() + '@alluwaleducationhub.org') == authEmail()) ||
+
+        ((resource.data.get('studentCode', null) is string) && authEmail() != '' && (resource.data.studentCode.lower() + '@alluwaleducationhub.org') == authEmail()) ||
+
+        ((resource.data.get('kiosk_code', null) is string) && authEmail() != '' && (resource.data.kiosk_code.lower() + '@alluwaleducationhub.org') == authEmail())
+
+      );
+
+    }
+
+    // Fields only admins and the server may change on a user document: every
+    // field isAdminRole() trusts, plus the family links and feature switches.
+    // No app screen writes any of them on the person's own document.
+    function adminOnlyUserFieldsUnchanged() {
+      return fieldUnchanged('is_admin') &&
+             fieldUnchanged('isAdmin') &&
+             fieldUnchanged('is_super_admin') &&
+             fieldUnchanged('isSuperAdmin') &&
+             fieldUnchanged('userType') &&
+             fieldUnchanged('secondary_roles') &&
+             fieldUnchanged('secondaryRoles') &&
+             fieldUnchanged('guardian_ids') &&
+             fieldUnchanged('guardianIds') &&
+             fieldUnchanged('children_ids') &&
+             fieldUnchanged('childrenIds') &&
+             fieldUnchanged('ai_tutor_enabled') &&
+             fieldUnchanged('tontine_enabled');
+    }
+
+    // A parent reading their own child's stored password. The link is read
+    // from the STUDENT's document, whose guardian fields only admins and the
+    // server can change; the reader must be a parent by user_type, which is
+    // locked too.
+    function isGuardianOfStudent(studentId) {
+      let studentPath = /databases/$(database)/documents/users/$(studentId);
+      let readerPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isSignedIn() &&
+        exists(studentPath) && exists(readerPath) &&
+        get(readerPath).data.get('user_type', '') == 'parent' &&
+        get(studentPath).data.get('user_type', '') == 'student' &&
+        (request.auth.uid in get(studentPath).data.get('guardian_ids', []) ||
+         request.auth.uid in get(studentPath).data.get('guardianIds', []));
+    }
+
     function teacherIdFromData(data) {
       return data.teacher_id != null
         ? data.teacher_id
@@ -149,23 +209,23 @@ service cloud.firestore {
 
     function isFcmTokenOnlyUpdate() {
 
-      return request.resource.data.diff(resource.data).changedKeys()
+      return request.resource.data.diff(resource.data).affectedKeys()
 
         .hasOnly(['fcmTokens', 'lastTokenUpdate']);
 
     }
 
-    // Dashboard / chat presence heartbeat (RoleBasedDashboard → users/{uid})
-    // diff().changedKeys() may list only fields whose values differ (e.g. only last_seen on heartbeat).
+    // Dashboard / chat presence heartbeat (RoleBasedDashboard → users/{uid}).
+    // affectedKeys(), not changedKeys(): changedKeys() leaves out fields the
+    // write ADDS, so an update that only added fields (an admin flag, someone
+    // else's email) passed as "presence only".
     function isPresenceOnlyUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['is_online', 'last_seen'])
-        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['last_seen'])
-        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['is_online']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_online', 'last_seen']);
     }
 
     // AuthService / location: allow teachers to refresh geo without touching role fields
     function isLastKnownLocationOnlyUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys()
+      return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['last_known_location']);
     }
 
@@ -284,7 +344,11 @@ service cloud.firestore {
 
       allow update: if isAdmin() || (
 
+        isUserDocOwnerBeforeWrite(userId) &&
+
         isUserDocOwnerAfterWrite(userId) &&
+
+        adminOnlyUserFieldsUnchanged() &&
 
         fieldUnchanged('uid') &&
 
@@ -310,26 +374,29 @@ service cloud.firestore {
 
 	      ) || (
 
-        isUserDocOwnerAfterWrite(userId) && isFcmTokenOnlyUpdate()
+        isUserDocOwnerBeforeWrite(userId) && isFcmTokenOnlyUpdate()
 
       ) || (
 
-        isUserDocOwnerAfterWrite(userId) && isPresenceOnlyUpdate()
+        isUserDocOwnerBeforeWrite(userId) && isPresenceOnlyUpdate()
 
       ) || (
 
-        isUserDocOwnerAfterWrite(userId) && isLastKnownLocationOnlyUpdate()
+        isUserDocOwnerBeforeWrite(userId) && isLastKnownLocationOnlyUpdate()
 
       );
 
 
 
       // Allow create for admins, or self-provisioning as circle_member via phone auth
+      // (only the fields AuthService._provisionCircleMemberUser writes, so the
+      // new document cannot carry an admin flag).
       allow create: if isAdmin() || (
         isSignedIn() &&
         request.auth.uid == userId &&
         request.resource.data.user_type == 'circle_member' &&
-        request.resource.data.is_active == true
+        request.resource.data.is_active == true &&
+        request.resource.data.keys().hasOnly(['user_type', 'phone_number', 'is_active', 'created_at', 'first_name', 'last_name', 'name'])
       );
 
       allow delete: if isAdmin();
@@ -337,6 +404,14 @@ service cloud.firestore {
     }
 
     
+
+    // Student login passwords. Written only by Cloud Functions
+    // (createStudentAccount, resetStudentPassword, recordOwnStudentPassword);
+    // read by admins and by the student's own guardians.
+    match /student_credentials/{studentId} {
+      allow read: if isAdmin() || isGuardianOfStudent(studentId);
+      allow write: if false;
+    }
 
     // Form responses - users can only read their own submissions
 
@@ -1342,11 +1417,12 @@ service cloud.firestore {
     // finance_private (the bank link token) and known_phones (parents' phone
     // numbers) are server-only: the read here must not reach them either.
     // Pay and attendance records (classes, archived classes, timesheets) are
-    // never deleted through the fallback either.
+    // never deleted through the fallback either, and student_credentials is
+    // written by Cloud Functions only.
     match /{collection}/{document=**} {
       allow read: if isAdmin() && collection != 'finance_private' && collection != 'known_phones';
-      allow create, update: if isAdmin() && collection != 'teaching_shifts' && collection != 'shift_trades' && !isFinanceCollection(collection);
-      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries', 'shift_trades'])
+      allow create, update: if isAdmin() && collection != 'teaching_shifts' && collection != 'shift_trades' && collection != 'student_credentials' && !isFinanceCollection(collection);
+      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries', 'shift_trades', 'student_credentials'])
         && !isFinanceCollection(collection);
     }
 

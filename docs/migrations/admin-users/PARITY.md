@@ -1,8 +1,10 @@
 # Admin Users page — parity record (Flutter → Next.js)
 
-Checklist IDs come from the Users inventory (U-001 … U-153). This file covers
-slice A: **S0 (frame + switch)** and **S1 (read-only list)**, plus decision **D2**
-("First class" replaces the Kiosk Code column). Later slices add their rows.
+Checklist IDs come from the Users inventory (U-001 … U-153). Slice A:
+**S0 (frame + switch)** and **S1 (read-only list)**, plus decision **D2**
+("First class" replaces the Kiosk Code column). Slice B1: the student password
+store (**D1**, **D1b**), the delete scope (**D3**) and the rules fixes they need.
+Later slices add their rows.
 
 Tested on **alluwal-dev** with fictional seed people (ids `zz_users_*`, see
 "Test data" below), the dev switch on `allowlist` for the dev test admin only.
@@ -98,3 +100,20 @@ and string dates, a doc with a numeric first name and a guardian id that has no
 account — plus 8 live classes (this week: shared, missed, cancelled,
 duration-only, non-teaching; past completed / partially completed / missed) and
 1 archived fully-completed class. `undo` removes all of it and the dev switch.
+
+## Slice B1 — student passwords, delete scope, rules (server + Flutter readers)
+
+| ID / # | Item | Result | Evidence |
+|---|---|---|---|
+| D1 | Where a student's password lives | differs (D1) | `student_credentials/{uid}` `{password, source: created\|reset\|self\|migrated, updated_by, updated_at}`, written only by Cloud Functions (`services/student_credentials.js`). Rules: read by admins (incl. super admins and admin-teachers) and by a parent (`user_type == 'parent'`) whom the STUDENT's doc lists in `guardian_ids` or `guardianIds`; no client writes (also excluded from the admin fallback rule). Never on `users/{uid}` again. |
+| D1 | Writers | differs (D1) | `createStudentAccount` and `resetStudentPassword` write the store in the same batch as the user doc and stop writing `temp_password` (reset also deletes a stale legacy copy). The Flutter self-service password changes (dashboard, profile, role settings screen; the phone settings screen never stored it) call the new `recordOwnStudentPassword` callable after Firebase Auth accepted the new password; students only, everyone else gets `recorded: false`. |
+| D1 | Readers | pass (fallback) | Flutter web + phone "View Login Credentials" and `syncAllStudentPasswords` read the store first and fall back to the legacy `temp_password` (`StudentCredentialsService.readPassword`, `pickStoredPassword`). |
+| D1 | Migration | — | `functions/dev-scripts/migrate_student_credentials.js --project <id> [--apply] [--delete-legacy] [--include-non-students]`: dry run by default, never overwrites a stored password, deletes a student's legacy field only once the store holds one, prints counts only. |
+| D1b | Generated passwords | differs (D1b) | `generateEasyPassword`: one of 170 common words + 4 digits (`tiger4827`), `crypto.randomInt`, never a word that overlaps the person's names or Student ID. Used for new students and resets. Typed passwords: 6–128 characters, no leading/trailing spaces (unchanged). The strong generator for staff/parents now uses `crypto.randomInt` too. |
+| U-039 | Who may reset | differs (fix, D4) | Same gate as create/delete (`verifyCallableCallerIsAdmin`): admins, **super admins** (refused before), admin-teachers, admin claims. Teachers/parents/students refused (dev E2E). |
+| U-039 | Guardian emails | differs (fix) | Guardians under `guardian_ids` **and** `guardianIds` are emailed (only `guardian_ids` before); the result names who was emailed (`emailedTo`). |
+| U-052 | Delete target | differs (fix, U-053) | `deleteUserAccount` takes `userId` (document id); the email lookup stays only for older app builds. The sign-in-account fallback by email deletes an account only if it belongs to that same profile (a minor created with the parent's address no longer takes the parent's login with it). |
+| U-050 | Self delete | differs (fix) | Refused on the server too ("You cannot delete your own account"). |
+| D3 | "Also delete classes" | differs (D3) | Upcoming classes only (`shift_start` after now): a teacher's are deleted; a student is removed from upcoming group classes, upcoming solo classes are deleted. Past and running classes, every timesheet and every class report are kept. Timesheets are no longer deleted at all (pay records). Returns `upcomingClassesDeleted / upcomingClassesUpdated / classesKept`. Flutter labels now say "upcoming classes" and the footer says what is removed and kept (EN/FR/AR). |
+| rules | Self-update holes | differs (fix) | Found while securing the store, all proven on dev before the fix and refused after: (1) `isFcmTokenOnlyUpdate` / `isPresenceOnlyUpdate` / `isLastKnownLocationOnlyUpdate` used `changedKeys()`, which ignores ADDED fields, so any signed-in user could add `role: 'admin'` or `is_admin_teacher: true` to their own document and become an admin; now `affectedKeys()`. (2) The owner check read the written data, so writing your own address into another user's `email` made you its owner; the owner is now checked on the stored document too. (3) `is_admin`, `isAdmin`, `is_super_admin`, `isSuperAdmin`, `userType`, `secondary_roles(Roles)`, `guardian_ids/guardianIds`, `children_ids/childrenIds`, `ai_tutor_enabled`, `tontine_enabled` are locked on self-update (no app screen writes them on the person's own document). (4) Phone sign-up may create only the circle-member fields. `title` and `kiosk_code` stay self-editable (not proven unused). Legacy `temp_password` self-writes from older phone builds stay allowed until the phone release is in use. |
+| gate | `adminEmail` in callables | differs (fix) | `verifyCallableCallerIsAdmin` no longer trusts a caller-supplied `adminEmail`; only the verified token identifies the caller. |

@@ -1106,7 +1106,7 @@
   "aeh": "Aeh",
   "afterSchoolTutoring": "After School Tutoring",
   "allAdmins": "All Admins",
-  "allAssociatedDataIncludingTimesheetsForms": "All Associated Data Including Timesheets Forms",
+  "allAssociatedDataIncludingTimesheetsForms": "تُحذف النماذج المرسلة والمسودات. وتُحفظ الحصص السابقة وجداول الدوام وتقارير الحصص.",
   "allClasses": "All Classes",
   "allDepartments": "All Departments",
   "allForms": "All Forms",

@@ -4773,7 +4773,7 @@ abstract class AppLocalizations {
   /// No description provided for @allAssociatedDataIncludingTimesheetsForms.
   ///
   /// In en, this message translates to:
-  /// **'All Associated Data Including Timesheets Forms'**
+  /// **'Form submissions and drafts are removed. Past classes, timesheets and class reports are kept.'**
   String get allAssociatedDataIncludingTimesheetsForms;
 
   /// No description provided for @allClasses.

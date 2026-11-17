@@ -2546,7 +2546,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get allAssociatedDataIncludingTimesheetsForms =>
-      'All Associated Data Including Timesheets Forms';
+      'تُحذف النماذج المرسلة والمسودات. وتُحفظ الحصص السابقة وجداول الدوام وتقارير الحصص.';
 
   @override
   String get allClasses => 'All Classes';

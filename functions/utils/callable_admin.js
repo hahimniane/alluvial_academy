@@ -25,7 +25,6 @@ const _normalizeRole = (value) => _lower(value).replace(/[\s-]+/g, '_');
  */
 const verifyCallableCallerIsAdmin = async (data, context) => {
   const requestData = (data && data.data) || data || {};
-  const {adminEmail} = requestData;
   const authToken = requestData.authToken || requestData.idToken;
 
   let callerAuth = (context && context.auth) || (data && data.auth) || null;
@@ -57,7 +56,10 @@ const verifyCallableCallerIsAdmin = async (data, context) => {
     _truthy(token.is_super_admin) ||
     _truthy(token.isSuperAdmin);
 
-  const effectiveAdminEmail = tokenEmail || (adminEmail ? String(adminEmail).toLowerCase() : null);
+  // Only the verified token says who the caller is. A caller-supplied
+  // `adminEmail` is ignored: honouring it let an account with no email on its
+  // token (phone sign-in) borrow any admin's profile.
+  const effectiveAdminEmail = tokenEmail;
 
   const usersRef = admin.firestore().collection('users');
   let callerData = null;

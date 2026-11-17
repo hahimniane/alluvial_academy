@@ -2620,7 +2620,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get allAssociatedDataIncludingTimesheetsForms =>
-      'Toutes les données associées incluant les feuilles de temps Formulaires';
+      'Les formulaires envoyés et les brouillons sont supprimés. Les cours passés, les feuilles de temps et les rapports de cours sont conservés.';
 
   @override
   String get allClasses => 'Toutes les classes';

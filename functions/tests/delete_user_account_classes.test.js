@@ -2,10 +2,20 @@
  * Tests for deleteUserAccount optional class cleanup.
  *
  * Safety requirement:
+ * - "Also delete classes" touches UPCOMING classes only; past and running
+ *   classes, timesheets and class reports are kept (owner decision D3).
  * - When deleting a student, do NOT delete shifts that also contain other students.
  *   Instead, remove the student from the shift.
  * - When deleting a teacher, delete only shifts where that teacher is the assigned teacher.
+ * - The target is found by document id; an admin can never delete themselves.
  */
+
+const HOUR = 60 * 60 * 1000;
+const future = (h = 48) => new Date(Date.now() + h * HOUR);
+const past = (h = 48) => new Date(Date.now() - h * HOUR);
+
+// Made-up passwords built at run time (fixtures, not credentials).
+const pw = (word) => `${word}-fixture`;
 
 let store;
 let mockDb;
@@ -259,6 +269,7 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: [studentUid],
       student_names: ['Student X'],
       status: 'scheduled',
+      shift_start: future(),
     });
 
     store.teaching_shifts.set('shift_group', {
@@ -266,6 +277,7 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: [studentUid, 'other_student_uid'],
       student_names: ['Student X', 'Other Student'],
       status: 'scheduled',
+      shift_start: future(),
     });
 
     store.teaching_shifts.set('shift_other', {
@@ -273,40 +285,66 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: ['other_student_uid'],
       student_names: ['Other Student'],
       status: 'scheduled',
+      shift_start: future(),
+    });
+
+    store.teaching_shifts.set('shift_past_solo', {
+      teacher_id: 'teacher_uid',
+      student_ids: [studentUid],
+      student_names: ['Student X'],
+      status: 'completed',
+      shift_start: past(),
+    });
+
+    store.teaching_shifts.set('shift_past_group', {
+      teacher_id: 'teacher_uid',
+      student_ids: [studentUid, 'other_student_uid'],
+      student_names: ['Student X', 'Other Student'],
+      status: 'completed',
+      shift_start: past(),
     });
 
     store.timesheet_entries.set('ts1', { shift_id: 'shift_solo', userId: 'teacher_uid' });
     store.timesheet_entries.set('ts2', { shift_id: 'shift_group', userId: 'teacher_uid' });
     store.timesheet_entries.set('ts3', { shift_id: 'shift_other', userId: 'teacher_uid' });
 
+    store.timesheet_entries.set('ts4', { shift_id: 'shift_past_solo', userId: studentUid });
     store.form_responses.set('fr1', { shift_id: 'shift_solo' });
     store.form_responses.set('fr2', { shift_id: 'shift_group' });
+    store.form_responses.set('fr3', { shift_id: 'shift_past_solo' });
+    store.student_credentials = new Map([[studentUid, { password: pw('tiger') }]]);
 
     const res = await userHandlers.deleteUserAccount(
-      { data: { email: 'student@example.com', adminEmail: 'admin@test.com', deleteClasses: true } },
+      { data: { userId: studentUid, deleteClasses: true } },
       { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
     );
 
     expect(res.success).toBe(true);
+    expect(res.upcomingClassesDeleted).toBe(1);
+    expect(res.upcomingClassesUpdated).toBe(1);
+    expect(res.classesKept).toBe(2);
 
-    // Solo shift deleted, group + other remain
+    // Upcoming solo shift deleted; upcoming group + other remain
     expect(store.teaching_shifts.has('shift_solo')).toBe(false);
     expect(store.teaching_shifts.has('shift_group')).toBe(true);
     expect(store.teaching_shifts.has('shift_other')).toBe(true);
 
-    // Group shift should no longer include the deleted student
+    // Upcoming group shift should no longer include the deleted student
     const group = store.teaching_shifts.get('shift_group');
     expect(group.student_ids).toEqual(['other_student_uid']);
     expect(group.student_names).toEqual(['Other Student']);
 
-    // Related data for deleted shift should be removed
-    expect(store.timesheet_entries.has('ts1')).toBe(false);
-    expect(store.form_responses.has('fr1')).toBe(false);
+    // Past classes are untouched, the student stays on them
+    expect(store.teaching_shifts.has('shift_past_solo')).toBe(true);
+    expect(store.teaching_shifts.get('shift_past_group').student_ids).toEqual([studentUid, 'other_student_uid']);
 
-    // Other shift-related data should remain
-    expect(store.timesheet_entries.has('ts2')).toBe(true);
-    expect(store.timesheet_entries.has('ts3')).toBe(true);
-    expect(store.form_responses.has('fr2')).toBe(true);
+    // Every timesheet and class report is kept
+    for (const id of ['ts1', 'ts2', 'ts3', 'ts4']) expect(store.timesheet_entries.has(id)).toBe(true);
+    for (const id of ['fr1', 'fr2', 'fr3']) expect(store.form_responses.has(id)).toBe(true);
+
+    // The account and its stored password are gone
+    expect(store.users.has(studentUid)).toBe(false);
+    expect(store.student_credentials.has(studentUid)).toBe(false);
   });
 
   test('teacher: deletes only shifts where teacher is assigned (does not touch other teachers)', async () => {
@@ -328,6 +366,7 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: ['student_a'],
       student_names: ['Student A'],
       status: 'scheduled',
+      shift_start: future(),
     });
 
     store.teaching_shifts.set('shift_teacher_2', {
@@ -335,6 +374,20 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: ['student_b'],
       student_names: ['Student B'],
       status: 'completed',
+      shift_start: past(),
+    });
+
+    store.teaching_shifts.set('shift_teacher_running', {
+      teacher_id: teacherUid,
+      student_ids: ['student_b'],
+      status: 'active',
+      shift_start: past(0.25),
+    });
+
+    store.teaching_shifts.set('shift_teacher_no_start', {
+      teacherId: teacherUid,
+      student_ids: ['student_b'],
+      status: 'scheduled',
     });
 
     store.teaching_shifts.set('shift_other_teacher', {
@@ -343,26 +396,104 @@ describe('deleteUserAccount class cleanup', () => {
       student_ids: ['student_c'],
       student_names: ['Student C'],
       status: 'scheduled',
+      shift_start: future(),
     });
 
-    store.timesheet_entries.set('ts1', { shift_id: 'shift_teacher_1', userId: teacherUid });
+    store.timesheet_entries.set('ts1', { shift_id: 'shift_teacher_2', teacher_id: teacherUid, userId: teacherUid });
     store.timesheet_entries.set('ts2', { shift_id: 'shift_other_teacher', userId: 'other_teacher_uid' });
+    store.form_responses.set('fr1', { shift_id: 'shift_teacher_2' });
 
     const res = await userHandlers.deleteUserAccount(
-      { data: { email: 'teacher@example.com', adminEmail: 'admin@test.com', deleteClasses: true } },
+      { data: { userId: teacherUid, deleteClasses: true } },
       { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
     );
 
     expect(res.success).toBe(true);
+    expect(res.upcomingClassesDeleted).toBe(1);
+    expect(res.classesKept).toBe(3);
 
-    // Only the teacher's shifts deleted
+    // Only the teacher's upcoming shift is deleted
     expect(store.teaching_shifts.has('shift_teacher_1')).toBe(false);
-    expect(store.teaching_shifts.has('shift_teacher_2')).toBe(false);
+    expect(store.teaching_shifts.has('shift_teacher_2')).toBe(true);
+    expect(store.teaching_shifts.has('shift_teacher_running')).toBe(true);
+    expect(store.teaching_shifts.has('shift_teacher_no_start')).toBe(true);
     expect(store.teaching_shifts.has('shift_other_teacher')).toBe(true);
 
-    // Related data for deleted shifts removed; unrelated remains
-    expect(store.timesheet_entries.has('ts1')).toBe(false);
+    // Pay history and class reports kept
+    expect(store.timesheet_entries.has('ts1')).toBe(true);
     expect(store.timesheet_entries.has('ts2')).toBe(true);
+    expect(store.form_responses.has('fr1')).toBe(true);
+  });
+
+  test('without the option no class is touched', async () => {
+    const adminUid = 'admin_uid';
+    store.users.set(adminUid, { uid: adminUid, user_type: 'admin', 'e-mail': 'admin@test.com' });
+    store.users.set('teacher_uid', { uid: 'teacher_uid', user_type: 'teacher', is_active: false, 'e-mail': 't@example.com' });
+    store.teaching_shifts.set('up', { teacher_id: 'teacher_uid', shift_start: future() });
+
+    const res = await userHandlers.deleteUserAccount(
+      { data: { userId: 'teacher_uid' } },
+      { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
+    );
+    expect(res.success).toBe(true);
+    expect(res.upcomingClassesDeleted).toBe(0);
+    expect(store.teaching_shifts.has('up')).toBe(true);
+  });
+
+  test('finds the target by document id, never the first doc sharing its email', async () => {
+    const adminUid = 'admin_uid';
+    store.users.set(adminUid, { uid: adminUid, user_type: 'admin', 'e-mail': 'admin@test.com' });
+    // A parent and their child created with the parent's address.
+    store.users.set('parent_uid', { uid: 'parent_uid', user_type: 'parent', is_active: true, 'e-mail': 'family@example.com', children_ids: [] });
+    store.users.set('child_uid', { uid: 'child_uid', user_type: 'student', is_active: false, 'e-mail': 'family@example.com', guardian_ids: [] });
+    mockAuthApi.deleteUser = jest.fn((uid) => (uid === 'child_uid'
+      ? Promise.reject(Object.assign(new Error('no auth user'), { code: 'auth/user-not-found' }))
+      : Promise.resolve()));
+    mockAuthApi.getUserByEmail = jest.fn(() => Promise.resolve({ uid: 'parent_uid' }));
+
+    const res = await userHandlers.deleteUserAccount(
+      { data: { userId: 'child_uid', email: 'family@example.com' } },
+      { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
+    );
+    expect(res.success).toBe(true);
+    expect(store.users.has('child_uid')).toBe(false);
+    expect(store.users.has('parent_uid')).toBe(true);
+    // The parent's sign-in account, found by the shared email, is left alone.
+    expect(mockAuthApi.deleteUser).not.toHaveBeenCalledWith('parent_uid');
+    expect(res.deletedFromAuth).toBe(false);
+  });
+
+  test('refuses to delete the caller themselves', async () => {
+    const adminUid = 'admin_uid';
+    store.users.set(adminUid, { uid: adminUid, user_type: 'admin', is_active: false, 'e-mail': 'admin@test.com' });
+    await expect(userHandlers.deleteUserAccount(
+      { data: { userId: adminUid } },
+      { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
+    )).rejects.toMatchObject({ code: 'failed-precondition' });
+    expect(store.users.has(adminUid)).toBe(true);
+  });
+
+  test('refuses an active user and a non-admin caller', async () => {
+    store.users.set('admin_uid', { uid: 'admin_uid', user_type: 'admin' });
+    store.users.set('teacher_uid', { uid: 'teacher_uid', user_type: 'teacher', is_active: true });
+    store.users.set('other_teacher', { uid: 'other_teacher', user_type: 'teacher', is_active: false });
+    await expect(userHandlers.deleteUserAccount(
+      { data: { userId: 'teacher_uid' } },
+      { auth: { uid: 'admin_uid', token: {} } }
+    )).rejects.toMatchObject({ code: 'failed-precondition' });
+    await expect(userHandlers.deleteUserAccount(
+      { data: { userId: 'other_teacher' } },
+      { auth: { uid: 'teacher_uid', token: {} } }
+    )).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(store.users.has('other_teacher')).toBe(true);
+  });
+
+  test('a missing target is not-found', async () => {
+    store.users.set('admin_uid', { uid: 'admin_uid', user_type: 'admin' });
+    await expect(userHandlers.deleteUserAccount(
+      { data: { userId: 'nobody' } },
+      { auth: { uid: 'admin_uid', token: {} } }
+    )).rejects.toMatchObject({ code: 'not-found' });
   });
 
   test('admin auth: trims role values (e.g. "Admin ")', async () => {

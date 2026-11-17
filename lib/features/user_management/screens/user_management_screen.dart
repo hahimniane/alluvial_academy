@@ -20,6 +20,7 @@ import 'package:alluwalacademyadmin/core/utils/export_helpers.dart';
 import 'package:alluwalacademyadmin/core/utils/app_search.dart';
 import 'package:alluwalacademyadmin/core/utils/shift_session_aggregator.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/student_credentials_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart'
     show EmployeeSelectionDialog;
 import 'edit_user_screen.dart';
@@ -1715,9 +1716,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final hasStudentCode = rawStudentCode.isNotEmpty;
       final studentCode = hasStudentCode ? rawStudentCode : 'Not set';
 
-      final rawTempPassword = (data['temp_password'] ?? '').toString();
-      final tempPassword = rawTempPassword.trim().isNotEmpty
-          ? rawTempPassword
+      final storedPassword = await StudentCredentialsService.readPassword(
+          employee.documentId, data);
+      final tempPassword = storedPassword.trim().isNotEmpty
+          ? storedPassword
           : 'Password not stored';
 
       final aliasEmail = hasStudentCode
@@ -2263,8 +2265,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                         setDialogState(() => deleteClasses = value ?? false),
                     title: Text(
                       userType == 'teacher'
-                          ? 'Also delete this teacher\'s classes'
-                          : 'Also delete this student\'s classes',
+                          ? 'Also delete this teacher\'s upcoming classes'
+                          : 'Also delete this student\'s upcoming classes',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

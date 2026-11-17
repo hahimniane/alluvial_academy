@@ -14,6 +14,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/student_credentials_service.dart';
 import '../../../core/services/public_site_cms_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/app_logger.dart';
@@ -1009,34 +1010,22 @@ class _DashboardPageState extends State<DashboardPage> {
       // Update password in Firebase Auth
       await user.updatePassword(newPassword);
 
-      // Also update temp_password in Firestore for students
-      // This ensures the credentials view stays in sync
+      // Students: keep the copy admins and the student's guardians see in
+      // step. It is stored server-side, never on the user document.
       try {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
-
-        if (userDoc.exists) {
-          final userData = userDoc.data();
-          final userType = userData?['user_type'] ?? userData?['role'] ?? '';
-
-          // Only save password for students (they use temp_password for credential display)
-          if (userType.toString().toLowerCase() == 'student') {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .update({
-              'temp_password': newPassword,
-              'password_changed_at': FieldValue.serverTimestamp(),
-              'password_changed_by_self': true,
-            });
-          }
+        final userData = userDoc.data();
+        final userType = userData?['user_type'] ?? userData?['role'] ?? '';
+        if (userType.toString().toLowerCase() == 'student') {
+          await StudentCredentialsService.recordOwnPassword(newPassword);
         }
       } catch (firestoreError) {
         // Log but don't fail - the password was already changed in Auth
         AppLogger.warning(
-            'Failed to update temp_password in Firestore: $firestoreError');
+            'Failed to record the new student password: $firestoreError');
       }
 
       return true;

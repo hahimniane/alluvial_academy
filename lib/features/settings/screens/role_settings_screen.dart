@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/build_info.dart';
 import '../../../core/services/language_service.dart';
+import '../../../core/services/student_credentials_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class RoleSettingsScreen extends StatelessWidget {
@@ -339,6 +340,10 @@ class RoleSettingsScreen extends StatelessWidget {
                                 .reauthenticateWithCredential(credential);
                             await user
                                 .updatePassword(newPwController.text);
+                            // Students only (the server ignores everyone
+                            // else): keeps the password admins see in step.
+                            await StudentCredentialsService.recordOwnPassword(
+                                newPwController.text);
                             if (ctx.mounted) Navigator.pop(ctx);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

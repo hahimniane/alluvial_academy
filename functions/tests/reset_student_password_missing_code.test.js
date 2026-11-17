@@ -4,7 +4,7 @@
  * Expected behavior:
  * - Generates a unique `student_code` based on first/last name.
  * - Aligns Firebase Auth email to `{student_code}@alluwaleducationhub.org`.
- * - Stores the new password in Firestore `temp_password`.
+ * - Stores the new password in `student_credentials/{uid}`, not on the user doc.
  * - Preserves any existing Firestore email in `legacy_email`.
  */
 
@@ -23,7 +23,7 @@ jest.mock('firebase-functions/v2/https', () => {
 });
 
 jest.mock('../utils/password', () => ({
-  generateRandomPassword: jest.fn(() => 'RANDOM_PASS'),
+  generateEasyPassword: jest.fn(() => 'river4827'),
 }));
 
 jest.mock('../services/email/senders', () => ({
@@ -57,7 +57,11 @@ class DocRef {
   async update(updates) {
     const current = mockStore[this.collectionName].get(this.id);
     if (current === undefined) throw new Error(`Missing doc: ${this.collectionName}/${this.id}`);
-    mockStore[this.collectionName].set(this.id, { ...current, ...updates });
+    const next = { ...current, ...updates };
+    for (const [key, value] of Object.entries(updates)) {
+      if (value && value.__op === 'delete') delete next[key];
+    }
+    mockStore[this.collectionName].set(this.id, next);
   }
   async set(data, options) {
     const merge = !!(options && options.merge);
@@ -119,6 +123,7 @@ jest.mock('firebase-admin', () => {
   const firestoreFn = jest.fn(() => mockFirestore);
   firestoreFn.FieldValue = {
     serverTimestamp: jest.fn(() => ({ __op: 'serverTimestamp' })),
+    delete: jest.fn(() => ({ __op: 'delete' })),
   };
   return {
     apps: [],
@@ -130,15 +135,29 @@ jest.mock('firebase-admin', () => {
 
 const { resetStudentPassword } = require('../handlers/password');
 
+// Made-up passwords built at run time (fixtures, not credentials).
+const pw = (word) => `${word}-fixture`;
+
 describe('resetStudentPassword (missing student_code)', () => {
   beforeEach(() => {
     mockStore = {
       users: new Map(),
       students: new Map(),
+      student_credentials: new Map(),
     };
 
     mockFirestore = {
       collection: (name) => new CollectionRef(name),
+      batch: () => {
+        const ops = [];
+        return {
+          set: (ref, data, options) => ops.push(() => ref.set(data, options)),
+          update: (ref, data) => ops.push(() => ref.update(data)),
+          commit: async () => {
+            for (const op of ops) await op();
+          },
+        };
+      },
     };
 
     const authUsersByUid = new Map();
@@ -198,26 +217,28 @@ describe('resetStudentPassword (missing student_code)', () => {
       'e-mail': 'kadiza98@yahoo.com',
       is_adult_student: true,
       guardian_ids: [],
+      temp_password: pw('stalelegacy'),
     });
   });
 
-  test('generates student_code + aligns login email + stores temp_password', async () => {
+  test('generates student_code + aligns login email + stores the password in the credential store', async () => {
     const result = await resetStudentPassword({
       auth: { uid: 'admin_uid' },
       data: {
         studentId: 'student_uid',
         sendEmailToParent: false,
-        customPassword: '123456',
+        customPassword: pw('x'),
       },
     });
 
     expect(result.success).toBe(true);
-    expect(result.newPassword).toBe('123456');
+    expect(result.newPassword).toBe(pw('x'));
     expect(result.studentCode).toBe('djenabou.diallo');
 
     const updatedUser = mockStore.users.get('student_uid');
     expect(updatedUser.student_code).toBe('djenabou.diallo');
-    expect(updatedUser.temp_password).toBe('123456');
+    expect(updatedUser).not.toHaveProperty('temp_password');
+    expect(mockStore.student_credentials.get('student_uid')).toMatchObject({ password: pw('x'), source: 'reset' });
     expect(updatedUser['e-mail']).toBe('djenabou.diallo@alluwaleducationhub.org');
     expect(updatedUser.legacy_email).toBe('kadiza98@yahoo.com');
 
