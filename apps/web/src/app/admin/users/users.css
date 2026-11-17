@@ -1,0 +1,9 @@
+/*
+ * globals.css sets `button, input, select, textarea { font: inherit; }` outside
+ * any cascade layer, so it outranks every Tailwind text-size / font-weight
+ * class on those elements. Inside the Users page, hand them back to the
+ * layered cascade so `text-xs font-semibold` on a button means what it says.
+ */
+.users-area :is(button, input, select, textarea) {
+  font: revert-layer;
+}
