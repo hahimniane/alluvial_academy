@@ -12,35 +12,66 @@ const _truthy = (value) => {
 const _normalizeRole = (value) => _lower(value).replace(/[\s-]+/g, '_');
 
 /**
- * The single admin gate for callables that create or expose accounts.
+ * Read the caller's identity off a callable invocation, whichever shape it
+ * arrives in.
  *
- * Identity can arrive two ways. These callables are declared with the v2
- * `onCall`, which passes one request object carrying `auth`; the older
- * `(data, context)` shape puts it on `context`. Both are accepted so a handler
- * is gated whichever way it happens to be wired up — an ungated account
- * creator is reachable by anyone, since callables are public by design and
- * enforce authorization in code.
+ * Identity can arrive two ways. Callables declared with the v2 `onCall` are
+ * handed one request object carrying `auth`; the older `(data, context)` shape
+ * puts it on `context`. Both are accepted so a handler reads the caller
+ * correctly whichever way it happens to be wired up — reaching into an absent
+ * `context` throws a TypeError, which surfaces to the client as `internal`
+ * instead of the `unauthenticated` the caller should see.
+ *
+ * @returns {Promise<{uid: string, token: object}|null>} null when no identity
+ *   could be established.
+ */
+const resolveCallableCallerAuth = async (data, context) => {
+  const requestData = (data && data.data) || data || {};
+  const authToken = requestData.authToken || requestData.idToken;
+
+  const callerAuth = (context && context.auth) || (data && data.auth) || null;
+  if (callerAuth && callerAuth.uid) {
+    return callerAuth;
+  }
+
+  if (authToken) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(String(authToken));
+      return {uid: decoded.uid, token: decoded};
+    } catch (e) {
+      console.log('Failed to verify auth token:', e.message);
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Require an authenticated caller and return their identity.
+ *
+ * @returns {Promise<{uid: string, token: object}>}
+ */
+const requireCallableCaller = async (data, context, message) => {
+  const callerAuth = await resolveCallableCallerAuth(data, context);
+  if (!callerAuth || !callerAuth.uid) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      message || 'Authentication required'
+    );
+  }
+  return callerAuth;
+};
+
+/**
+ * The single admin gate for callables that create or expose accounts.
  *
  * @returns {Promise<{callerUid: string, effectiveAdminEmail: string|null}>}
  */
 const verifyCallableCallerIsAdmin = async (data, context) => {
   const requestData = (data && data.data) || data || {};
   const {adminEmail} = requestData;
-  const authToken = requestData.authToken || requestData.idToken;
 
-  let callerAuth = (context && context.auth) || (data && data.auth) || null;
-  if (!callerAuth && authToken) {
-    try {
-      const decoded = await admin.auth().verifyIdToken(String(authToken));
-      callerAuth = {uid: decoded.uid, token: decoded};
-    } catch (e) {
-      console.log('Failed to verify auth token:', e.message);
-    }
-  }
-
-  if (!callerAuth || !callerAuth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
-  }
+  const callerAuth = await requireCallableCaller(data, context);
 
   const callerUid = callerAuth.uid;
   const token = callerAuth.token || {};
@@ -127,4 +158,8 @@ const verifyCallableCallerIsAdmin = async (data, context) => {
   return {callerUid, effectiveAdminEmail};
 };
 
-module.exports = {verifyCallableCallerIsAdmin};
+module.exports = {
+  verifyCallableCallerIsAdmin,
+  resolveCallableCallerAuth,
+  requireCallableCaller,
+};
