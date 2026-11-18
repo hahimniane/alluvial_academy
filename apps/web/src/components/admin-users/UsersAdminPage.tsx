@@ -43,6 +43,8 @@ import {
 } from "@/lib/adminUsers";
 import { adminUsesWebUsersPage, listenUsers, listenWeekShifts } from "@/lib/adminUsersData";
 import { AddUsersDialog } from "./AddUsersDialog";
+import { EditUserPage } from "./EditUserPage";
+import { BTN_SECONDARY, DialogShell } from "./UserDialogs";
 import { FamilyEnrollDialog } from "./FamilyEnrollDialog";
 import { ParentPicker } from "./ParentPicker";
 import { UserPanel } from "./UserPanel";
@@ -213,6 +215,11 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   /** Add users / Enroll a family. Hidden (not closed) while the admin checks a possible duplicate, so nothing typed is lost. */
   const [adding, setAdding] = useState<{ kind: "users" | "family"; hidden: boolean; n: number } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
+  /** Edit user: the document id being edited (also in the address as ?edit=<id>, so Back and a reload keep it). */
+  const [editId, setEditIdState] = useState<string | null>(null);
+  const editIdRef = useRef<string | null>(null);
+  const dirtyRef = useRef(false);
+  const [leaveAsk, setLeaveAsk] = useState<(() => void) | null>(null);
 
   const wide = useMediaQuery("(min-width: 768px)");
   const roomy = useMediaQuery("(min-width: 1280px)");
@@ -265,6 +272,77 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
     setSelectedId(id);
     setExportOpen(false);
     setParentOpen(false);
+  }, []);
+
+  // ─── Edit user: address, Back, and the unsaved-changes guard ───
+  const setEdit = useCallback((id: string | null) => {
+    editIdRef.current = id;
+    setEditIdState(id);
+  }, []);
+  const onDirtyChange = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+  }, []);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("edit");
+    if (id) setEdit(id);
+    const onPop = () => {
+      const next = new URLSearchParams(window.location.search).get("edit");
+      const current = editIdRef.current;
+      if (next === current) return;
+      if (current && dirtyRef.current) {
+        // Browser Back with unsaved changes: stay, and ask.
+        window.history.pushState({ usersEdit: current }, "", editUrl(current));
+        setLeaveAsk(() => () => {
+          dirtyRef.current = false;
+          window.history.back();
+        });
+        return;
+      }
+      setEdit(next);
+      if (!next && current) setSelectedId(current);
+    };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [setEdit]);
+
+  const openEdit = useCallback(
+    (id: string) => {
+      setSelectedId(null);
+      setExportOpen(false);
+      setParentOpen(false);
+      window.history.pushState({ usersEdit: id }, "", editUrl(id));
+      setEdit(id);
+      window.scrollTo(0, 0);
+    },
+    [setEdit],
+  );
+
+  /** Back to the list (with that person's panel open, when given). */
+  const leaveEdit = useCallback(
+    (selectId?: string) => {
+      dirtyRef.current = false;
+      const pushed = (window.history.state as { usersEdit?: string } | null)?.usersEdit === editIdRef.current;
+      setEdit(null);
+      if (selectId) setSelectedId(selectId);
+      if (pushed) window.history.back();
+      else window.history.replaceState(null, "", editUrl(null));
+    },
+    [setEdit],
+  );
+
+  const guardLeave = useCallback((action: () => void) => {
+    if (dirtyRef.current) setLeaveAsk(() => action);
+    else action();
   }, []);
 
   const runExport = (kind: "xlsx" | "csv") => {
@@ -338,8 +416,92 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   ) : null;
 
   const panel = selected ? (
-    <UserPanel key={selected.id} row={selected} byId={byId} links={links} viewerUid={viewerUid} say={say} onClose={() => setSelectedId(null)} onSelect={select} />
+    <UserPanel
+      key={selected.id}
+      row={selected}
+      byId={byId}
+      links={links}
+      viewerUid={viewerUid}
+      say={say}
+      onClose={() => setSelectedId(null)}
+      onSelect={select}
+      onEdit={openEdit}
+    />
   ) : null;
+
+  const toastView = toast ? (
+    <div
+      role={toast.tone === "error" ? "alert" : "status"}
+      className={`fixed bottom-6 left-1/2 z-[70] w-max max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl px-[18px] py-3 font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)] ${
+        toast.tone === "error" ? "bg-[#B91C1C]" : "bg-[#0F172A]"
+      }`}
+    >
+      {toast.text}
+    </div>
+  ) : null;
+
+  if (editId) {
+    const editing = byId.get(editId);
+    return (
+      <>
+        {loadError ? (
+          <main className="p-6 font-sans">
+            <p className="font-semibold text-[#334155]">Users could not be loaded.</p>
+            <button type="button" onClick={() => setRetry((n) => n + 1)} className="mt-3 min-h-10 rounded-[10px] border border-[#CBD5E1] bg-white px-4 font-semibold">
+              Try again
+            </button>
+          </main>
+        ) : !rows ? (
+          <Spinner label="Loading…" />
+        ) : editing ? (
+          <EditUserPage
+            key={editId}
+            row={editing}
+            rows={rows}
+            byId={byId}
+            viewerUid={viewerUid}
+            say={say}
+            onBack={() => guardLeave(() => leaveEdit(editId))}
+            onSaved={(id) => leaveEdit(id)}
+            onOpenPerson={(id) => guardLeave(() => leaveEdit(id))}
+            onDirtyChange={onDirtyChange}
+          />
+        ) : (
+          <main className="mx-auto max-w-[640px] p-6 font-sans text-sm">
+            <h1 className="m-0 text-lg font-bold text-slate-900">Edit user</h1>
+            <p className="mt-2 text-[#475569]">This account no longer exists.</p>
+            <button type="button" onClick={() => leaveEdit()} className={`${BTN_SECONDARY} mt-3`}>
+              Back to users
+            </button>
+          </main>
+        )}
+        {leaveAsk ? (
+          <DialogShell label="Discard changes" title="Discard unsaved changes?" onClose={() => setLeaveAsk(null)}>
+            <p className="m-0 text-[#475569]">What you changed{editing ? ` for ${displayNameOf(editing)}` : ""} is not saved yet.</p>
+            <div className="flex flex-wrap justify-end gap-2.5">
+              <button type="button" className={BTN_SECONDARY} onClick={() => setLeaveAsk(null)}>
+                Keep editing
+              </button>
+              <button
+                type="button"
+                data-autofocus
+                className="min-h-11 rounded-[10px] bg-[#B91C1C] px-4 font-semibold text-white"
+                onClick={() => {
+                  const action = leaveAsk;
+                  setLeaveAsk(null);
+                  dirtyRef.current = false;
+                  action();
+                }}
+              >
+                Discard
+              </button>
+            </div>
+          </DialogShell>
+        ) : null}
+        {toastView}
+      </>
+    );
+  }
 
   return (
     <div className="users-area min-h-screen bg-[#F8FAFC] font-sans text-sm text-[#0F172A]">
@@ -544,18 +706,17 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
         </button>
       ) : null}
 
-      {toast ? (
-        <div
-          role={toast.tone === "error" ? "alert" : "status"}
-          className={`fixed bottom-6 left-1/2 z-[70] w-max max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl px-[18px] py-3 font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)] ${
-            toast.tone === "error" ? "bg-[#B91C1C]" : "bg-[#0F172A]"
-          }`}
-        >
-          {toast.text}
-        </div>
-      ) : null}
+      {toastView}
     </div>
   );
+}
+
+/** This page's address with ?edit=<id> set or removed (embed and other parameters kept). */
+function editUrl(id: string | null): string {
+  const url = new URL(window.location.href);
+  if (id) url.searchParams.set("edit", id);
+  else url.searchParams.delete("edit");
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function EmptyState({ filtered, tab, onReset }: { filtered: boolean; tab: UsersTab; onReset: () => void }) {

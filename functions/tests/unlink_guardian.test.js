@@ -123,6 +123,9 @@ class Query {
     this.field = field;
     this.value = value;
   }
+  limit() {
+    return this;
+  }
   async get() {
     const docs = [];
     for (const [id, data] of mockStore[this.collectionName].entries()) {
@@ -248,6 +251,31 @@ describe('unlinkGuardianFromStudent', () => {
       reason: 'Wrong family',
       performedBy: 'admin_uid',
     });
+  });
+
+  test('admin-teachers can unlink (they could link but every unlink was refused)', async () => {
+    mockStore.users.set('admin_teacher_uid', { user_type: 'teacher', is_admin_teacher: true });
+    const result = await unlinkGuardianFromStudent({
+      auth: { uid: 'admin_teacher_uid' },
+      data: { studentUid: 'student_1', parentUid: 'parent_1' },
+    });
+    expect(result.success).toBe(true);
+    expect(Array.from(mockStore.guardian_link_history.values())[0].performedBy).toBe('admin_teacher_uid');
+  });
+
+  test('a missing student gets a plain message', async () => {
+    await expect(
+      unlinkGuardianFromStudent({
+        auth: { uid: 'admin_uid' },
+        data: { studentUid: 'ghost', parentUid: 'parent_1' },
+      }),
+    ).rejects.toMatchObject({ code: 'not-found', message: 'This student account no longer exists.' });
+  });
+
+  test('rejects a signed-out caller', async () => {
+    await expect(
+      unlinkGuardianFromStudent({ data: { studentUid: 'student_1', parentUid: 'parent_1' } }),
+    ).rejects.toMatchObject({ code: 'unauthenticated' });
   });
 
   test('rejects a non-admin caller', async () => {

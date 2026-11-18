@@ -125,6 +125,8 @@ export type UserRow = {
   title: string;
   /** `kiosk_code`, or the document id for a student without one (Flutter rule). */
   kioskCode: string;
+  /** The kiosk code as stored: `kiosk_code`, else `kiosque_code` (students' spelling); no id fallback. */
+  storedKioskCode: string;
   /** Students only: student_code → studentCode → student_id → kiosk code. */
   studentCode: string;
   /** `student_code` as stored, for the login email (no fallback). */
@@ -142,6 +144,8 @@ export type UserRow = {
   isAdultStudent: boolean;
   secondaryRoles: string[];
   guardianIds: string[];
+  /** Every guardian the server honours: guardian_ids, guardianIds and the legacy single guardian_id / parent_id / parentId. */
+  linkedGuardianIds: string[];
   childrenIds: string[];
   firstClassAt: Date | null;
   /** `merged_into`: set on a duplicate student folded into another account. */
@@ -216,6 +220,7 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     userType,
     title: text(data.title),
     kioskCode,
+    storedKioskCode: (kioskRaw || text(data.kiosque_code)).trim(),
     studentCode,
     storedStudentCode,
     dateAdded: dateOf(data.date_added),
@@ -231,6 +236,11 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     isAdultStudent: adult === true,
     secondaryRoles: stringList(data.secondary_roles),
     guardianIds: unionLists(stringList(data.guardian_ids), stringList(data.guardianIds)),
+    linkedGuardianIds: unionLists(
+      stringList(data.guardian_ids),
+      stringList(data.guardianIds),
+      stringList([data.guardian_id, data.parent_id, data.parentId].filter((v) => typeof v === "string")),
+    ),
     childrenIds: unionLists(stringList(data.children_ids), stringList(data.childrenIds)),
     firstClassAt: dateOf(data.first_class_at),
     mergedInto: text(data.merged_into),

@@ -154,18 +154,24 @@ class _EditUserScreenState extends State<EditUserScreen>
         'updated_at': Timestamp.now(),
       };
 
-      // Find and update user document by email
-      final userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('e-mail', isEqualTo: widget.employee.email)
-          .limit(1)
-          .get();
-
-      if (userQuery.docs.isEmpty) {
-        throw Exception('User not found');
+      // Update the document this row came from. Looking it up by email could
+      // edit someone else (empty or shared emails); email is only the fallback
+      // for a row without a document id.
+      final users = FirebaseFirestore.instance.collection('users');
+      final documentId = widget.employee.documentId.trim();
+      DocumentReference<Map<String, dynamic>> target;
+      if (documentId.isNotEmpty) {
+        target = users.doc(documentId);
+      } else {
+        final email = widget.employee.email.trim();
+        if (email.isEmpty) throw Exception('User not found');
+        final userQuery =
+            await users.where('e-mail', isEqualTo: email).limit(1).get();
+        if (userQuery.docs.isEmpty) throw Exception('User not found');
+        target = userQuery.docs.first.reference;
       }
 
-      await userQuery.docs.first.reference.update(updatedData);
+      await target.update(updatedData);
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(

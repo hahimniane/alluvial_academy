@@ -338,6 +338,9 @@ exports.inviteParentForEnrollment = functions.https.onCall(
 exports.unlinkGuardianFromStudent = functions.https.onCall(
   enrollmentHandlers.unlinkGuardianFromStudent
 );
+exports.linkGuardianToStudent = functions.https.onCall(
+  enrollmentHandlers.linkGuardianToStudent
+);
 exports.lookupParentByEmail = functions.https.onCall(
   enrollmentHandlers.lookupParentByEmail
 );

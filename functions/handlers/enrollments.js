@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 const { generateRandomPassword } = require('../utils/password');
 const { parentAccountDecision, displayName } = require('../utils/parent_link');
+const { verifyCallableCallerIsAdmin } = require('../utils/callable_admin');
 
 /** Escape text for safe HTML interpolation (names, notes, etc.). */
 const escapeHtml = (value) => String(value ?? '')
@@ -1376,7 +1377,9 @@ async function validRemainingGuardianIds(db, guardianIds) {
  * Every unlink is recorded in `guardian_link_history` for an audit trail.
  */
 const unlinkGuardianFromStudent = async (request) => {
-  const callerUid = await requireAdminCaller(request);
+  // The shared admin gate: full admins, super admins and admin-teachers, the
+  // same people Firestore rules let edit a user (admin-teachers were refused).
+  const { callerUid } = await verifyCallableCallerIsAdmin(request);
 
   const payload = request.data || {};
   const studentUid = String(payload.studentUid || '').trim();
@@ -1402,7 +1405,7 @@ const unlinkGuardianFromStudent = async (request) => {
 
   const [studentSnap, parentSnap] = await Promise.all([studentRef.get(), parentRef.get()]);
   if (!studentSnap.exists) {
-    throw new functions.https.HttpsError('not-found', `This enrollment is linked to a student account that no longer exists (${studentUid}). Open the student's current account from the Students list and relink the enrollment, then send the invite again.`);
+    throw new functions.https.HttpsError('not-found', 'This student account no longer exists.');
   }
 
   const studentData = studentSnap.data() || {};
@@ -1559,6 +1562,131 @@ const unlinkGuardianFromStudent = async (request) => {
   };
 };
 
+const personName = (data) =>
+  `${(data && data.first_name) || ''} ${(data && data.last_name) || ''}`.trim() || null;
+
+/**
+ * Admin-only: link a parent/guardian to a student, the counterpart of
+ * `unlinkGuardianFromStudent`.
+ *
+ * Both sides are written in one transaction:
+ *   - parentUid joins the student's `guardian_ids` (and the legacy
+ *     `guardianIds` when that field exists)
+ *   - studentUid joins the parent's `children_ids` (and the legacy
+ *     `childrenIds` when that field exists)
+ * A student may have several guardians. A pair linked on one side only is
+ * repaired (the missing side is written). A pair linked on both sides is left
+ * as it is. Every link or repair is recorded in `guardian_link_history`.
+ * No email or push is sent, the same as an unlink.
+ */
+const linkGuardianToStudent = async (request) => {
+  const { callerUid } = await verifyCallableCallerIsAdmin(request);
+
+  const payload = request.data || {};
+  const studentUid = String(payload.studentUid || '').trim();
+  const parentUid = String(payload.parentUid || '').trim();
+  if (!studentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentUid is required');
+  }
+  if (!parentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'parentUid is required');
+  }
+  if (studentUid === parentUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentUid and parentUid must differ');
+  }
+
+  const db = admin.firestore();
+  const studentRef = db.collection('users').doc(studentUid);
+  const parentRef = db.collection('users').doc(parentUid);
+  const { arrayUnion, serverTimestamp } = admin.firestore.FieldValue;
+
+  const outcome = await db.runTransaction(async (tx) => {
+    const [studentSnap, parentSnap] = await Promise.all([tx.get(studentRef), tx.get(parentRef)]);
+    if (!studentSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'This student account no longer exists.');
+    }
+    if (!parentSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'This parent account no longer exists.');
+    }
+    const studentData = studentSnap.data() || {};
+    const parentData = parentSnap.data() || {};
+    if (roleValue(studentData) !== 'student') {
+      throw new functions.https.HttpsError('failed-precondition', 'Selected user is not a student');
+    }
+    if (!isParentUser(parentData)) {
+      throw new functions.https.HttpsError('failed-precondition', 'Selected guardian is not a parent account');
+    }
+
+    const studentSide = {};
+    if (!stringList(studentData.guardian_ids).includes(parentUid)) {
+      studentSide.guardian_ids = arrayUnion(parentUid);
+    }
+    if (Array.isArray(studentData.guardianIds) && !stringList(studentData.guardianIds).includes(parentUid)) {
+      studentSide.guardianIds = arrayUnion(parentUid);
+    }
+    const parentSide = {};
+    if (!stringList(parentData.children_ids).includes(studentUid)) {
+      parentSide.children_ids = arrayUnion(studentUid);
+    }
+    if (Array.isArray(parentData.childrenIds) && !stringList(parentData.childrenIds).includes(studentUid)) {
+      parentSide.childrenIds = arrayUnion(studentUid);
+    }
+
+    const studentHadParent =
+      stringList(studentData.guardian_ids).includes(parentUid) ||
+      stringList(studentData.guardianIds).includes(parentUid);
+    const parentHadStudent =
+      stringList(parentData.children_ids).includes(studentUid) ||
+      stringList(parentData.childrenIds).includes(studentUid);
+    const alreadyLinked =
+      Object.keys(studentSide).length === 0 && Object.keys(parentSide).length === 0;
+
+    const now = serverTimestamp();
+    if (Object.keys(studentSide).length > 0) tx.update(studentRef, { ...studentSide, updated_at: now });
+    if (Object.keys(parentSide).length > 0) tx.update(parentRef, { ...parentSide, updated_at: now });
+
+    const guardians = new Set([
+      ...stringList(studentData.guardian_ids),
+      ...stringList(studentData.guardianIds),
+      parentUid,
+    ]);
+    return {
+      alreadyLinked,
+      repaired: !alreadyLinked && (studentHadParent || parentHadStudent),
+      studentName: personName(studentData),
+      parentName: personName(parentData),
+      guardianCount: guardians.size,
+    };
+  });
+
+  if (!outcome.alreadyLinked) {
+    try {
+      await db.collection('guardian_link_history').add({
+        action: 'link',
+        studentUid,
+        parentUid,
+        reason: null,
+        performedBy: callerUid,
+        repairedOneSidedLink: outcome.repaired,
+        studentName: outcome.studentName,
+        parentName: outcome.parentName,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.error('linkGuardianToStudent: audit write failed', e.message || e);
+    }
+  }
+
+  return {
+    success: true,
+    studentUid,
+    parentUid,
+    alreadyLinked: outcome.alreadyLinked,
+    repaired: outcome.repaired,
+    guardianCount: outcome.guardianCount,
+  };
+};
+
 // Small helper: generate a unique 6-digit kiosque code for new parents
 // (matches the format used elsewhere).
 async function generateKiosqueCodeForParent() {
@@ -1582,4 +1710,5 @@ module.exports = {
   inviteParentForEnrollment,
   lookupParentByEmail,
   unlinkGuardianFromStudent,
+  linkGuardianToStudent,
 };

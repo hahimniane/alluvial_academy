@@ -43,6 +43,7 @@ import {
   setUserSwitch,
 } from "@/lib/adminUsersActionsData";
 import { readStudentPassword } from "@/lib/studentCredentials";
+import { guardiansOfStudent, sideNote, studentsOfParent } from "@/lib/guardians";
 import { Avatar, Pill, TypePill } from "./ui";
 import {
   ArchiveDialog,
@@ -217,6 +218,7 @@ export function UserPanel({
   say,
   onClose,
   onSelect,
+  onEdit,
 }: {
   row: ListRow;
   byId: Map<string, UserRow>;
@@ -225,18 +227,22 @@ export function UserPanel({
   say: Say;
   onClose: () => void;
   onSelect: (id: string) => void;
+  onEdit: (id: string) => void;
 }) {
   const student = isStudentType(row);
   const parent = row.userType.toLowerCase() === "parent";
   const never = isNeverLoggedIn(row);
-  const linkedStudents = parent ? [...new Set([...(links.studentsByParent.get(row.id) ?? []), ...row.childrenIds])] : [];
+  const all = useMemo(() => [...byId.values()], [byId]);
+  // Both sides of every link (the student's lists and the parent's children list), as Edit user shows them.
+  const guardians = useMemo(() => (student ? guardiansOfStudent(row, all, byId) : []), [student, row, all, byId]);
+  const linkedStudents = useMemo(() => (parent ? studentsOfParent(row, all, byId) : []), [parent, row, all, byId]);
   const actions = panelActions(row);
   const name = displayNameOf(row);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busySwitch, setBusySwitch] = useState<string | null>(null);
   // A reset puts the Login section's password back behind Show, so it never shows the old one.
   const [passwordVersion, setPasswordVersion] = useState(0);
-  const guardianNames = row.guardianIds.map((id) => byId.get(id)).filter((g): g is UserRow => !!g).map(displayNameOf);
+  const guardianNames = guardians.filter((g) => g.row).map((g) => g.name);
   const closeDialog = () => setDialog(null);
 
   const flip = async (key: "ai_tutor_enabled" | "tontine_enabled", label: string, current: boolean) => {
@@ -326,15 +332,19 @@ export function UserPanel({
             </button>
           </Section>
           <Section title="Family and classes">
-            {row.guardianIds.length === 0 ? (
+            {guardians.length === 0 ? (
               <Line label="Guardian">None linked</Line>
             ) : (
-              row.guardianIds.map((id, i) => (
-                <Line key={id} label={i === 0 ? (row.guardianIds.length > 1 ? "Guardians" : "Guardian") : ""}>
-                  <PersonLink row={byId.get(id)} id={id} onSelect={onSelect} />
+              guardians.map((g, i) => (
+                <Line key={g.id} label={i === 0 ? (guardians.length > 1 ? "Guardians" : "Guardian") : ""}>
+                  <PersonLink row={g.row} id={g.id} onSelect={onSelect} />
+                  {g.side !== "both" ? <span className="block text-[11px] font-semibold text-[#B45309]">{sideNote(g.side, "student")}</span> : null}
                 </Line>
               ))
             )}
+            <button type="button" onClick={() => onEdit(row.id)} className="self-start text-[13px] font-semibold text-[#0369D9] hover:underline">
+              Manage guardians
+            </button>
             <Line label="Teacher this week">{row.teacherNames || "No classes this week"}</Line>
             {row.weeklyHoursLabel ? <Line label="Hours this week">{row.weeklyHoursLabel}</Line> : null}
             <Line label="First class">{firstClassText(row)}</Line>
@@ -348,13 +358,17 @@ export function UserPanel({
             <div className="text-[#64748B]">No students linked</div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {linkedStudents.map((id) => (
-                <div key={id} className="flex justify-start">
-                  <PersonLink row={byId.get(id)} id={id} onSelect={onSelect} />
+              {linkedStudents.map((s) => (
+                <div key={s.id} className="flex flex-col items-start">
+                  <PersonLink row={s.row} id={s.id} onSelect={onSelect} />
+                  {s.side !== "both" ? <span className="text-[11px] font-semibold text-[#B45309]">{sideNote(s.side, "parent")}</span> : null}
                 </div>
               ))}
             </div>
           )}
+          <button type="button" onClick={() => onEdit(row.id)} className="self-start text-[13px] font-semibold text-[#0369D9] hover:underline">
+            Manage linked students
+          </button>
         </Section>
       ) : null}
 
@@ -387,6 +401,9 @@ export function UserPanel({
       <RecentDecisions row={row} byId={byId} />
 
       <div className="flex flex-wrap gap-2 px-5 py-4">
+        <button type="button" onClick={() => onEdit(row.id)} className="flex min-h-11 items-center rounded-[10px] bg-[#0369D9] px-3.5 font-semibold text-white hover:bg-[#024E96]">
+          Edit details
+        </button>
         {actions.makeAdminTeacher ? (
           <button type="button" onClick={() => setDialog("promote")} className="flex min-h-11 items-center rounded-[10px] border border-[#FDE68A] bg-[#FFFBEB] px-3.5 font-semibold text-[#92400E] hover:bg-[#FEF3C7]">
             Make admin-teacher
