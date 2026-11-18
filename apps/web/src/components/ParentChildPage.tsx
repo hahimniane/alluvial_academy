@@ -14,6 +14,7 @@ import {
   Clock,
   Flag,
   History,
+  KeyRound,
   Paperclip,
   RefreshCw,
   School,
@@ -63,6 +64,7 @@ import {
 import { fill, parentHomeText, type ParentHomeText } from "@/lib/parentHomeText";
 import { fetchParentChildren } from "@/lib/parentSession";
 import { PARENT_ROUTES, type ParentChild } from "@/lib/parentWeb";
+import { readStudentPassword } from "@/lib/studentCredentials";
 
 type Tab = "overview" | "classes" | "tasks" | "progress";
 type Load<T> = { state: "loading" } | { state: "error" } | { state: "ready"; value: T };
@@ -161,7 +163,7 @@ export default function ParentChildPage() {
         </div>
       ) : (
         <div className="p-4" key={`${tab}-${reloadKey}`}>
-          {tab === "overview" ? <OverviewTab childId={child.value.id} text={text} /> : null}
+          {tab === "overview" ? <OverviewTab childId={child.value.id} studentCode={child.value.studentCode} text={text} /> : null}
           {tab === "classes" ? <ClassesTab childId={child.value.id} text={text} /> : null}
           {tab === "tasks" ? <TasksTab childId={child.value.id} text={text} /> : null}
           {tab === "progress" ? <ProgressTab childId={child.value.id} childName={child.value.name} text={text} /> : null}
@@ -236,7 +238,7 @@ function ClassCards({ shifts, now, text }: { shifts: ParentShift[]; now: Date; t
 
 // ─── Overview tab (A-060…A-063) ────────────────────────────────────────────
 
-function OverviewTab({ childId, text }: { childId: string; text: ParentHomeText }) {
+function OverviewTab({ childId, studentCode, text }: { childId: string; studentCode: string | null; text: ParentHomeText }) {
   const now = useNow();
   const tasks = useLiveTasks(childId);
   const past = useOnce(() => fetchShiftHistory(childId, new Date(), null), [childId]);
@@ -253,6 +255,8 @@ function OverviewTab({ childId, text }: { childId: string; text: ParentHomeText 
 
   return (
     <div>
+      <ChildLoginCard childId={childId} studentCode={studentCode} text={text} />
+      <div className="mt-5" />
       {statsFailed ? (
         <ParentErrorCard message="Failed to load statistics. Please refresh to try again." />
       ) : !stats ? (
@@ -299,6 +303,74 @@ function OverviewTab({ childId, text }: { childId: string; text: ParentHomeText 
       </div>
       <div className="h-4" />
     </div>
+  );
+}
+
+type PasswordView = { state: "hidden" } | { state: "loading" } | { state: "shown"; value: string } | { state: "error" };
+
+/**
+ * The child's login (D1a): Student ID, and the password behind Show / Hide.
+ * The password is read from student_credentials only when Show is pressed
+ * (rules: the student's own guardians and admins), never kept after Hide,
+ * never logged.
+ */
+function ChildLoginCard({ childId, studentCode, text }: { childId: string; studentCode: string | null; text: ParentHomeText }) {
+  const [view, setView] = useState<PasswordView>({ state: "hidden" });
+  useEffect(() => setView({ state: "hidden" }), [childId]);
+  const code = (studentCode ?? "").trim();
+  const show = async () => {
+    setView({ state: "loading" });
+    try {
+      setView({ state: "shown", value: await readStudentPassword(childId) });
+    } catch {
+      setView({ state: "error" });
+    }
+  };
+  const shown = view.state === "shown";
+  return (
+    <section className={`rounded-2xl border border-[#E5E7EB] bg-white p-5 ${cardShadow}`} aria-label={text.loginTitle} data-testid="child-login-card">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-10 w-10 place-items-center rounded-[10px]" style={{ color: "#0386FF", backgroundColor: alpha("#0386FF", 0.1) }}>
+          <KeyRound size={20} />
+        </span>
+        <h3 className="text-[15px] font-extrabold text-[#111827]">{text.loginTitle}</h3>
+      </div>
+      {!code ? (
+        <p className="mt-3 text-[13px] font-medium text-[#6B7280]">{text.loginNoStudentId}</p>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-[#F9FAFB] px-3.5 py-2.5">
+              <p className="text-xs font-medium text-[#6B7280]">{text.loginStudentId}</p>
+              <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-[#111827]">{code}</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] px-3.5 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-[#6B7280]">{text.loginPassword}</p>
+                <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-[#111827]" data-testid="child-password">
+                  {view.state === "shown" ? view.value || "—" : view.state === "loading" ? "…" : "••••••••"}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={view.state === "loading"}
+                onClick={() => (shown ? setView({ state: "hidden" }) : show())}
+                className="min-h-10 rounded-lg border border-[#D1D5DB] bg-white px-3 text-sm font-bold text-[#374151] hover:bg-[#F3F4F6] disabled:opacity-60"
+              >
+                {shown ? text.loginHide : text.loginShow}
+              </button>
+            </div>
+          </div>
+          {view.state === "shown" && !view.value ? <p className="mt-2 text-[13px] font-semibold text-[#B45309]">{text.loginNoPassword}</p> : null}
+          {view.state === "error" ? (
+            <p role="alert" className="mt-2 text-[13px] font-semibold text-[#DC2626]">
+              {text.loginCannotRead}
+            </p>
+          ) : null}
+          <p className="mt-3 text-xs font-medium text-[#6B7280]">{text.loginWhere}</p>
+        </>
+      )}
+    </section>
   );
 }
 

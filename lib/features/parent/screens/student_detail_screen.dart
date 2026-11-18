@@ -5,6 +5,7 @@ import 'package:alluwalacademyadmin/features/parent/widgets/student_overview_tab
 import 'package:alluwalacademyadmin/features/parent/widgets/student_classes_tab.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_tasks_tab.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_progress_tab.dart';
+import 'package:alluwalacademyadmin/features/parent/widgets/child_login_card.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentDetailScreen extends StatefulWidget {
@@ -82,9 +83,19 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          StudentOverviewTab(
-            studentId: widget.studentId,
-            studentName: widget.studentName,
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: ChildLoginCard(studentId: widget.studentId),
+              ),
+              Expanded(
+                child: StudentOverviewTab(
+                  studentId: widget.studentId,
+                  studentName: widget.studentName,
+                ),
+              ),
+            ],
           ),
           StudentClassesTab(
             studentId: widget.studentId,

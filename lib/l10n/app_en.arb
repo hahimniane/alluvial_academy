@@ -8871,5 +8871,14 @@
   "taskTradeNotOpen": "A finished or archived task cannot be offered.",
   "taskTradeNotAssigned": "Only someone assigned to this task can offer it.",
   "taskTradeNotFound": "This task does not exist.",
-  "taskTradeFailed": "That did not work. Please try again."
+  "taskTradeFailed": "That did not work. Please try again.",
+  "parentChildLoginTitle": "Login details",
+  "parentChildLoginStudentId": "Student ID",
+  "parentChildLoginPassword": "Password",
+  "parentChildLoginShow": "Show",
+  "parentChildLoginHide": "Hide",
+  "parentChildLoginNoPassword": "No password is stored. Ask the school to reset it.",
+  "parentChildLoginNoStudentId": "No Student ID yet. Ask the school to set one up.",
+  "parentChildLoginCannotRead": "The password could not be shown. Ask the school for it.",
+  "parentChildLoginWhere": "Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password."
 }

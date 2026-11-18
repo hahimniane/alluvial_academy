@@ -19241,4 +19241,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get taskTradeFailed => 'That did not work. Please try again.';
+
+  @override
+  String get parentChildLoginTitle => 'Login details';
+
+  @override
+  String get parentChildLoginStudentId => 'Student ID';
+
+  @override
+  String get parentChildLoginPassword => 'Password';
+
+  @override
+  String get parentChildLoginShow => 'Show';
+
+  @override
+  String get parentChildLoginHide => 'Hide';
+
+  @override
+  String get parentChildLoginNoPassword =>
+      'No password is stored. Ask the school to reset it.';
+
+  @override
+  String get parentChildLoginNoStudentId =>
+      'No Student ID yet. Ask the school to set one up.';
+
+  @override
+  String get parentChildLoginCannotRead =>
+      'The password could not be shown. Ask the school for it.';
+
+  @override
+  String get parentChildLoginWhere =>
+      'Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.';
 }
