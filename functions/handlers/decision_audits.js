@@ -6,6 +6,7 @@ const {
 const {
   recordDecisionAudit,
 } = require('../services/decision_audit');
+const {clearDemotedAdminClaims, demotedFromAdmin} = require('../services/admin_claims');
 
 const _value = (data, keys) => {
   for (const key of keys) {
@@ -643,6 +644,21 @@ const onUserDecisionWritten = onDocumentWrittenWithAuthContext(
       decisions: classifyUserDecisions(before, after),
       label: _labelForUser(after || before, event.params.entityId),
     });
+    // A demoted admin must not keep admin rights through a custom claim on
+    // their sign-in token (Firestore rules trust token.isAdmin). Rides on this
+    // trigger so no extra function runs on every users write.
+    if (demotedFromAdmin(before, after)) {
+      try {
+        await clearDemotedAdminClaims({
+          before,
+          after,
+          docId: event.params.entityId,
+          auth: admin.auth(),
+        });
+      } catch (e) {
+        console.error('onUserDecisionWritten: clearing admin claims failed', e.message || e);
+      }
+    }
   },
 );
 
