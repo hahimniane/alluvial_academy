@@ -102,6 +102,16 @@ const stringList = (value: unknown): string[] =>
 
 const unionLists = (...lists: string[][]): string[] => [...new Set(lists.flat())];
 
+/** A stored rate: a finite number, or numeric text; anything else is no rate. */
+const rateOf = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
+
 // ─── Rows ──────────────────────────────────────────────────────────────────
 
 export type ParentPickFields = {
@@ -156,6 +166,14 @@ export type UserRow = {
   deactivatedAt: Date | null;
   activatedByUid: string;
   activatedAt: Date | null;
+  /**
+   * The person's own hourly rate: `wage_override` (what wage management sets
+   * and pay falls back to before the role and global wages), else
+   * `hourly_rate` (what Add users saves). null when neither is a number.
+   */
+  hourlyRate: number | null;
+  /** IANA time zone from the profile (`timezone`), as stored; "" when none. */
+  timezone: string;
   /** Only for documents whose user_type is exactly "parent". */
   parentPick: ParentPickFields | null;
 };
@@ -249,6 +267,8 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     deactivatedAt: looseDateOf(data.deactivated_at ?? data.archived_at ?? data.archivedAt),
     activatedByUid: firstText(data, ["activated_by_uid", "restored_by_uid", "restoredByUid"]),
     activatedAt: looseDateOf(data.activated_at ?? data.restored_at ?? data.restoredAt),
+    hourlyRate: rateOf(data.wage_override) ?? rateOf(data.hourly_rate),
+    timezone: text(data.timezone).trim(),
     parentPick: userType === "parent" ? parentPickOf(id, data) : null,
   };
 }

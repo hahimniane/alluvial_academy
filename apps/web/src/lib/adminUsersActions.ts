@@ -71,7 +71,7 @@ export function errorReason(error: unknown): string {
   return "something went wrong, try again";
 }
 
-export const failed = (what: string, error: unknown) => `${what}: ${errorReason(error)}.`;
+export const failed = (what: string, error: unknown) => `${what}: ${errorReason(error).replace(/[.!]+$/, "")}.`;
 
 export function zoomResultMessage(name: string, enabled: boolean, updatedShiftCount: number): string {
   const n = Math.max(0, Math.floor(updatedShiftCount || 0));
@@ -193,6 +193,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.deleted": "Permanently deleted user",
   "user.role_changed": "Changed user role",
   "user.guardian_links_changed": "Changed parent or guardian links",
+  "user.login_details_emailed": "Emailed login details to the guardian",
 };
 
 export const decisionLabel = (action: string) =>

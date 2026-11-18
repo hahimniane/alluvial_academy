@@ -84,8 +84,9 @@ export async function setTeacherZoom(input: { teacherId: string; enabled: boolea
 
 export type ResetResult = { newPassword: string; studentCode: string; emailSent: boolean; emailedTo: string[] };
 
-export async function resetStudentPassword(studentId: string, customPassword: string): Promise<ResetResult> {
-  const payload: Record<string, unknown> = { studentId, sendEmailToParent: true };
+/** `emailGuardians` false: the guardians are not emailed (bulk reset hands out printed cards instead). */
+export async function resetStudentPassword(studentId: string, customPassword: string, emailGuardians = true): Promise<ResetResult> {
+  const payload: Record<string, unknown> = { studentId, sendEmailToParent: emailGuardians };
   if (customPassword) payload.customPassword = customPassword;
   const call = httpsCallable<Record<string, unknown>, Partial<ResetResult>>(functions, "resetStudentPassword");
   const res = await call(payload);

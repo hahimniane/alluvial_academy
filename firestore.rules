@@ -415,6 +415,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Saved filters on the admin Users page: one document per admin, read
+    // and written only by that admin. Excluded from the admin fallback below
+    // so another admin cannot read or change it.
+    match /admin_saved_filters/{adminUid} {
+      allow read, delete: if isOwner(adminUid) && isAdmin();
+      allow create, update: if isOwner(adminUid) && isAdmin() &&
+        request.resource.data.keys().hasOnly(['filters', 'updated_at']) &&
+        request.resource.data.filters is list &&
+        request.resource.data.filters.size() <= 30;
+    }
+
     // Form responses - users can only read their own submissions
 
     // Admins can read all submissions
@@ -1422,12 +1433,13 @@ service cloud.firestore {
     // finance_private (the bank link token) and known_phones (parents' phone
     // numbers) are server-only: the read here must not reach them either.
     // Pay and attendance records (classes, archived classes, timesheets) are
-    // never deleted through the fallback either, and student_credentials is
-    // written by Cloud Functions only.
+    // never deleted through the fallback either, and student_credentials and
+    // rate_limits are written by Cloud Functions only. admin_saved_filters
+    // belongs to one admin each (own block above).
     match /{collection}/{document=**} {
-      allow read: if isAdmin() && collection != 'finance_private' && collection != 'known_phones';
-      allow create, update: if isAdmin() && collection != 'teaching_shifts' && collection != 'shift_trades' && collection != 'student_credentials' && !isFinanceCollection(collection);
-      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries', 'shift_trades', 'student_credentials'])
+      allow read: if isAdmin() && !(collection in ['finance_private', 'known_phones', 'admin_saved_filters']);
+      allow create, update: if isAdmin() && !(collection in ['teaching_shifts', 'shift_trades', 'student_credentials', 'admin_saved_filters', 'rate_limits']) && !isFinanceCollection(collection);
+      allow delete: if isAdmin() && !(collection in ['teaching_shifts', 'teaching_shifts_archive', 'timesheet_entries', 'shift_trades', 'student_credentials', 'admin_saved_filters', 'rate_limits'])
         && !isFinanceCollection(collection);
     }
 

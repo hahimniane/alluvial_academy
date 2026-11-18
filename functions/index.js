@@ -31,6 +31,7 @@ const presenceReportHandlers = require('./handlers/presence_reports');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
+const loginDetailsHandlers = require('./handlers/login_details');
 const paymentHandlers = require('./handlers/payments');
 const paymentLinkHandlers = require('./handlers/payment_links');
 const invoiceAccessHandlers = require('./handlers/invoice_access');
@@ -652,6 +653,7 @@ exports.revertLiveKitMigration =
 exports.resetStudentPassword = passwordHandlers.resetStudentPassword;
 exports.syncAllStudentPasswords = passwordHandlers.syncAllStudentPasswords;
 exports.recordOwnStudentPassword = passwordHandlers.recordOwnStudentPassword;
+exports.sendStudentLoginDetails = loginDetailsHandlers.sendStudentLoginDetails;
 
 // AI Tutor Functions
 exports.getAITutorToken = aiTutorHandlers.getAITutorToken;

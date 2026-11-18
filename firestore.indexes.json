@@ -1329,6 +1329,20 @@
       ]
     },
     {
+      "collectionGroup": "teaching_shifts_archive",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "student_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "shift_start",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "hub_meetings",
       "queryScope": "COLLECTION",
       "fields": [
