@@ -12,299 +12,246 @@ const {
   resolveDecisionActor,
 } = require('../services/decision_audit');
 
+const STAFF_TYPES = new Set(['admin', 'teacher']);
+const MAX_BATCH_USERS = 25;
+
+const _badInput = (message) => new functions.https.HttpsError('invalid-argument', message);
+
+/**
+ * The hourly rate typed for a new admin or teacher, or null when none was
+ * given. Saved as users.hourly_rate, which wage management and the tontine
+ * eligibility read.
+ */
+const _hourlyRateOf = (value) => {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 1000) {
+    throw _badInput('Hourly rate must be a number from 0 to 1000.');
+  }
+  return Math.round(n * 100) / 100;
+};
+
+/**
+ * Creates one admin, teacher or parent account with a real email: the Auth
+ * user, the users/{uid} profile, a family code for a parent, and the welcome
+ * email with a temporary password. `callerUid` must be a verified admin.
+ */
+const _createAccountWithEmail = async (userData, callerUid) => {
+  const {
+    email,
+    firstName,
+    lastName,
+    phoneNumber,
+    countryCode,
+    userType,
+    title,
+    kioskCode,
+    hourlyRate,
+  } = userData || {};
+
+  const missingFields = [];
+  if (!email || String(email).trim() === '') missingFields.push('email');
+  if (!firstName || String(firstName).trim() === '') missingFields.push('firstName');
+  if (!lastName || String(lastName).trim() === '') missingFields.push('lastName');
+  if (missingFields.length > 0) {
+    throw _badInput(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+
+  const type = String(userType || '').trim().toLowerCase() || 'teacher';
+  const rate = STAFF_TYPES.has(type) ? _hourlyRateOf(hourlyRate) : null;
+  const cleanEmail = String(email).toLowerCase().trim();
+  const first = String(firstName).trim();
+  const last = String(lastName).trim();
+
+  const password = generateRandomPassword();
+  const userRecord = await admin.auth().createUser({
+    email: cleanEmail,
+    password,
+    displayName: `${first} ${last}`,
+    emailVerified: false,
+  });
+  console.log(`Auth user created with UID: ${userRecord.uid}`);
+
+  const kiosqueCode = type === 'parent' ? await generateKiosqueCode() : null;
+
+  const firestoreData = {
+    first_name: first,
+    last_name: last,
+    'e-mail': cleanEmail,
+    phone_number: phoneNumber || '',
+    country_code: countryCode || '+1',
+    user_type: type,
+    title: title || 'Teacher',
+    kiosk_code: kioskCode || '123',
+    kiosque_code: kiosqueCode, // Family/parent identifier code
+    date_added: admin.firestore.FieldValue.serverTimestamp(),
+    last_login: null,
+    employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
+    is_active: true,
+    email_verified: false,
+    uid: userRecord.uid,
+    created_by_admin: true,
+    created_by_uid: callerUid,
+    password_reset_required: true,
+  };
+  if (rate !== null) firestoreData.hourly_rate = rate;
+
+  await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
+  console.log(`Firestore document created for UID: ${userRecord.uid}`);
+
+  // The account exists at this point. A mail failure is reported to the
+  // caller as emailSent:false rather than thrown, so a transport outage
+  // never leaves an admin believing no account was created.
+  let emailSent = false;
+  try {
+    emailSent = await sendWelcomeEmail(cleanEmail, first, last, password, type, kiosqueCode);
+  } catch (mailError) {
+    console.error('Welcome email failed for', cleanEmail, '-', mailError.message);
+  }
+
+  return {success: true, uid: userRecord.uid, email: cleanEmail, emailSent};
+};
+
 const createUserWithEmail = async (data, context) => {
-  console.log('--- NEW INVOCATION (v4) ---');
+  console.log('--- NEW INVOCATION (v5) ---');
   const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
   try {
     if (!data || typeof data !== 'object') {
-      console.error('Invalid data received:', data);
-      throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
+      throw _badInput('Data must be an object');
     }
-
     const userData = data.data || data;
-    console.log('Using userData:', JSON.stringify(userData, null, 2));
-
-    const {
-      email,
-      firstName,
-      lastName,
-      phoneNumber,
-      countryCode,
-      userType,
-      title,
-      kioskCode,
-    } = userData;
-
-    console.log('Extracted fields (v2):', {
-      email: email || 'MISSING',
-      firstName: firstName || 'MISSING',
-      lastName: lastName || 'MISSING',
-      phoneNumber: phoneNumber || 'MISSING',
-      countryCode: countryCode || 'MISSING',
-      userType: userType || 'MISSING',
-      title: title || 'MISSING',
-      kioskCode: kioskCode || 'MISSING',
-    });
-
-    const missingFields = [];
-    if (!email || String(email).trim() === '') missingFields.push('email');
-    if (!firstName || String(firstName).trim() === '') missingFields.push('firstName');
-    if (!lastName || String(lastName).trim() === '') missingFields.push('lastName');
-
-    if (missingFields.length > 0) {
-      console.error('Missing required fields:', missingFields);
-      console.error('Actual values:', {email, firstName, lastName});
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        `Missing required fields: ${missingFields.join(', ')}`
-      );
-    }
-
-    console.log('All required fields validated successfully');
-
-    const password = generateRandomPassword();
-    console.log(`Generated password for ${email}`);
-
-    const userRecord = await admin.auth().createUser({
-      email: email.toLowerCase().trim(),
-      password,
-      displayName: `${firstName} ${lastName}`,
-      emailVerified: false,
-    });
-    console.log(`Auth user created with UID: ${userRecord.uid}`);
-
-    // Generate kiosque code for parent accounts
-    let kiosqueCode = null;
-    if (userType?.toLowerCase() === 'parent') {
-      kiosqueCode = await generateKiosqueCode();
-      console.log(`Generated kiosque code for parent: ${kiosqueCode}`);
-    }
-
-    const firestoreData = {
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      'e-mail': email.toLowerCase().trim(),
-      phone_number: phoneNumber || '',
-      country_code: countryCode || '+1',
-      user_type: userType?.toLowerCase() || 'teacher',
-      title: title || 'Teacher',
-      kiosk_code: kioskCode || '123',
-      kiosque_code: kiosqueCode, // Family/parent identifier code
-      date_added: admin.firestore.FieldValue.serverTimestamp(),
-      last_login: null,
-      employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
-      is_active: true,
-      email_verified: false,
-      uid: userRecord.uid,
-      created_by_admin: true,
-      created_by_uid: callerUid,
-      password_reset_required: true,
-    };
-
-    await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
-    console.log(`Firestore document created for UID: ${userRecord.uid}`);
-
-    // The account exists at this point. A mail failure is reported to the
-    // caller as emailSent:false rather than thrown, so a transport outage
-    // never leaves an admin believing no account was created.
-    let emailSent = false;
-    try {
-      emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType, kiosqueCode);
-    } catch (mailError) {
-      console.error('Welcome email failed for', email, '-', mailError.message);
-    }
-
+    console.log('createUserWithEmail', {userType: userData.userType || 'MISSING'});
+    const result = await _createAccountWithEmail(userData, callerUid);
     return {
       success: true,
-      uid: userRecord.uid,
-      emailSent,
-      message: `User created, email status: ${emailSent}`,
+      uid: result.uid,
+      emailSent: result.emailSent,
+      message: `User created, email status: ${result.emailSent}`,
     };
   } catch (error) {
-    console.error('--- FULL FUNCTION ERROR (v4) ---');
+    console.error('--- FULL FUNCTION ERROR (v5) ---');
     console.error('ERROR MESSAGE:', error.message);
-    console.error('ERROR STACK:', error.stack);
+    if (error instanceof functions.https.HttpsError && error.code === 'invalid-argument') throw error;
     throw new functions.https.HttpsError('internal', error.message, error.stack);
   }
 };
 
-const createMultipleUsers = async (data, context) => {
-  console.log('Creating multiple users:', JSON.stringify(data, null, 2));
-  const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
+const _truthyFlag = (value) =>
+  value === true || (typeof value === 'string' && ['true', '1', 'yes', 'y'].includes(value.trim().toLowerCase()));
 
-  try {
-    if (!data || !Array.isArray(data.users)) {
-      console.error('Invalid batch data:', data);
-      throw new functions.https.HttpsError('invalid-argument', 'Users array is required');
+/**
+ * One row of a batch that is a student. A minor needs a parent here: the Add
+ * users screen only offers a minor with a parent picked, and the batch has
+ * no later step that could link one.
+ */
+const _createBatchStudent = async (userData, callerUid) => {
+  const {
+    email,
+    firstName,
+    lastName,
+    phoneNumber,
+    kioskCode,
+    isAdultStudent,
+    guardianIds,
+    guardianId,
+    guardian_id: guardianIdSnake,
+  } = userData;
+  const hasEmail = typeof email === 'string' && email.trim().length > 0;
+  const isAdult = typeof isAdultStudent === 'boolean' ? isAdultStudent
+    : (typeof isAdultStudent === 'string' ? _truthyFlag(isAdultStudent) : hasEmail);
+
+  let guardians = Array.isArray(guardianIds) ? guardianIds.map((g) => String(g || '').trim()).filter(Boolean) : [];
+  const single = guardianId || guardianIdSnake;
+  if (!guardians.length && typeof single === 'string' && single.trim()) guardians = [single.trim()];
+
+  // Best-effort: a kiosk code given instead of a parent id names the parent.
+  if (!guardians.length && typeof kioskCode === 'string' && kioskCode.trim()) {
+    const code = kioskCode.trim();
+    const usersRef = admin.firestore().collection('users');
+    let parentSnap = await usersRef.where('kiosk_code', '==', code).limit(1).get();
+    if (parentSnap.empty) parentSnap = await usersRef.where('kiosque_code', '==', code).limit(1).get();
+    if (!parentSnap.empty) {
+      const parentDoc = parentSnap.docs[0];
+      if (String((parentDoc.data() || {}).user_type || '').toLowerCase() === 'parent') guardians = [parentDoc.id];
     }
+  }
 
-    console.log(`Processing ${data.users.length} users for batch creation`);
-    const results = [];
-    const errors = [];
+  if (!isAdult && !guardians.length) {
+    throw _badInput('A minor student needs a parent or guardian.');
+  }
 
-    for (let i = 0; i < data.users.length; i += 1) {
-      const userData = data.users[i];
-      console.log(`Processing user ${i + 1}:`, JSON.stringify(userData, null, 2));
+  const payload = {firstName, lastName, phoneNumber, isAdultStudent: isAdult};
+  if (hasEmail) payload.email = email;
+  if (guardians.length) payload.guardianIds = guardians;
+  return studentHandlers.createStudentAccountAsCaller(payload, callerUid);
+};
 
-      try {
-        const {
-          email,
-          firstName,
-          lastName,
-          phoneNumber,
-          countryCode,
-          userType,
-          title,
-          kioskCode,
-          isAdultStudent,
-          guardianIds,
-          guardianId,
-          guardian_id,
-        } = userData;
+/**
+ * Creates several accounts in one call, in row order, and reports every row:
+ * a failure on one row never stops or hides the others. Each result carries
+ * the row's `index` so the caller can tell which person it is about.
+ */
+const createMultipleUsers = async (data, context) => {
+  const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
+  const payload = (data && data.data) || data || {};
+  if (!Array.isArray(payload.users) || payload.users.length === 0) {
+    throw _badInput('Users array is required');
+  }
+  if (payload.users.length > MAX_BATCH_USERS) {
+    throw _badInput(`Add at most ${MAX_BATCH_USERS} people at a time.`);
+  }
+  console.log(`createMultipleUsers: ${payload.users.length} rows`);
 
-        const normalizedUserType = (userType || '').toString().trim().toLowerCase();
-        if (normalizedUserType === 'student') {
-          const hasEmail = typeof email === 'string' && email.trim().length > 0;
-          const resolvedIsAdult =
-            typeof isAdultStudent === 'boolean'
-              ? isAdultStudent
-              : (typeof isAdultStudent === 'string'
-                  ? ['true', '1', 'yes', 'y'].includes(isAdultStudent.trim().toLowerCase())
-                  : hasEmail);
-
-          let resolvedGuardianIds = Array.isArray(guardianIds)
-            ? guardianIds.filter(Boolean)
-            : [];
-          const singleGuardian = guardianId || guardian_id;
-          if (
-            resolvedGuardianIds.length === 0 &&
-            typeof singleGuardian === 'string' &&
-            singleGuardian.trim().length > 0
-          ) {
-            resolvedGuardianIds = [singleGuardian.trim()];
-          }
-
-          // Best-effort: if a kiosk code is provided, try to resolve a parent by it.
-          if (resolvedGuardianIds.length === 0 && typeof kioskCode === 'string' && kioskCode.trim().length > 0) {
-            const code = kioskCode.trim();
-            const usersRef = admin.firestore().collection('users');
-            let parentSnap = await usersRef.where('kiosk_code', '==', code).limit(1).get();
-            if (parentSnap.empty) {
-              parentSnap = await usersRef.where('kiosque_code', '==', code).limit(1).get();
-            }
-            if (!parentSnap.empty) {
-              const parentDoc = parentSnap.docs[0];
-              const parentData = parentDoc.data() || {};
-              if ((parentData.user_type || '').toString().toLowerCase() === 'parent') {
-                resolvedGuardianIds = [parentDoc.id];
-              }
-            }
-          }
-
-          const studentPayload = {
-            firstName,
-            lastName,
-            phoneNumber,
-            isAdultStudent: resolvedIsAdult,
-            createdByUid: context?.auth?.uid || null,
-          };
-          if (hasEmail) studentPayload.email = email;
-          if (resolvedGuardianIds.length > 0) studentPayload.guardianIds = resolvedGuardianIds;
-
-          const studentResult = await studentHandlers.createStudentAccount(studentPayload);
-          results.push({
-            email: studentResult.aliasEmail || studentResult.studentCode || email || 'student',
-            success: true,
-            result: studentResult,
-          });
-          console.log(`Student ${i + 1} created successfully (student_code=${studentResult.studentCode})`);
-          continue;
-        }
-
-        const missingFields = [];
-        if (!email || email.trim() === '') missingFields.push('email');
-        if (!firstName || firstName.trim() === '') missingFields.push('firstName');
-        if (!lastName || lastName.trim() === '') missingFields.push('lastName');
-
-        if (missingFields.length > 0) {
-          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-        }
-
-        const password = generateRandomPassword();
-
-        const userRecord = await admin.auth().createUser({
-          email: email.toLowerCase().trim(),
-          password,
-          displayName: `${firstName} ${lastName}`,
-          emailVerified: false,
-        });
-
-        const firestoreData = {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          'e-mail': email.toLowerCase().trim(),
-          phone_number: phoneNumber || '',
-          country_code: countryCode || '+1',
-          user_type: userType?.toLowerCase() || 'teacher',
-          title: title || 'Teacher',
-          kiosk_code: kioskCode || '123',
-          date_added: admin.firestore.FieldValue.serverTimestamp(),
-          last_login: null,
-          employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
-          is_active: true,
-          email_verified: false,
-          uid: userRecord.uid,
-          created_by_admin: true,
-          created_by_uid: callerUid,
-          password_reset_required: true,
-        };
-
-        await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
-
-        let emailSent = false;
-        try {
-          emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType);
-        } catch (mailError) {
-          console.error('Welcome email failed for', email, '-', mailError.message);
-        }
-
-        const result = {
+  const results = [];
+  const errors = [];
+  for (let i = 0; i < payload.users.length; i += 1) {
+    const userData = payload.users[i] && typeof payload.users[i] === 'object' ? payload.users[i] : {};
+    const type = String(userData.userType || '').trim().toLowerCase();
+    try {
+      if (type === 'student') {
+        const studentResult = await _createBatchStudent(userData, callerUid);
+        results.push({
+          index: i,
+          userType: 'student',
+          email: studentResult.aliasEmail || studentResult.studentCode || userData.email || 'student',
           success: true,
-          uid: userRecord.uid,
-          email: email.toLowerCase().trim(),
-          emailSent,
-          message: emailSent
+          existing: studentResult.existing === true,
+          result: studentResult,
+        });
+        continue;
+      }
+      const result = await _createAccountWithEmail(userData, callerUid);
+      results.push({
+        index: i,
+        userType: type || 'teacher',
+        email: result.email,
+        success: true,
+        result: {
+          ...result,
+          message: result.emailSent
             ? 'User created successfully and welcome email sent'
             : 'User created successfully but email sending failed',
-        };
-
-        results.push({
-          email: userData.email,
-          success: true,
-          result,
-        });
-        console.log(`User ${i + 1} created successfully`);
-      } catch (error) {
-        console.error(`User ${i + 1} creation failed:`, error.message);
-        errors.push({
-          email: userData.email || 'unknown',
-          success: false,
-          error: error.message,
-        });
-      }
+        },
+      });
+    } catch (error) {
+      console.error(`Row ${i + 1} failed:`, error.message);
+      errors.push({
+        index: i,
+        userType: type,
+        email: userData.email || 'unknown',
+        success: false,
+        error: error.message || 'Could not create this account.',
+      });
     }
-
-    return {
-      totalUsers: data.users.length,
-      successful: results.length,
-      failed: errors.length,
-      results,
-      errors,
-    };
-  } catch (error) {
-    console.error('Error in createMultipleUsers:', error);
-    throw new functions.https.HttpsError('internal', 'Batch user creation failed');
   }
+
+  return {
+    totalUsers: payload.users.length,
+    successful: results.length,
+    failed: errors.length,
+    results,
+    errors,
+  };
 };
 
 const createUser = async (data, context) => {
@@ -1228,6 +1175,7 @@ const findUserByEmailOrCode = async (data, context) => {
 module.exports = {
   createUserWithEmail,
   createMultipleUsers,
+  MAX_BATCH_USERS,
   createUser,
   deleteUserAccount,
   findUserByEmailOrCode,

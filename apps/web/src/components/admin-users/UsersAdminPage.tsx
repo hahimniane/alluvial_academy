@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { ArrowDown, ArrowUp, Download, Search, SlidersHorizontal, Users as UsersIcon, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Plus, Search, SlidersHorizontal, UserPlus, Users as UsersIcon, X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { isCurrentUserAdmin } from "@/lib/userRoles";
 import { downloadWorkbook } from "@/lib/xlsx";
@@ -42,6 +42,8 @@ import {
   type WeekShift,
 } from "@/lib/adminUsers";
 import { adminUsesWebUsersPage, listenUsers, listenWeekShifts } from "@/lib/adminUsersData";
+import { AddUsersDialog } from "./AddUsersDialog";
+import { FamilyEnrollDialog } from "./FamilyEnrollDialog";
 import { ParentPicker } from "./ParentPicker";
 import { UserPanel } from "./UserPanel";
 import { ArchivedBadge, Avatar, Chip, Pill, Spinner, TypePill } from "./ui";
@@ -208,6 +210,8 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   const [parentOpen, setParentOpen] = useState(false);
   const [moreFilters, setMoreFilters] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  /** Add users / Enroll a family. Hidden (not closed) while the admin checks a possible duplicate, so nothing typed is lost. */
+  const [adding, setAdding] = useState<{ kind: "users" | "family"; hidden: boolean; n: number } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   const wide = useMediaQuery("(min-width: 768px)");
@@ -231,6 +235,17 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   const admins = useMemo(() => sortByName(filtered.admins, sortAsc), [filtered.admins, sortAsc]);
   const shown = tab === "users" ? users : admins;
   const selected = selectedId ? byId.get(selectedId) ?? null : null;
+  const activeParents = useMemo(() => parents.filter((p) => p.isActive), [parents]);
+  const openAdd = (kind: "users" | "family") => {
+    setExportOpen(false);
+    setParentOpen(false);
+    setAdding((cur) => (cur && cur.kind === kind ? { ...cur, hidden: false } : { kind, hidden: false, n: (cur?.n ?? 0) + 1 }));
+  };
+  const closeAdd = useCallback(() => setAdding(null), []);
+  const openFromAdd = useCallback((id: string) => {
+    setAdding((cur) => (cur ? { ...cur, hidden: true } : cur));
+    setSelectedId(id);
+  }, []);
   const parentName = filters.parentId ? parents.find((p) => p.id === filters.parentId)?.name || filters.parentId : "";
 
   const say = useCallback((text: string, tone: "ok" | "error" = "ok") => {
@@ -334,6 +349,7 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
             <h1 className="m-0 text-[22px] font-bold tracking-[-0.01em] md:text-[26px]">Users</h1>
             <p className="m-0 hidden text-[#64748B] md:block">Students, teachers, parents and admins. Click anyone to see their details.</p>
           </div>
+          <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
             <button
               type="button"
@@ -359,6 +375,25 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
                 </button>
               </div>
             ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => openAdd("family")}
+            disabled={!rows}
+            className="flex min-h-11 items-center gap-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 font-semibold text-[#0369D9] hover:border-[#93C5FD] disabled:opacity-60"
+          >
+            <UserPlus size={16} aria-hidden="true" />
+            Enroll a family
+          </button>
+          <button
+            type="button"
+            onClick={() => openAdd("users")}
+            disabled={!rows}
+            className="flex min-h-11 items-center gap-2 rounded-[10px] bg-[#0369D9] px-[18px] font-semibold text-white hover:bg-[#024E96] disabled:opacity-60"
+          >
+            <Plus size={16} aria-hidden="true" />
+            Add users
+          </button>
           </div>
         </div>
 
@@ -490,6 +525,23 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
             {panel}
           </aside>
         </div>
+      ) : null}
+
+      {adding && rows ? (
+        adding.kind === "users" ? (
+          <AddUsersDialog key={adding.n} rows={rows} parents={activeParents} hidden={adding.hidden} onClose={closeAdd} onOpenUser={openFromAdd} />
+        ) : (
+          <FamilyEnrollDialog key={adding.n} rows={rows} parents={activeParents} hidden={adding.hidden} onClose={closeAdd} onOpenUser={openFromAdd} />
+        )
+      ) : null}
+      {adding?.hidden ? (
+        <button
+          type="button"
+          onClick={() => setAdding((cur) => (cur ? { ...cur, hidden: false } : cur))}
+          className="fixed bottom-6 right-4 z-[50] min-h-11 rounded-full bg-[#0369D9] px-5 font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)] md:right-8"
+        >
+          {adding.kind === "users" ? "Back to Add users" : "Back to Enroll a family"}
+        </button>
       ) : null}
 
       {toast ? (

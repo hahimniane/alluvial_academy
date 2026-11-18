@@ -116,6 +116,8 @@ export type UserRow = {
   firstName: string;
   lastName: string;
   email: string;
+  /** The `email` field some documents carry beside `e-mail` (duplicate check only). */
+  otherEmail: string;
   countryCode: string;
   phone: string;
   /** Raw `user_type`, as stored (case kept). */
@@ -142,6 +144,8 @@ export type UserRow = {
   guardianIds: string[];
   childrenIds: string[];
   firstClassAt: Date | null;
+  /** `merged_into`: set on a duplicate student folded into another account. */
+  mergedInto: string;
   /** Decision-history fallbacks (EditUserScreen's DecisionAuditFallback): who created / archived / restored, and when. */
   createdByUid: string;
   deactivatedByUid: string;
@@ -206,6 +210,7 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     firstName: text(data.first_name),
     lastName: text(data.last_name),
     email: text(data["e-mail"]),
+    otherEmail: text(data.email),
     countryCode: text(data.country_code),
     phone: text(data.phone_number),
     userType,
@@ -228,6 +233,7 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     guardianIds: unionLists(stringList(data.guardian_ids), stringList(data.guardianIds)),
     childrenIds: unionLists(stringList(data.children_ids), stringList(data.childrenIds)),
     firstClassAt: dateOf(data.first_class_at),
+    mergedInto: text(data.merged_into),
     createdByUid: firstText(data, ["created_by_uid", "created_by", "createdBy", "created_by_admin_id"]),
     deactivatedByUid: firstText(data, ["deactivated_by_uid", "archived_by_uid", "archivedByUid"]),
     deactivatedAt: looseDateOf(data.deactivated_at ?? data.archived_at ?? data.archivedAt),

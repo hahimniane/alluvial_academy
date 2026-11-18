@@ -329,10 +329,14 @@ describe('createStudentAccount', () => {
     const uid = result.studentId;
     expect(store.users.get(uid)).not.toHaveProperty('temp_password');
     expect(store.users.get(uid).created_by_uid).toBe('adm');
-    expect(store.student_credentials.get(uid)).toMatchObject({password: result.tempPassword, source: 'created', updated_by: 'adm'});
-    expect(result.tempPassword).toMatch(EASY);
-    expect(result.tempPassword).not.toMatch(/binta|sow/);
-    expect(authUsers.get(uid).password).toBe(result.tempPassword);
+    const stored = store.student_credentials.get(uid);
+    expect(stored).toMatchObject({source: 'created', updated_by: 'adm'});
+    expect(stored.password).toMatch(EASY);
+    expect(stored.password).not.toMatch(/binta|sow/);
+    expect(authUsers.get(uid).password).toBe(stored.password);
+    // The password never travels back to the browser that asked.
+    expect(result).not.toHaveProperty('tempPassword');
+    expect(JSON.stringify(result)).not.toContain(stored.password);
   });
 });
 

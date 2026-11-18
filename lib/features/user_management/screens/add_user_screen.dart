@@ -47,6 +47,26 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     return true;
   }
 
+  /// Rows createMultipleUsers refused, as "Name: reason" lines.
+  List<String> _batchFailures = const [];
+
+  List<String> _batchFailureLines(dynamic data, List<Map<String, dynamic>> rows) {
+    if (data is! Map) return const [];
+    final errors = data['errors'];
+    if (errors is! List) return const [];
+    final lines = <String>[];
+    for (final entry in errors) {
+      if (entry is! Map) continue;
+      final index = entry['index'];
+      final row = index is int && index >= 0 && index < rows.length ? rows[index] : null;
+      final name = row == null
+          ? (entry['email']?.toString() ?? '')
+          : '${row['firstName'] ?? ''} ${row['lastName'] ?? ''}'.trim();
+      lines.add('• $name: ${entry['error'] ?? ''}');
+    }
+    return lines;
+  }
+
   String _welcomeEmailLine({required bool plural}) {
     if (_welcomeEmailSent == false) {
       return plural
@@ -433,6 +453,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
     // Create users using Firebase Functions
     try {
+      _batchFailures = const [];
       AppLogger.debug('Calling Firebase Function to create users...');
       AppLogger.debug('Users data to create: ${usersData.length}');
 
@@ -553,8 +574,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'users': transformedUsers,
         });
 
-        AppLogger.debug('Multiple users creation result: ${result.data}');
         _welcomeEmailSent = _allWelcomeEmailsSent(result.data);
+        _batchFailures = _batchFailureLines(result.data, transformedUsers);
       }
 
       // Show detailed success message
@@ -567,7 +588,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
             successMessage = '✅ Adult Student created successfully!\n'
                 '• Student ID login account created\n'
                 '• Profile saved to database\n'
-                '• Welcome email sent with login credentials';
+                '• No email is sent to adult students: give them their Student ID';
           } else {
             String emailStatus = '';
             if (_emailNotificationInfo != null) {
@@ -588,6 +609,23 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
               '• User profile saved to database\n'
               '${_welcomeEmailLine(plural: false)}';
         }
+      } else if (_batchFailures.isNotEmpty) {
+        // Some rows were refused: say which, keep the sheet open so they can
+        // be fixed (the created ones are already in the Users list).
+        final created = transformedUsers.length - _batchFailures.length;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              '$created of ${transformedUsers.length} users created. Not created:\n'
+              '${_batchFailures.join('\n')}',
+              style: GoogleFonts.openSans(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: const Color(0xffe8a33d),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 10),
+          ));
+        }
+        return;
       } else {
         successMessage =
             '✅ ${transformedUsers.length} users created successfully!\n'

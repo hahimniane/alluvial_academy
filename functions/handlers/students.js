@@ -28,18 +28,35 @@ const _aliasTakenInAuth = async (studentCode) => {
   }
 };
 
+/**
+ * The callable: admins only. The work is in createStudentAccountAsCaller so
+ * createMultipleUsers, which has already checked its caller, can create the
+ * students of a batch without a second (impossible) auth check.
+ */
 const createStudentAccount = async (data, context) => {
   console.log('--- CREATE STUDENT ACCOUNT ---');
   const {callerUid} = await verifyCallableCallerIsAdmin(data, context);
+  if (!data || typeof data !== 'object') {
+    throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
+  }
+  return createStudentAccountAsCaller(data.data || data, callerUid);
+};
 
+/**
+ * Creates one student login. `callerUid` must be a verified admin.
+ *
+ * The generated password goes to student_credentials only; it is never
+ * returned, so it does not travel to the browser that asked for the account.
+ */
+const createStudentAccountAsCaller = async (studentData, callerUid) => {
   try {
-    if (!data || typeof data !== 'object') {
-      console.error('Invalid data received:', data);
+    if (!studentData || typeof studentData !== 'object') {
       throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
     }
-
-    const studentData = data.data || data;
-    console.log('Using studentData:', JSON.stringify(studentData, null, 2));
+    console.log('Creating student account', {
+      hasGuardians: Array.isArray(studentData.guardianIds) && studentData.guardianIds.length > 0,
+      isAdultStudent: studentData.isAdultStudent,
+    });
 
     const {
       firstName,
@@ -75,6 +92,16 @@ const createStudentAccount = async (data, context) => {
       throw new functions.https.HttpsError(
         'invalid-argument',
         `Missing required fields: ${missingFields.join(', ')}`
+      );
+    }
+
+    // The Student ID is made of the Latin letters and digits of each name. A
+    // name with none (written only in Arabic script, say) would give an empty
+    // half and a login email Firebase refuses, after the checks above passed.
+    if (!normalizeString(String(firstName)) || !normalizeString(String(lastName))) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'The Student ID is made from the Latin letters and digits of the first and last name. Add the name in Latin letters.'
       );
     }
 
@@ -209,8 +236,7 @@ const createStudentAccount = async (data, context) => {
       email_verified: false,
       uid: authUserId,
       created_by_admin: true,
-      created_by_uid:
-        callerUid || studentData.createdByUid || null,
+      created_by_uid: callerUid || null,
       password_reset_required: true,
     };
 
@@ -220,7 +246,7 @@ const createStudentAccount = async (data, context) => {
     createBatch.set(admin.firestore().collection('users').doc(authUserId), firestoreUserData);
     queueCredentialWrite(admin.firestore(), createBatch, authUserId, tempPassword, {
       source: 'created',
-      actorUid: callerUid || studentData.createdByUid || null,
+      actorUid: callerUid || null,
     });
     await createBatch.commit();
     console.log(`User document created for Student ID: ${studentCode}`);
@@ -382,7 +408,6 @@ const createStudentAccount = async (data, context) => {
       studentId: authUserId,
       studentCode,
       aliasEmail,
-      tempPassword,
       message: 'Student account created successfully',
       isAdultStudent,
       guardiansUpdated: guardianIds ? guardianIds.length : 0,
@@ -393,10 +418,13 @@ const createStudentAccount = async (data, context) => {
     console.error('--- FULL FUNCTION ERROR ---');
     console.error('ERROR MESSAGE:', error.message);
     console.error('ERROR STACK:', error.stack);
+    if (error instanceof functions.https.HttpsError && error.code === 'invalid-argument') throw error;
     throw new functions.https.HttpsError('internal', error.message, error.stack);
   }
 };
 
 module.exports = {
   createStudentAccount,
+  createStudentAccountAsCaller,
+  generateStudentCode,
 };
