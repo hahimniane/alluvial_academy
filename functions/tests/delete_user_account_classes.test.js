@@ -541,4 +541,50 @@ describe('deleteUserAccount class cleanup', () => {
     expect(res.success).toBe(true);
     expect(store.users.has(victimUid)).toBe(false);
   });
+
+  test('family links: deleting a parent clears every student that names them, either spelling, either side', async () => {
+    const adminUid = 'admin_uid';
+    store.users.set(adminUid, { uid: adminUid, user_type: 'admin', 'e-mail': 'admin@test.com' });
+    const parentUid = 'parent_uid';
+    // The parent's own list names only kid_a; kid_b and kid_c link one-sidedly from their side.
+    store.users.set(parentUid, { uid: parentUid, user_type: 'parent', is_active: false, 'e-mail': 'p@example.com', children_ids: ['kid_a'] });
+    store.users.set('kid_a', { uid: 'kid_a', user_type: 'student', guardian_ids: [parentUid, 'other_parent'] });
+    store.users.set('kid_b', { uid: 'kid_b', user_type: 'student', guardianIds: [parentUid] });
+    store.users.set('kid_c', { uid: 'kid_c', user_type: 'student', guardian_ids: [parentUid], parent_id: parentUid });
+    store.users.set('kid_d', { uid: 'kid_d', user_type: 'student', guardian_ids: ['other_parent'] });
+
+    const res = await userHandlers.deleteUserAccount(
+      { data: { userId: parentUid } },
+      { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
+    );
+
+    expect(res.success).toBe(true);
+    expect(store.users.get('kid_a').guardian_ids).toEqual(['other_parent']);
+    expect(store.users.get('kid_b').guardianIds).toEqual([]);
+    expect(store.users.get('kid_c').guardian_ids).toEqual([]);
+    expect(store.users.get('kid_c').parent_id).toBeUndefined();
+    expect(store.users.get('kid_d').guardian_ids).toEqual(['other_parent']);
+    expect(store.users.get('kid_d').updated_at).toBeUndefined();
+  });
+
+  test('family links: deleting a student clears every parent that lists them, either spelling', async () => {
+    const adminUid = 'admin_uid';
+    store.users.set(adminUid, { uid: adminUid, user_type: 'admin', 'e-mail': 'admin@test.com' });
+    const kid = 'kid_uid';
+    store.users.set(kid, { uid: kid, user_type: 'Student', is_active: false, 'e-mail': 'kid@example.com', guardianIds: ['par_1'] });
+    store.users.set('par_1', { uid: 'par_1', user_type: 'parent', childrenIds: [kid, 'sibling'] });
+    store.users.set('par_2', { uid: 'par_2', user_type: 'parent', children_ids: [kid] });
+    store.users.set('par_3', { uid: 'par_3', user_type: 'parent', children_ids: ['sibling'] });
+
+    const res = await userHandlers.deleteUserAccount(
+      { data: { userId: kid } },
+      { auth: { uid: adminUid, token: { email: 'admin@test.com' } } }
+    );
+
+    expect(res.success).toBe(true);
+    expect(store.users.get('par_1').childrenIds).toEqual(['sibling']);
+    expect(store.users.get('par_2').children_ids).toEqual([]);
+    expect(store.users.get('par_3').children_ids).toEqual(['sibling']);
+    expect(store.users.get('par_3').updated_at).toBeUndefined();
+  });
 });

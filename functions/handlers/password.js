@@ -165,7 +165,8 @@ exports.resetStudentPassword = onCall(async (request) => {
 
     const studentData = studentDoc.data();
 
-    if (studentData.user_type !== 'student') {
+    // Same test as the Users page (isStudentType): "Student" or " student " are students too.
+    if (String(studentData.user_type || '').trim().toLowerCase() !== 'student') {
       throw new HttpsError(
         'failed-precondition',
         'Can only reset passwords for students'
