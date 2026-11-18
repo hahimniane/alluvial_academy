@@ -45,6 +45,8 @@ import {
 import { readStudentPassword } from "@/lib/studentCredentials";
 import { guardiansOfStudent, sideNote, studentsOfParent } from "@/lib/guardians";
 import { Avatar, Pill, TypePill } from "./ui";
+import { SendLoginDialog } from "./LoginDetails";
+import { PanelFacts } from "./PanelFacts";
 import {
   ArchiveDialog,
   DeleteDialog,
@@ -205,7 +207,8 @@ type Dialog =
   | { kind: "resetDone"; password: string; studentCode: string; emailedTo: string[] }
   | "zoomOn"
   | "zoomOff"
-  | "delete";
+  | "delete"
+  | "sendLogin";
 
 const roleText = (row: UserRow) => (row.isAdminTeacher ? "Admin-teacher" : typeInfo(row).label);
 
@@ -306,6 +309,8 @@ export function UserPanel({
         {row.secondaryRoles.length > 0 ? <Fact label="Other roles">{row.secondaryRoles.join(", ")}</Fact> : null}
       </div>
 
+      <PanelFacts key={row.id} row={row} />
+
       {student ? (
         <>
           <Section title="Login">
@@ -323,13 +328,22 @@ export function UserPanel({
             <div className="text-xs text-[#64748B]">
               {row.storedStudentCode ? "Only admins and this student's parent can see it." : "This student has no Student ID yet. Reset the password to make one."}
             </div>
-            <button
-              type="button"
-              onClick={() => setDialog("reset")}
-              className="flex min-h-10 items-center self-start rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 font-semibold text-[#1D4ED8] hover:bg-[#DBEAFE]"
-            >
-              Reset password
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDialog("reset")}
+                className="flex min-h-10 items-center rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 font-semibold text-[#1D4ED8] hover:bg-[#DBEAFE]"
+              >
+                Reset password
+              </button>
+              <button
+                type="button"
+                onClick={() => setDialog("sendLogin")}
+                className="flex min-h-10 items-center rounded-[10px] border border-[#BBF7D0] bg-[#F0FDF4] px-3.5 font-semibold text-[#15803D] hover:bg-[#DCFCE7]"
+              >
+                Send login details
+              </button>
+            </div>
           </Section>
           <Section title="Family and classes">
             {guardians.length === 0 ? (
@@ -491,6 +505,7 @@ export function UserPanel({
           }}
         />
       ) : null}
+      {dialog === "sendLogin" ? <SendLoginDialog row={row} rows={all} byId={byId} say={say} onClose={closeDialog} /> : null}
       {dialog === "delete" ? (
         <DeleteDialog
           row={row}

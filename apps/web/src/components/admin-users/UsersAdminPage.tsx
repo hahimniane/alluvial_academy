@@ -42,6 +42,14 @@ import {
   type WeekShift,
 } from "@/lib/adminUsers";
 import { adminUsesWebUsersPage, listenUsers, listenWeekShifts } from "@/lib/adminUsersData";
+import { needsAttention } from "@/lib/usersAttention";
+import { pruneSelection, selectAllState, type BulkKind } from "@/lib/bulkActions";
+import { applySavedFilter, type SavedFilter } from "@/lib/savedFilters";
+import { loadUpcomingStudentIds } from "@/lib/usersExtrasData";
+import { BulkBar, BulkDialog } from "./BulkActions";
+import { SendLoginDialog } from "./LoginDetails";
+import { NeedsAttention, type UpcomingState } from "./NeedsAttention";
+import { SavedFiltersMenu } from "./SavedFilters";
 import { AddUsersDialog } from "./AddUsersDialog";
 import { EditUserPage } from "./EditUserPage";
 import { BTN_SECONDARY, DialogShell } from "./UserDialogs";
@@ -221,6 +229,16 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   const dirtyRef = useRef(false);
   const [leaveAsk, setLeaveAsk] = useState<(() => void) | null>(null);
 
+  /** The Needs attention tab is open (the Users / Admins tab underneath is kept). */
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const [upcoming, setUpcoming] = useState<UpcomingState>({ state: "loading" });
+  const [upcomingIds, setUpcomingIds] = useState<Set<string> | null>(null);
+  const [upcomingTry, setUpcomingTry] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulk, setBulk] = useState<BulkKind | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [sendLoginFor, setSendLoginFor] = useState<string | null>(null);
+
   const wide = useMediaQuery("(min-width: 768px)");
   const roomy = useMediaQuery("(min-width: 1280px)");
 
@@ -230,6 +248,26 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   }, [retry]);
 
   useEffect(() => listenWeekShifts(week, setShifts, () => setShifts([])), [week]);
+
+  // "No upcoming class" needs one bounded read of schedules and the next 14 days of classes, once per visit.
+  useEffect(() => {
+    let live = true;
+    setUpcoming({ state: "loading" });
+    loadUpcomingStudentIds(new Date())
+      .then((ids) => {
+        if (!live) return;
+        setUpcomingIds(ids);
+        setUpcoming({ state: "ready", at: new Date() });
+      })
+      .catch(() => {
+        if (!live) return;
+        setUpcomingIds(null);
+        setUpcoming({ state: "error" });
+      });
+    return () => {
+      live = false;
+    };
+  }, [upcomingTry]);
 
   const links = useMemo(() => buildParentLinks(rows ?? []), [rows]);
   const weekMap = useMemo(() => buildWeekSchedule(shifts), [shifts]);
@@ -241,7 +279,24 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
   const users = useMemo(() => sortByName(filtered.users, sortAsc), [filtered.users, sortAsc]);
   const admins = useMemo(() => sortByName(filtered.admins, sortAsc), [filtered.admins, sortAsc]);
   const shown = tab === "users" ? users : admins;
-  const selected = selectedId ? byId.get(selectedId) ?? null : null;
+  const selectedRow = selectedId ? byId.get(selectedId) ?? null : null;
+  const attention = useMemo(() => needsAttention({ rows: rows ?? [], upcomingStudentIds: upcomingIds, now: new Date() }), [rows, upcomingIds]);
+  const shownIds = useMemo(() => (attentionOpen ? [] : shown.map((r) => r.id)), [attentionOpen, shown]);
+  // Never keep people selected that the list no longer shows (filters, tab, deletions).
+  useEffect(() => {
+    if (bulkRunning || bulk) return;
+    setSelected((cur) => pruneSelection(cur, shownIds));
+  }, [shownIds, bulkRunning, bulk]);
+  const toggleOne = useCallback((id: string) => {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const allState = selectAllState(selected, shownIds);
+  const toggleAll = () => setSelected(allState === "all" ? new Set() : new Set(shownIds));
   const activeParents = useMemo(() => parents.filter((p) => p.isActive), [parents]);
   const openAdd = (kind: "users" | "family") => {
     setExportOpen(false);
@@ -351,18 +406,30 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
       say("No data to export");
       return;
     }
-    const data = users.map(exportRow);
-    if (kind === "xlsx") downloadWorkbook([{ name: "Sheet1", headers: [...EXPORT_HEADERS], rows: data }], `${EXPORT_FILE_BASE}.xlsx`);
-    else downloadCsv(`${EXPORT_FILE_BASE}.csv`, toCsv(EXPORT_HEADERS, data));
-    say(`Downloaded ${EXPORT_FILE_BASE}.${kind} · ${users.length} ${users.length === 1 ? "row" : "rows"}`);
+    exportRows(users, kind);
   };
 
   useEffect(() => {
-    if (!selected || roomy) return;
+    if (!selectedRow || roomy) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelectedId(null);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selected, roomy]);
+  }, [selectedRow, roomy]);
+
+  const exportRows = (list: ListRow[], kind: "xlsx" | "csv" = "xlsx", base = EXPORT_FILE_BASE) => {
+    const data = list.map(exportRow);
+    if (kind === "xlsx") downloadWorkbook([{ name: "Sheet1", headers: [...EXPORT_HEADERS], rows: data }], `${base}.xlsx`);
+    else downloadCsv(`${base}.csv`, toCsv(EXPORT_HEADERS, data));
+    say(`Downloaded ${base}.${kind} · ${list.length} ${list.length === 1 ? "row" : "rows"}`);
+  };
+  const selectedRows = shown.filter((r) => selected.has(r.id));
+  const applySaved = (saved: SavedFilter) => {
+    const r = applySavedFilter(saved, (id) => byId.get(id)?.userType.toLowerCase() === "parent");
+    setFilters(r.filters);
+    setTab(r.tab);
+    setAttentionOpen(false);
+    say(r.droppedParent ? `Applied “${saved.name}”. Its parent no longer exists, so that part was left out.` : `Applied “${saved.name}”.`, r.droppedParent ? "error" : "ok");
+  };
 
   const statusChips = (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status">
@@ -415,10 +482,10 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
     </button>
   ) : null;
 
-  const panel = selected ? (
+  const panel = selectedRow ? (
     <UserPanel
-      key={selected.id}
-      row={selected}
+      key={selectedRow.id}
+      row={selectedRow}
       byId={byId}
       links={links}
       viewerUid={viewerUid}
@@ -561,7 +628,7 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
 
         <div className="flex gap-1 border-b border-[#E2E8F0]" role="tablist">
           {(["users", "admins"] as const).map((t) => {
-            const on = tab === t;
+            const on = !attentionOpen && tab === t;
             const count = t === "users" ? users.length : admins.length;
             return (
               <button
@@ -569,7 +636,10 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
                 type="button"
                 role="tab"
                 aria-selected={on}
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  setAttentionOpen(false);
+                }}
                 className={`-mb-px flex min-h-11 flex-1 items-center justify-center border-b-2 px-4 font-semibold md:flex-none ${on ? "border-[#0369D9] text-[#0369D9]" : "border-transparent text-[#475569]"}`}
               >
                 {t === "users" ? "Users" : "Admins"}
@@ -577,9 +647,37 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
               </button>
             );
           })}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={attentionOpen}
+            onClick={() => setAttentionOpen(true)}
+            aria-label={rows ? `Needs attention, ${attention.size}` : "Needs attention"}
+            className={`-mb-px flex min-h-11 flex-1 items-center justify-center whitespace-nowrap border-b-2 px-3 font-semibold md:flex-none md:px-4 ${attentionOpen ? "border-[#B45309] text-[#B45309]" : "border-transparent text-[#475569]"}`}
+          >
+            <span className="md:hidden">Attention</span>
+            <span className="hidden md:inline">Needs attention</span>
+            <span className="ml-1.5 rounded-full bg-[#FEF3C7] px-2 py-px text-xs text-[#92400E]">{rows ? attention.size : "…"}</span>
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {attentionOpen ? (
+          !rows ? (
+            <Spinner label="Loading users…" />
+          ) : (
+            <NeedsAttention
+              rows={enriched}
+              map={attention}
+              upcoming={upcoming}
+              onRetryUpcoming={() => setUpcomingTry((n) => n + 1)}
+              onSelect={select}
+              onEdit={openEdit}
+              onSendLogin={setSendLoginFor}
+            />
+          )
+        ) : null}
+
+        <div className={`${attentionOpen ? "hidden" : "flex"} flex-wrap items-center gap-2.5`}>
           <label className="relative flex min-w-0 flex-[1_1_280px] items-center md:max-w-[360px]">
             <span className="pointer-events-none absolute left-3 flex text-[#64748B]">
               <Search size={16} aria-hidden="true" />
@@ -623,9 +721,20 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
             </>
           ) : null}
           {parentChip}
+          <SavedFiltersMenu
+            viewerUid={viewerUid}
+            tab={tab}
+            filters={filters}
+            parentName={(id) => {
+              const p = byId.get(id);
+              return p ? displayNameOf(p) : null;
+            }}
+            onApply={applySaved}
+            say={say}
+          />
         </div>
 
-        {tab === "users" && filters.type === "student" ? (
+        {!attentionOpen && tab === "users" && filters.type === "student" ? (
           <div className="-mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Student type">
             {KIND_CHIPS.map(([v, label]) => (
               <Chip key={v} on={filters.kind === v} onClick={() => set({ kind: v })}>
@@ -635,7 +744,7 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
           </div>
         ) : null}
 
-        <div className="flex items-start gap-5">
+        <div className={`${attentionOpen ? "hidden" : "flex"} items-start gap-5`}>
           <div className="min-w-0 flex-1 overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white">
             {loadError ? (
               <div className="p-10 text-center">
@@ -657,22 +766,23 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
             ) : wide ? (
               <div className="overflow-x-auto">
                 {tab === "users" ? (
-                  <UsersTable rows={users} sortAsc={sortAsc} onSort={() => setSortAsc((s) => !s)} selectedId={selectedId} onSelect={select} />
+                  <UsersTable rows={users} sortAsc={sortAsc} onSort={() => setSortAsc((s) => !s)} selectedId={selectedId} onSelect={select} checked={selected} onCheck={toggleOne} allState={allState} onCheckAll={toggleAll} />
                 ) : (
-                  <AdminsTable rows={admins} sortAsc={sortAsc} onSort={() => setSortAsc((s) => !s)} selectedId={selectedId} onSelect={select} />
+                  <AdminsTable rows={admins} sortAsc={sortAsc} onSort={() => setSortAsc((s) => !s)} selectedId={selectedId} onSelect={select} checked={selected} onCheck={toggleOne} allState={allState} onCheckAll={toggleAll} />
                 )}
               </div>
             ) : (
-              <CardList rows={shown} links={links} selectedId={selectedId} onSelect={select} />
+              <CardList rows={shown} links={links} selectedId={selectedId} onSelect={select} checked={selected} onCheck={toggleOne} allState={allState} onCheckAll={toggleAll} />
             )}
             {rows && !loadError ? (
               <div className="border-t border-[#F1F5F9] px-4 py-3 text-xs text-[#64748B]">
                 Showing {shown.length} {shown.length === 1 ? "person" : "people"}
+                {selected.size > 0 ? ` · ${selected.size} selected` : ""}
               </div>
             ) : null}
           </div>
 
-          {panel && roomy ? (
+          {panel && roomy && !attentionOpen ? (
             <aside aria-label="User details" className="sticky top-4 max-h-[calc(100vh-32px)] w-[400px] flex-none overflow-y-auto rounded-[14px] border border-[#E2E8F0] bg-white">
               {panel}
             </aside>
@@ -680,7 +790,7 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
         </div>
       </div>
 
-      {panel && !roomy ? (
+      {panel && (!roomy || attentionOpen) ? (
         <div className="fixed inset-0 z-40 flex justify-end">
           <button type="button" aria-label="Close panel" className="absolute inset-0 cursor-default bg-[rgba(15,23,42,0.35)]" onClick={() => setSelectedId(null)} />
           <aside aria-label="User details" role="dialog" className="relative h-full w-full overflow-y-auto bg-white shadow-[0_0_40px_rgba(15,23,42,0.25)] md:w-[440px]">
@@ -704,6 +814,25 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
         >
           {adding.kind === "users" ? "Back to Add users" : "Back to Enroll a family"}
         </button>
+      ) : null}
+
+      {selected.size > 0 && !attentionOpen ? <BulkBar count={selected.size} busy={bulkRunning || !!bulk} onAction={setBulk} onClear={() => setSelected(new Set())} /> : null}
+      {selected.size > 0 && !attentionOpen ? <div className="h-20" aria-hidden="true" /> : null}
+      {bulk ? (
+        <BulkDialog
+          kind={bulk}
+          selected={selectedRows}
+          viewerUid={viewerUid}
+          onRunningChange={setBulkRunning}
+          onExport={(list) => exportRows(list, "xlsx", `${EXPORT_FILE_BASE}_selection`)}
+          onClose={(changed) => {
+            setBulk(null);
+            if (changed) setSelected(new Set());
+          }}
+        />
+      ) : null}
+      {sendLoginFor && rows && byId.get(sendLoginFor) ? (
+        <SendLoginDialog row={byId.get(sendLoginFor)!} rows={rows} byId={byId} say={say} onClose={() => setSendLoginFor(null)} />
       ) : null}
 
       {toastView}
@@ -765,14 +894,54 @@ const LastLoginCell = ({ row }: { row: ListRow }) => {
   );
 };
 
+type CheckProps = { checked: ReadonlySet<string>; onCheck: (id: string) => void; allState: "all" | "some" | "none"; onCheckAll: () => void };
+
+function CheckCell({ id, name, on, onCheck }: { id: string; name: string; on: boolean; onCheck: (id: string) => void }) {
+  return (
+    <td className="w-10 pl-4 pr-0" onClick={(e) => e.stopPropagation()}>
+      <input type="checkbox" checked={on} onChange={() => onCheck(id)} aria-label={`Select ${name}`} className="h-[18px] w-[18px] cursor-pointer align-middle" />
+    </td>
+  );
+}
+
+function CheckAllHeader({ allState, onCheckAll }: Pick<CheckProps, "allState" | "onCheckAll">) {
+  return (
+    <th className="w-10 pl-4 pr-0">
+      <input
+        type="checkbox"
+        checked={allState === "all"}
+        ref={(el) => {
+          if (el) el.indeterminate = allState === "some";
+        }}
+        onChange={onCheckAll}
+        aria-label={allState === "all" ? "Clear the selection" : "Select everyone shown"}
+        className="h-[18px] w-[18px] cursor-pointer align-middle"
+      />
+    </th>
+  );
+}
+
 const rowClass = (selected: boolean) => `cursor-pointer border-t border-[#F1F5F9] hover:bg-[#F1F5F9] ${selected ? "bg-[#EFF6FF]" : ""}`;
 const DASH = "—";
 
-const UsersRow = memo(function UsersRow({ row, selected, onSelect }: { row: ListRow; selected: boolean; onSelect: (id: string) => void }) {
+const UsersRow = memo(function UsersRow({
+  row,
+  selected,
+  onSelect,
+  on,
+  onCheck,
+}: {
+  row: ListRow;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  on: boolean;
+  onCheck: (id: string) => void;
+}) {
   const student = isStudentType(row);
   const teacherWeek = student ? [row.teacherNames, row.weeklyHoursLabel].filter(Boolean).join(" · ") : "";
   return (
     <tr className={rowClass(selected)} onClick={() => onSelect(row.id)} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 61px" }}>
+      <CheckCell id={row.id} name={displayNameOf(row)} on={on} onCheck={onCheck} />
       <NameCell row={row} onSelect={onSelect} />
       <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]">{phoneDisplay(row) || DASH}</td>
       <td className="whitespace-nowrap px-3 py-2.5">
@@ -806,17 +975,22 @@ function UsersTable({
   onSort,
   selectedId,
   onSelect,
+  checked,
+  onCheck,
+  allState,
+  onCheckAll,
 }: {
   rows: ListRow[];
   sortAsc: boolean;
   onSort: () => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
-}) {
+} & CheckProps) {
   return (
-    <table className="w-full min-w-[1180px] border-collapse text-[13px]">
+    <table className="w-full min-w-[1220px] border-collapse text-[13px]">
       <thead>
         <tr className="whitespace-nowrap bg-[#F8FAFC] text-left text-[#475569]">
+          <CheckAllHeader allState={allState} onCheckAll={onCheckAll} />
           <SortHeader sortAsc={sortAsc} onSort={onSort} />
           <th className="px-3 py-3 font-semibold">Phone</th>
           <th className="px-3 py-3 font-semibold">Type</th>
@@ -830,7 +1004,7 @@ function UsersTable({
       </thead>
       <tbody>
         {rows.map((r) => (
-          <UsersRow key={r.id} row={r} selected={r.id === selectedId} onSelect={onSelect} />
+          <UsersRow key={r.id} row={r} selected={r.id === selectedId} onSelect={onSelect} on={checked.has(r.id)} onCheck={onCheck} />
         ))}
       </tbody>
     </table>
@@ -845,10 +1019,23 @@ const roleText = (row: UserRow) => {
   return typeInfo(row).label;
 };
 
-const AdminsRow = memo(function AdminsRow({ row, selected, onSelect }: { row: ListRow; selected: boolean; onSelect: (id: string) => void }) {
+const AdminsRow = memo(function AdminsRow({
+  row,
+  selected,
+  onSelect,
+  on,
+  onCheck,
+}: {
+  row: ListRow;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  on: boolean;
+  onCheck: (id: string) => void;
+}) {
   const tone = row.isAdminTeacher ? { bg: "#FFF7ED", fg: "#C2410C" } : { bg: "#EFF6FF", fg: "#1D4ED8" };
   return (
     <tr className={rowClass(selected)} onClick={() => onSelect(row.id)}>
+      <CheckCell id={row.id} name={displayNameOf(row)} on={on} onCheck={onCheck} />
       <NameCell row={row} onSelect={onSelect} />
       <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]">{phoneDisplay(row) || DASH}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]">
@@ -869,17 +1056,22 @@ function AdminsTable({
   onSort,
   selectedId,
   onSelect,
+  checked,
+  onCheck,
+  allState,
+  onCheckAll,
 }: {
   rows: ListRow[];
   sortAsc: boolean;
   onSort: () => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
-}) {
+} & CheckProps) {
   return (
-    <table className="w-full min-w-[820px] border-collapse text-[13px]">
+    <table className="w-full min-w-[860px] border-collapse text-[13px]">
       <thead>
         <tr className="whitespace-nowrap bg-[#F8FAFC] text-left text-[#475569]">
+          <CheckAllHeader allState={allState} onCheckAll={onCheckAll} />
           <SortHeader sortAsc={sortAsc} onSort={onSort} />
           <th className="px-3 py-3 font-semibold">Phone</th>
           <th className="px-3 py-3 font-semibold">Role</th>
@@ -889,7 +1081,7 @@ function AdminsTable({
       </thead>
       <tbody>
         {rows.map((r) => (
-          <AdminsRow key={r.id} row={r} selected={r.id === selectedId} onSelect={onSelect} />
+          <AdminsRow key={r.id} row={r} selected={r.id === selectedId} onSelect={onSelect} on={checked.has(r.id)} onCheck={onCheck} />
         ))}
       </tbody>
     </table>
@@ -904,12 +1096,16 @@ const Card = memo(function Card({
   now,
   studentCount,
   onSelect,
+  on,
+  onCheck,
 }: {
   row: ListRow;
   selected: boolean;
   now: Date;
   studentCount: number;
   onSelect: (id: string) => void;
+  on: boolean;
+  onCheck: (id: string) => void;
 }) {
   const student = isStudentType(row);
   const type = typeInfo(row);
@@ -921,11 +1117,9 @@ const Card = memo(function Card({
   const never = isNeverLoggedIn(row);
   const corner = student && row.weeklyHoursLabel ? row.weeklyHoursLabel : never ? "Never" : shortDay(row.lastLogin, now);
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(row.id)}
-      className={`flex w-full items-center gap-3 rounded-[14px] border bg-white px-3.5 py-3 text-left ${selected ? "border-[#93C5FD]" : "border-[#E2E8F0]"}`}
-    >
+    <div className={`flex w-full items-center gap-2 rounded-[14px] border bg-white pl-3 ${selected || on ? "border-[#93C5FD]" : "border-[#E2E8F0]"}`}>
+    <input type="checkbox" checked={on} onChange={() => onCheck(row.id)} aria-label={`Select ${displayNameOf(row)}`} className="h-[18px] w-[18px] flex-none cursor-pointer" />
+    <button type="button" onClick={() => onSelect(row.id)} className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-3.5 text-left">
       <Avatar row={row} size={40} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={`truncate font-semibold ${row.isActive ? "" : "text-[#64748B] line-through"}`}>{displayNameOf(row)}</span>
@@ -933,6 +1127,7 @@ const Card = memo(function Card({
       </span>
       <span className={`flex-none text-xs ${never && !(student && row.weeklyHoursLabel) ? "font-semibold text-[#B45309]" : "text-[#334155]"}`}>{corner}</span>
     </button>
+    </div>
   );
 });
 
@@ -941,17 +1136,33 @@ function CardList({
   links,
   selectedId,
   onSelect,
+  checked,
+  onCheck,
+  allState,
+  onCheckAll,
 }: {
   rows: ListRow[];
   links: ParentLinks;
   selectedId: string | null;
   onSelect: (id: string) => void;
-}) {
+} & CheckProps) {
   const now = useMemo(() => new Date(), []);
   return (
     <div className="flex flex-col gap-2.5 bg-[#F8FAFC] p-2.5">
+      <label className="flex min-h-10 items-center gap-2 px-3 text-[13px] font-semibold text-[#334155]">
+        <input
+          type="checkbox"
+          checked={allState === "all"}
+          ref={(el) => {
+            if (el) el.indeterminate = allState === "some";
+          }}
+          onChange={onCheckAll}
+          className="h-[18px] w-[18px]"
+        />
+        Select everyone shown
+      </label>
       {rows.map((r) => (
-        <Card key={r.id} row={r} selected={r.id === selectedId} now={now} studentCount={links.studentsByParent.get(r.id)?.length ?? 0} onSelect={onSelect} />
+        <Card key={r.id} row={r} selected={r.id === selectedId} now={now} studentCount={links.studentsByParent.get(r.id)?.length ?? 0} onSelect={onSelect} on={checked.has(r.id)} onCheck={onCheck} />
       ))}
     </div>
   );
