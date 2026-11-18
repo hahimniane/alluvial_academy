@@ -67,7 +67,9 @@ exports.sendWelcomeEmail = functions.https.onCall(
 exports.createUserWithEmail = functions.https.onCall(
   userHandlers.createUserWithEmail
 );
+// Up to 25 accounts, one after another, each with its own welcome email.
 exports.createMultipleUsers = functions.https.onCall(
+  {timeoutSeconds: 300},
   userHandlers.createMultipleUsers
 );
 exports.createUser = functions.https.onCall(userHandlers.createUser);

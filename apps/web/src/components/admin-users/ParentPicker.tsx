@@ -4,19 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { parentMatches, type ParentChoice } from "@/lib/adminUsers";
 
-/** "Filter by parent": pick a parent to list only the students linked to them. */
+/**
+ * Pick a parent: "Filter by parent" (list only their students), and the
+ * parent / guardian field when adding a student.
+ */
 export function ParentPicker({
   parents,
   selectedId,
   onPick,
   onClear,
   onClose,
+  clearLabel = "Clear parent filter",
 }: {
   parents: ParentChoice[];
   selectedId: string | null;
   onPick: (id: string) => void;
   onClear: () => void;
   onClose: () => void;
+  clearLabel?: string;
 }) {
   const [q, setQ] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
@@ -93,7 +98,7 @@ export function ParentPicker({
       </div>
       {selectedId ? (
         <button type="button" onClick={onClear} className="min-h-10 rounded-[10px] border border-[#CBD5E1] bg-white font-semibold text-[#334155] hover:bg-[#F8FAFC]">
-          Clear parent filter
+          {clearLabel}
         </button>
       ) : null}
     </div>
