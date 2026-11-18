@@ -5,7 +5,7 @@
  * adminUsersActionsData.ts does the writes and calls.
  */
 
-import { displayNameOf, isStudentType, type UserRow } from "./adminUsers.ts";
+import { displayNameOf, isStudentType, isViewerRow, type UserRow } from "./adminUsers.ts";
 
 // ─── Which actions a person gets ───────────────────────────────────────────
 
@@ -45,7 +45,7 @@ export function panelActions(row: UserRow): PanelActions {
 
 /** Actions that would lock the signed-in admin out are refused before any dialog. */
 export function selfGuard(row: UserRow, viewerUid: string, action: "archive" | "delete" | "removeAdminAccess"): string | null {
-  if (!viewerUid || row.id !== viewerUid) return null;
+  if (!isViewerRow(row, viewerUid)) return null;
   if (action === "delete") return "You can't delete your own account.";
   if (action === "archive") return "You can't archive your own account.";
   return "You can't remove your own admin access.";

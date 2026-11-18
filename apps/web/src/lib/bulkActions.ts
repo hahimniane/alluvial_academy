@@ -7,7 +7,7 @@
  * The signed-in admin is always skipped for actions that change an account.
  */
 
-import { displayNameOf, isStudentType, type UserRow } from "./adminUsers.ts";
+import { displayNameOf, isStudentType, isViewerRow, type UserRow } from "./adminUsers.ts";
 
 export type BulkKind = "archive" | "restore" | "resetPassword" | "aiTutorOn" | "aiTutorOff" | "export";
 
@@ -29,7 +29,7 @@ const SELF = "That's you";
 /** Why this person is left out of the action, or null when it applies to them. */
 export function skipReason(kind: BulkKind, row: UserRow, viewerUid: string): string | null {
   if (kind === "export") return null;
-  if (viewerUid && row.id === viewerUid) return SELF;
+  if (isViewerRow(row, viewerUid)) return SELF;
   const type = row.userType.trim().toLowerCase();
   switch (kind) {
     case "archive":

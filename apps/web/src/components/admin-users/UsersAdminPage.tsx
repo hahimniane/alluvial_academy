@@ -249,8 +249,15 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
 
   useEffect(() => listenWeekShifts(week, setShifts, () => setShifts([])), [week]);
 
-  // "No upcoming class" needs one bounded read of schedules and the next 14 days of classes, once per visit.
+  // "No upcoming class" needs one bounded read of schedules and the next 14 days of classes. It runs
+  // the first time Needs attention is opened (and on "Check again"), not on every page open: the
+  // list itself never needs it, and an admin who only looks people up pays nothing for it.
+  const [upcomingWanted, setUpcomingWanted] = useState(false);
   useEffect(() => {
+    if (attentionOpen) setUpcomingWanted(true);
+  }, [attentionOpen]);
+  useEffect(() => {
+    if (!upcomingWanted) return;
     let live = true;
     setUpcoming({ state: "loading" });
     loadUpcomingStudentIds(new Date())
@@ -267,7 +274,7 @@ function UsersDirectory({ viewerUid }: { viewerUid: string }) {
     return () => {
       live = false;
     };
-  }, [upcomingTry]);
+  }, [upcomingTry, upcomingWanted]);
 
   const links = useMemo(() => buildParentLinks(rows ?? []), [rows]);
   const weekMap = useMemo(() => buildWeekSchedule(shifts), [shifts]);

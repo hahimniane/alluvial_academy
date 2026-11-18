@@ -272,6 +272,11 @@ export const downloadWorkbook = (sheets: Sheet[], fileName: string): void => {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = fileName;
+  anchor.style.display = "none";
+  // In the page and freed a little later: some browsers (Safari, inside an
+  // iframe) cancel a download whose link is detached or already revoked.
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 };

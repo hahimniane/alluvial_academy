@@ -10,7 +10,6 @@
 
 import { displayNameOf, loginEmailOf, type UserRow } from "./adminUsers.ts";
 import { guardiansOfStudent } from "./guardians.ts";
-import { storedPhoneForms } from "./phoneNumbers.ts";
 
 export const SCHOOL_NAME = "Alluwal Education Hub";
 export const SIGN_IN_ADDRESS = "alluwaleducationhub.org/student/login";
@@ -19,14 +18,30 @@ export const SCHOOL_LOGO = "/assets/Alluwal_Education_Hub_Logo.png";
 const STUDENT_ALIAS_DOMAIN = "@alluwaleducationhub.org";
 
 /**
- * The number wa.me wants: country code and number, digits only. A number
- * stored without its `+` uses the profile's country code. null when there is
- * no usable number.
+ * The number wa.me wants: country code and number, digits only. null when
+ * there is no usable number.
+ *  - Stored with `+` or `00`: used as is.
+ *  - Stored without them, with a country code on the profile: a number that
+ *    already starts with that code and is long enough to hold a national
+ *    number after it is kept (`224621123456` + `+224`); otherwise the code is
+ *    put in front, minus a trunk 0 (`0612345678` + `+33`).
+ *  - No country code: a 10-digit number is taken as +1 (the old Add User
+ *    form's default country), anything else as already international.
  */
 export function whatsAppNumber(phone: string, countryCode: string): string | null {
-  const forms = storedPhoneForms(phone, countryCode);
-  const digits = (forms[0] ?? "").replace(/\D/g, "");
-  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+  const raw = phone.trim();
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 4) return null;
+  let full: string;
+  if (raw.startsWith("+")) full = digits;
+  else if (raw.startsWith("00")) full = digits.slice(2);
+  else {
+    const cc = countryCode.replace(/\D/g, "");
+    const national = digits.replace(/^0+/, "");
+    if (cc) full = digits.startsWith(cc) && digits.length >= cc.length + 8 ? digits : cc + national;
+    else full = national.length === 10 ? `1${national}` : digits;
+  }
+  return full.length >= 8 && full.length <= 15 ? full : null;
 }
 
 /** A guardian's real email (`e-mail`, else `email`); the school's student aliases reach nobody. */
