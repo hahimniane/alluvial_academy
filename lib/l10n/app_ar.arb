@@ -7065,5 +7065,14 @@
   "taskTradeNotOpen": "لا يمكن عرض مهمة منتهية أو مؤرشفة.",
   "taskTradeNotAssigned": "لا يعرض هذه المهمة إلا من أُسندت إليه.",
   "taskTradeNotFound": "هذه المهمة غير موجودة.",
-  "taskTradeFailed": "لم ينجح ذلك. يرجى المحاولة مرة أخرى."
+  "taskTradeFailed": "لم ينجح ذلك. يرجى المحاولة مرة أخرى.",
+  "parentChildLoginTitle": "بيانات تسجيل الدخول",
+  "parentChildLoginStudentId": "رقم الطالب",
+  "parentChildLoginPassword": "كلمة المرور",
+  "parentChildLoginShow": "إظهار",
+  "parentChildLoginHide": "إخفاء",
+  "parentChildLoginNoPassword": "لا توجد كلمة مرور محفوظة. اطلب من المدرسة إعادة تعيينها.",
+  "parentChildLoginNoStudentId": "لا يوجد رقم طالب بعد. اطلب من المدرسة إنشاءه.",
+  "parentChildLoginCannotRead": "تعذر عرض كلمة المرور. اطلبها من المدرسة.",
+  "parentChildLoginWhere": "يسجّل طفلك الدخول على alluwaleducationhub.org/student/login أو في تطبيق Alluwal باستخدام رقم الطالب وكلمة المرور هذين."
 }

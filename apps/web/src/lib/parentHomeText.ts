@@ -101,6 +101,15 @@ const EN = {
   loading: "Loading…",
   couldNotLoad: "Could not load this. Please try again.",
   retry: "Retry",
+  loginTitle: "Login details",
+  loginStudentId: "Student ID",
+  loginPassword: "Password",
+  loginShow: "Show",
+  loginHide: "Hide",
+  loginNoPassword: "No password is stored. Ask the school to reset it.",
+  loginNoStudentId: "No Student ID yet. Ask the school to set one up.",
+  loginCannotRead: "The password could not be shown. Ask the school for it.",
+  loginWhere: "Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.",
 } as const;
 
 export type ParentHomeText = { [K in keyof typeof EN]: string };
@@ -198,6 +207,15 @@ const FR: ParentHomeText = {
   loading: "Chargement…",
   couldNotLoad: "Impossible de charger ceci. Veuillez réessayer.",
   retry: "Réessayer",
+  loginTitle: "Identifiants de connexion",
+  loginStudentId: "Identifiant élève",
+  loginPassword: "Mot de passe",
+  loginShow: "Afficher",
+  loginHide: "Masquer",
+  loginNoPassword: "Aucun mot de passe enregistré. Demandez à l'école de le réinitialiser.",
+  loginNoStudentId: "Pas encore d'identifiant élève. Demandez à l'école de le créer.",
+  loginCannotRead: "Le mot de passe ne peut pas être affiché. Demandez-le à l'école.",
+  loginWhere: "Votre enfant se connecte sur alluwaleducationhub.org/student/login ou dans l'application Alluwal avec cet identifiant élève et ce mot de passe.",
 };
 
 export function parentHomeText(fr: boolean): ParentHomeText {

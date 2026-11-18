@@ -19178,4 +19178,35 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get taskTradeFailed => 'لم ينجح ذلك. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get parentChildLoginTitle => 'بيانات تسجيل الدخول';
+
+  @override
+  String get parentChildLoginStudentId => 'رقم الطالب';
+
+  @override
+  String get parentChildLoginPassword => 'كلمة المرور';
+
+  @override
+  String get parentChildLoginShow => 'إظهار';
+
+  @override
+  String get parentChildLoginHide => 'إخفاء';
+
+  @override
+  String get parentChildLoginNoPassword =>
+      'لا توجد كلمة مرور محفوظة. اطلب من المدرسة إعادة تعيينها.';
+
+  @override
+  String get parentChildLoginNoStudentId =>
+      'لا يوجد رقم طالب بعد. اطلب من المدرسة إنشاءه.';
+
+  @override
+  String get parentChildLoginCannotRead =>
+      'تعذر عرض كلمة المرور. اطلبها من المدرسة.';
+
+  @override
+  String get parentChildLoginWhere =>
+      'يسجّل طفلك الدخول على alluwaleducationhub.org/student/login أو في تطبيق Alluwal باستخدام رقم الطالب وكلمة المرور هذين.';
 }

@@ -7641,5 +7641,14 @@
   "taskTradeNotOpen": "Une tâche terminée ou archivée ne peut pas être proposée.",
   "taskTradeNotAssigned": "Seule une personne à qui cette tâche est attribuée peut la proposer.",
   "taskTradeNotFound": "Cette tâche n'existe pas.",
-  "taskTradeFailed": "Cela n'a pas fonctionné. Veuillez réessayer."
+  "taskTradeFailed": "Cela n'a pas fonctionné. Veuillez réessayer.",
+  "parentChildLoginTitle": "Identifiants de connexion",
+  "parentChildLoginStudentId": "Identifiant élève",
+  "parentChildLoginPassword": "Mot de passe",
+  "parentChildLoginShow": "Afficher",
+  "parentChildLoginHide": "Masquer",
+  "parentChildLoginNoPassword": "Aucun mot de passe enregistré. Demandez à l'école de le réinitialiser.",
+  "parentChildLoginNoStudentId": "Pas encore d'identifiant élève. Demandez à l'école de le créer.",
+  "parentChildLoginCannotRead": "Le mot de passe ne peut pas être affiché. Demandez-le à l'école.",
+  "parentChildLoginWhere": "Votre enfant se connecte sur alluwaleducationhub.org/student/login ou dans l'application Alluwal avec cet identifiant élève et ce mot de passe."
 }

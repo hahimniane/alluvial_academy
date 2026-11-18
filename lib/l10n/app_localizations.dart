@@ -34825,6 +34825,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'That did not work. Please try again.'**
   String get taskTradeFailed;
+
+  /// No description provided for @parentChildLoginTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Login details'**
+  String get parentChildLoginTitle;
+
+  /// No description provided for @parentChildLoginStudentId.
+  ///
+  /// In en, this message translates to:
+  /// **'Student ID'**
+  String get parentChildLoginStudentId;
+
+  /// No description provided for @parentChildLoginPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get parentChildLoginPassword;
+
+  /// No description provided for @parentChildLoginShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get parentChildLoginShow;
+
+  /// No description provided for @parentChildLoginHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get parentChildLoginHide;
+
+  /// No description provided for @parentChildLoginNoPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'No password is stored. Ask the school to reset it.'**
+  String get parentChildLoginNoPassword;
+
+  /// No description provided for @parentChildLoginNoStudentId.
+  ///
+  /// In en, this message translates to:
+  /// **'No Student ID yet. Ask the school to set one up.'**
+  String get parentChildLoginNoStudentId;
+
+  /// No description provided for @parentChildLoginCannotRead.
+  ///
+  /// In en, this message translates to:
+  /// **'The password could not be shown. Ask the school for it.'**
+  String get parentChildLoginCannotRead;
+
+  /// No description provided for @parentChildLoginWhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.'**
+  String get parentChildLoginWhere;
 }
 
 class _AppLocalizationsDelegate

@@ -19604,4 +19604,35 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get taskTradeFailed => 'Cela n\'a pas fonctionné. Veuillez réessayer.';
+
+  @override
+  String get parentChildLoginTitle => 'Identifiants de connexion';
+
+  @override
+  String get parentChildLoginStudentId => 'Identifiant élève';
+
+  @override
+  String get parentChildLoginPassword => 'Mot de passe';
+
+  @override
+  String get parentChildLoginShow => 'Afficher';
+
+  @override
+  String get parentChildLoginHide => 'Masquer';
+
+  @override
+  String get parentChildLoginNoPassword =>
+      'Aucun mot de passe enregistré. Demandez à l\'école de le réinitialiser.';
+
+  @override
+  String get parentChildLoginNoStudentId =>
+      'Pas encore d\'identifiant élève. Demandez à l\'école de le créer.';
+
+  @override
+  String get parentChildLoginCannotRead =>
+      'Le mot de passe ne peut pas être affiché. Demandez-le à l\'école.';
+
+  @override
+  String get parentChildLoginWhere =>
+      'Votre enfant se connecte sur alluwaleducationhub.org/student/login ou dans l\'application Alluwal avec cet identifiant élève et ce mot de passe.';
 }
