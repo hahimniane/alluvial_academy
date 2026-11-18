@@ -157,11 +157,11 @@ class _ChildLoginCardState extends State<ChildLoginCard> {
           else if (code.isEmpty)
             _note(l10n.parentChildLoginNoStudentId, const Color(0xFF6B7280))
           else ...[
+            _field(l10n.parentChildLoginStudentId, code),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Expanded(child: _field(l10n.parentChildLoginStudentId, code)),
-                const SizedBox(width: 12),
                 Expanded(
                   child: _field(
                     l10n.parentChildLoginPassword,
@@ -176,7 +176,7 @@ class _ChildLoginCardState extends State<ChildLoginCard> {
                       ? null
                       : (shown ? _hide : _show),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(64, 40),
+                    minimumSize: const Size(72, 40),
                     foregroundColor: const Color(0xFF374151),
                     side: const BorderSide(color: Color(0xFFD1D5DB)),
                     shape: RoundedRectangleBorder(
