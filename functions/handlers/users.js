@@ -850,75 +850,83 @@ const deleteUserAccount = async (data, context) => {
     // Best-effort cleanup for parent/student relationships and auxiliary collections.
     const userType = (userData.user_type || userData.userType || userData.role || '')
       .toString()
+      .trim()
       .toLowerCase();
+
+    // Family links are read from BOTH sides and BOTH spellings: the student's
+    // guardian_ids / guardianIds (and the legacy single guardian_id /
+    // parent_id / parentId), and every account whose children_ids /
+    // childrenIds names them. Reading only the deleted person's own list left
+    // dangling ids on the other side whenever a link was one-sided.
+    const usersCol = admin.firestore().collection('users');
+    // Links may name the document id or the uid field (they differ only on old email-keyed docs).
+    const selfIds = [...new Set([userId, canonicalUserId].filter(Boolean).map(String))];
+    const idsOf = (...lists) => {
+      const out = new Set();
+      for (const list of lists) {
+        for (const v of Array.isArray(list) ? list : [list]) {
+          if (typeof v === 'string' && v.trim() && !selfIds.includes(v.trim())) out.add(v.trim());
+        }
+      }
+      return out;
+    };
+    const idsWhere = async (field) => {
+      const found = [];
+      for (const id of selfIds) {
+        try {
+          const snap = await usersCol.where(field, 'array-contains', id).get();
+          found.push(...snap.docs.map((d) => d.id));
+        } catch (e) {
+          console.log(`Link lookup on ${field} failed:`, e.message);
+        }
+      }
+      return found;
+    };
+    const unlinkFrom = async (otherIds, arrayFields, singleFields) => {
+      for (const otherId of otherIds) {
+        try {
+          const ref = usersCol.doc(String(otherId));
+          const snap = await ref.get();
+          if (!snap.exists) continue;
+          const data = snap.data() || {};
+          const updates = {};
+          for (const field of arrayFields) {
+            if (Array.isArray(data[field]) && data[field].some((v) => selfIds.includes(v))) {
+              updates[field] = admin.firestore.FieldValue.arrayRemove(...selfIds);
+            }
+          }
+          for (const field of singleFields) {
+            if (selfIds.includes(data[field])) updates[field] = admin.firestore.FieldValue.delete();
+          }
+          if (Object.keys(updates).length === 0) continue;
+          updates.updated_at = admin.firestore.FieldValue.serverTimestamp();
+          batch.update(ref, updates);
+        } catch (e) {
+          console.log(`Error removing the link from ${otherId}:`, e.message);
+        }
+      }
+    };
 
     if (userType === 'student') {
       // Remove from students collection (created by createStudentAccount).
       batch.delete(admin.firestore().collection('students').doc(canonicalUserId));
       for (const id of userIdsToPurge) batch.delete(credentialRef(admin.firestore(), id));
 
-      const guardianIds = Array.isArray(userData.guardian_ids)
-        ? userData.guardian_ids
-        : Array.isArray(userData.guardianIds)
-          ? userData.guardianIds
-          : [];
-
-      for (const guardianId of guardianIds) {
-        try {
-          const guardianRef = admin.firestore().collection('users').doc(String(guardianId));
-          const guardianSnap = await guardianRef.get();
-          if (!guardianSnap.exists) continue;
-
-          const guardianData = guardianSnap.data() || {};
-          const updates = {};
-          if (guardianData.children_ids !== undefined) {
-            updates.children_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          if (guardianData.childrenIds !== undefined) {
-            updates.childrenIds = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          if (Object.keys(updates).length === 0) {
-            updates.children_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          updates.updated_at = admin.firestore.FieldValue.serverTimestamp();
-          batch.update(guardianRef, updates);
-        } catch (e) {
-          console.log(`Error removing student from guardian ${guardianId}:`, e.message);
-        }
-      }
+      const guardianIds = idsOf(
+        userData.guardian_ids, userData.guardianIds,
+        userData.guardian_id, userData.parent_id, userData.parentId,
+        await idsWhere('children_ids'), await idsWhere('childrenIds'),
+      );
+      await unlinkFrom(guardianIds, ['children_ids', 'childrenIds'], []);
     }
 
-	    if (userType === 'parent') {
-	      const childrenIds = Array.isArray(userData.children_ids)
-	        ? userData.children_ids
-	        : Array.isArray(userData.childrenIds)
-	          ? userData.childrenIds
-	          : [];
-
-      for (const childId of childrenIds) {
-        try {
-          const childRef = admin.firestore().collection('users').doc(String(childId));
-          const childSnap = await childRef.get();
-          if (!childSnap.exists) continue;
-
-          const childData = childSnap.data() || {};
-          const updates = {};
-          if (childData.guardian_ids !== undefined) {
-            updates.guardian_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          if (childData.guardianIds !== undefined) {
-            updates.guardianIds = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          if (Object.keys(updates).length === 0) {
-            updates.guardian_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
-          }
-          updates.updated_at = admin.firestore.FieldValue.serverTimestamp();
-          batch.update(childRef, updates);
-        } catch (e) {
-          console.log(`Error removing parent from student ${childId}:`, e.message);
-	        }
-	      }
-	    }
+    if (userType === 'parent') {
+      const childIds = idsOf(
+        userData.children_ids, userData.childrenIds,
+        await idsWhere('guardian_ids'), await idsWhere('guardianIds'),
+      );
+      await unlinkFrom(childIds, ['guardian_ids', 'guardianIds'], ['guardian_id', 'parent_id', 'parentId']);
+    }
 
 	    let classesSummary = null;
 	    if (deleteClasses && (userType === 'teacher' || userType === 'student')) {

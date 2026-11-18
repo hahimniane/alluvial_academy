@@ -245,5 +245,20 @@ describe('resetStudentPassword (missing student_code)', () => {
     const authUser = await mockAuth.getUser('student_uid');
     expect(authUser.email).toBe('djenabou.diallo@alluwaleducationhub.org');
   });
+
+  test('a student whose user_type is stored as "Student" (case/spaces) can be reset; a teacher still cannot', async () => {
+    mockStore.users.set('student_uid', { ...mockStore.users.get('student_uid'), user_type: ' Student ' });
+    const ok = await resetStudentPassword({
+      auth: { uid: 'admin_uid' },
+      data: { studentId: 'student_uid', sendEmailToParent: false, customPassword: pw('y') },
+    });
+    expect(ok.success).toBe(true);
+
+    mockStore.users.set('teacher_uid', { user_type: 'teacher', first_name: 'T', last_name: 'X' });
+    await expect(resetStudentPassword({
+      auth: { uid: 'admin_uid' },
+      data: { studentId: 'teacher_uid', sendEmailToParent: false },
+    })).rejects.toMatchObject({ code: 'failed-precondition' });
+  });
 });
 
