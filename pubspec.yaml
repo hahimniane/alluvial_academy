@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 
 
-version: 1.2.2+12200
+version: 1.2.3+12300
 
 environment:
   sdk: ^3.4.3
