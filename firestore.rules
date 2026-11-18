@@ -141,22 +141,23 @@ service cloud.firestore {
     }
 
     // Fields only admins and the server may change on a user document: every
-    // field isAdminRole() trusts, plus the family links and feature switches.
+    // field isAdminRole() trusts, plus the family links, feature switches, the
+    // person's own pay rate (wage_override is what pay falls back to for
+    // non-teaching shifts and subjects without a rate), the Student ID that
+    // signs them in, and fields the server keeps (merged_into, first class).
     // No app screen writes any of them on the person's own document.
     function adminOnlyUserFieldsUnchanged() {
-      return fieldUnchanged('is_admin') &&
-             fieldUnchanged('isAdmin') &&
-             fieldUnchanged('is_super_admin') &&
-             fieldUnchanged('isSuperAdmin') &&
-             fieldUnchanged('userType') &&
-             fieldUnchanged('secondary_roles') &&
-             fieldUnchanged('secondaryRoles') &&
-             fieldUnchanged('guardian_ids') &&
-             fieldUnchanged('guardianIds') &&
-             fieldUnchanged('children_ids') &&
-             fieldUnchanged('childrenIds') &&
-             fieldUnchanged('ai_tutor_enabled') &&
-             fieldUnchanged('tontine_enabled');
+      // One diff instead of a fieldUnchanged() call per field: the users
+      // update rule sits close to the 1000-expression evaluation limit, and
+      // affectedKeys() (added, removed or changed) means the same thing.
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'wage_override', 'wage_override_updated_at', 'hourly_rate',
+        'student_code', 'studentCode', 'merged_into', 'first_class_at', 'first_class_shift_id',
+        'is_admin', 'isAdmin', 'is_super_admin', 'isSuperAdmin', 'userType',
+        'secondary_roles', 'secondaryRoles',
+        'guardian_ids', 'guardianIds', 'children_ids', 'childrenIds',
+        'ai_tutor_enabled', 'tontine_enabled'
+      ]);
     }
 
     // A parent reading their own child's stored password. The link is read
