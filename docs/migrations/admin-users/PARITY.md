@@ -241,3 +241,110 @@ New features; no Flutter counterpart on the admin side (admin features are web-o
 | F7 | Saved filters | pass | `admin_saved_filters/{adminUid}` `{filters (≤30), updated_at}`; rules: only that admin (and only admins) read/write; excluded from the admin fallback. Save the current view (name required, unique, ≤60), apply, rename, delete; changes run in a transaction so two devices never drop each other's. Applying a filter whose parent was deleted drops that part and says so. Dev: other admin read/overwrite refused; duplicate name refused; deleted parent → "Its parent no longer exists, so that part was left out." |
 | D1a | Parent sees own child's password | pass | Web `/parent/child/` Overview and the Flutter parent app's child page (top of Overview): Student ID, password behind Show / Hide, read only on Show, dropped on Hide, never logged; no password → "Ask the school to reset it"; refused → "Ask the school for it". EN/FR (Flutter EN/FR/AR). Rules unchanged (slice B guardian read). Dev: parent shows own child (both spellings) password; another child's page → "This child is not linked to your account." and a direct read is refused. |
 | narrow | 375 px | pass | No horizontal scroll on the list, the bar, Needs attention ("Attention" tab label), dialogs and the parent card. |
+
+## Slice F — final parity pass (all slices, side by side)
+
+**Set-up.** alluwal-dev ran main's code for every function the Users work touches (the dev auto-deploy is broken, so 15 functions were hand-deployed from main and their deployed source diffed against main: 0 differences); dev rules and indexes were compared with main and matched. A Flutter dev web build (`--dart-define=FIREBASE_ENV=dev`) was served beside the Next dev server. One browser origin held an admin on the Users switch allowlist (Next page, inside the Flutter frame or direct `?embed=1`); a second origin held a throwaway admin not on the allowlist (the Flutter screen), on the same data.
+
+Edge-heavy fictional data was added on top of the slice A seed (ids `zz_f_*`, script `slicef_dev.cjs`, not in the repo, removed afterwards). It had:
+- one throwaway account per role: admin, super admin, admin-teacher, teacher, parent, student;
+- a 100-character name and a long mailbox;
+- an Arabic (RTL) name;
+- `user_type` stored as `"Student"` and as `" teacher "`;
+- `is_active` stored as the string `"false"`;
+- a document with no fields but a note;
+- a parent named `=HYPERLINK(...)` / `+…` / `@…`;
+- WhatsApp phone shapes;
+- dates with microseconds;
+- then 520 more people, about 594 users in all.
+
+### Side by side, same data
+
+| What | Flutter screen | Next page | Result |
+|---|---|---|---|
+| Tabs | USERS 60 / ADMINS 14 | Users 60 / Admins 14 | pass |
+| Teachers / Students / Minor / Adult / Parents | 15 / 24 / 22 / 2 / 18 | 15 / 24 / 22 / 2 / 18 | pass |
+| Active / Archived / Never logged in (both tabs) | 56·13 / 4·1 / 50·9 | 56·13 / 4·1 / 50·9 | pass |
+| "Admins" filter | Users tab empties (0), the known bug | Admins is a tab | differs (D4) |
+| Teachers + Active | not possible (one filter at a time) | 13 / 13 | differs (D4) |
+| Search "zz-barry" | 3 / 0 | 3 / 0 | pass (other terms: slice A rows, unit tests) |
+| CSV export, 60 rows | `employees.csv` | `employees.csv` | **identical**, line for line: header, quoting, CRLF, no BOM, `…20.123456` microsecond dates, raw string dates, `null` text, Arabic, `" teacher "`. Order differs (name sort, design) |
+| Excel export, 60 rows | `employees.xlsx` | `employees.xlsx` | **identical** cell values; sheet "Sheet1" |
+| 594 users | list in ≈2.9 s | list in ≈3.2 s on the dev server; no horizontal scroll at 375 px | pass |
+| A document with `is_active: "false"` | the whole list fails (Uncaught Error, USERS 0) until reload | listed as active, page keeps working | differs (fix) |
+| First answer from the local cache | flashes USERS 0 / ADMINS 1 | showed "Users 0 / Admins 1" and "No users yet" for about 0.7 s on dev, longer on a slow line. Fixed: waits for the server's first full list | differs (fix) |
+
+### Roles (throwaway accounts, dev)
+
+| Who | Page | Server and rules |
+|---|---|---|
+| Admin | page | all actions |
+| Super admin | page; Reset password from the panel → "New password ready" | reads the credential store; cannot read another admin's saved filters |
+| Admin-teacher | page; Archive → Restore from the panel, Recent decisions shows "Restored user · <name>" | reads the store; can toggle Tontine |
+| Teacher | "Users is for administrators." | reset / link / login email refused; cannot set Tontine on someone; store refused |
+| Parent | "Users is for administrators." | reads own child's password only; reset / delete refused |
+| Student | "Users is for administrators." | own password refused; create refused; cannot switch own AI Tutor |
+| Signed out mid-session | "Sign in to see users." (sign-out in another tab) | — |
+
+### Switch (fails closed)
+
+Next, read on each page load, for each switch state:
+- unknown mode → "Reload the page to open Users.";
+- `adminIds` a string → same message;
+- allowlist without me → same message (Flutter: the old screen);
+- `ALL` (any case) → page, the same rule as Flutter;
+- missing document / read error → message (slice A, unit tests both sides).
+
+Flutter frame: on the allowlist → the iframe `/admin/users/?embed=1`; not on it → `UserManagementScreen`. A direct `/admin/users/` visit goes to `/app/`.
+
+Flipping the switch while the page is open takes effect on the next load: neither side watches the document; Flutter caches it for the session. This is the same as the parent and teacher switches.
+
+### Flutter fallback screens (clicked in the dev build)
+
+| Item | Result |
+|---|---|
+| "View Login Credentials" (D1) | shows the password from `student_credentials` (the student had no legacy field). pass |
+| Edit User writes by document id (U-108/U-124) | another document given the same e-mail was left untouched; the edited one got the new Job Title. pass |
+
+### Bugs found in this pass and fixed (merged)
+
+| PR | Fix |
+|---|---|
+| #203 rules | A signed-in person could set their own `wage_override` / `hourly_rate`. `wage_override` is what pay falls back to for non-teaching shifts and subjects without a rate. They could also change their own `student_code`, `merged_into` and `first_class_at`. All of these are now locked on self-update. The check is now one `affectedKeys()` diff: adding one `fieldUnchanged()` call per field pushed the users update rule over the 1000-expression limit and refused every self-update. Emulator: new suite 18/18, every earlier suite passes. Dev: holes shown before, refused after. |
+| #204 functions | `deleteUserAccount` now clears family links on both sides and both spellings, including the legacy single fields. Before, one-sided links left dangling guardian ids. `resetStudentPassword` now accepts `"Student"`; before, Reset was offered and always failed. Dev: deleted parent with one-sided links → both students cleaned, the other guardian kept; a cased student reset → OK. |
+| #205 web | No cached "0 / 1 / No users yet" flash. Self checks also by the profile's `uid` field. CSV cells that would run as formulas get a `'`, Finance's rule (Flutter's export does not; xlsx is text and unchanged). Downloads stay attached to the page and are freed later. WhatsApp numbers already holding their country code are no longer doubled (`224621…` + `+224`), and a 10-digit number without a country code is +1. Needs attention reads classes only when that tab is first opened. |
+
+### Read cost (dev, 594 users, Cloud Monitoring `document/read_count` per minute)
+
+| Moment | Next page | Flutter screen |
+|---|---|---|
+| Opening the page | ≈ one read per user + this week's classes + a few fixed docs (measured ≈ 606) | users + every student again + this week's classes (measured ≈ 1045) |
+| Needs attention, first open | active schedules + classes in the next 14 days (dev: 4) | — |
+| Opening a student's panel | about 20 (invoices ≤ 2×200, this month's classes live + archive ≤ 2×300, next 10, last decisions) | — |
+| One user document changes (e.g. a heartbeat) | 1 read; no re-render unless a shown field changed | 1 read + the full students query again (U-009) |
+
+The production estimate is the same formula with production's user and class counts.
+
+### Status of every checklist item
+
+**Pass or differs on purpose**, evidence in the slice sections above:
+- U-001–U-053, U-055–U-057, U-059–U-104, U-106–U-128, U-130–U-151, U-153;
+- F1–F7, D1–D4, D1a, Q11, Q12.
+
+**Not applicable:**
+- U-054, U-129, U-152: phone-only screens, which stay Flutter.
+- U-058, U-105: dead code, not ported.
+
+**Could not test:**
+- Emails (welcome, guardian login emails, "Email login details"): dev has no Resend key. Refusal paths were checked and the code is unit-tested. The first real send is a production smoke step.
+- Opening a real WhatsApp chat: only the link and text were checked; opening it would hand the text to WhatsApp.
+- Real printing: Chrome PDF only (slice E).
+- An empty `users` collection, or a single user: dev is shared. The empty states were seen through filters and searches with no match.
+- A throttled network: the browser pane has no throttling. The cached-first-answer flash it would lengthen is fixed.
+- A native phone build (iOS/Android): store release. The same Dart screens were clicked in the web build.
+- The Flutter Add sheet's batch message: `flutter analyze` only. Typing into the Flutter canvas drops characters, so this was not clicked.
+
+**For the owner to confirm:**
+- U-059 English only, like the other Next admin screens.
+- Q10: "Admin" is still offered as a secondary role.
+- The CSV formula guard is a difference from Flutter's export.
