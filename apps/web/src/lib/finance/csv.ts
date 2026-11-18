@@ -22,5 +22,6 @@ export function downloadCsv(filename: string, csv: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Freed a little later: Safari can cancel a download whose URL is revoked at once.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }

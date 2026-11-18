@@ -160,9 +160,20 @@ test("WhatsApp number: with +, without + (profile country code), national 0, non
   assert.equal(whatsAppNumber("621123456", "+224"), "224621123456");
   assert.equal(whatsAppNumber("621123456", "224"), "224621123456");
   assert.equal(whatsAppNumber("0621123456", "+224"), "224621123456");
-  assert.equal(whatsAppNumber("(646) 555-0100", ""), "6465550100");
+  // No country code stored: 10 digits = the old form's default +1.
+  assert.equal(whatsAppNumber("(646) 555-0100", ""), "16465550100");
+  assert.equal(whatsAppNumber("2125551234", ""), "12125551234");
   assert.equal(whatsAppNumber("12", "+1"), null);
   assert.equal(whatsAppNumber("", "+1"), null);
+});
+
+test("WhatsApp number: a number already holding its country code is not given it twice", () => {
+  assert.equal(whatsAppNumber("224621123456", "+224"), "224621123456");
+  assert.equal(whatsAppNumber("12125551234", "+1"), "12125551234");
+  assert.equal(whatsAppNumber("2125551234", "+1"), "12125551234");
+  assert.equal(whatsAppNumber("0612345678", "+33"), "33612345678");
+  assert.equal(whatsAppNumber("0033612345678", ""), "33612345678");
+  assert.equal(whatsAppNumber("+1 (646) 555-0100", "+224"), "16465550100");
 });
 
 test("WhatsApp text keeps accents and encodes in the link", () => {

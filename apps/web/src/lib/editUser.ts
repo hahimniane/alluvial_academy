@@ -11,7 +11,7 @@
  * Pure so it can be tested without Firestore; editUserData.ts does the write.
  */
 
-import { typeInfo, type UserRow } from "./adminUsers.ts";
+import { isViewerRow, typeInfo, type UserRow } from "./adminUsers.ts";
 
 type Data = Record<string, unknown>;
 
@@ -237,10 +237,10 @@ export function pickMainRole(values: EditValues, role: MainRole): Pick<EditValue
 export type RoleChangeReview = { refusal: string | null; lines: string[] };
 
 /** What a main-role change means, shown before it is saved; the admin's own admin access cannot be removed here. */
-export function reviewRoleChange(row: Pick<UserRow, "id" | "isAdminTeacher">, from: string, to: string, viewerUid: string): RoleChangeReview {
+export function reviewRoleChange(row: Pick<UserRow, "id" | "isAdminTeacher"> & { uid?: string }, from: string, to: string, viewerUid: string): RoleChangeReview {
   const fromAdmin = isAdminType(from);
   const toAdmin = isAdminType(to);
-  if (fromAdmin && !toAdmin && !row.isAdminTeacher && viewerUid && row.id === viewerUid) {
+  if (fromAdmin && !toAdmin && !row.isAdminTeacher && isViewerRow(row, viewerUid)) {
     return { refusal: "You can't remove your own admin access.", lines: [] };
   }
   const lines = [`${roleLabelOf(from)} → ${roleLabelOf(to)}. The main role decides which dashboard they see first.`];

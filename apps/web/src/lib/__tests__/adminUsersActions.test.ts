@@ -184,3 +184,16 @@ test("recent decisions: recorded events plus the user doc's own fallbacks", () =
   assert.equal(decisionActor("", "service@proj.iam.gserviceaccount.com"), "System");
   assert.equal(decisionActor("Anyone", "u", "system"), "System");
 });
+
+test("selfGuard and bulk skip also recognise an email-keyed own profile (uid field)", async () => {
+  const { selfGuard } = await import("../adminUsersActions.ts");
+  const { skipReason } = await import("../bulkActions.ts");
+  const { reviewRoleChange } = await import("../editUser.ts");
+  const { mapUserDoc } = await import("../adminUsers.ts");
+  const own = mapUserDoc("me@example.invalid", { user_type: "admin", uid: "me", is_active: true });
+  assert.equal(selfGuard(own, "me", "archive"), "You can't archive your own account.");
+  assert.equal(selfGuard(own, "me", "delete"), "You can't delete your own account.");
+  assert.equal(skipReason("archive", own, "me"), "That's you");
+  assert.equal(reviewRoleChange(own, "admin", "teacher", "me").refusal, "You can't remove your own admin access.");
+  assert.equal(selfGuard(own, "someone-else", "archive"), null);
+});

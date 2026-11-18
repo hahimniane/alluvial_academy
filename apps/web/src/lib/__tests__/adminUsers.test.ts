@@ -358,3 +358,26 @@ test("cutover fails closed", () => {
   assert.equal(adminUsersCutoverAllows({ mode: "all" }, ""), false);
   assert.equal(adminUsersCutoverAllows({ mode: "ALL" }, "u"), true);
 });
+
+test("CSV export: typed formulas are neutralised, numbers and plain text are not", async () => {
+  const { toCsv, csvSafe } = await import("../adminUsers.ts");
+  assert.equal(csvSafe('=HYPERLINK("http://x","y")'), `'=HYPERLINK("http://x","y")`);
+  assert.equal(csvSafe("+Zz-Formula"), "'+Zz-Formula");
+  assert.equal(csvSafe("@zz.formula@example.invalid"), "'@zz.formula@example.invalid");
+  assert.equal(csvSafe("+224 620 00 00 00"), "'+224 620 00 00 00");
+  assert.equal(csvSafe("+224621123456"), "+224621123456");
+  assert.equal(csvSafe("-12"), "-12");
+  assert.equal(csvSafe("Aminata"), "Aminata");
+  assert.equal(csvSafe(""), "");
+  assert.equal(toCsv(["A", "B"], [['=1+1', 'x,"y"']]), `A,B\r\n'=1+1,"x,""y"""`);
+});
+
+test("isViewerRow: by document id or by the profile's uid field", async () => {
+  const { isViewerRow, mapUserDoc } = await import("../adminUsers.ts");
+  const own = mapUserDoc("admin@example.invalid", { user_type: "admin", uid: "u1" });
+  assert.equal(own.uid, "u1");
+  assert.equal(isViewerRow(own, "u1"), true);
+  assert.equal(isViewerRow(mapUserDoc("u1", { user_type: "admin" }), "u1"), true);
+  assert.equal(isViewerRow(mapUserDoc("u2", { user_type: "admin", uid: "u2" }), "u1"), false);
+  assert.equal(isViewerRow(mapUserDoc("u2", {}), ""), false);
+});

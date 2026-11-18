@@ -27,11 +27,27 @@ import {
 export function listenUsers(onRows: (rows: UserRow[]) => void, onError: (error: Error) => void): Unsubscribe {
   const byId = new Map<string, UserRow>();
   let order: string[] = [];
+  let fromServer = false;
   return onSnapshot(
     collection(db, "users"),
+    { includeMetadataChanges: true },
     (snap) => {
+      // The first answer can come from the local cache, which holds only the
+      // few user documents this page already read (the admin's own profile):
+      // showing it would flash "Users 0 / Admins 1" and "No users yet" until
+      // the server answers. Wait for the server's first full list; after
+      // that, every update is applied as it comes (offline included).
+      let first = false;
+      if (!fromServer) {
+        if (snap.metadata.fromCache) return;
+        fromServer = true;
+        first = true;
+      }
       let changed = false;
-      for (const change of snap.docChanges()) {
+      // docChanges() is relative to the last snapshot delivered, including a
+      // skipped cached one, so the first server answer is read in full.
+      const changes = first ? snap.docs.map((doc) => ({ type: "added" as const, doc })) : snap.docChanges();
+      for (const change of changes) {
         const id = change.doc.id;
         if (change.type === "removed") {
           if (byId.delete(id)) changed = true;

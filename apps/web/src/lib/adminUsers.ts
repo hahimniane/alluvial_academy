@@ -123,6 +123,8 @@ export type ParentPickFields = {
 
 export type UserRow = {
   id: string;
+  /** The `uid` field, for documents whose id is not the sign-in uid (older email-keyed profiles). */
+  uid: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -229,6 +231,7 @@ export function mapUserDoc(id: string, data: Data): UserRow {
   const adult = data.is_adult_student ?? data.isAdultStudent;
   return {
     id,
+    uid: text(data.uid).trim(),
     firstName: text(data.first_name),
     lastName: text(data.last_name),
     email: text(data["e-mail"]),
@@ -271,6 +274,16 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     timezone: text(data.timezone).trim(),
     parentPick: userType === "parent" ? parentPickOf(id, data) : null,
   };
+}
+
+/**
+ * Whether this row is the signed-in admin's own profile: by document id, or
+ * by the profile's `uid` field when the document is keyed some other way (the
+ * rules and the admin gates accept such profiles too). Used by every "you
+ * can't do this to yourself" check.
+ */
+export function isViewerRow(row: { id: string; uid?: string }, viewerUid: string): boolean {
+  return !!viewerUid && (row.id === viewerUid || row.uid === viewerUid);
 }
 
 /** Field-by-field equality, so a snapshot that only touched unlisted fields (presence heartbeats) changes nothing. */
@@ -625,7 +638,21 @@ export function exportRow(row: ListRow): string[] {
   ];
 }
 
-const csvField = (value: string): string => (/[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+/**
+ * A cell a spreadsheet would run as a formula (typed text starting with =, +,
+ * -, @, tab or carriage return that is not a plain number, e.g. a name typed
+ * as `=HYPERLINK(...)` on a public form) gets a leading apostrophe, the same
+ * rule as the Finance exports. Numbers such as `+224621123456` or `-12` are
+ * left alone. Flutter's export did not do this.
+ */
+export function csvSafe(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) && Number.isNaN(Number(value)) ? `'${value}` : value;
+}
+
+const csvField = (raw: string): string => {
+  const value = csvSafe(raw);
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+};
 
 /** The csv package's ListToCsvConverter defaults: comma, double quotes only when needed, CRLF between rows, no BOM. */
 export function toCsv(headers: readonly string[], rows: readonly string[][]): string {
