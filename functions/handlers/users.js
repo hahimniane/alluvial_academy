@@ -261,7 +261,6 @@ const createUser = async (data, context) => {
   const {callerUid} = await _verifyCallableCallerIsAdmin(data, context);
 
   const requestData = (data && data.data) || data || {};
-  console.log('received data:', requestData);
   try {
     console.log('Received data:', {
       email: requestData.email,
