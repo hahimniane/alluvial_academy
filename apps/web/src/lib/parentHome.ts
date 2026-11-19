@@ -553,6 +553,7 @@ export type ParentInvoice = {
   periodStart: string | null;
   periodEnd: string | null;
   accessCutoffDate: Date | null;
+  lastPaymentAt: Date | null;
   items: InvoiceItem[];
   createdByUid: string;
   createdByName: string;
@@ -598,6 +599,7 @@ export function parseInvoice(id: string, data: Data, now: Date = new Date()): Pa
     periodStart: periodStart == null ? null : String(periodStart),
     periodEnd: periodEnd == null ? null : String(periodEnd),
     accessCutoffDate: anyDate(data.access_cutoff_date ?? data.accessCutoffDate),
+    lastPaymentAt: anyDate(data.last_payment_at ?? data.lastPaymentAt),
     items: parseItems(data.items),
     createdByUid: str(data.created_by ?? data.createdBy ?? ""),
     createdByName: str(data.created_by_name ?? data.createdByName ?? ""),
