@@ -141,6 +141,10 @@ const createCheckoutSession = async ({
     throw new Error('Amount must be at least $0.50 USD for card payments');
   }
 
+  if (!successUrl || !cancelUrl) {
+    throw new Error('Checkout return addresses are missing');
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     ...(customerEmail ? {customer_email: customerEmail} : {}),
