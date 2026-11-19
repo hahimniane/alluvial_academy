@@ -5,11 +5,11 @@ class MockCompanyService {
   static CompanyInfo getCompanyInfo() {
     return const CompanyInfo(
       name: 'Alluwal Education Hub',
-      address: '11 McKeever Pl',
-      city: 'Brooklyn',
-      state: 'NY 11225',
+      address: '3184 Webster Ave',
+      city: 'Bronx',
+      state: 'NY 10467',
       country: 'United States',
-      phone: '+1646-338-1286',
+      phone: '+1 646-338-1286',
       email: 'billing@alluwaleducationhub.org',
     );
   }
