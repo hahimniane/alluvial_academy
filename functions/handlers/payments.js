@@ -2009,6 +2009,16 @@ const createPaymentSession = async (request) => {
     const stripe = new Stripe(stripeCheckout.getStripeSecretKey());
 
     try {
+      // checkoutReturnUrls answers {success, cancel}; createCheckoutSession
+      // takes successUrl/cancelUrl, so map the keys explicitly (spreading the
+      // result straight in left Stripe without a success_url).
+      const returnUrls = checkoutReturnUrls({
+        returnTo: (data.returnTo || '').toString(),
+        successUrl,
+        cancelUrl,
+        invoiceId,
+        paymentId: paymentRef.id,
+      });
       const session = await stripeCheckout.createCheckoutSession({
         stripe,
         amountMajor: remaining,
@@ -2016,13 +2026,8 @@ const createPaymentSession = async (request) => {
         paymentId: paymentRef.id,
         invoiceId,
         invoiceNumber,
-        ...checkoutReturnUrls({
-          returnTo: (data.returnTo || '').toString(),
-          successUrl,
-          cancelUrl,
-          invoiceId,
-          paymentId: paymentRef.id,
-        }),
+        successUrl: returnUrls.success,
+        cancelUrl: returnUrls.cancel,
         customerEmail: request.auth.token?.email || undefined
       });
 
