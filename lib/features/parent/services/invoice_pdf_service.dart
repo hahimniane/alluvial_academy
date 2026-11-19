@@ -44,8 +44,8 @@ class InvoicePdfSummary {
 /// Service for generating invoice / receipt PDFs.
 class InvoicePdfService {
   static const _companyName = 'Alluwal Education Hub';
-  static const _street = '11 McKeever Pl';
-  static const _city = 'Brooklyn, NY 11225, United States';
+  static const _street = '3184 Webster Ave';
+  static const _city = 'Bronx, NY 10467, United States';
   static const _phone = '+1 646-338-1286';
   static const _email = 'billing@alluwaleducationhub.org';
   static const _website = 'alluwaleducationhub.org';

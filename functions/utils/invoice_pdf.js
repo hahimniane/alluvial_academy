@@ -21,9 +21,9 @@ const FOOTER_SPACE = 44;
 
 const COMPANY_INFO = {
   name: 'Alluwal Education Hub',
-  street: '11 McKeever Pl',
-  city: 'Brooklyn, NY 11225, United States',
-  fullAddress: '11 McKeever Pl, Brooklyn, NY 11225, United States',
+  street: '3184 Webster Ave',
+  city: 'Bronx, NY 10467, United States',
+  fullAddress: '3184 Webster Ave, Bronx, NY 10467, United States',
   phone: '+1 646-338-1286',
   email: 'billing@alluwaleducationhub.org',
   website: 'alluwaleducationhub.org',
