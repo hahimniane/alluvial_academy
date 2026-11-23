@@ -41,6 +41,7 @@ import {
   loadUserDirectory,
   type FinanceSettingsView,
 } from "./data";
+import { ExtendAccessControl } from "./ExtendAccessControl";
 import { INVOICE_EXPORT_HEADERS, invoiceExportFileName, invoiceExportRows } from "@/lib/finance/invoiceExport";
 import { downloadWorkbook } from "@/lib/xlsx";
 import { CutOffPanel } from "./CutOffPanel";
@@ -201,14 +202,14 @@ export function InvoicesScreen() {
   const open = (id: string) => navigate({ invoice: id });
   const close = () => navigate({ invoice: null });
   const extendTarget = extendAccessTarget(now);
-  const extendFamily = async (row: InvoiceRow) => {
+  const extendFamily = async (row: InvoiceRow, dayKey: string, label: string) => {
     setExtendingParent(row.inv.parentId);
     setActionMessage(null);
     try {
-      const result = await callExtendAccess({ parentId: row.inv.parentId, scope: "parent", extendTo: `${extendTarget.key}T12:00:00.000Z` });
+      const result = await callExtendAccess({ parentId: row.inv.parentId, scope: "parent", extendTo: `${dayKey}T12:00:00.000Z` });
       setActionMessage({
         tone: "ok",
-        text: `${row.familyName}'s class access is extended to ${extendTarget.label}${result.updatedInvoices > 1 ? ` on ${result.updatedInvoices} invoices` : ""}.`,
+        text: `${row.familyName}'s class access is extended to ${label}${result.updatedInvoices > 1 ? ` on ${result.updatedInvoices} invoices` : ""}.`,
       });
       setReloadKey((key) => key + 1);
     } catch (e) {
@@ -449,14 +450,14 @@ export function InvoicesScreen() {
                         {r.access ? (
                           <div className="flex flex-col items-start gap-1">
                             <span className={`font-semibold ${r.access.tone === "bad" ? "text-red-700" : "text-blue-800"}`}>{r.access.text}</span>
-                            <button
-                              type="button"
-                              className={`${outlineButton} !min-h-8 !px-2.5`}
+                            <ExtendAccessControl
+                              now={now}
+                              compact
+                              suggestedKey={extendTarget.key}
+                              busy={extendingParent === r.inv.parentId}
                               disabled={extendingParent !== ""}
-                              onClick={() => void extendFamily(r)}
-                            >
-                              {extendingParent === r.inv.parentId ? "Extending…" : `Extend to ${extendTarget.label}`}
-                            </button>
+                              onExtend={(day, label) => void extendFamily(r, day, label)}
+                            />
                           </div>
                         ) : (
                           <span className="text-slate-500">—</span>
@@ -495,9 +496,14 @@ export function InvoicesScreen() {
                   {r.access ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`font-semibold ${r.access.tone === "bad" ? "text-red-700" : "text-blue-800"}`}>{r.access.text}</span>
-                      <button type="button" className={`${outlineButton} !min-h-8`} disabled={extendingParent !== ""} onClick={() => void extendFamily(r)}>
-                        {extendingParent === r.inv.parentId ? "Extending…" : `Extend to ${extendTarget.label}`}
-                      </button>
+                      <ExtendAccessControl
+                        now={now}
+                        compact
+                        suggestedKey={extendTarget.key}
+                        busy={extendingParent === r.inv.parentId}
+                        disabled={extendingParent !== ""}
+                        onExtend={(day, label) => void extendFamily(r, day, label)}
+                      />
                     </div>
                   ) : null}
                   <button type="button" className={outlineButton} aria-label={`Open ${r.inv.number}`} onClick={() => open(r.inv.id)}>
