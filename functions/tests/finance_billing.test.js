@@ -29,6 +29,18 @@ const ADMIN = {user_type: 'admin', first_name: 'Hawa', last_name: 'Admin'};
 const parent = (over = {}) => ({user_type: 'parent', first_name: 'Fatou', last_name: 'Diallo', 'e-mail': 'fatou@example.com', ...over});
 const student = (name) => ({user_type: 'student', first_name: name, last_name: 'Diallo'});
 
+// One class held each month for every child, so the monthly run bills them
+// (it only bills children who had a class the month before).
+const attendedEveryMonth = () => {
+  const shifts = {};
+  for (const month of ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12']) {
+    for (const id of ['stu_1', 'stu_2', 'stu_3']) {
+      shifts[`att_${id}_${month}`] = {student_ids: [id], status: 'fullyCompleted', shift_start: FakeTimestamp.fromDate(new Date(`${month}-10T21:00:00Z`)), teacher_id: 't_att'};
+    }
+  }
+  return shifts;
+};
+
 const baseSeed = () => ({
   users: {
     admin_1: ADMIN,
@@ -38,6 +50,8 @@ const baseSeed = () => ({
     stu_2: student('Omar'),
     stu_3: student('Kadi'),
   },
+  teaching_shifts: attendedEveryMonth(),
+  teaching_shifts_archive: {},
 });
 
 let lock;
@@ -950,6 +964,65 @@ describe('students who no longer attend', () => {
     const inv = deps.db.store.invoices['monthly_parent_2_2026-11'];
     expect(inv.total_amount).toBe(100);
     expect(inv.items.map((i) => i.student_id)).toEqual(['stu_2']);
+  });
+
+  // Rule (owner, 2026-11-23): a monthly invoice only bills children who had at
+  // least one class held in the month before it. Classes held = completed or
+  // partly completed, read from live and archived classes.
+  const dropOctober = (s, id) => {
+    delete s.teaching_shifts[`att_${id}_2026-10`];
+  };
+
+  test('a child with no class last month is not billed and their share comes off', async () => {
+    const s = families();
+    dropOctober(s, 'stu_3');
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    const plan = await finance.previewMonthlyBilling({auth: {uid: 'admin_1'}, data: {month: '2026-11'}}, deps);
+    const row = plan.rows.find((r) => r.parent_id === 'parent_2');
+    expect(row).toMatchObject({monthly_amount: 100, student_ids: ['stu_2']});
+    expect(row.not_billed).toEqual([{student_id: 'stu_3', name: 'Kadi Diallo', reason: 'no_class_last_month'}]);
+    expect(plan.attended).toBeUndefined();
+
+    await finance.runMonthlyGeneration(deps);
+    const inv = deps.db.store.invoices['monthly_parent_2_2026-11'];
+    expect(inv.total_amount).toBe(100);
+    expect(inv.items.map((i) => i.student_id)).toEqual(['stu_2']);
+    expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeDefined();
+  });
+
+  test('a family with no class at all last month gets no invoice', async () => {
+    const s = families();
+    dropOctober(s, 'stu_2');
+    dropOctober(s, 'stu_3');
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    const result = await finance.runMonthlyGeneration(deps);
+    expect(deps.db.store.invoices['monthly_parent_2_2026-11']).toBeUndefined();
+    expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeDefined();
+    expect(result).toMatchObject({created: 1});
+  });
+
+  test('only a class held counts; scheduled, missed or cancelled ones do not, and other months do not', async () => {
+    const s = families();
+    dropOctober(s, 'stu_1');
+    s.teaching_shifts.oct_missed = {student_ids: ['stu_1'], status: 'missed', shift_start: ts('2026-10-12T21:00:00Z'), teacher_id: 't1'};
+    s.teaching_shifts.oct_cancel = {student_ids: ['stu_1'], status: 'cancelled', shift_start: ts('2026-10-13T21:00:00Z'), teacher_id: 't1'};
+    s.teaching_shifts.oct_future = {student_ids: ['stu_1'], status: 'scheduled', shift_start: ts('2026-10-30T21:00:00Z'), teacher_id: 't1'};
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    await finance.runMonthlyGeneration(deps);
+    expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeUndefined();
+  });
+
+  test('a partly taught class, or one already moved to the archive, counts', async () => {
+    const s = families();
+    dropOctober(s, 'stu_1');
+    dropOctober(s, 'stu_2');
+    s.teaching_shifts.oct_partial = {student_ids: ['stu_1'], status: 'partiallyCompleted', shift_start: ts('2026-10-12T21:00:00Z'), teacher_id: 't1'};
+    s.teaching_shifts_archive.oct_old = {student_ids: ['stu_2'], status: 'completed', shift_start: ts('2026-10-02T21:00:00Z'), teacher_id: 't1'};
+    const deps = makeDeps(s, '2026-10-25T10:00:00Z');
+    await finance.runMonthlyGeneration(deps);
+    expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeDefined();
+    const inv = deps.db.store.invoices['monthly_parent_2_2026-11'];
+    expect(inv.items.map((i) => i.student_id).sort()).toEqual(['stu_2', 'stu_3']);
   });
 
   test('a family whose only child is archived gets no invoice', async () => {
