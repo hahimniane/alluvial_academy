@@ -222,8 +222,10 @@ const invoiceDocument = ({deps, number, parentId, studentIds, settle, kind, mont
  * Safe to call any number of times: the fixed document id plus the existence
  * check inside the transaction mean the second call changes nothing.
  */
-const createMonthlyInvoice = async ({deps, parentId, month, settings}) => {
+const createMonthlyInvoice = async ({deps, parentId, month, settings, attended = null}) => {
   const {db, FieldValue} = deps;
+  // Read before the transaction: a month of classes is too much to hold in one.
+  const attendedSet = attended || await attendedLastMonth(db, month);
   const now = deps.now();
   const invoiceId = math.monthlyInvoiceId(parentId, month);
   const invoiceRef = db.collection('invoices').doc(invoiceId);
@@ -246,9 +248,11 @@ const createMonthlyInvoice = async ({deps, parentId, month, settings}) => {
       users.set(allIds[i], s.data() || {});
       studentNames[allIds[i]] = displayName(s.data());
     });
-    // Archived children are not billed, and their share comes off the amount.
-    const billable = billableFamily({amount: math.amountForMonth(fb, month), studentIds: allIds, studentAmounts: fb.student_amounts, users});
+    // Archived children, and children with no class last month, are not
+    // billed; their share comes off the amount.
+    const billable = billableFamily({amount: math.amountForMonth(fb, month), studentIds: allIds, studentAmounts: fb.student_amounts, users, attended: attendedSet});
     const {amount, studentIds} = billable;
+    if (!studentIds.length && billable.dropped.length) return {created: false, reason: 'no_class_last_month', invoiceId};
     if (!(amount > 0)) return {created: false, reason: 'no_amount', invoiceId};
 
     const credits = await readOpenCredits(tx, db, parentId);
@@ -798,9 +802,39 @@ const isArchivedStudent = (user) =>
  * per-child amounts add up, otherwise their part of the even split).
  * `users` maps student id -> user data.
  */
-const billableFamily = ({amount, studentIds, studentAmounts, users}) => {
-  const dropped = studentIds.filter((id) => isArchivedStudent(users.get(id)));
-  if (!dropped.length) return {amount, studentIds, studentAmounts, dropped};
+/**
+ * Students who had at least one class held in the month before `month`
+ * (live + archived shifts). The monthly invoice for `month` only bills them:
+ * a child with no class last month has most likely stopped coming.
+ */
+const attendedLastMonth = async (db, month) => {
+  const previous = math.addMonths(month, -1);
+  const docs = await shiftsInRange(db, {
+    start: math.startOfNyDay(`${previous}-01`),
+    end: math.startOfNyDay(`${month}-01`),
+  });
+  const attended = new Set();
+  for (const doc of docs) {
+    const shift = doc.data() || {};
+    if (!COMPLETED_STATUSES.has(str(shift.status))) continue;
+    for (const id of list(shift.student_ids)) if (str(id)) attended.add(str(id));
+  }
+  return attended;
+};
+
+/**
+ * The children an invoice bills, and the amount once the others' shares come
+ * off. Archived children are never billed; when `attended` is given, neither
+ * is a child with no class last month.
+ */
+const billableFamily = ({amount, studentIds, studentAmounts, users, attended = null}) => {
+  const reasons = {};
+  for (const id of studentIds) {
+    if (isArchivedStudent(users.get(id))) reasons[id] = 'archived';
+    else if (attended && !attended.has(id)) reasons[id] = 'no_class_last_month';
+  }
+  const dropped = studentIds.filter((id) => reasons[id]);
+  if (!dropped.length) return {amount, studentIds, studentAmounts, dropped, reasons};
   const parts = math.splitAmount({amount, studentIds, studentAmounts})
     .filter((p) => p.studentId && !dropped.includes(p.studentId));
   const kept = studentIds.filter((id) => !dropped.includes(id));
@@ -812,6 +846,7 @@ const billableFamily = ({amount, studentIds, studentAmounts, users}) => {
     studentIds: kept,
     studentAmounts: keptAmounts,
     dropped,
+    reasons,
   };
 };
 
@@ -822,11 +857,12 @@ const billableFamily = ({amount, studentIds, studentAmounts, users}) => {
  * families that have no `family_billing` yet, e.g. the backfill's proposals;
  * a real family_billing document always wins over a proposal.
  */
-const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDiscounts, proposals = {}}) => {
-  const [fbSnap, existing, creditSnap] = await Promise.all([
+const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDiscounts, proposals = {}, attended = null}) => {
+  const [fbSnap, existing, creditSnap, attendedSet] = await Promise.all([
     db.collection('family_billing').get(),
     findExistingMonthInvoices(db, month),
     db.collection('family_credits').where('status', '==', 'open').get(),
+    attended ? Promise.resolve(attended) : attendedLastMonth(db, month),
   ]);
 
   const families = new Map();
@@ -866,6 +902,7 @@ const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDisco
       studentIds: allIds,
       studentAmounts: fb.student_amounts,
       users,
+      attended: attendedSet,
     });
     const {amount, studentIds} = billable;
 
@@ -885,7 +922,7 @@ const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDisco
       parent_email: emailOf(parent),
       students: studentIds.map((id) => studentNames[id]),
       student_ids: studentIds,
-      not_billed: billable.dropped.map((id) => ({student_id: id, name: studentNames[id], reason: 'archived'})),
+      not_billed: billable.dropped.map((id) => ({student_id: id, name: studentNames[id], reason: billable.reasons[id]})),
       monthly_amount: amount,
       discount: settle.discount,
       credit: settle.credit_applied,
@@ -909,7 +946,7 @@ const computeMonthlyPlan = async ({db, month, applyDiscounts = applyStudentDisco
     already_invoiced: already.length,
     already_invoiced_total: sum(already, 'total'),
   };
-  return {month, rows, totals};
+  return {month, rows, totals, attended: attendedSet};
 };
 
 /** `{month}` -> `{rows, totals}`: what the generator would bill for that month. */
@@ -917,7 +954,8 @@ const previewMonthlyBilling = async (request, deps = defaultDeps()) => {
   await deps.verifyAdmin(request);
   const month = str(rec(request && request.data).month);
   if (!math.isMonth(month)) throw httpsError('invalid-argument', 'month must look like 2026-11.');
-  return computeMonthlyPlan({db: deps.db, month, applyDiscounts: deps.applyDiscounts});
+  const {rows, totals} = await computeMonthlyPlan({db: deps.db, month, applyDiscounts: deps.applyDiscounts});
+  return {month, rows, totals};
 };
 
 // ---------------------------------------------------------------- scheduled generation
@@ -954,7 +992,7 @@ const runMonthlyGeneration = async (deps = defaultDeps()) => {
       continue;
     }
     try {
-      const outcome = await createMonthlyInvoice({deps, parentId: row.parent_id, month, settings});
+      const outcome = await createMonthlyInvoice({deps, parentId: row.parent_id, month, settings, attended: plan.attended});
       if (outcome.created) {
         results.created += 1;
         results.invoices.push(outcome.invoiceId);
@@ -1283,4 +1321,6 @@ module.exports = {
   issueFirstInvoice,
   findExistingMonthInvoices,
   COMPLETED_STATUSES,
+  attendedLastMonth,
+  billableFamily,
 };
