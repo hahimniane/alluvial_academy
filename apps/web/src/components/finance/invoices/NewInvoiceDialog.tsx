@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { money, r2 } from "@/lib/finance/model";
 import { addMonths, monthLabel } from "@/lib/finance/months";
+import { invoiceMonthOptions, looksLikeStudentCode, matchFamilies } from "@/lib/finance/invoicePicker";
 import { addDays, dayKeyNY, findMonthlyClash, firstInvoicePreview, formatDay, monthOfDate, type Invoice } from "@/lib/finance/invoices";
 import {
   callCreateFirstInvoice,
@@ -10,6 +11,8 @@ import {
   errorMessage,
   loadBillableUsers,
   loadChildren,
+  loadClosedMonths,
+  loadPayersForStudentCode,
   loadFamilyBilling,
   loadFamilyInvoices,
   type Billable,
@@ -39,6 +42,8 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
   const [kind, setKind] = useState<Kind>("first");
   const [users, setUsers] = useState<Billable[] | null>(null);
   const [search, setSearch] = useState("");
+  const [codeMatches, setCodeMatches] = useState<Set<string>>(new Set());
+  const [closedMonths, setClosedMonths] = useState<Set<string>>(new Set());
   const [parent, setParent] = useState<Billable | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [familyInvoices, setFamilyInvoices] = useState<Invoice[]>([]);
@@ -53,6 +58,7 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
 
   // monthly tuition
   const [tuitionMonth, setTuitionMonth] = useState(addMonths(thisMonth, 1));
+  const tuitionMonthClosed = closedMonths.has(tuitionMonth);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [tuitionDue, setTuitionDue] = useState("");
 
@@ -70,15 +76,36 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
   }, []);
 
   // The due date follows the month picked, until someone types one.
+  // A month already over gets a week from today, so a late invoice is not overdue
+  // the moment it is created (overdue invoices can pause a family's access).
   useEffect(() => {
-    setTuitionDue(`${tuitionMonth}-${pad(settings.due_day)}`);
-  }, [tuitionMonth, settings.due_day]);
+    setTuitionDue(tuitionMonth < thisMonth ? addDays(today, 7) : `${tuitionMonth}-${pad(settings.due_day)}`);
+  }, [tuitionMonth, settings.due_day, thisMonth, today]);
 
-  const matches = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!users || !term) return [];
-    return users.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(term)).slice(0, 8);
-  }, [users, search]);
+  useEffect(() => {
+    let alive = true;
+    void loadClosedMonths().then((set) => alive && setClosedMonths(set));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // A child's Student ID finds the family that pays for them (one exact lookup, after typing pauses).
+  useEffect(() => {
+    const term = search.trim();
+    setCodeMatches(new Set());
+    if (!looksLikeStudentCode(term)) return;
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void loadPayersForStudentCode(term).then((ids) => alive && setCodeMatches(new Set(ids)));
+    }, 350);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
+  const matches = useMemo(() => (users ? matchFamilies(users, search, codeMatches) : []), [users, search, codeMatches]);
 
   const pickParent = async (u: Billable) => {
     setParent(u);
@@ -118,7 +145,7 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
     .map((c) => ({ child: c, amount: Number(amounts[c.id] ?? "") }))
     .filter((l) => (amounts[l.child.id] ?? "").trim() !== "" && Number.isFinite(l.amount) && l.amount >= 0);
   const tuitionTotal = r2(tuitionLines.reduce((s, l) => s + l.amount, 0));
-  const tuitionOk = !!parent && !clash && tuitionLines.some((l) => l.amount > 0) && /^\d{4}-\d{2}-\d{2}$/.test(tuitionDue);
+  const tuitionOk = !!parent && !clash && !tuitionMonthClosed && tuitionLines.some((l) => l.amount > 0) && /^\d{4}-\d{2}-\d{2}$/.test(tuitionDue);
   const oneOffAmount = Number(oneOff.amount);
   const oneOffOk = !!parent && !!oneOff.studentId && !!oneOff.description.trim() && oneOff.amount.trim() !== "" && Number.isFinite(oneOffAmount) && oneOffAmount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(oneOff.due);
 
@@ -192,7 +219,7 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
       return out.invoiceId;
     });
 
-  const monthOptions = [addMonths(thisMonth, -1), thisMonth, addMonths(thisMonth, 1), addMonths(thisMonth, 2)];
+  const monthOptions = invoiceMonthOptions(thisMonth, closedMonths);
 
   return (
     <Modal label="New invoice" onClose={onClose} maxWidth="max-w-[560px]">
@@ -229,7 +256,7 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
       ) : (
         <div className="flex flex-col gap-1.5">
           <Field label="Parent">
-            <input className={inputClass} type="text" value={search} placeholder={users ? "Search by name or email" : "Loading families…"} disabled={!users} onChange={(e) => setSearch(e.target.value)} />
+            <input className={inputClass} type="text" value={search} placeholder={users ? "Name, email, phone or Student ID" : "Loading families…"} disabled={!users} onChange={(e) => setSearch(e.target.value)} />
           </Field>
           {matches.length > 0 ? (
             <ul className="flex flex-col overflow-hidden rounded-lg border border-slate-200">
@@ -301,8 +328,9 @@ export function NewInvoiceDialog({ settings, now, onClose, onOpen, onCreated }: 
             <Field label="For month">
               <select className={inputClass} value={tuitionMonth} onChange={(e) => setTuitionMonth(e.target.value)}>
                 {monthOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {monthLabel(m)}
+                  <option key={m.month} value={m.month} disabled={m.closed}>
+                    {monthLabel(m.month)}
+                    {m.closed ? " (closed)" : ""}
                   </option>
                 ))}
               </select>

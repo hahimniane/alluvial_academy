@@ -170,6 +170,38 @@ export async function loadFinanceSettings(): Promise<FinanceSettingsView> {
   }
 }
 
+/** Every closed finance month (a handful of documents). */
+export async function loadClosedMonths(): Promise<Set<string>> {
+  try {
+    const snap = await getDocs(query(collection(db, FIN.months), where("status", "==", "closed"), limit(240)));
+    return new Set(snap.docs.map((d) => d.id));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Who pays for the student with this exact Student ID: their guardians, or the student when adult. */
+export async function loadPayersForStudentCode(code: string): Promise<string[]> {
+  const term = code.trim();
+  if (!term) return [];
+  try {
+    const [byCode, byLower] = await Promise.all([
+      getDocs(query(collection(db, "users"), where("student_code", "==", term), limit(5))),
+      term === term.toLowerCase() ? Promise.resolve(null) : getDocs(query(collection(db, "users"), where("student_code", "==", term.toLowerCase()), limit(5))),
+    ]);
+    const ids = new Set<string>();
+    for (const d of [...byCode.docs, ...(byLower?.docs ?? [])]) {
+      const data = d.data();
+      const guardians = (Array.isArray(data.guardian_ids) ? data.guardian_ids : Array.isArray(data.guardianIds) ? data.guardianIds : []).map(str).filter(Boolean);
+      guardians.forEach((g: string) => ids.add(g));
+      if (data.is_adult_student === true) ids.add(d.id);
+    }
+    return [...ids];
+  } catch {
+    return [];
+  }
+}
+
 export async function loadMonthClosed(month: string | null): Promise<boolean> {
   if (!month) return false;
   try {
@@ -301,7 +333,7 @@ export async function loadTeachersForStudents(
 
 /* ------------------------------------------------------------ pickers (new) -- */
 
-export type Billable = { id: string; name: string; email: string; userType: "parent" | "student"; childrenIds: string[] };
+export type Billable = { id: string; name: string; email: string; userType: "parent" | "student"; childrenIds: string[]; phone: string; code: string };
 
 export async function loadBillableUsers(): Promise<Billable[]> {
   const [parents, adults] = await Promise.all([
@@ -317,6 +349,8 @@ export async function loadBillableUsers(): Promise<Billable[]> {
       email: str(data["e-mail"] ?? data.email),
       userType: str(data.user_type) === "student" ? "student" : "parent",
       childrenIds: (Array.isArray(data.children_ids) ? data.children_ids : Array.isArray(data.childrenIds) ? data.childrenIds : []).map(str).filter(Boolean),
+      phone: `${str(data.country_code ?? data.countryCode)}${str(data.phone_number ?? data.phoneNumber ?? data.phone)}`.replace(/\D/g, ""),
+      code: studentCodeOf(data),
     });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));

@@ -5,6 +5,7 @@ import { money } from "@/lib/finance/model";
 import { monthLabel } from "@/lib/finance/months";
 import { extendAccessTarget, formatDay, invoiceState, toneFor, type CutOffStudent } from "@/lib/finance/invoices";
 import { callExtendAccess, errorMessage } from "./data";
+import { ExtendAccessControl } from "./ExtendAccessControl";
 import { Badge, Field, Notice, inputClass, outlineButton } from "./ui";
 
 /**
@@ -57,14 +58,14 @@ export function CutOffPanel({
   const families = new Set(view.filter((r) => r.invoices.length).map((r) => r.parentId)).size;
   const multi = view.filter((r) => r.invoices.length > 1).length;
 
-  const extend = async (parentId: string) => {
+  const extend = async (parentId: string, dayKey: string, label: string) => {
     setBusyParent(parentId);
     setMessage(null);
     try {
-      const result = await callExtendAccess({ parentId, scope: "parent", extendTo: `${extendTarget.key}T12:00:00.000Z` });
+      const result = await callExtendAccess({ parentId, scope: "parent", extendTo: `${dayKey}T12:00:00.000Z` });
       setMessage({
         tone: "ok",
-        text: `${names.get(parentId) || "The family"}'s class access is extended to ${extendTarget.label}${result.updatedInvoices > 1 ? ` on ${result.updatedInvoices} invoices` : ""}.`,
+        text: `${names.get(parentId) || "The family"}'s class access is extended to ${label}${result.updatedInvoices > 1 ? ` on ${result.updatedInvoices} invoices` : ""}.`,
       });
       onChanged();
     } catch (e) {
@@ -143,9 +144,7 @@ export function CutOffPanel({
 
                 {r.invoices.length ? (
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className={outlineButton} disabled={busyParent !== ""} onClick={() => extend(r.parentId)}>
-                      {busyParent === r.parentId ? "Extending…" : `Extend access to ${extendTarget.label}`}
-                    </button>
+                    <ExtendAccessControl now={now} suggestedKey={extendTarget.key} busy={busyParent === r.parentId} disabled={busyParent !== ""} onExtend={(day, label) => void extend(r.parentId, day, label)} />
                     <span className="self-center text-xs text-slate-600">Open an invoice to record a payment or send its payment link.</span>
                   </div>
                 ) : null}

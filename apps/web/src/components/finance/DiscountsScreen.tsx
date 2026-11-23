@@ -4,6 +4,7 @@ import { httpsCallable } from "firebase/functions";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFinance } from "@/components/finance/FinanceShell";
+import { AddDiscount } from "@/components/finance/AddDiscount";
 import { db, functions } from "@/lib/firebase";
 import {
   buildActiveDiscounts,
@@ -236,7 +237,15 @@ export function DiscountsScreen() {
         ))}
       </div>
 
-      <h3 className="mb-0 mt-1.5 text-base font-bold">Active discounts · {monthLabel(month)}</h3>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <h3 className="m-0 flex-1 text-base font-bold">Active discounts · {monthLabel(month)}</h3>
+        <AddDiscount
+          onSaved={(text) => {
+            setNotice(text);
+            void load();
+          }}
+        />
+      </div>
       <div className={`${card} relative overflow-x-auto`}>
         <table className="w-full min-w-[620px] border-collapse text-[13px]">
           <caption className="sr-only">Active discounts in {monthLabel(month)}</caption>

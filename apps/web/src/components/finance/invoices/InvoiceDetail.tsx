@@ -41,6 +41,7 @@ import {
   type FamilyBilling,
   type FinanceSettingsView,
 } from "./data";
+import { ExtendAccessControl } from "./ExtendAccessControl";
 import { Badge, CloseButton, Field, Modal, Notice, blueOutlineButton, dangerButton, inputClass, outlineButton, primaryButton } from "./ui";
 
 const PAY_METHODS: ReadonlyArray<{ value: string; label: string }> = [
@@ -231,11 +232,11 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
       await refresh();
       setMessage({ tone: out.sent ? "ok" : "info", text: out.sent ? `Reminder sent to ${parentName}.` : `The reminder could not be delivered to ${parentName}. It is recorded in the history.` });
     });
-  const extendAccess = () =>
+  const extendAccess = (dayKey: string, label: string) =>
     run("extend", async () => {
-      await callExtendAccess({ parentId: inv.parentId, scope: "parent", extendTo: `${extendTarget.key}T12:00:00.000Z` });
+      await callExtendAccess({ parentId: inv.parentId, scope: "parent", extendTo: `${dayKey}T12:00:00.000Z` });
       await refresh();
-      setMessage({ tone: "ok", text: `Class access is extended to ${extendTarget.label}.` });
+      setMessage({ tone: "ok", text: `Class access is extended to ${label}.` });
     });
 
   /* ----- payment link ----- */
@@ -601,9 +602,7 @@ export function InvoiceDetail({ invoiceId, initial, settings, now, onClose, onCh
             </button>
           ) : null}
           {state.late ? (
-            <button type="button" className={outlineButton} disabled={busy !== ""} onClick={extendAccess}>
-              {busy === "extend" ? "Extending…" : `Extend access to ${extendTarget.label}`}
-            </button>
+            <ExtendAccessControl now={now} suggestedKey={extendTarget.key} busy={busy === "extend"} disabled={busy !== ""} onExtend={(day, label) => void extendAccess(day, label)} />
           ) : null}
         </div>
       ) : null}
