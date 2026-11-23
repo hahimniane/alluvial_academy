@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Alluwal Zoom Hub Bot</title>
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/bootstrap.css" />
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/6.2.0/css/react-select.css" />
   <style>
     html, body, #zmmtg-root {
       width: 640px;
@@ -31,12 +29,31 @@
   <div id="zmmtg-root"></div>
 
   <script src="routing.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js"></script>
-  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js"></script>
-  <script src="https://source.zoom.us/zoom-meeting-6.2.0.min.js"></script>
+  <script src="sdk_health.js"></script>
+  <script>
+    // The Zoom Web SDK version comes from bot.js (ZOOM_HUB_BOT_SDK_VERSION), so
+    // moving between versions, or back, is a restart rather than a code change.
+    // Parser-inserted with document.write so the bundles still load in order.
+    (function loadZoomSdk() {
+      const DEFAULT_ZOOM_SDK_VERSION = '6.10.0';
+      const requested = new URLSearchParams(window.location.search).get('sdkVersion') || '';
+      const version = /^\d+\.\d+\.\d+$/.test(requested) ? requested : DEFAULT_ZOOM_SDK_VERSION;
+      window.ZOOM_SDK_VERSION = version;
+      const base = `https://source.zoom.us/${version}`;
+      const scripts = [
+        `${base}/lib/vendor/react.min.js`,
+        `${base}/lib/vendor/react-dom.min.js`,
+        `${base}/lib/vendor/redux.min.js`,
+        `${base}/lib/vendor/redux-thunk.min.js`,
+        // Required from 6.5.0 on ("ReactRedux is not defined" without it);
+        // served for 6.2.0 too and harmless there.
+        `${base}/lib/vendor/react-redux.min.js`,
+        `${base}/lib/vendor/lodash.min.js`,
+        `https://source.zoom.us/zoom-meeting-${version}.min.js`,
+      ];
+      for (const src of scripts) document.write(`<script src="${src}"><\/script>`);
+    })();
+  </script>
   <script>
     (function runBotController() {
       const params = new URLSearchParams(window.location.search);
@@ -54,6 +71,9 @@
         rooms: [],
         boIdByRoomName: {},
         windowEnd: params.get('windowEnd') || '',
+        // Latest moment to wait for an earlier host session of this lane to
+        // leave the meeting before opening rooms anyway (bot.js sets it).
+        oldHostDeadline: Number(params.get('oldHostDeadline')) || 0,
       };
       try {
         config.rooms = JSON.parse(params.get('rooms') || '[]').map((name) => String(name || '').trim()).filter(Boolean);
@@ -111,6 +131,7 @@
       let roomsCreatedFresh = false;
       let lastHealAttemptAt = 0;
       const healThrottleMs = 20000;
+      const forceRejoinSettleMs = 90000;
       // When an in-place close+reopen cannot restore a readable room list, the
       // meeting instance is corrupted beyond repair. After this many consecutive
       // failed self-heals we ask the backend to END the meeting so we can rejoin
@@ -121,8 +142,32 @@
       const assignedNotJoinedByParticipant = new Map();
       const assignedNotJoinedThresholdMs = 20000;
       let assignedNotJoinedRepairAttempts = 0;
-      const controllerVersion = '2026-07-22-assigned-arrival-v1';
-      console.log('Controller version', controllerVersion);
+      const controllerVersion = '2026-11-23-fast-recovery-v1';
+      console.log('Controller version', controllerVersion, 'Zoom SDK', window.ZOOM_SDK_VERSION);
+      const sdkHealthApi = window.ZoomHubSdkHealth;
+      const sdkHealth = sdkHealthApi.createTracker();
+      let connectionDead = false;
+      // When this page's first state report was accepted. A backend force-rejoin
+      // stamped right after it was decided on the heartbeat from before this
+      // page joined (see routeOnce), so it is not acted on.
+      let firstStateAcceptedAt = 0;
+      // The SDK prints this when an action finds its socket gone. Healthy hubs
+      // print it now and then, so on its own it decides nothing; it makes a
+      // missed deadline count sooner.
+      const originalConsoleError = console.error.bind(console);
+      console.error = (...args) => {
+        try {
+          if (args.some((arg) => String((arg && arg.message) || arg).includes(sdkHealthApi.SOCKET_ERROR_MARKER))) {
+            sdkHealth.noteSocketError(Date.now());
+          }
+        } catch (_) {}
+        originalConsoleError(...args);
+      };
+      window.addEventListener('error', (event) => {
+        if (String(event && event.message).includes(sdkHealthApi.SOCKET_ERROR_MARKER)) {
+          sdkHealth.noteSocketError(Date.now());
+        }
+      });
 
       function setStatus(message) {
         if (statusEl) statusEl.textContent = message;
@@ -150,33 +195,87 @@
         }
       }
 
-      function zoomCall(method, args) {
+      // Each Zoom call gets a deadline. Without one, a call the SDK never
+      // answers — what it does once its connection to Zoom is gone — held the
+      // routing loop forever, and only the 3-minute silence check in bot.js
+      // noticed (four times on 2026-11-20). A missed deadline is also the
+      // evidence sdkHealth judges the connection on.
+      function zoomCall(method, args, timeoutMs) {
+        const startedAt = Date.now();
+        const limitMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : sdkHealthApi.callTimeoutMs(method);
         return new Promise((resolve, reject) => {
           if (!window.ZoomMtg || typeof window.ZoomMtg[method] !== 'function') {
             reject(new Error(`Zoom method unavailable: ${method}`));
             return;
           }
+          let settled = false;
+          const settle = (outcome, value, error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            noteZoomOutcome(method, outcome, { startedAt, at: Date.now(), error });
+            if (outcome === 'ok') resolve(value);
+            else reject(error);
+          };
+          const timer = setTimeout(() => {
+            const error = new Error(`Zoom call ${method} got no answer in ${Math.round(limitMs / 1000)}s`);
+            error.zoomCallTimedOut = true;
+            error.method = method;
+            settle('timeout', null, error);
+          }, limitMs);
           try {
             window.ZoomMtg[method]({
               ...(args || {}),
-              success: (value) => resolve(value),
-              error: (error) => reject(error),
+              success: (value) => settle('ok', value),
+              error: (error) => settle('error', null, error),
             });
           } catch (error) {
-            reject(error);
+            settle('error', null, error);
           }
         });
       }
 
+      function noteZoomOutcome(method, outcome, detail) {
+        const verdict = sdkHealth.record(method, outcome, detail);
+        if (verdict && verdict.dead) declareConnectionDead(verdict.reason);
+      }
+
+      // The page's own connection is gone: stop acting on it and tell bot.js,
+      // which recycles the page and rejoins once the old host session clears.
+      function declareConnectionDead(reason) {
+        if (connectionDead) return;
+        connectionDead = true;
+        console.error(`${sdkHealthApi.DEAD_MARKER} ${reason}`);
+        setStatus(`Zoom connection lost: ${reason}`);
+      }
+
+      // The backend can hang too, and a fetch has no deadline of its own. A
+      // slow backend is not a dead Zoom connection, so this does not count
+      // toward sdkHealth; it only keeps the loop moving.
+      const botFetchTimeoutMs = 20000;
+
       async function botFetch(path, options) {
-        const response = await fetch(`${config.functionBaseUrl}${path}`, {
-          ...(options || {}),
-          headers: {
-            'x-bot-key': config.botKey,
-            ...((options && options.body) ? { 'content-type': 'application/json' } : {}),
-            ...((options && options.headers) || {}),
-          },
-        });
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), botFetchTimeoutMs) : null;
+        let response;
+        try {
+          response = await fetch(`${config.functionBaseUrl}${path}`, {
+            ...(options || {}),
+            ...(controller ? { signal: controller.signal } : {}),
+            headers: {
+              'x-bot-key': config.botKey,
+              ...((options && options.body) ? { 'content-type': 'application/json' } : {}),
+              ...((options && options.headers) || {}),
+            },
+          });
+        } catch (error) {
+          if (error && error.name === 'AbortError') {
+            throw new Error(`Backend ${path.split('?')[0]} got no answer in ${botFetchTimeoutMs / 1000}s`);
+          }
+          throw error;
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
         const body = await response.json().catch(() => ({}));
         if (!response.ok || body.success === false) {
           const error = new Error(body.error || `HTTP ${response.status}`);
@@ -216,6 +315,7 @@
             method: 'POST',
             body: JSON.stringify(body),
           });
+          if (!firstStateAcceptedAt) firstStateAcceptedAt = Date.now();
         } catch (error) {
           // A hub that no longer exists is a normal ending, not a fault: node
           // drops this session on its next poll because the hub is gone from
@@ -508,6 +608,8 @@
             0,
           );
         }
+        // People in rooms raise the bar for calling the connection dead.
+        sdkHealth.setOccupied(lastKnownInRoomCount > 0);
         const attendeeList = Array.isArray(attendeesPayload)
           ? attendeesPayload
           : routing.normalizeUnassigned(attendeesPayload);
@@ -813,7 +915,15 @@
         // Backend force-rejoin signal (zombie meeting detected server-side):
         // reload into a fresh instance. Only when nobody is inside a room.
         const forceRejoinAt = Number(assignments && assignments.forceRejoinAt);
-        if (Number.isFinite(forceRejoinAt) && forceRejoinAt > pageLoadedAt) {
+        // The watchdog stamps this when it last saw a stale heartbeat. A stamp
+        // landing within ~90s of this page's first report was decided on the
+        // silence BEFORE this page joined — on 2026-11-20 lane 3 opened its
+        // rooms after a recycle and then reloaded and opened them again for
+        // exactly that reason. A real zombie is stamped again after the
+        // watchdog's 3-minute throttle, and that one is acted on.
+        const stampPredatesThisPage = firstStateAcceptedAt > 0 &&
+          forceRejoinAt < firstStateAcceptedAt + forceRejoinSettleMs;
+        if (Number.isFinite(forceRejoinAt) && forceRejoinAt > pageLoadedAt && !stampPredatesThisPage) {
           const currentState = await readBreakoutState().catch(() => null);
           const inRoom = currentState ? inRoomParticipantCount(currentState) : 0;
           if (inRoom === 0) {
@@ -1025,7 +1135,7 @@
 
       async function routingLoop() {
         let lastHeartbeat = 0;
-        while (!leaving) {
+        while (!leaving && !connectionDead) {
           if (shouldLeave()) {
             await leaveMeeting();
             return;
@@ -1038,6 +1148,7 @@
               lastHeartbeat = now;
             }
           } catch (error) {
+            if (connectionDead) return;
             console.error('Routing loop failed', error);
             await postState('error', { error }).catch(() => {});
           }
@@ -1045,9 +1156,96 @@
         }
       }
 
+      const JOIN_REFUSED_MARKER = 'Zoom join refused:';
+      const oldHostPollMs = 3000;
+
+      function attendeeListOf(payload) {
+        const result = payload && payload.result ? payload.result : payload;
+        const list = result && (result.attendeesList || result.attendeeList || result.attendees);
+        return Array.isArray(list) ? list : (Array.isArray(result) ? result : []);
+      }
+
+      // Who this page is in the meeting, and whether an older session of the
+      // same bot is still there with it.
+      async function hostSessionView() {
+        const current = await zoomCall('getCurrentUser', {}, 10000).catch(() => null);
+        const self = (current && current.result && current.result.currentUser) || null;
+        const attendees = attendeeListOf(await zoomCall('getAttendeeslist', {}, 10000).catch(() => null));
+        const botUid = `zoom_hub_bot_lane_${config.lane}`;
+        const botName = routing.normalizeRoomName(`Alluwal Hub Bot Lane ${config.lane}`);
+        const selfId = self ? String(self.userId) : '';
+        const others = attendees.filter((person) => String(routing.zoomUserId(person)) !== selfId);
+        const oldSessions = others.filter((person) => (
+          String(routing.zoomCustomerKey(person) || '') === botUid ||
+          routing.normalizeRoomName(routing.zoomDisplayName(person)) === botName
+        ));
+        const otherHosts = others.filter((person) => person && (person.isHost === true || person.is_host === true));
+        return {
+          known: Boolean(self),
+          isHost: Boolean(self && (self.isHost === true || self.is_host === true)),
+          oldSessions: oldSessions.map((person) => String(routing.zoomUserId(person))),
+          otherHosts: otherHosts.map((person) => String(routing.zoomUserId(person))),
+          attendeeCount: attendees.length,
+        };
+      }
+
+      // A recycled page leaves its host session behind in Zoom, and Zoom keeps
+      // it — as the host — for two to three minutes (measured 2026-11-23: 90s
+      // after a cut connection, ~175s after a plain stop). A page that joins
+      // meanwhile gets in, but as an ordinary participant: it cannot open rooms
+      // or move anybody, and opening rooms around a second host is what gave
+      // the conflicting room operations behind the old fixed 150s wait.
+      //
+      // So the rejoined page keeps its rooms shut until it is the only host.
+      // It is the account's own original host, so it can take the host role
+      // back from the dead session itself (ZoomMtg.reclaimHost) instead of
+      // waiting for Zoom to time that session out. It gives up waiting at the
+      // same 150s cap. A first join with nobody left behind passes straight
+      // through. The heartbeat keeps going so the watchdog does not read the
+      // wait as a dead bot and order yet another rejoin.
+      async function waitForOldHostSession() {
+        const deadline = config.oldHostDeadline || (Date.now() + 150000);
+        const startedAt = Date.now();
+        let announced = false;
+        let lastReclaimAt = 0;
+        let lastBeatAt = Date.now();
+        while (!connectionDead) {
+          const view = await hostSessionView();
+          const clear = view.known && view.isHost && view.otherHosts.length === 0;
+          if (clear) {
+            if (announced) {
+              console.log('Host role confirmed', JSON.stringify({ waitedMs: Date.now() - startedAt, ...view }));
+            }
+            return true;
+          }
+          if (Date.now() >= deadline) {
+            console.warn('Old host session still present at the cap; opening rooms anyway', JSON.stringify(view));
+            return false;
+          }
+          if (!announced) {
+            announced = true;
+            console.warn('Waiting for the old host session to leave before opening rooms', JSON.stringify(view));
+            setStatus('Waiting for the previous host session to leave');
+          }
+          // The SDK throttles this call to one per 5s.
+          if (view.known && !view.isHost && Date.now() - lastReclaimAt > 6000) {
+            lastReclaimAt = Date.now();
+            await zoomCall('reclaimHost', {}, 10000)
+              .then(() => console.log('Asked Zoom to hand the host role back from the old session'))
+              .catch((error) => console.warn('reclaimHost failed', serializeError(error)));
+          }
+          if (Date.now() - lastBeatAt > heartbeatIntervalMs) {
+            lastBeatAt = Date.now();
+            await postState('joined', { stats: { waitingForOldHost: true } }).catch(() => {});
+          }
+          await sleep(oldHostPollMs);
+        }
+        return false;
+      }
+
       function joinMeeting() {
         setStatus(`Joining hub ${config.hubDocId}`);
-        window.ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
+        window.ZoomMtg.setZoomJSLib(`https://source.zoom.us/${window.ZOOM_SDK_VERSION}/lib`, '/av');
         window.ZoomMtg.preLoadWasm();
         window.ZoomMtg.prepareWebSDK();
         window.ZoomMtg.i18n.load('en-US');
@@ -1073,15 +1271,29 @@
               success: async () => {
                 joined = true;
                 setStatus('Joined as host');
+                sdkHealth.arm();
                 await postState('joined').catch(() => {});
+                await waitForOldHostSession();
+                if (connectionDead) return;
                 await ensureRoomsOpen();
                 routingLoop();
               },
               error: async (error) => {
                 setStatus('Zoom join failed');
-                console.error('Zoom join failed detail', serializeError(error));
-                await postState('error', { error }).catch(() => {});
-                throw error;
+                // The SDK's join error carries the session's tokens (zsk, zak);
+                // only the code and message go to the log and the hub doc.
+                const joinError = {
+                  method: 'join',
+                  errorCode: error && error.errorCode,
+                  errorMessage: error && error.errorMessage,
+                };
+                console.error('Zoom join failed detail', JSON.stringify(joinError));
+                await postState('error', { error: joinError }).catch(() => {});
+                // bot.js closes this page and tries again shortly. Nothing was
+                // opened, so a refused join (errorCode 3000 while the lane's
+                // previous host session is still in Zoom) costs a retry, never
+                // a room reopen.
+                console.warn(`${JOIN_REFUSED_MARKER} ${joinError.errorCode} ${String(joinError.errorMessage || '').slice(0, 120)}`);
               },
             });
           },

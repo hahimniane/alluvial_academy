@@ -22,6 +22,23 @@ export ZOOM_HUB_BOT_KEY="secret-manager-value"
 export ZOOM_HUB_LANE="1"
 ```
 
+Optional tuning (defaults in brackets):
+
+- `ZOOM_HUB_BOT_SDK_VERSION` [6.10.0, the default in `bot_controller.html`] — the
+  Zoom Web Meeting SDK the hub pages load from `source.zoom.us`. Changing or
+  rolling it back is an env change plus a lane restart.
+- `ZOOM_HUB_BOT_GHOST_MIN_MS` [10000] — least wait before rejoining a recycled
+  hub. The rejoined page then keeps its rooms shut until it holds the host role
+  (it reclaims it from the dead session), up to `ZOOM_HUB_BOT_GHOST_CLEAR_MS`
+  [150000].
+- `ZOOM_HUB_BOT_JOIN_RETRY_MS` [10000] — retry spacing for a join Zoom refused
+  (errorCode 3000) during the first 150s; the poll interval after that.
+
+How a dead page is noticed, fastest first: the page's own verdict on its Zoom
+calls (`sdk_health.js`: an unanswered read, or reads failing with a lost-host
+error for 15s), an unanswered probe from node on two polls in a row, 60 SDK
+socket errors in 10 minutes, and the 3-minute routing silence in `liveness.js`.
+
 `playwright` is required because the bot must run the Zoom Meeting SDK in a real
 Chromium page. `jest` is used for the pure routing-diff tests.
 
