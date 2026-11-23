@@ -248,11 +248,11 @@ const createMonthlyInvoice = async ({deps, parentId, month, settings, attended =
       users.set(allIds[i], s.data() || {});
       studentNames[allIds[i]] = displayName(s.data());
     });
-    // Archived children, and children with no class last month, are not
-    // billed; their share comes off the amount.
+    // Archived children, and children not present in any class last month,
+    // are not billed; their share comes off the amount.
     const billable = billableFamily({amount: math.amountForMonth(fb, month), studentIds: allIds, studentAmounts: fb.student_amounts, users, attended: attendedSet});
     const {amount, studentIds} = billable;
-    if (!studentIds.length && billable.dropped.length) return {created: false, reason: 'no_class_last_month', invoiceId};
+    if (!studentIds.length && billable.dropped.length) return {created: false, reason: 'not_present_last_month', invoiceId};
     if (!(amount > 0)) return {created: false, reason: 'no_amount', invoiceId};
 
     const credits = await readOpenCredits(tx, db, parentId);
@@ -803,21 +803,25 @@ const isArchivedStudent = (user) =>
  * `users` maps student id -> user data.
  */
 /**
- * Students who had at least one class held in the month before `month`
- * (live + archived shifts). The monthly invoice for `month` only bills them:
- * a child with no class last month has most likely stopped coming.
+ * Students who were present in at least one class in the month before
+ * `month`. Presence is the record written when a student joins a class
+ * (`livekit_sessions/{shiftId}_{uid}`: a join, or time in class); it agrees
+ * with what the Zoom hub bot sees. The monthly invoice for `month` only bills
+ * these children.
  */
 const attendedLastMonth = async (db, month) => {
   const previous = math.addMonths(month, -1);
-  const docs = await shiftsInRange(db, {
-    start: math.startOfNyDay(`${previous}-01`),
-    end: math.startOfNyDay(`${month}-01`),
-  });
+  const snap = await db.collection('livekit_sessions')
+    .where('shift_start', '>=', math.startOfNyDay(`${previous}-01`))
+    .where('shift_start', '<', math.startOfNyDay(`${month}-01`))
+    .get();
   const attended = new Set();
-  for (const doc of docs) {
-    const shift = doc.data() || {};
-    if (!COMPLETED_STATUSES.has(str(shift.status))) continue;
-    for (const id of list(shift.student_ids)) if (str(id)) attended.add(str(id));
+  for (const doc of snap.docs) {
+    const session = doc.data() || {};
+    const uid = str(session.user_id);
+    if (!uid || !list(session.student_ids).map(str).includes(uid)) continue;
+    const joined = Number(session.join_count) > 0 || Number(session.total_presence_seconds) > 0 || Boolean(session.first_joined_at);
+    if (joined) attended.add(uid);
   }
   return attended;
 };
@@ -825,13 +829,13 @@ const attendedLastMonth = async (db, month) => {
 /**
  * The children an invoice bills, and the amount once the others' shares come
  * off. Archived children are never billed; when `attended` is given, neither
- * is a child with no class last month.
+ * is a child who was not present in any class last month.
  */
 const billableFamily = ({amount, studentIds, studentAmounts, users, attended = null}) => {
   const reasons = {};
   for (const id of studentIds) {
     if (isArchivedStudent(users.get(id))) reasons[id] = 'archived';
-    else if (attended && !attended.has(id)) reasons[id] = 'no_class_last_month';
+    else if (attended && !attended.has(id)) reasons[id] = 'not_present_last_month';
   }
   const dropped = studentIds.filter((id) => reasons[id]);
   if (!dropped.length) return {amount, studentIds, studentAmounts, dropped, reasons};

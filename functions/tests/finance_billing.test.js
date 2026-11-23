@@ -29,16 +29,23 @@ const ADMIN = {user_type: 'admin', first_name: 'Hawa', last_name: 'Admin'};
 const parent = (over = {}) => ({user_type: 'parent', first_name: 'Fatou', last_name: 'Diallo', 'e-mail': 'fatou@example.com', ...over});
 const student = (name) => ({user_type: 'student', first_name: name, last_name: 'Diallo'});
 
-// One class held each month for every child, so the monthly run bills them
-// (it only bills children who had a class the month before).
-const attendedEveryMonth = () => {
-  const shifts = {};
+// Every child present in one class each month, so the monthly run bills them
+// (it only bills children present in a class the month before).
+const presence = (id, month, over = {}) => ({
+  user_id: id,
+  role: 'student',
+  student_ids: [id],
+  join_count: 1,
+  total_presence_seconds: 1800,
+  shift_start: FakeTimestamp.fromDate(new Date(`${month}-10T21:00:00Z`)),
+  ...over,
+});
+const presentEveryMonth = () => {
+  const sessions = {};
   for (const month of ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12']) {
-    for (const id of ['stu_1', 'stu_2', 'stu_3']) {
-      shifts[`att_${id}_${month}`] = {student_ids: [id], status: 'fullyCompleted', shift_start: FakeTimestamp.fromDate(new Date(`${month}-10T21:00:00Z`)), teacher_id: 't_att'};
-    }
+    for (const id of ['stu_1', 'stu_2', 'stu_3']) sessions[`pres_${id}_${month}`] = presence(id, month);
   }
-  return shifts;
+  return sessions;
 };
 
 const baseSeed = () => ({
@@ -50,8 +57,7 @@ const baseSeed = () => ({
     stu_2: student('Omar'),
     stu_3: student('Kadi'),
   },
-  teaching_shifts: attendedEveryMonth(),
-  teaching_shifts_archive: {},
+  livekit_sessions: presentEveryMonth(),
 });
 
 let lock;
@@ -966,21 +972,21 @@ describe('students who no longer attend', () => {
     expect(inv.items.map((i) => i.student_id)).toEqual(['stu_2']);
   });
 
-  // Rule (owner, 2026-11-23): a monthly invoice only bills children who had at
-  // least one class held in the month before it. Classes held = completed or
-  // partly completed, read from live and archived classes.
-  const dropOctober = (s, id) => {
-    delete s.teaching_shifts[`att_${id}_2026-10`];
+  // Rule (owner, 2026-11-23): a monthly invoice only bills children who were
+  // present in at least one class in the month before it (a join or time in
+  // class recorded for them on a class they belong to).
+  const absentInOctober = (s, id) => {
+    delete s.livekit_sessions[`pres_${id}_2026-10`];
   };
 
-  test('a child with no class last month is not billed and their share comes off', async () => {
+  test('a child not present in any class last month is not billed and their share comes off', async () => {
     const s = families();
-    dropOctober(s, 'stu_3');
+    absentInOctober(s, 'stu_3');
     const deps = makeDeps(s, '2026-10-25T10:00:00Z');
     const plan = await finance.previewMonthlyBilling({auth: {uid: 'admin_1'}, data: {month: '2026-11'}}, deps);
     const row = plan.rows.find((r) => r.parent_id === 'parent_2');
     expect(row).toMatchObject({monthly_amount: 100, student_ids: ['stu_2']});
-    expect(row.not_billed).toEqual([{student_id: 'stu_3', name: 'Kadi Diallo', reason: 'no_class_last_month'}]);
+    expect(row.not_billed).toEqual([{student_id: 'stu_3', name: 'Kadi Diallo', reason: 'not_present_last_month'}]);
     expect(plan.attended).toBeUndefined();
 
     await finance.runMonthlyGeneration(deps);
@@ -990,10 +996,10 @@ describe('students who no longer attend', () => {
     expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeDefined();
   });
 
-  test('a family with no class at all last month gets no invoice', async () => {
+  test('a family with no child present last month gets no invoice', async () => {
     const s = families();
-    dropOctober(s, 'stu_2');
-    dropOctober(s, 'stu_3');
+    absentInOctober(s, 'stu_2');
+    absentInOctober(s, 'stu_3');
     const deps = makeDeps(s, '2026-10-25T10:00:00Z');
     const result = await finance.runMonthlyGeneration(deps);
     expect(deps.db.store.invoices['monthly_parent_2_2026-11']).toBeUndefined();
@@ -1001,23 +1007,23 @@ describe('students who no longer attend', () => {
     expect(result).toMatchObject({created: 1});
   });
 
-  test('only a class held counts; scheduled, missed or cancelled ones do not, and other months do not', async () => {
+  test('a record with no join and no time, another month, or another student\'s class does not count', async () => {
     const s = families();
-    dropOctober(s, 'stu_1');
-    s.teaching_shifts.oct_missed = {student_ids: ['stu_1'], status: 'missed', shift_start: ts('2026-10-12T21:00:00Z'), teacher_id: 't1'};
-    s.teaching_shifts.oct_cancel = {student_ids: ['stu_1'], status: 'cancelled', shift_start: ts('2026-10-13T21:00:00Z'), teacher_id: 't1'};
-    s.teaching_shifts.oct_future = {student_ids: ['stu_1'], status: 'scheduled', shift_start: ts('2026-10-30T21:00:00Z'), teacher_id: 't1'};
+    absentInOctober(s, 'stu_1');
+    s.livekit_sessions.no_join = presence('stu_1', '2026-10', {join_count: 0, total_presence_seconds: 0});
+    s.livekit_sessions.next_month = presence('stu_1', '2026-11');
+    s.livekit_sessions.not_member = presence('stu_1', '2026-10', {student_ids: ['stu_9']});
     const deps = makeDeps(s, '2026-10-25T10:00:00Z');
     await finance.runMonthlyGeneration(deps);
     expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeUndefined();
   });
 
-  test('a partly taught class, or one already moved to the archive, counts', async () => {
+  test('a join with no time recorded yet, or time with no join count, counts', async () => {
     const s = families();
-    dropOctober(s, 'stu_1');
-    dropOctober(s, 'stu_2');
-    s.teaching_shifts.oct_partial = {student_ids: ['stu_1'], status: 'partiallyCompleted', shift_start: ts('2026-10-12T21:00:00Z'), teacher_id: 't1'};
-    s.teaching_shifts_archive.oct_old = {student_ids: ['stu_2'], status: 'completed', shift_start: ts('2026-10-02T21:00:00Z'), teacher_id: 't1'};
+    absentInOctober(s, 'stu_1');
+    absentInOctober(s, 'stu_2');
+    s.livekit_sessions.join_only = presence('stu_1', '2026-10', {total_presence_seconds: 0});
+    s.livekit_sessions.time_only = presence('stu_2', '2026-10', {join_count: 0});
     const deps = makeDeps(s, '2026-10-25T10:00:00Z');
     await finance.runMonthlyGeneration(deps);
     expect(deps.db.store.invoices['monthly_parent_1_2026-11']).toBeDefined();
