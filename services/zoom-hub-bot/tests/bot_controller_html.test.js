@@ -78,7 +78,7 @@ describe('bot_controller.html', () => {
   });
 
   test('reports attempts separately from confirmed room occupancy', () => {
-    expect(html).toContain("controllerVersion = '2026-07-22-assigned-arrival-v1'");
+    expect(html).toContain("controllerVersion = '2026-11-23-fast-recovery-v1'");
     expect(html).toContain('controllerVersion,');
     expect(html).toContain('routeAttemptCount: actions.length');
     expect(html).toContain('confirmedInRoomCount: inRoomParticipantCount(zoomState)');
@@ -94,5 +94,22 @@ describe('bot_controller.html', () => {
     expect(html).toContain('assignments.forceRejoinAt');
     expect(html).toContain('forceRejoinAt > pageLoadedAt');
     expect(html).toContain('alluwal_rejoin_count');
+  });
+});
+
+describe('bot_controller.html Zoom SDK version', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'bot_controller.html'), 'utf8');
+
+  test('loads one validated version for every bundle and the JS lib', () => {
+    expect(html).toContain("get('sdkVersion')");
+    expect(html).toContain('/^\\d+\\.\\d+\\.\\d+$/.test(requested)');
+    expect(html).toContain('https://source.zoom.us/zoom-meeting-${version}.min.js');
+    expect(html).toContain('setZoomJSLib(`https://source.zoom.us/${window.ZOOM_SDK_VERSION}/lib`');
+    expect(html).not.toMatch(/source\.zoom\.us\/6\.\d+\.\d+\//);
+  });
+
+  test('a force-rejoin stamped from the silence before this page joined is ignored', () => {
+    expect(html).toContain('stampPredatesThisPage');
+    expect(html).toContain('forceRejoinAt > pageLoadedAt && !stampPredatesThisPage');
   });
 });

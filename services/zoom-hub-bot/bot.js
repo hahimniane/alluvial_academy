@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const http = require('http');
 const { chromium } = require('playwright');
 const liveness = require('./liveness');
+const sdkHealth = require('./sdk_health');
 
 const lane = Number(process.env.ZOOM_HUB_LANE || process.argv[2] || 0);
 const functionBaseUrl = String(process.env.ZOOM_HUB_FUNCTION_BASE_URL || '').replace(/\/+$/, '');
@@ -21,6 +22,24 @@ const ROUTING_HEARTBEAT_MARKER = 'Routing snapshot';
 const RECENT_OUTPUT_LINES = 12;
 const pageSilenceMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_PAGE_SILENCE_MS, liveness.DEFAULT_PAGE_SILENCE_MS);
 const ghostHostClearMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_CLEAR_MS, liveness.DEFAULT_GHOST_HOST_CLEAR_MS);
+const ghostHostMinMs = Math.min(
+  ghostHostClearMs,
+  liveness.positiveNumber(process.env.ZOOM_HUB_BOT_GHOST_MIN_MS, liveness.DEFAULT_GHOST_HOST_MIN_MS),
+);
+const joinRetryMs = liveness.positiveNumber(process.env.ZOOM_HUB_BOT_JOIN_RETRY_MS, liveness.DEFAULT_JOIN_RETRY_MS);
+// Which Zoom Web SDK the hub pages load. Changing it (or rolling it back) is an
+// env change and a restart; bot_controller.html validates it and falls back to
+// its own default.
+const zoomSdkVersion = /^\d+\.\d+\.\d+$/.test(String(process.env.ZOOM_HUB_BOT_SDK_VERSION || ''))
+  ? String(process.env.ZOOM_HUB_BOT_SDK_VERSION)
+  : '';
+const fetchTimeoutMs = 20 * 1000;
+// What bot_controller.html prints when Zoom did not let it join, so it can be
+// retried in seconds instead of on the next poll.
+const JOIN_REFUSED_MARKER = 'Zoom join refused:';
+// What the page prints once it has joined; a page error before this is a
+// failed join, after it a broken session.
+const JOINED_MARKER = 'Joined as host';
 const sdkSocketLostWindowMs = liveness.positiveNumber(
   process.env.ZOOM_HUB_BOT_SOCKET_LOST_WINDOW_MS,
   liveness.DEFAULT_SDK_SOCKET_LOST_WINDOW_MS,
@@ -46,6 +65,12 @@ let controllerBaseUrl;
 const sessions = new Map();
 // Hubs whose page was just recycled, held back until the old host session clears.
 const rejoinBlockedUntil = new Map();
+// Latest time a rejoined page waits for the old host session to leave before it
+// opens rooms anyway, per hub (see waitForOldHostSession in the controller).
+const oldHostDeadlineByHub = new Map();
+// When a hub's current run of failed joins began, so quick retries stop once
+// the recovery window has passed.
+const joinFailuresSince = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,8 +92,11 @@ function serializeError(error) {
 }
 
 async function fetchJson(pathname, options = {}) {
+  // A backend call with no deadline can hold the whole poll loop, and with it
+  // every liveness check that runs from it.
   const response = await fetch(`${functionBaseUrl}${pathname}`, {
     ...options,
+    signal: AbortSignal.timeout(fetchTimeoutMs),
     headers: {
       'x-bot-key': botKey,
       ...(options.body ? { 'content-type': 'application/json' } : {}),
@@ -91,7 +119,7 @@ function contentTypeFor(filePath) {
 
 async function ensureControllerServer() {
   if (controllerBaseUrl) return controllerBaseUrl;
-  const allowedFiles = new Set(['bot_controller.html', 'routing.js']);
+  const allowedFiles = new Set(['bot_controller.html', 'routing.js', 'sdk_health.js']);
   controllerServer = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url || '/', 'http://127.0.0.1');
@@ -142,6 +170,9 @@ async function controllerUrl(directive) {
   params.set('rooms', JSON.stringify(directive.rooms || []));
   params.set('boIdByRoomName', JSON.stringify(directive.boIdByRoomName || {}));
   params.set('windowEnd', directive.windowEnd || '');
+  if (zoomSdkVersion) params.set('sdkVersion', zoomSdkVersion);
+  const oldHostDeadline = oldHostDeadlineByHub.get(directive.hubDocId);
+  if (oldHostDeadline && oldHostDeadline > Date.now()) params.set('oldHostDeadline', String(oldHostDeadline));
   return url.href;
 }
 
@@ -190,6 +221,25 @@ async function startHub(directive) {
     // an hour after its routing loop had died, which reads as a healthy page to
     // anything watching mere output.
     if (text.includes(ROUTING_HEARTBEAT_MARKER)) session.lastRoutingAt = Date.now();
+    if (!session.joined && text.includes(JOINED_MARKER)) {
+      session.joined = true;
+      joinFailuresSince.delete(directive.hubDocId);
+    }
+    // The page judged its own Zoom connection dead (a call Zoom never answered,
+    // or reads failing because the SDK lost the meeting). It serves nobody from
+    // here, so recycle it now rather than after three minutes of silence.
+    if (text.includes(sdkHealth.DEAD_MARKER) && !session.recycling) {
+      session.recycling = true;
+      const why = text.slice(text.indexOf(sdkHealth.DEAD_MARKER)).slice(0, 200);
+      console.error(`[lane ${lane}] hub ${directive.hubDocId} ${why}; recycling it.`);
+      recycleSession(directive.hubDocId, why).catch((error) => {
+        console.error(`[lane ${lane}] recycle of ${directive.hubDocId} failed: ${serializeError(error)}`);
+      });
+    }
+    if (text.includes(JOIN_REFUSED_MARKER) && !session.recycling) {
+      retryJoinSoon(directive.hubDocId, text.slice(text.indexOf(JOIN_REFUSED_MARKER)).slice(0, 200))
+        .catch((error) => console.error(`[lane ${lane}] join retry of ${directive.hubDocId} failed: ${serializeError(error)}`));
+    }
     // A page whose Zoom connection is gone keeps routing and logging, so only
     // the burst of socket failures shows it. Recycle it like a frozen page.
     if (text.includes(liveness.SDK_SOCKET_LOST_MARKER) && !session.recycling) {
@@ -221,10 +271,24 @@ async function startHub(directive) {
   });
   page.on('pageerror', async (error) => {
     console.error(`[lane ${lane}] [${directive.hubDocId}] page error: ${serializeError(error)}`);
-    sessions.delete(directive.hubDocId);
-    try {
-      await context.close();
-    } catch (_) {}
+    const session = sessions.get(directive.hubDocId);
+    if (!session || session.page !== page || session.recycling) {
+      try {
+        await context.close();
+      } catch (_) {}
+      return;
+    }
+    // After the join this page was hosting, so its host session is still in
+    // Zoom: rejoin through the recycle path, which waits for it to leave.
+    // Before the join nothing is in Zoom yet; most of these are the SDK
+    // tripping over its own socket while joining, and a quick retry is all it
+    // takes.
+    if (session.joined) {
+      session.recycling = true;
+      await recycleSession(directive.hubDocId, `page error after join: ${String(error && error.message).slice(0, 120)}`);
+    } else {
+      await retryJoinSoon(directive.hubDocId, `page error while joining: ${String(error && error.message).slice(0, 120)}`);
+    }
   });
   page.on('close', () => {
     const session = sessions.get(directive.hubDocId);
@@ -241,6 +305,7 @@ async function startHub(directive) {
     page,
     controlWakeTimer,
     windowEnd: directive.windowEnd ? new Date(directive.windowEnd).getTime() : null,
+    joined: false,
     lastPageActivityAt: Date.now(),
     // Null until the page has routed at least once: a hub still joining and
     // building its rooms has nothing to report yet, and must not be judged on
@@ -285,19 +350,25 @@ async function recycleSession(hubDocId, reason) {
   if (!session) return;
   sessions.delete(hubDocId);
   if (session.controlWakeTimer) clearInterval(session.controlWakeTimer);
-  liveness.blockRejoin(rejoinBlockedUntil, hubDocId, Date.now(), ghostHostClearMs);
+  const recycledAt = Date.now();
+  // Join again after a short minimum; the new page then keeps its rooms shut
+  // until the old host session has left Zoom, and gives up waiting at the old
+  // fixed 150s.
+  liveness.blockRejoin(rejoinBlockedUntil, hubDocId, recycledAt, ghostHostMinMs);
+  oldHostDeadlineByHub.set(hubDocId, recycledAt + ghostHostClearMs);
+  joinFailuresSince.set(hubDocId, recycledAt);
   try {
     await Promise.race([session.context.close(), sleep(15000)]);
   } catch (_) {}
   console.warn(
-    `[lane ${lane}] recycled hub ${hubDocId} (${reason}); rejoining in ${Math.round(ghostHostClearMs / 1000)}s.`,
+    `[lane ${lane}] recycled hub ${hubDocId} (${reason}); rejoining in ${Math.round(ghostHostMinMs / 1000)}s, ` +
+    `rooms held until the old host session leaves (at most ${Math.round(ghostHostClearMs / 1000)}s).`,
   );
-  // Say when the classroom will be usable again. This is the one outage with a
-  // knowable end — the hold is fixed, and rejoining plus reopening the rooms
-  // measured ~15s — so a class waiting on it can be told a real time instead of
-  // being left to guess. Reported from here because the page that normally
-  // reports state is the one that just died.
-  const rejoinAllowedAt = rejoinBlockedUntil.get(hubDocId) || (Date.now() + ghostHostClearMs);
+  // Say when the classroom will be usable again. Reported from here because the
+  // page that normally reports state is the one that just died. The estimate is
+  // the minimum hold plus rejoining and reopening the rooms; a slow old session
+  // can push it later, never past the cap.
+  const rejoinAllowedAt = rejoinBlockedUntil.get(hubDocId) || (Date.now() + ghostHostMinMs);
   try {
     await fetchJson('/zoomHubBotState', {
       method: 'POST',
@@ -315,12 +386,53 @@ async function recycleSession(hubDocId, reason) {
 }
 
 /**
+ * Close a page whose join did not complete and try again shortly. Nothing was
+ * opened, so this never touches anyone's room.
+ */
+async function retryJoinSoon(hubDocId, why) {
+  const session = sessions.get(hubDocId);
+  if (!session || session.recycling) return;
+  session.recycling = true;
+  sessions.delete(hubDocId);
+  if (session.controlWakeTimer) clearInterval(session.controlWakeTimer);
+  const now = Date.now();
+  if (!joinFailuresSince.has(hubDocId)) joinFailuresSince.set(hubDocId, now);
+  const firstFailureAt = joinFailuresSince.get(hubDocId);
+  // A refusal on a fresh join is usually this lane's previous host session
+  // still in Zoom, so the rejoined page waits for it like a recycle does.
+  if (!oldHostDeadlineByHub.has(hubDocId) || oldHostDeadlineByHub.get(hubDocId) < now) {
+    oldHostDeadlineByHub.set(hubDocId, firstFailureAt + ghostHostClearMs);
+  }
+  const delay = liveness.joinRetryDelay(firstFailureAt, now, ghostHostClearMs, joinRetryMs, pollMs);
+  liveness.blockRejoin(rejoinBlockedUntil, hubDocId, now, delay);
+  try {
+    await Promise.race([session.context.close(), sleep(15000)]);
+  } catch (_) {}
+  console.warn(`[lane ${lane}] join of hub ${hubDocId} did not complete (${why}); retrying in ${Math.round(delay / 1000)}s.`);
+}
+
+/**
  * Find pages that have gone quiet and confirm with a direct probe before
  * recycling them. A page that is only quiet answers the probe and is kept.
  */
 async function recycleHungSessions() {
   const now = Date.now();
   for (const [hubDocId, session] of [...sessions.entries()]) {
+    // A page whose main thread has stopped cannot judge itself, so it is asked
+    // directly on every poll once it has joined. Two unanswered probes in a row
+    // (a 10s deadline each, a poll apart) is a frozen renderer: the 2026-09-11
+    // freezes, which otherwise waited out the 3-minute silence below.
+    if (session.joined && !session.recycling) {
+      const answered = await liveness.pageResponds(() => session.page.evaluate(() => Date.now()));
+      session.unansweredProbes = answered ? 0 : (session.unansweredProbes || 0) + 1;
+      if (session.unansweredProbes >= liveness.UNANSWERED_PROBES_LIMIT) {
+        const why = `page did not answer ${session.unansweredProbes} probes in a row`;
+        console.error(`[lane ${lane}] hub ${hubDocId} ${why}; recycling it.`);
+        session.recycling = true;
+        await recycleSession(hubDocId, why);
+        continue;
+      }
+    }
     // Once a page has routed, routing is what it is judged on. Before that it
     // is still joining and building rooms, and has only its output to offer.
     const routing = liveness.routingHealth(session, now, pageSilenceMs);
@@ -413,6 +525,9 @@ async function runOnce() {
     if (liveness.isRejoinBlocked(rejoinBlockedUntil, directive.hubDocId, Date.now())) continue;
     await startHub(directive);
   }
+  for (const [hubDocId, deadline] of oldHostDeadlineByHub.entries()) {
+    if (deadline < Date.now() && !rejoinBlockedUntil.has(hubDocId)) oldHostDeadlineByHub.delete(hubDocId);
+  }
 }
 
 async function main() {
@@ -431,7 +546,9 @@ async function main() {
     } catch (error) {
       console.error(`[lane ${lane}] loop failed:`, error.message || error);
     }
-    await sleep(pollMs);
+    // Wake early when a held-back hub may rejoin before the next poll, so a
+    // short hold is not stretched to the full poll interval.
+    await sleep(liveness.nextPollDelay(rejoinBlockedUntil, Date.now(), pollMs));
   }
 }
 

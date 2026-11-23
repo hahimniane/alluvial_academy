@@ -17,12 +17,27 @@
  *
  * Rejoining is held back for a while after a page is recycled: the old host
  * session can linger in Zoom, and joining again straight away puts two hosts in
- * the meeting (runbook docs/zoom-hub-bot-plan.md §20).
+ * the meeting (runbook docs/zoom-hub-bot-plan.md §20). The hold used to be a
+ * fixed 150s. Now it is a short minimum, and the rejoined page itself keeps its
+ * rooms shut until the old session has left, up to the same 150s cap
+ * (waitForOldHostSession in bot_controller.html).
  */
 
 const DEFAULT_PAGE_SILENCE_MS = 3 * 60 * 1000;
 const DEFAULT_GHOST_HOST_CLEAR_MS = 150 * 1000;
+// The least time a recycled hub waits before joining again. The rejoined page
+// waits on its own for the old session to leave, so this only has to keep the
+// join from racing the teardown of the page it replaces.
+const DEFAULT_GHOST_HOST_MIN_MS = 10 * 1000;
+// A join that did not complete (Zoom refused it, or the page died while
+// joining) is retried this soon while the lane is recovering, instead of on the
+// next 30s directive poll. Nothing is opened until a join succeeds, so a retry
+// costs a page load and nothing else.
+const DEFAULT_JOIN_RETRY_MS = 10 * 1000;
 const DEFAULT_PROBE_TIMEOUT_MS = 10 * 1000;
+// A joined page is probed on every poll; this many unanswered in a row means
+// its renderer has stopped. One can be a busy moment on a one-vCPU host.
+const UNANSWERED_PROBES_LIMIT = 2;
 
 // What the Zoom Web SDK prints when its connection to the meeting is gone:
 // every action it tries fails on a null socket. On 2026-11-13 lane 3 lost its
@@ -115,6 +130,31 @@ function blockRejoin(blockedUntil, hubDocId, now, clearMs = DEFAULT_GHOST_HOST_C
   blockedUntil.set(hubDocId, now + clearMs);
 }
 
+/**
+ * How long to wait before retrying a join that did not complete: soon while the
+ * lane is still inside its recovery window (the first failure plus `capMs`),
+ * and at the ordinary poll cadence after that, so a join Zoom keeps refusing
+ * does not reload a page every few seconds forever.
+ */
+function joinRetryDelay(firstFailureAt, now, capMs = DEFAULT_GHOST_HOST_CLEAR_MS,
+  retryMs = DEFAULT_JOIN_RETRY_MS, pollMs = 30 * 1000) {
+  if (!Number.isFinite(firstFailureAt)) return retryMs;
+  return now - firstFailureAt < capMs ? retryMs : pollMs;
+}
+
+/**
+ * How long the main loop sleeps: its poll interval, or less when a held-back
+ * hub becomes free to rejoin sooner than that.
+ */
+function nextPollDelay(blockedUntil, now, pollMs) {
+  let delay = pollMs;
+  for (const until of blockedUntil.values()) {
+    if (!Number.isFinite(until)) continue;
+    delay = Math.min(delay, Math.max(1000, until - now + 250));
+  }
+  return delay;
+}
+
 function isRejoinBlocked(blockedUntil, hubDocId, now) {
   const until = blockedUntil.get(hubDocId);
   if (!until) return false;
@@ -132,7 +172,12 @@ module.exports = {
   recordSdkSocketFailure,
   DEFAULT_PAGE_SILENCE_MS,
   DEFAULT_GHOST_HOST_CLEAR_MS,
+  DEFAULT_GHOST_HOST_MIN_MS,
+  DEFAULT_JOIN_RETRY_MS,
   DEFAULT_PROBE_TIMEOUT_MS,
+  UNANSWERED_PROBES_LIMIT,
+  joinRetryDelay,
+  nextPollDelay,
   positiveNumber,
   isPageSilent,
   routingHealth,

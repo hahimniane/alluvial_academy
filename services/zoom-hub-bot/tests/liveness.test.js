@@ -162,3 +162,34 @@ describe('recordSdkSocketFailure', () => {
     expect(failures).toEqual([later]);
   });
 });
+
+describe('shorter ghost-host hold', () => {
+  const {
+    DEFAULT_GHOST_HOST_MIN_MS,
+    DEFAULT_JOIN_RETRY_MS,
+    joinRetryDelay,
+    nextPollDelay,
+  } = require('../liveness');
+  const now = 1_000_000_000;
+
+  test('the minimum hold is well under the old fixed 150s', () => {
+    expect(DEFAULT_GHOST_HOST_MIN_MS).toBeLessThan(DEFAULT_GHOST_HOST_CLEAR_MS);
+    expect(DEFAULT_GHOST_HOST_MIN_MS).toBeLessThanOrEqual(30000);
+  });
+
+  test('a failed join is retried quickly inside the recovery window, then at the poll cadence', () => {
+    expect(joinRetryDelay(now, now)).toBe(DEFAULT_JOIN_RETRY_MS);
+    expect(joinRetryDelay(now - 149_000, now)).toBe(DEFAULT_JOIN_RETRY_MS);
+    expect(joinRetryDelay(now - 151_000, now, DEFAULT_GHOST_HOST_CLEAR_MS, DEFAULT_JOIN_RETRY_MS, 30_000)).toBe(30_000);
+    expect(joinRetryDelay(undefined, now)).toBe(DEFAULT_JOIN_RETRY_MS);
+  });
+
+  test('the loop wakes when a held hub becomes free, not a full poll later', () => {
+    const blocked = new Map();
+    expect(nextPollDelay(blocked, now, 30_000)).toBe(30_000);
+    blocked.set('hub', now + 12_000);
+    expect(nextPollDelay(blocked, now, 30_000)).toBe(12_250);
+    blocked.set('other', now - 5_000);
+    expect(nextPollDelay(blocked, now, 30_000)).toBe(1000);
+  });
+});
