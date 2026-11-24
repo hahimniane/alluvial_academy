@@ -7,6 +7,7 @@ import {
   dayOrText,
   displayNameOf,
   firstClassText,
+  lastClassText,
   formatDay,
   isAdminRow,
   isNeverLoggedIn,
@@ -362,6 +363,7 @@ export function UserPanel({
             <Line label="Teacher this week">{row.teacherNames || "No classes this week"}</Line>
             {row.weeklyHoursLabel ? <Line label="Hours this week">{row.weeklyHoursLabel}</Line> : null}
             <Line label="First class">{firstClassText(row)}</Line>
+            <Line label="Last class">{lastClassText(row)}</Line>
           </Section>
         </>
       ) : null}

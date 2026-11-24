@@ -765,6 +765,10 @@ exports.createFirstInvoiceOnFirstClass =
 // at the student's earliest attended class (see the handler for the definition).
 exports.recordStudentFirstClass =
   require('./handlers/student_first_class').recordStudentFirstClass;
+// Admin Users page "Last class" column: keeps users/{studentId}.last_class_at
+// at the latest class the student was present in (see the handler).
+exports.recordStudentLastClass =
+  require('./handlers/student_last_class').recordStudentLastClass;
 const financeInvoiceHandlers = require('./handlers/finance_invoices');
 // Finance: invoice edit / cancel / reminder (admin-only, closed months refused;
 // see docs/finance/SPEC.md). Money changes never go through client writes.

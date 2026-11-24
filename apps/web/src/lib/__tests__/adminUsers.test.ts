@@ -12,6 +12,7 @@ import {
   exportRow,
   filterRows,
   firstClassText,
+  lastClassText,
   hasActiveFilters,
   isAdminRow,
   isNeverLoggedIn,
@@ -295,19 +296,22 @@ test("parent choices: all parents incl. archived, most students first, then name
 
 // ─── export ────────────────────────────────────────────────────────────────
 
-test("export keeps today's 13 columns and values", () => {
-  assert.equal(EXPORT_HEADERS.length, 13);
+test("export keeps today's 13 columns and values, then first and last class", () => {
+  assert.equal(EXPORT_HEADERS.length, 15);
+  assert.deepEqual(EXPORT_HEADERS.slice(13), ["First Class", "Last Class"]);
   const rows = people();
   const links = buildParentLinks(rows);
   const week = buildWeekSchedule([mapWeekShift({ duration_minutes: 90, student_ids: ["s1"], teacher_name: "Ousmane Sow" })]);
   const s1 = enrichRow(rows.find((r) => r.id === "s1")!, links, week);
   const out = exportRow(s1);
-  assert.equal(out.length, 13);
+  assert.equal(out.length, 15);
+  assert.deepEqual(out.slice(13), ["Not yet", "Not yet"]);
   assert.deepEqual(out.slice(0, 11), ["Aminata", "Barry", "", "", "student", "aminata.barry", "s1", "Mariama Barry", "mb@x.org", "Ousmane Sow", "1.5 hrs"]);
   assert.equal(out[11], "Never");
   assert.match(out[12], /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/);
   const t1 = exportRow(enrichRow(rows[0], links, week));
   assert.deepEqual(t1.slice(5, 11), ["", "", "", "", "", ""]);
+  assert.deepEqual(t1.slice(13), ["", ""]);
 });
 
 test("csv: quotes only when needed, CRLF between rows, no BOM", () => {
@@ -342,6 +346,13 @@ test("first class text for students only", () => {
   assert.equal(firstClassText(mapUserDoc("a", { user_type: "student" })), "Not yet");
   assert.equal(firstClassText(mapUserDoc("a", { user_type: "student", first_class_at: ts("2026-09-08T16:00:00Z") })), "Sep 8, 2026");
   assert.equal(firstClassText(mapUserDoc("a", { user_type: "teacher", first_class_at: ts("2026-09-08T16:00:00Z") })), "");
+});
+
+test("last class text for students only", () => {
+  assert.equal(lastClassText(mapUserDoc("a", { user_type: "student" })), "Not yet");
+  assert.equal(lastClassText(mapUserDoc("a", { user_type: "student", last_class_at: ts("2026-11-20T16:00:00Z") })), "Nov 20, 2026");
+  assert.equal(lastClassText(mapUserDoc("a", { user_type: "teacher", last_class_at: ts("2026-11-20T16:00:00Z") })), "");
+  assert.equal(lastClassText(mapUserDoc("a", { user_type: "student", first_class_at: ts("2026-09-08T16:00:00Z") })), "Not recorded");
 });
 
 // ─── cutover ───────────────────────────────────────────────────────────────

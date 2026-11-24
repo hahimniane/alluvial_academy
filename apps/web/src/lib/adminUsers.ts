@@ -160,6 +160,8 @@ export type UserRow = {
   linkedGuardianIds: string[];
   childrenIds: string[];
   firstClassAt: Date | null;
+  /** `last_class_at`: the latest class the student was present in (server-kept). */
+  lastClassAt: Date | null;
   /** `merged_into`: set on a duplicate student folded into another account. */
   mergedInto: string;
   /** Decision-history fallbacks (EditUserScreen's DecisionAuditFallback): who created / archived / restored, and when. */
@@ -264,6 +266,7 @@ export function mapUserDoc(id: string, data: Data): UserRow {
     ),
     childrenIds: unionLists(stringList(data.children_ids), stringList(data.childrenIds)),
     firstClassAt: dateOf(data.first_class_at),
+    lastClassAt: dateOf(data.last_class_at),
     mergedInto: text(data.merged_into),
     createdByUid: firstText(data, ["created_by_uid", "created_by", "createdBy", "created_by_admin_id"]),
     deactivatedByUid: firstText(data, ["deactivated_by_uid", "archived_by_uid", "archivedByUid"]),
@@ -618,6 +621,8 @@ export const EXPORT_HEADERS = [
   "Weekly Hours",
   "Date Added",
   "Last Login",
+  "First Class",
+  "Last Class",
 ] as const;
 
 export function exportRow(row: ListRow): string[] {
@@ -635,6 +640,8 @@ export function exportRow(row: ListRow): string[] {
     row.weeklyHoursLabel,
     row.dateAddedText,
     row.lastLoginText,
+    firstClassText(row),
+    lastClassText(row),
   ];
 }
 
@@ -718,6 +725,17 @@ export const loginEmailOf = (row: UserRow) => (row.storedStudentCode ? `${row.st
 
 /** First class column: date of the first attended class, "Not yet" for a student without one. */
 export const firstClassText = (row: UserRow) => (isStudentType(row) ? (row.firstClassAt ? formatDay(row.firstClassAt) : "Not yet") : "");
+
+/**
+ * Last class column: date of the latest class the student was present in.
+ * A student whose classes ran but who was never seen joining one reads
+ * "Not recorded"; a student with no class yet reads "Not yet".
+ */
+export const lastClassText = (row: UserRow) => {
+  if (!isStudentType(row)) return "";
+  if (row.lastClassAt) return formatDay(row.lastClassAt);
+  return row.firstClassAt ? "Not recorded" : "Not yet";
+};
 
 // ─── Cutover switch ────────────────────────────────────────────────────────
 
