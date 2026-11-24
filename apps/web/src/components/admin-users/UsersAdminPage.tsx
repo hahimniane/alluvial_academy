@@ -20,6 +20,7 @@ import {
   exportRow,
   filterRows,
   firstClassText,
+  lastClassText,
   hasActiveFilters,
   isNeverLoggedIn,
   isStudentType,
@@ -968,6 +969,7 @@ const UsersRow = memo(function UsersRow({
       </td>
       <td className="min-w-[170px] px-3 py-2.5 text-[#334155]">{teacherWeek || DASH}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]">{student ? firstClassText(row) : DASH}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]">{student ? lastClassText(row) : DASH}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-[#334155]" title={row.dateAddedText}>
         {row.dateAdded ? dayOrText(row.dateAdded, row.dateAddedText) : row.dateAddedText === "Never" ? DASH : row.dateAddedText}
       </td>
@@ -1005,6 +1007,7 @@ function UsersTable({
           <th className="px-3 py-3 font-semibold">Parent</th>
           <th className="px-3 py-3 font-semibold">Teacher · this week</th>
           <th className="px-3 py-3 font-semibold">First class</th>
+          <th className="px-3 py-3 font-semibold">Last class</th>
           <th className="px-3 py-3 font-semibold">Added</th>
           <th className="px-4 py-3 font-semibold">Last login</th>
         </tr>

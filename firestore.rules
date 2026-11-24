@@ -144,7 +144,7 @@ service cloud.firestore {
     // field isAdminRole() trusts, plus the family links, feature switches, the
     // person's own pay rate (wage_override is what pay falls back to for
     // non-teaching shifts and subjects without a rate), the Student ID that
-    // signs them in, and fields the server keeps (merged_into, first class).
+    // signs them in, and fields the server keeps (merged_into, first and last class).
     // No app screen writes any of them on the person's own document.
     function adminOnlyUserFieldsUnchanged() {
       // One diff instead of a fieldUnchanged() call per field: the users
@@ -153,6 +153,7 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'wage_override', 'wage_override_updated_at', 'hourly_rate',
         'student_code', 'studentCode', 'merged_into', 'first_class_at', 'first_class_shift_id',
+        'last_class_at', 'last_class_shift_id',
         'is_admin', 'isAdmin', 'is_super_admin', 'isSuperAdmin', 'userType',
         'secondary_roles', 'secondaryRoles',
         'guardian_ids', 'guardianIds', 'children_ids', 'childrenIds',
