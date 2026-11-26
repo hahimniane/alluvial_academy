@@ -45,6 +45,8 @@ import 'package:alluwalacademyadmin/core/services/join_link_service.dart';
 import 'package:alluwalacademyadmin/features/shift_management/services/shift_service.dart';
 import 'package:alluwalacademyadmin/core/services/class_video_service.dart';
 import 'features/livekit/screens/guest_join_screen.dart';
+import 'core/utils/web_redirect_stub.dart'
+    if (dart.library.html) 'core/utils/web_redirect_web.dart';
 
 // NOTE: The legacy shift wage migration has been permanently disabled.
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
@@ -1267,6 +1269,10 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
   // Handle Google Sign-In
   Future<void> _handleGoogleSignIn() async {
+    if (kIsWeb) {
+      openWebGoogleSignIn();
+      return;
+    }
     final l = AppLocalizations.of(context)!;
     AuthService authService = AuthService();
     try {

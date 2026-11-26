@@ -40,8 +40,14 @@ const sendCustomPasswordResetEmail = async (data) => {
 
     console.log(`Generating password reset link for: ${email}`);
 
-    const resetLink = await admin.auth().generatePasswordResetLink(email);
-    console.log(`Password reset link generated: ${resetLink}`);
+    // generatePasswordResetLink answers an unknown address with a vague
+    // "INTERNAL ASSERT FAILED" (auth/internal-error), so the app could only say
+    // the reset failed. Looking the account up first gives auth/user-not-found,
+    // which the app shows as "no account with this email".
+    await admin.auth().getUserByEmail(String(email).trim());
+
+    // The link is a sign-in credential: never write it to the logs.
+    const resetLink = await admin.auth().generatePasswordResetLink(String(email).trim());
 
     const result = await sendPasswordResetEmail(email, resetLink, displayName);
 

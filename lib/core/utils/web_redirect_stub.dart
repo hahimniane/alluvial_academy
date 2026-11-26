@@ -8,3 +8,5 @@ void redirectToStudentWebApp() {}
 void redirectToTeacherWebApp() {}
 
 void redirectToParentWebApp({String? joinShiftId}) {}
+
+void openWebGoogleSignIn() {}
