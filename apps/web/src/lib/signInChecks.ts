@@ -30,6 +30,27 @@ async function findProfile(user: User): Promise<{ ref: DocumentReference; data: 
  * signing the person out when their account is archived. A read error lets
  * them through, as Flutter does ("default to active on error").
  */
+export const NOT_REGISTERED_MESSAGE =
+  "No account found with this email. Please contact an administrator to create your account.";
+
+/**
+ * Google sign-in creates a Firebase account for any Google address, so — as
+ * Flutter's AuthService.signInWithGoogle does — someone with no profile under
+ * their uid or e-mail is signed straight back out. A read error lets them
+ * through, like afterSignIn.
+ */
+export async function requireRegistered(user: User): Promise<void> {
+  let profile: Awaited<ReturnType<typeof findProfile>> = null;
+  try {
+    profile = await findProfile(user);
+  } catch {
+    return;
+  }
+  if (profile) return;
+  await signOut(auth).catch(() => undefined);
+  throw Object.assign(new Error(NOT_REGISTERED_MESSAGE), { code: "user-not-registered" });
+}
+
 export async function afterSignIn(user: User): Promise<void> {
   let profile: Awaited<ReturnType<typeof findProfile>> = null;
   try {

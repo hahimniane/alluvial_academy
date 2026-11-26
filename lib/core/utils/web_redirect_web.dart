@@ -25,3 +25,12 @@ void redirectToParentWebApp({String? joinShiftId}) => redirectToWebApp(
           ? '/parent/'
           : '/parent/classroom/?shiftId=${Uri.encodeQueryComponent(joinShiftId)}',
     );
+
+/// Google sign-in on the web runs on the Next.js page /login/google/.
+///
+/// /app/ is cross-origin isolated (COOP same-origin) for the Zoom SDK, which
+/// severs the link to Google's sign-in popup — the plugin sees it as closed
+/// the moment it opens. That page sits outside /app/, signs in with the same
+/// Firebase project and storage, and sends the person on to their dashboard.
+/// `assign` so Back returns to this login screen.
+void openWebGoogleSignIn() => html.window.location.assign('/login/google/');
