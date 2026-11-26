@@ -5,6 +5,7 @@ import { FR_PUBLIC_SHARED } from "@/lib/translations/public/shared";
 import { FR_PUBLIC_HOME } from "@/lib/translations/public/home";
 import { FR_PUBLIC_ENROLL } from "@/lib/translations/public/enroll";
 import { FR_PUBLIC_TEAM } from "@/lib/translations/public/team";
+import { FR_PUBLIC_FORMS } from "@/lib/translations/public/forms";
 
 /**
  * French for the public website. Kept apart from the signed-in pages'
@@ -16,6 +17,7 @@ export const FR_PUBLIC: Record<string, string> = {
   ...FR_PUBLIC_HOME,
   ...FR_PUBLIC_ENROLL,
   ...FR_PUBLIC_TEAM,
+  ...FR_PUBLIC_FORMS,
 };
 
 /**

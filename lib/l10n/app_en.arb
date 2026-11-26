@@ -8880,5 +8880,16 @@
   "parentChildLoginNoPassword": "No password is stored. Ask the school to reset it.",
   "parentChildLoginNoStudentId": "No Student ID yet. Ask the school to set one up.",
   "parentChildLoginCannotRead": "The password could not be shown. Ask the school for it.",
-  "parentChildLoginWhere": "Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password."
+  "parentChildLoginWhere": "Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.",
+  "formShareLinkAction": "Share link",
+  "formShareLinkTitle": "Share this form",
+  "formShareLinkHint": "Copy the link and share it with parents, students, teachers or anyone else, for example on WhatsApp.",
+  "formShareLinkCopy": "Copy link",
+  "formShareLinkCopied": "Link copied",
+  "formShareLinkPublicSwitch": "Anyone with the link can fill it in (no account needed)",
+  "formShareLinkPublicOn": "People without an account give their name and phone number, then fill in the form. Their answers appear in All Submissions.",
+  "formShareLinkPublicOff": "Only signed-in members this form is shared with can fill it in. Anyone else is asked to sign in.",
+  "formShareLinkFileNote": "Questions that take a file are shown but can't be answered without an account.",
+  "formShareLinkInactiveNote": "This form is inactive, so its link shows that the form is no longer available.",
+  "formShareLinkSaveError": "Could not save the change. Check your connection and try again."
 }

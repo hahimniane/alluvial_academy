@@ -219,7 +219,8 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       }
       if (mounted) {
         setState(() {
-          _teachersData = teachersData;
+          // Merge: public-link senders may already be listed.
+          _teachersData = {..._teachersData, ...teachersData};
           _allTeacherIds = teacherIds;
         });
       }
@@ -353,6 +354,27 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     }
   }
 
+  /// People who answered through a form's public link have no account: their
+  /// `userId` belongs to no user, and the name and phone they typed come
+  /// from the submission itself.
+  void _notePublicSubmitters(Iterable<QueryDocumentSnapshot> docs) {
+    for (final doc in docs) {
+      final data = (doc.data() as Map<String, dynamic>?) ?? {};
+      if (data['public_submission'] != true) continue;
+      final userId = data['userId'] as String?;
+      if (userId == null || _teachersData.containsKey(userId)) continue;
+      final name = (data['submitter_name'] ?? '').toString().trim();
+      _teachersData[userId] = {
+        'uid': userId,
+        'name': name.isNotEmpty ? name : 'Unknown',
+        'email': '',
+        'phone': (data['submitter_phone'] ?? '').toString(),
+        'photoURL': null,
+        'public': true,
+      };
+    }
+  }
+
   String? _yearMonthFromDoc(Map<String, dynamic> data) {
     final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
     if (submittedAt == null) return null;
@@ -366,6 +388,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     bool clearLoadingWhenDone = false,
   }) {
     if (!mounted) return;
+    _notePublicSubmitters([...dailyDocs, ...weeklyDocs, ...monthlyDocs]);
     final monthsSet = <String>{};
     final byTeacher = <String, List<QueryDocumentSnapshot>>{};
     final byForm = <String, List<QueryDocumentSnapshot>>{};
@@ -600,6 +623,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
     _lastSubmissionDoc = mergedDocs.isNotEmpty ? mergedDocs.last : null;
     // The month query reads the whole month, so there is nothing more to load.
     _hasMoreSubmissions = false;
+    _notePublicSubmitters(allDocs);
     final missingUserIds = byTeacher.keys
         .where((uid) => !_teachersData.containsKey(uid))
         .toSet()
@@ -661,6 +685,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
 
   void _applyQueryResults(String formType, List<QueryDocumentSnapshot> docs) {
     if (!mounted) return;
+    _notePublicSubmitters(docs);
     final formKey = formType == _kFormTypeDaily
         ? _kDailyClassReportKey
         : formType == _kFormTypeWeekly
@@ -810,6 +835,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           _invalidateFilterCache();
         });
       }
+      _notePublicSubmitters(otherDocs);
       final missingUserIds = byTeacher2.keys
           .where((uid) => !_teachersData.containsKey(uid))
           .toSet()
@@ -923,7 +949,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
       }));
       if (mounted) {
         setState(() {
-          _teachersData = teachersData;
+          _teachersData = {..._teachersData, ...teachersData};
           _invalidateFilterCache();
         });
       }
@@ -1027,6 +1053,7 @@ class _AdminAllSubmissionsScreenState extends State<AdminAllSubmissionsScreen> {
           }
         }
       }
+      _notePublicSubmitters(snapshot.docs);
       final missingUserIds = newByTeacher.keys
           .where((uid) => !_teachersData.containsKey(uid))
           .toSet()

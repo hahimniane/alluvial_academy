@@ -34879,6 +34879,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.'**
   String get parentChildLoginWhere;
+
+  /// No description provided for @formShareLinkAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link'**
+  String get formShareLinkAction;
+
+  /// No description provided for @formShareLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this form'**
+  String get formShareLinkTitle;
+
+  /// No description provided for @formShareLinkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the link and share it with parents, students, teachers or anyone else, for example on WhatsApp.'**
+  String get formShareLinkHint;
+
+  /// No description provided for @formShareLinkCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get formShareLinkCopy;
+
+  /// No description provided for @formShareLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get formShareLinkCopied;
+
+  /// No description provided for @formShareLinkPublicSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone with the link can fill it in (no account needed)'**
+  String get formShareLinkPublicSwitch;
+
+  /// No description provided for @formShareLinkPublicOn.
+  ///
+  /// In en, this message translates to:
+  /// **'People without an account give their name and phone number, then fill in the form. Their answers appear in All Submissions.'**
+  String get formShareLinkPublicOn;
+
+  /// No description provided for @formShareLinkPublicOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Only signed-in members this form is shared with can fill it in. Anyone else is asked to sign in.'**
+  String get formShareLinkPublicOff;
+
+  /// No description provided for @formShareLinkFileNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions that take a file are shown but can\'t be answered without an account.'**
+  String get formShareLinkFileNote;
+
+  /// No description provided for @formShareLinkInactiveNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This form is inactive, so its link shows that the form is no longer available.'**
+  String get formShareLinkInactiveNote;
+
+  /// No description provided for @formShareLinkSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the change. Check your connection and try again.'**
+  String get formShareLinkSaveError;
 }
 
 class _AppLocalizationsDelegate

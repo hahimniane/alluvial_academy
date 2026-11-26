@@ -19272,4 +19272,44 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get parentChildLoginWhere =>
       'Your child signs in at alluwaleducationhub.org/student/login or in the Alluwal app with this Student ID and password.';
+
+  @override
+  String get formShareLinkAction => 'Share link';
+
+  @override
+  String get formShareLinkTitle => 'Share this form';
+
+  @override
+  String get formShareLinkHint =>
+      'Copy the link and share it with parents, students, teachers or anyone else, for example on WhatsApp.';
+
+  @override
+  String get formShareLinkCopy => 'Copy link';
+
+  @override
+  String get formShareLinkCopied => 'Link copied';
+
+  @override
+  String get formShareLinkPublicSwitch =>
+      'Anyone with the link can fill it in (no account needed)';
+
+  @override
+  String get formShareLinkPublicOn =>
+      'People without an account give their name and phone number, then fill in the form. Their answers appear in All Submissions.';
+
+  @override
+  String get formShareLinkPublicOff =>
+      'Only signed-in members this form is shared with can fill it in. Anyone else is asked to sign in.';
+
+  @override
+  String get formShareLinkFileNote =>
+      'Questions that take a file are shown but can\'t be answered without an account.';
+
+  @override
+  String get formShareLinkInactiveNote =>
+      'This form is inactive, so its link shows that the form is no longer available.';
+
+  @override
+  String get formShareLinkSaveError =>
+      'Could not save the change. Check your connection and try again.';
 }
