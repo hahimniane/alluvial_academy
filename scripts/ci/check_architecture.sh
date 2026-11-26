@@ -80,7 +80,9 @@ done <<< "$ADDED_FILES"
 
 # RULE 4: Cross-feature imports
 # Check whether any Dart file under lib/features/<A>/ imports from lib/features/<B>/
-# Only inspect added OR modified Dart files in features.
+# Only inspect added OR modified Dart files in features, and only the import
+# lines this change adds: a file that already carries old cross-feature
+# imports can still be edited, but no new one gets in (the ratchet above).
 CHANGED_DART=$(git diff --diff-filter=AM --name-only "origin/$BASE_REF...HEAD" 2>/dev/null | grep -E '^lib/features/[^/]+/.+\.dart$' || true)
 if [ -n "$CHANGED_DART" ]; then
   while IFS= read -r file; do
@@ -88,7 +90,9 @@ if [ -n "$CHANGED_DART" ]; then
     # Extract this file's feature name: lib/features/<feature>/...
     this_feature=$(echo "$file" | sed -E 's|lib/features/([^/]+)/.*|\1|')
     # Grep for imports of another feature (package: or relative)
-    bad_imports=$(grep -nE "import ['\"](package:[^/]+/features/|\.\./\.\./features/|\.\./features/)" "$file" 2>/dev/null \
+    bad_imports=$(git diff -U0 "origin/$BASE_REF...HEAD" -- "$file" 2>/dev/null \
+      | grep -E "^\+import ['\"](package:[^/]+/features/|\.\./\.\./features/|\.\./features/)" \
+      | sed 's/^+//' \
       | grep -vE "features/${this_feature}/" || true)
     if [ -n "$bad_imports" ]; then
       while IFS= read -r line; do
