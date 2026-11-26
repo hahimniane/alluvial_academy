@@ -30,7 +30,12 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 
 const toInvoice = (d: QueryDocumentSnapshot<DocumentData>) => normalizeInvoice(d.id, d.data());
 
-/** Invoices billed for one month (billing_month, or the legacy period). */
+/**
+ * Invoices billed for one month (billing_month, or the legacy period). A
+ * period covering several months ("2026-10..2026-12") starts with its first
+ * month, so the period query is a prefix range; the invoice belongs to the
+ * month it starts in.
+ */
 export async function loadInvoicesForMonth(month: string): Promise<{ invoices: Invoice[]; truncated: boolean }> {
   const col = collection(db, FIN.invoices);
   const [byBilling, byPeriod] = await Promise.all([

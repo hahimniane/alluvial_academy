@@ -175,6 +175,20 @@ describe('getFinanceMonthSummary', () => {
     expect(db.reads.filter((r) => r === 'invoices/old')).toHaveLength(1);
   });
 
+  test('an invoice covering several months counts in the month it starts', async () => {
+    const data = seed();
+    data.invoices.multi = {parent_id: 'p8', status: 'paid', total_amount: 360, paid_amount: 360, period: '2026-09..2026-11',
+      billing_months: 3, due_date: at('2026-10-01')};
+    data.invoices.spaced = {parent_id: 'p9', status: 'pending', total_amount: 40, paid_amount: 0, period: '2026-09 to 2026-10',
+      due_date: at('2026-12-01')};
+    data.invoices.later = {parent_id: 'p10', status: 'paid', total_amount: 70, paid_amount: 70, period: '2026-10..2026-12',
+      due_date: at('2026-11-01')};
+    const september = await call(makeDb(data), {month: '2026-09'});
+    expect(september).toMatchObject({billed: 700, collected: 510, invoice_count: 4});
+    const october = await call(makeDb(data), {month: '2026-10'});
+    expect(october.billed).toBe(130);
+  });
+
   test('a month with nothing in it is all zeros', async () => {
     const db = makeDb({});
     const s = await call(db, {month: '2025-01'});
