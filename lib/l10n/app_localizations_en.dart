@@ -19312,4 +19312,127 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get formShareLinkSaveError =>
       'Could not save the change. Check your connection and try again.';
+
+  @override
+  String get announcementsTitle => 'Announcements';
+
+  @override
+  String get announcementsLabel => 'Announcement';
+
+  @override
+  String get announcementsEmpty => 'No announcements right now.';
+
+  @override
+  String get announcementsLoadError => 'Could not load announcements.';
+
+  @override
+  String get announcementsPinned => 'Pinned';
+
+  @override
+  String get announcementsShowMore => 'Show more';
+
+  @override
+  String get announcementsShowLess => 'Show less';
+
+  @override
+  String get announcementsGotIt => 'Got it';
+
+  @override
+  String get announcementsNew => 'New announcement';
+
+  @override
+  String get announcementsFieldTitle => 'Title';
+
+  @override
+  String get announcementsFieldMessage => 'Message';
+
+  @override
+  String get announcementsAudience => 'Who sees it';
+
+  @override
+  String get announcementsAudienceTeachers => 'Teachers';
+
+  @override
+  String get announcementsAudienceStudents => 'Students';
+
+  @override
+  String get announcementsAudienceParents => 'Parents';
+
+  @override
+  String get announcementsAudienceAdmins => 'Admins';
+
+  @override
+  String get announcementsAudienceEveryone => 'Everyone';
+
+  @override
+  String get announcementsPin => 'Pin to the top';
+
+  @override
+  String get announcementsPinHelper =>
+      'Opens as a pop-up the first time each person sees it.';
+
+  @override
+  String get announcementsShowUntil => 'Show until';
+
+  @override
+  String get announcementsNoEndDate => 'No end date';
+
+  @override
+  String get announcementsClearEndDate => 'Remove end date';
+
+  @override
+  String get announcementsSendPush => 'Send as a phone notification too';
+
+  @override
+  String get announcementsPost => 'Post';
+
+  @override
+  String get announcementsTitleMissing => 'Add a title.';
+
+  @override
+  String get announcementsMessageMissing => 'Write a message.';
+
+  @override
+  String get announcementsNoAudience => 'Choose at least one group.';
+
+  @override
+  String get announcementsPosted => 'Announcement posted.';
+
+  @override
+  String get announcementsPostFailed =>
+      'The announcement could not be posted. Please try again.';
+
+  @override
+  String get announcementsRemoveConfirmTitle => 'Remove this announcement?';
+
+  @override
+  String get announcementsRemoveConfirmBody =>
+      'It will no longer show on anyone\'s dashboard.';
+
+  @override
+  String get announcementsRemoved => 'Announcement removed.';
+
+  @override
+  String get announcementsRemoveFailed =>
+      'The announcement could not be removed. Please try again.';
+
+  @override
+  String announcementsTitleTooLong(int max) {
+    return 'The title can be up to $max characters.';
+  }
+
+  @override
+  String announcementsMessageTooLong(int max) {
+    return 'The message can be up to $max characters.';
+  }
+
+  @override
+  String announcementsShownUntil(String date) {
+    return 'Shown until $date';
+  }
+
+  @override
+  String announcementsEnded(String date) {
+    return 'Ended $date';
+  }
 }

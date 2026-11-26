@@ -10,6 +10,7 @@ import '../../livekit/services/video_call_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/announcements_card.dart';
 import '../../../core/widgets/class_contacts_card.dart';
 import '../../onboarding/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
@@ -250,6 +251,11 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const AnnouncementsCard(
+                          role: 'student',
+                          margin: EdgeInsets.only(bottom: 24),
+                        ),
+
                         // Today's Classes
                         _buildSectionTitle(
                             AppLocalizations.of(context)!.homeTodaysClasses, Icons.today_rounded),

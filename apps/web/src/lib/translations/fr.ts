@@ -1452,4 +1452,14 @@ export const FR: Record<string, string> = {
   "An admin gave {class} to another teacher": "Un administrateur a confié {class} à un autre enseignant",
   "An admin gave you {class} from {name}": "Un administrateur vous a confié {class} à la place de {name}",
   "An admin gave you {class}": "Un administrateur vous a confié {class}",
+
+  // --- School announcements ---
+  Announcements: "Annonces",
+  Announcement: "Annonce",
+  "No announcements right now.": "Aucune annonce pour le moment.",
+  "Could not load announcements.": "Impossible de charger les annonces.",
+  Pinned: "Épinglée",
+  "Show more": "Afficher plus",
+  "Show less": "Afficher moins",
+  "Got it": "Compris",
 };

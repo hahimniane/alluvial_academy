@@ -8891,5 +8891,70 @@
   "formShareLinkPublicOff": "Only signed-in members this form is shared with can fill it in. Anyone else is asked to sign in.",
   "formShareLinkFileNote": "Questions that take a file are shown but can't be answered without an account.",
   "formShareLinkInactiveNote": "This form is inactive, so its link shows that the form is no longer available.",
-  "formShareLinkSaveError": "Could not save the change. Check your connection and try again."
+  "formShareLinkSaveError": "Could not save the change. Check your connection and try again.",
+  "announcementsTitle": "Announcements",
+  "announcementsLabel": "Announcement",
+  "announcementsEmpty": "No announcements right now.",
+  "announcementsLoadError": "Could not load announcements.",
+  "announcementsPinned": "Pinned",
+  "announcementsShowMore": "Show more",
+  "announcementsShowLess": "Show less",
+  "announcementsGotIt": "Got it",
+  "announcementsNew": "New announcement",
+  "announcementsFieldTitle": "Title",
+  "announcementsFieldMessage": "Message",
+  "announcementsAudience": "Who sees it",
+  "announcementsAudienceTeachers": "Teachers",
+  "announcementsAudienceStudents": "Students",
+  "announcementsAudienceParents": "Parents",
+  "announcementsAudienceAdmins": "Admins",
+  "announcementsAudienceEveryone": "Everyone",
+  "announcementsPin": "Pin to the top",
+  "announcementsPinHelper": "Opens as a pop-up the first time each person sees it.",
+  "announcementsShowUntil": "Show until",
+  "announcementsNoEndDate": "No end date",
+  "announcementsClearEndDate": "Remove end date",
+  "announcementsSendPush": "Send as a phone notification too",
+  "announcementsPost": "Post",
+  "announcementsTitleMissing": "Add a title.",
+  "announcementsMessageMissing": "Write a message.",
+  "announcementsNoAudience": "Choose at least one group.",
+  "announcementsPosted": "Announcement posted.",
+  "announcementsPostFailed": "The announcement could not be posted. Please try again.",
+  "announcementsRemoveConfirmTitle": "Remove this announcement?",
+  "announcementsRemoveConfirmBody": "It will no longer show on anyone's dashboard.",
+  "announcementsRemoved": "Announcement removed.",
+  "announcementsRemoveFailed": "The announcement could not be removed. Please try again.",
+  "announcementsTitleTooLong": "The title can be up to {max} characters.",
+  "@announcementsTitleTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "announcementsMessageTooLong": "The message can be up to {max} characters.",
+  "@announcementsMessageTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "announcementsShownUntil": "Shown until {date}",
+  "@announcementsShownUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "announcementsEnded": "Ended {date}",
+  "@announcementsEnded": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
 }

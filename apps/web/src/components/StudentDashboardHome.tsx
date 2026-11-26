@@ -34,6 +34,7 @@ import {
   Video,
   X,
 } from "lucide-react";
+import { AnnouncementsCard } from "@/components/AnnouncementsCard";
 import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { auth, db } from "@/lib/firebase";
 import { cachedStudentSession, clearStudentSession, resolveStudentSession } from "@/lib/studentSession";
@@ -403,6 +404,8 @@ function StudentHomeContent({
           </button>
         </div>
       ) : null}
+
+      <AnnouncementsCard role="student" />
 
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         <StatCard label={t("Classes today")} value={data.todayClasses.length} icon={CalendarClock} color="#2D8CFF" />

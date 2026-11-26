@@ -26,6 +26,7 @@ import {
   Wallet,
   Banknote,
 } from "lucide-react";
+import { AnnouncementsCard } from "@/components/AnnouncementsCard";
 import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { useParentSession } from "@/components/ParentArea";
 import { ParentInvoiceCard } from "@/components/ParentInvoiceCard";
@@ -207,6 +208,7 @@ export default function ParentDashboardHome() {
       <div className="h-4" />
 
       <SuspensionBanner parentId={session.uid} refreshKey={refreshKey} />
+      <AnnouncementsCard role="parent" className="mb-4" />
       <MoneySummary parentId={session.uid} refreshKey={refreshKey} text={text} />
 
       <div className="mt-4 flex gap-3">

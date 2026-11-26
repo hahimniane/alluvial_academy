@@ -19675,4 +19675,128 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get formShareLinkSaveError =>
       'Impossible d\'enregistrer la modification. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get announcementsTitle => 'Annonces';
+
+  @override
+  String get announcementsLabel => 'Annonce';
+
+  @override
+  String get announcementsEmpty => 'Aucune annonce pour le moment.';
+
+  @override
+  String get announcementsLoadError => 'Impossible de charger les annonces.';
+
+  @override
+  String get announcementsPinned => 'Épinglée';
+
+  @override
+  String get announcementsShowMore => 'Afficher plus';
+
+  @override
+  String get announcementsShowLess => 'Afficher moins';
+
+  @override
+  String get announcementsGotIt => 'Compris';
+
+  @override
+  String get announcementsNew => 'Nouvelle annonce';
+
+  @override
+  String get announcementsFieldTitle => 'Titre';
+
+  @override
+  String get announcementsFieldMessage => 'Message';
+
+  @override
+  String get announcementsAudience => 'Qui la voit';
+
+  @override
+  String get announcementsAudienceTeachers => 'Enseignants';
+
+  @override
+  String get announcementsAudienceStudents => 'Élèves';
+
+  @override
+  String get announcementsAudienceParents => 'Parents';
+
+  @override
+  String get announcementsAudienceAdmins => 'Administrateurs';
+
+  @override
+  String get announcementsAudienceEveryone => 'Tout le monde';
+
+  @override
+  String get announcementsPin => 'Épingler en haut';
+
+  @override
+  String get announcementsPinHelper =>
+      'S\'ouvre en fenêtre la première fois que chaque personne la voit.';
+
+  @override
+  String get announcementsShowUntil => 'Afficher jusqu\'au';
+
+  @override
+  String get announcementsNoEndDate => 'Pas de date de fin';
+
+  @override
+  String get announcementsClearEndDate => 'Retirer la date de fin';
+
+  @override
+  String get announcementsSendPush =>
+      'Envoyer aussi en notification sur téléphone';
+
+  @override
+  String get announcementsPost => 'Publier';
+
+  @override
+  String get announcementsTitleMissing => 'Ajoutez un titre.';
+
+  @override
+  String get announcementsMessageMissing => 'Écrivez un message.';
+
+  @override
+  String get announcementsNoAudience => 'Choisissez au moins un groupe.';
+
+  @override
+  String get announcementsPosted => 'Annonce publiée.';
+
+  @override
+  String get announcementsPostFailed =>
+      'L\'annonce n\'a pas pu être publiée. Veuillez réessayer.';
+
+  @override
+  String get announcementsRemoveConfirmTitle => 'Retirer cette annonce ?';
+
+  @override
+  String get announcementsRemoveConfirmBody =>
+      'Elle n\'apparaîtra plus sur aucun tableau de bord.';
+
+  @override
+  String get announcementsRemoved => 'Annonce retirée.';
+
+  @override
+  String get announcementsRemoveFailed =>
+      'L\'annonce n\'a pas pu être retirée. Veuillez réessayer.';
+
+  @override
+  String announcementsTitleTooLong(int max) {
+    return 'Le titre peut contenir jusqu\'à $max caractères.';
+  }
+
+  @override
+  String announcementsMessageTooLong(int max) {
+    return 'Le message peut contenir jusqu\'à $max caractères.';
+  }
+
+  @override
+  String announcementsShownUntil(String date) {
+    return 'Affichée jusqu\'au $date';
+  }
+
+  @override
+  String announcementsEnded(String date) {
+    return 'Terminée le $date';
+  }
 }

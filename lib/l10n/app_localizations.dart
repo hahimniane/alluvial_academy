@@ -34945,6 +34945,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not save the change. Check your connection and try again.'**
   String get formShareLinkSaveError;
+
+  /// No description provided for @announcementsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Announcements'**
+  String get announcementsTitle;
+
+  /// No description provided for @announcementsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Announcement'**
+  String get announcementsLabel;
+
+  /// No description provided for @announcementsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No announcements right now.'**
+  String get announcementsEmpty;
+
+  /// No description provided for @announcementsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load announcements.'**
+  String get announcementsLoadError;
+
+  /// No description provided for @announcementsPinned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get announcementsPinned;
+
+  /// No description provided for @announcementsShowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get announcementsShowMore;
+
+  /// No description provided for @announcementsShowLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get announcementsShowLess;
+
+  /// No description provided for @announcementsGotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get announcementsGotIt;
+
+  /// No description provided for @announcementsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New announcement'**
+  String get announcementsNew;
+
+  /// No description provided for @announcementsFieldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get announcementsFieldTitle;
+
+  /// No description provided for @announcementsFieldMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get announcementsFieldMessage;
+
+  /// No description provided for @announcementsAudience.
+  ///
+  /// In en, this message translates to:
+  /// **'Who sees it'**
+  String get announcementsAudience;
+
+  /// No description provided for @announcementsAudienceTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get announcementsAudienceTeachers;
+
+  /// No description provided for @announcementsAudienceStudents.
+  ///
+  /// In en, this message translates to:
+  /// **'Students'**
+  String get announcementsAudienceStudents;
+
+  /// No description provided for @announcementsAudienceParents.
+  ///
+  /// In en, this message translates to:
+  /// **'Parents'**
+  String get announcementsAudienceParents;
+
+  /// No description provided for @announcementsAudienceAdmins.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins'**
+  String get announcementsAudienceAdmins;
+
+  /// No description provided for @announcementsAudienceEveryone.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get announcementsAudienceEveryone;
+
+  /// No description provided for @announcementsPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin to the top'**
+  String get announcementsPin;
+
+  /// No description provided for @announcementsPinHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens as a pop-up the first time each person sees it.'**
+  String get announcementsPinHelper;
+
+  /// No description provided for @announcementsShowUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Show until'**
+  String get announcementsShowUntil;
+
+  /// No description provided for @announcementsNoEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'No end date'**
+  String get announcementsNoEndDate;
+
+  /// No description provided for @announcementsClearEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove end date'**
+  String get announcementsClearEndDate;
+
+  /// No description provided for @announcementsSendPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Send as a phone notification too'**
+  String get announcementsSendPush;
+
+  /// No description provided for @announcementsPost.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get announcementsPost;
+
+  /// No description provided for @announcementsTitleMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a title.'**
+  String get announcementsTitleMissing;
+
+  /// No description provided for @announcementsMessageMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a message.'**
+  String get announcementsMessageMissing;
+
+  /// No description provided for @announcementsNoAudience.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one group.'**
+  String get announcementsNoAudience;
+
+  /// No description provided for @announcementsPosted.
+  ///
+  /// In en, this message translates to:
+  /// **'Announcement posted.'**
+  String get announcementsPosted;
+
+  /// No description provided for @announcementsPostFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The announcement could not be posted. Please try again.'**
+  String get announcementsPostFailed;
+
+  /// No description provided for @announcementsRemoveConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this announcement?'**
+  String get announcementsRemoveConfirmTitle;
+
+  /// No description provided for @announcementsRemoveConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It will no longer show on anyone\'s dashboard.'**
+  String get announcementsRemoveConfirmBody;
+
+  /// No description provided for @announcementsRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Announcement removed.'**
+  String get announcementsRemoved;
+
+  /// No description provided for @announcementsRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The announcement could not be removed. Please try again.'**
+  String get announcementsRemoveFailed;
+
+  /// No description provided for @announcementsTitleTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'The title can be up to {max} characters.'**
+  String announcementsTitleTooLong(int max);
+
+  /// No description provided for @announcementsMessageTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'The message can be up to {max} characters.'**
+  String announcementsMessageTooLong(int max);
+
+  /// No description provided for @announcementsShownUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown until {date}'**
+  String announcementsShownUntil(String date);
+
+  /// No description provided for @announcementsEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended {date}'**
+  String announcementsEnded(String date);
 }
 
 class _AppLocalizationsDelegate
