@@ -9,11 +9,53 @@ class TeacherLeavePeriods {
     'lo88vXRPGQb5P0qhXUIU',
   };
 
+  static final _dayMonthYear = RegExp(r'^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$');
+
+  /// A stored form date: a Timestamp, an ISO string, or the forms' own
+  /// "day/month/year" text (both the app and the website save dates that way).
+  /// A value whose second part is over 12 can only be month/day/year.
   static DateTime? parseDateField(dynamic value) {
     if (value is Timestamp) return value.toDate();
-    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
-    return null;
+    if (value is DateTime) return value;
+    if (value is! String) return null;
+    final text = value.trim();
+    if (text.isEmpty) return null;
+    final match = _dayMonthYear.firstMatch(text);
+    if (match == null) return DateTime.tryParse(text);
+    var day = int.parse(match.group(1)!);
+    var month = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    if (month > 12 && day <= 12) {
+      final swap = day;
+      day = month;
+      month = swap;
+    }
+    if (month < 1 || month > 12 || day < 1) return null;
+    final date = DateTime(year, month, day);
+    // Rejects dates such as 31/2/2026 that DateTime would roll forward.
+    if (date.month != month || date.day != day) return null;
+    return date;
   }
+
+  /// The leave as a [start, end) window. A date with no time of day covers
+  /// that whole day, so a one-day excuse (same start and end date) covers the
+  /// day, and the end date is included. Dates entered back to front are put in order.
+  static ({DateTime start, DateTime end})? window(DateTime? start, DateTime? end) {
+    if (start == null || end == null) return null;
+    var from = start;
+    var to = end;
+    if (to.isBefore(from)) {
+      final swap = from;
+      from = to;
+      to = swap;
+    }
+    if (_isMidnight(to)) to = DateTime(to.year, to.month, to.day + 1);
+    if (!to.isAfter(from)) return null;
+    return (start: from, end: to);
+  }
+
+  static bool _isMidnight(DateTime d) =>
+      d.hour == 0 && d.minute == 0 && d.second == 0 && d.millisecond == 0 && d.microsecond == 0;
 
   static List<({DateTime start, DateTime end})> periodsForTeacherFromFormDocs(
     Iterable<Map<String, dynamic>> formMaps,
@@ -50,8 +92,8 @@ class TeacherLeavePeriods {
         continue;
       }
 
-      if (leaveStart == null || leaveEnd == null) continue;
-      out.add((start: leaveStart, end: leaveEnd));
+      final period = window(leaveStart, leaveEnd);
+      if (period != null) out.add(period);
     }
     return out;
   }

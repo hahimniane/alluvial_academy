@@ -653,10 +653,9 @@ class TeacherAuditService {
         continue;
       }
 
-      if (leaveStart == null || leaveEnd == null) continue;
-      leavePeriods
-          .putIfAbsent(teacherId, () => [])
-          .add((start: leaveStart, end: leaveEnd));
+      final period = TeacherLeavePeriods.window(leaveStart, leaveEnd);
+      if (period == null) continue;
+      leavePeriods.putIfAbsent(teacherId, () => []).add(period);
     }
 
     // **PASS 1: Process shifts - O(n) instead of O(n×m)**
