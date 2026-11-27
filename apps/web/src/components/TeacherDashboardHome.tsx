@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { resetTeacherCutoverCache } from "@/lib/teacherCutover";
+import { AnnouncementsCard } from "@/components/AnnouncementsCard";
 import { ClassContactsCard } from "@/components/ClassContactsCard";
 import { auth, db } from "@/lib/firebase";
 import { fetchTeacherShiftDocs } from "@/lib/teacherShiftQueries";
@@ -326,6 +327,8 @@ function TeacherHomeContent({
         <EarningCell label="Week" value={money(weekPay)} />
         <EarningCell label="Month" value={money(monthPay)} />
       </section>
+
+      <AnnouncementsCard role="teacher" className="mt-4" />
 
       {pendingFormShifts.length ? <button type="button" onClick={() => setPendingFormsOpen(true)} className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EF4444] p-4 text-left text-white shadow-[0_8px_18px_rgba(245,158,11,0.28)]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/20"><ClipboardList size={25} /></span><span className="min-w-0 flex-1"><span className="block font-extrabold">{pendingFormShifts.length === 1 ? tr("{n} Readiness Form Required", { n: pendingFormShifts.length }) : tr("{n} Readiness Forms Required", { n: pendingFormShifts.length })}</span><span className="mt-1 block text-sm text-white/90">{tr("Complete a report for each completed or missed class.")}</span></span><span aria-hidden="true" className="text-2xl">›</span></button> : null}
 

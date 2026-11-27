@@ -17,6 +17,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/widgets/announcements_card.dart';
 import '../../../core/widgets/class_contacts_card.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
@@ -630,6 +631,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               child: _buildCompactEarningsCard(),
             ),
             const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: AnnouncementsCard(
+                role: 'teacher',
+                margin: EdgeInsets.only(bottom: 16),
+              ),
+            ),
             if (_pendingFormsCount > 0) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),

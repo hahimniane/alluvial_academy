@@ -28,6 +28,8 @@ import '../widgets/date_strip_calendar.dart';
 import '../widgets/timeline_shift_card.dart';
 import '../widgets/admin_cards/admin_action_cards.dart';
 import '../widgets/admin_cards/public_website_tools_card.dart';
+import '../widgets/admin_cards/announcements_admin_card.dart';
+import '../../../core/widgets/announcements_card.dart';
 import '../services/leader_attendance_service.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -1143,6 +1145,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             padding: const EdgeInsets.symmetric(horizontal: 0),
             child: Column(
               children: [
+                const AnnouncementsAdminCard(),
+                const SizedBox(height: 24),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1213,6 +1217,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             children: [
               const SizedBox(height: 12),
               _buildMobileAdminWelcomeCard(),
+              const SizedBox(height: 16),
+              const AnnouncementsAdminCard(),
               const SizedBox(height: 16),
               PendingTimesheetsCard(
                 onNavigate: widget.onNavigate,
@@ -1298,6 +1304,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             const SizedBox(height: 12),
             _buildMobileAdminWelcomeCard(),
+            const SizedBox(height: 20),
+            const AnnouncementsAdminCard(),
             const SizedBox(height: 20),
             if (metrics.isNotEmpty) _buildMobileQuickStatsGrid(metrics),
             const SizedBox(height: 20),
@@ -1944,7 +1952,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 24),
 
-          _buildAnnouncementsCard(),
+          const AnnouncementsCard(role: 'student'),
         ],
       ),
     );
@@ -4320,74 +4328,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
             value: progress,
             backgroundColor: color.withOpacity(0.2),
             valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            AppLocalizations.of(context)!.schoolAnnouncements,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xff1a1a1a),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildAnnouncementItem('School Holiday - Memorial Day', '2 days ago'),
-          _buildAnnouncementItem('New Library Books Available', '1 week ago'),
-          _buildAnnouncementItem(
-              'Parent-Teacher Conference Schedule', '2 weeks ago'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementItem(String title, String time) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.announcement, color: Colors.blue, size: 16),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  time,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xff6b7280),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

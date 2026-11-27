@@ -12,6 +12,7 @@ import 'package:alluwalacademyadmin/features/parent/services/parent_service.dart
 import 'package:alluwalacademyadmin/features/parent/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/services/user_role_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/widgets/announcements_card.dart';
 import 'package:alluwalacademyadmin/core/widgets/class_contacts_card.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_invoices_screen.dart';
@@ -240,6 +241,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ),
                         );
                       },
+                    ),
+                    const AnnouncementsCard(
+                      role: 'parent',
+                      margin: EdgeInsets.only(bottom: 16),
                     ),
                     StreamBuilder<Map<String, double>>(
                       stream: _summaryStream,

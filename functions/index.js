@@ -54,6 +54,7 @@ const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
 const classContactHandlers = require('./handlers/class_contacts');
 const financeBankHandlers = require('./handlers/finance_bank');
+const announcementHandlers = require('./handlers/announcements');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -333,6 +334,7 @@ exports.endDirectCall = directCallHandlers.endDirectCall;
 
 // Enrollment management functions
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
+exports.onAnnouncementCreated = announcementHandlers.onAnnouncementCreated;
 // Callable version - note: may have IAM issues on some projects
 exports.publishEnrollmentToJobBoard = onCall(
   { cors: true },

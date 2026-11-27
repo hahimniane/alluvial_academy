@@ -1191,6 +1191,34 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Roles the signed-in user holds, for announcement audiences: user_type
+    // plus secondary_roles (both admin-only fields on the user document).
+    function announcementRoles() {
+      let me = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return [me.get('user_type', '')].concat(me.get('secondary_roles', []));
+    }
+
+    // School announcements. Admins write them (here and through the fallback
+    // below). Everyone else reads a published one addressed to a role they
+    // hold; clients query with status == 'published' and
+    // audience array-contains <role> so the query satisfies this rule.
+    match /announcements/{announcementId} {
+      allow read: if isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        resource.data.status == 'published' &&
+        resource.data.audience.hasAny(announcementRoles())
+      );
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Which announcements a user has seen (the pinned pop-up shows once).
+    match /users/{userId}/announcement_reads/{announcementId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly(['read_at']);
+    }
+
     // Payment methods - parents manage their own subcollection
     match /users/{userId}/payment_methods/{methodId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;

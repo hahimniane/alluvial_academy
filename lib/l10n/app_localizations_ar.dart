@@ -19249,4 +19249,127 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get formShareLinkSaveError =>
       'Could not save the change. Check your connection and try again.';
+
+  @override
+  String get announcementsTitle => 'الإعلانات';
+
+  @override
+  String get announcementsLabel => 'إعلان';
+
+  @override
+  String get announcementsEmpty => 'لا توجد إعلانات حالياً.';
+
+  @override
+  String get announcementsLoadError => 'تعذر تحميل الإعلانات.';
+
+  @override
+  String get announcementsPinned => 'مثبّت';
+
+  @override
+  String get announcementsShowMore => 'عرض المزيد';
+
+  @override
+  String get announcementsShowLess => 'عرض أقل';
+
+  @override
+  String get announcementsGotIt => 'حسناً';
+
+  @override
+  String get announcementsNew => 'إعلان جديد';
+
+  @override
+  String get announcementsFieldTitle => 'العنوان';
+
+  @override
+  String get announcementsFieldMessage => 'الرسالة';
+
+  @override
+  String get announcementsAudience => 'من يراه';
+
+  @override
+  String get announcementsAudienceTeachers => 'المعلمون';
+
+  @override
+  String get announcementsAudienceStudents => 'الطلاب';
+
+  @override
+  String get announcementsAudienceParents => 'أولياء الأمور';
+
+  @override
+  String get announcementsAudienceAdmins => 'المسؤولون';
+
+  @override
+  String get announcementsAudienceEveryone => 'الجميع';
+
+  @override
+  String get announcementsPin => 'تثبيت في الأعلى';
+
+  @override
+  String get announcementsPinHelper =>
+      'يظهر كنافذة منبثقة أول مرة يراه فيها كل شخص.';
+
+  @override
+  String get announcementsShowUntil => 'عرض حتى';
+
+  @override
+  String get announcementsNoEndDate => 'بدون تاريخ انتهاء';
+
+  @override
+  String get announcementsClearEndDate => 'إزالة تاريخ الانتهاء';
+
+  @override
+  String get announcementsSendPush => 'إرسال كإشعار على الهاتف أيضاً';
+
+  @override
+  String get announcementsPost => 'نشر';
+
+  @override
+  String get announcementsTitleMissing => 'أضف عنواناً.';
+
+  @override
+  String get announcementsMessageMissing => 'اكتب رسالة.';
+
+  @override
+  String get announcementsNoAudience => 'اختر مجموعة واحدة على الأقل.';
+
+  @override
+  String get announcementsPosted => 'تم نشر الإعلان.';
+
+  @override
+  String get announcementsPostFailed =>
+      'تعذر نشر الإعلان. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get announcementsRemoveConfirmTitle => 'إزالة هذا الإعلان؟';
+
+  @override
+  String get announcementsRemoveConfirmBody =>
+      'لن يظهر بعد الآن في لوحة أي شخص.';
+
+  @override
+  String get announcementsRemoved => 'تمت إزالة الإعلان.';
+
+  @override
+  String get announcementsRemoveFailed =>
+      'تعذرت إزالة الإعلان. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String announcementsTitleTooLong(int max) {
+    return 'يمكن أن يصل العنوان إلى $max حرفاً.';
+  }
+
+  @override
+  String announcementsMessageTooLong(int max) {
+    return 'يمكن أن تصل الرسالة إلى $max حرفاً.';
+  }
+
+  @override
+  String announcementsShownUntil(String date) {
+    return 'معروض حتى $date';
+  }
+
+  @override
+  String announcementsEnded(String date) {
+    return 'انتهى في $date';
+  }
 }
