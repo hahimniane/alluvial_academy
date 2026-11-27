@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'form_builder.dart';
 import 'package:alluwalacademyadmin/features/forms/models/form_template.dart';
 import '../models/question_condition.dart';
+import '../widgets/form_share_link_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Forms List Screen - Google Forms style list view
@@ -513,6 +514,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
                             Text('Who can see this'),
                           ],
                         )),
+                        PopupMenuItem(value: 'share', child: Row(
+                          children: [
+                            const Icon(Icons.link, size: 18),
+                            const SizedBox(width: 8),
+                            Text(AppLocalizations.of(context)!.formShareLinkAction),
+                          ],
+                        )),
                         PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
@@ -940,6 +948,17 @@ class _FormsListScreenState extends State<FormsListScreen> {
     );
   }
 
+  /// The form's shareable link, and whether anyone with it can fill it in.
+  void _showShareLinkDialog(String templateId, FormTemplate template) {
+    showDialog(
+      context: context,
+      builder: (context) => FormShareLinkDialog(
+        templateId: templateId,
+        formName: template.name,
+      ),
+    );
+  }
+
   void _showTemplateEditorDialog(String templateId, FormTemplate template) {
     showDialog(
       context: context,
@@ -1021,6 +1040,10 @@ class _FormsListScreenState extends State<FormsListScreen> {
 
       case 'audience':
         _showAudienceDialog(templateId, template);
+        break;
+
+      case 'share':
+        _showShareLinkDialog(templateId, template);
         break;
         
       case 'duplicate':

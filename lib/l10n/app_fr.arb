@@ -7650,5 +7650,16 @@
   "parentChildLoginNoPassword": "Aucun mot de passe enregistré. Demandez à l'école de le réinitialiser.",
   "parentChildLoginNoStudentId": "Pas encore d'identifiant élève. Demandez à l'école de le créer.",
   "parentChildLoginCannotRead": "Le mot de passe ne peut pas être affiché. Demandez-le à l'école.",
-  "parentChildLoginWhere": "Votre enfant se connecte sur alluwaleducationhub.org/student/login ou dans l'application Alluwal avec cet identifiant élève et ce mot de passe."
+  "parentChildLoginWhere": "Votre enfant se connecte sur alluwaleducationhub.org/student/login ou dans l'application Alluwal avec cet identifiant élève et ce mot de passe.",
+  "formShareLinkAction": "Partager le lien",
+  "formShareLinkTitle": "Partager ce formulaire",
+  "formShareLinkHint": "Copiez le lien et partagez-le avec les parents, les élèves, les enseignants ou toute autre personne, par exemple sur WhatsApp.",
+  "formShareLinkCopy": "Copier le lien",
+  "formShareLinkCopied": "Lien copié",
+  "formShareLinkPublicSwitch": "Toute personne ayant le lien peut le remplir (sans compte)",
+  "formShareLinkPublicOn": "Les personnes sans compte indiquent leur nom et leur numéro de téléphone, puis remplissent le formulaire. Leurs réponses apparaissent dans Toutes les soumissions.",
+  "formShareLinkPublicOff": "Seuls les membres connectés avec qui ce formulaire est partagé peuvent le remplir. Les autres sont invités à se connecter.",
+  "formShareLinkFileNote": "Les questions qui demandent un fichier sont affichées mais ne peuvent pas recevoir de réponse sans compte.",
+  "formShareLinkInactiveNote": "Ce formulaire est inactif : son lien indique que le formulaire n'est plus disponible.",
+  "formShareLinkSaveError": "Impossible d'enregistrer la modification. Vérifiez votre connexion et réessayez."
 }

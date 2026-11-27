@@ -49,6 +49,7 @@ const quizCompetitionHandlers = require('./handlers/quiz_competition');
 const bayanahHandlers = require('./handlers/bayanah');
 const quizReviewHandlers = require('./handlers/quiz_review');
 const publicSitePublicReadHandlers = require('./handlers/public_site_public_read');
+const publicFormHandlers = require('./handlers/public_forms');
 const adminClaimHandlers = require('./handlers/admin_claims');
 const decisionAuditHandlers = require('./handlers/decision_audits');
 const classContactHandlers = require('./handlers/class_contacts');
@@ -313,6 +314,10 @@ exports.getPublicSiteMarketingBundle =
   publicSitePublicReadHandlers.getPublicSiteMarketingBundle;
 exports.getPublicSiteMarketingBundleHttp =
   publicSitePublicReadHandlers.getPublicSiteMarketingBundleHttp;
+// Form links: read a form and send answers without an account, only for forms
+// an admin opened to "anyone with the link".
+exports.getPublicForm = publicFormHandlers.getPublicForm;
+exports.submitPublicFormResponse = publicFormHandlers.submitPublicFormResponse;
 
 // Chat notifications and permissions
 exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;

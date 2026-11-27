@@ -33,6 +33,8 @@ type TeacherRecord = {
 type SubmissionRecord = {
   id: string;
   userId: string;
+  /** Typed by someone who answered through the form's public link (no account). */
+  submitterName: string;
   formId: string;
   formTitle: string;
   status: string;
@@ -127,7 +129,7 @@ export function AllSubmissionsAdmin() {
       if (selectedStatus !== "all" && normalizeStatus(submission.status) !== selectedStatus) return false;
       if (!term) return true;
       const teacher = teachers[submission.userId];
-      return [submission.formTitle, teacher?.name, teacher?.email].some((value) => (value ?? "").toLowerCase().includes(term));
+      return [submission.formTitle, teacher?.name, teacher?.email, submission.submitterName].some((value) => (value ?? "").toLowerCase().includes(term));
     });
   }, [search, selectedStatus, submissions, teachers]);
 
@@ -402,6 +404,7 @@ function normalizeSubmission(id: string, data: Record<string, unknown>): Submiss
   return {
     id,
     userId: stringValue(data.userId ?? data.user_id ?? data.teacherId ?? data.teacher_id),
+    submitterName: data.public_submission === true ? stringValue(data.submitter_name) : "",
     formId: stringValue(data.formId ?? data.form_id ?? data.templateId),
     formTitle: stringValue(data.formTitle ?? data.form_title ?? data.title) || "Untitled Form",
     status: stringValue(data.status) || "completed",
@@ -413,14 +416,16 @@ function normalizeSubmission(id: string, data: Record<string, unknown>): Submiss
 
 function groupByTeacher(submissions: SubmissionRecord[], teachers: Record<string, TeacherRecord>): TeacherGroup[] {
   const counts = new Map<string, number>();
+  const submitterNames = new Map<string, string>();
   submissions.forEach((submission) => {
     const key = submission.userId || "unknown";
     counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (submission.submitterName) submitterNames.set(key, submission.submitterName);
   });
   return Array.from(counts.entries())
     .map(([teacherId, count]) => ({
       teacherId,
-      teacherName: teachers[teacherId]?.name || (teacherId === "unknown" ? "Unknown" : teacherId),
+      teacherName: teachers[teacherId]?.name || submitterNames.get(teacherId) || (teacherId === "unknown" ? "Unknown" : teacherId),
       count,
     }))
     .sort((a, b) => a.teacherName.localeCompare(b.teacherName));

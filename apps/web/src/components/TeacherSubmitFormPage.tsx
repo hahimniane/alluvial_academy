@@ -432,6 +432,27 @@ export function TeacherSubmitFormPage() {
       .finally(() => setOpeningClassReport(false));
   }, [currentUser, loading, classReportTemplate]);
 
+  // A form link (/form/?id=…) lands here with ?form= to open that form.
+  const openedFormDeepLink = useRef(false);
+  useEffect(() => {
+    if (!currentUser || loading || openedFormDeepLink.current) return;
+    const requestedFormId = new URLSearchParams(window.location.search).get("form")?.trim() ?? "";
+    if (!requestedFormId) return;
+    openedFormDeepLink.current = true;
+    const template = templates.find((item) => item.id === requestedFormId);
+    if (!template || !template.isActive || !canRoleSeeTemplate(template, "teacher")) {
+      setMessage("This form is not shared with teachers.");
+      return;
+    }
+    setExistingSubmission(null);
+    if (template.frequency === "perSession") {
+      setShiftTemplate(template);
+      return;
+    }
+    setSelectedShift(null);
+    setActiveTemplate(template);
+  }, [currentUser, loading, templates]);
+
   if (access !== "allowed") return <TeacherAccessPrompt access={access} />;
 
   const openTemplate = (template: FormTemplateRecord) => {

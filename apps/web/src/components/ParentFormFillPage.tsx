@@ -12,14 +12,13 @@ import {
   formActionError,
   isPendingFileValue,
   uploadPendingFiles,
-  type FieldType,
   type FormFieldValue,
-  type TemplateField,
 } from "@/components/forms/FormFields";
+import { DisplayBlock, isYesNoField, localizedField } from "@/components/forms/FormBlocks";
 import { isEmptyAnswer, visibleFieldIds } from "@/lib/formConditions";
 import { formLabel } from "@/lib/formLabelsFr";
 import { useLocale } from "@/lib/i18n";
-import { availableToday, formatMessage, isDisplayBlock, parentMaySee, requiredMessage, storedDate, type ParentFormField, type ParentFormTemplate } from "@/lib/parentForms";
+import { availableToday, formatMessage, isDisplayBlock, parentMaySee, requiredMessage, storedDate, type ParentFormTemplate } from "@/lib/parentForms";
 import { loadFormTemplate, parentBuiltIns, submitParentForm } from "@/lib/parentFormsData";
 import { parentFormsText } from "@/lib/parentFormsText";
 import { PARENT_ROUTES } from "@/lib/parentWeb";
@@ -140,7 +139,7 @@ function FormBody({ form, uid, fr, requiredWord }: { form: ParentFormTemplate; u
         const value = values[field.id];
         // The app stores every question on screen, an unanswered one as "".
         if (value === undefined || (Array.isArray(value) && value.length === 0)) raw[field.id] = "";
-        else if (isYesNo(field) && typeof value === "string") yesNo[field.id] = value === "Yes";
+        else if (isYesNoField(field) && typeof value === "string") yesNo[field.id] = value === "Yes";
         else raw[field.id] = field.type === "date" && typeof value === "string" ? storedDate(value) : value;
       }
       const result = await uploadPendingFiles(raw, uid);
@@ -178,7 +177,7 @@ function FormBody({ form, uid, fr, requiredWord }: { form: ParentFormTemplate; u
           ) : (
             <div key={field.id} id={`field-${field.id}`}>
               <FormQuestionCard
-                field={localized(field, fr)}
+                field={localizedField(field, fr)}
                 value={values[field.id]}
                 error={errors[field.id]}
                 onChange={(value) => setValue(field.id, value)}
@@ -204,56 +203,5 @@ function FormBody({ form, uid, fr, requiredWord }: { form: ParentFormTemplate; u
         </button>
       </section>
     </>
-  );
-}
-
-/** Yes/No questions (and a radio with no options) — the app stores true / false. */
-function isYesNo(field: ParentFormField) {
-  return field.type === "boolean" || field.type === "yes_no" || field.type === "yesNo" || (field.type === "radio" && field.options.length === 0);
-}
-
-/** The question as the parent reads it: label, hint and options in their language (FormLocalization). */
-function localized(field: ParentFormField, fr: boolean): TemplateField {
-  return {
-    id: field.id,
-    label: formLabel(field.label, fr),
-    type: field.type as FieldType,
-    placeholder: formLabel(field.placeholder, fr),
-    required: field.required,
-    order: field.order,
-    options: field.options.map((option) => formLabel(option, fr)),
-  };
-}
-
-function DisplayBlock({ field, fr }: { field: ParentFormField; fr: boolean }) {
-  const label = formLabel(field.label, fr);
-  const body = field.placeholder.trim();
-  if (field.type === "image") {
-    if (!body) return null;
-    return (
-      <div className="py-3">
-        {label.trim() && label.trim() !== "Image" ? <p className="mb-2 text-[15px] font-semibold text-[#202124]">{label}</p> : null}
-        <img src={body} alt={label} className="max-h-[420px] rounded-lg object-contain" onError={(event) => (event.currentTarget.style.display = "none")} />
-      </div>
-    );
-  }
-  if (field.type === "video") {
-    return (
-      <div className="py-3">
-        {label.trim() ? <p className="mb-2 text-[15px] font-semibold text-[#202124]">{label}</p> : null}
-        {/^https?:\/\//i.test(body) ? (
-          <a href={body} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#673AB7] underline">
-            {body}
-          </a>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <div className={field.type === "section" ? "pb-2 pt-6" : "pb-2 pt-4"}>
-      {field.type === "section" ? <hr className="mb-4 border-[#DADCE0]" /> : null}
-      <p className="text-lg font-bold text-[#202124]">{label}</p>
-      {body ? <p className="mt-1 text-sm text-[#616161]">{formLabel(body, fr)}</p> : null}
-    </div>
   );
 }

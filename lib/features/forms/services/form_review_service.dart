@@ -67,7 +67,9 @@ class FormReviewService {
   }) async {
     final teacherId = submitterOf(submission);
     final adminId = FirebaseAuth.instance.currentUser?.uid;
-    if (teacherId.isEmpty || adminId == null) {
+    // Answers sent through a form's public link come from no account.
+    final fromPublicLink = submission['public_submission'] == true;
+    if (teacherId.isEmpty || adminId == null || fromPublicLink) {
       return FormDecisionDelivery.noTeacher;
     }
     try {

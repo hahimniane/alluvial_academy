@@ -130,6 +130,17 @@ export function StudentFormsPage() {
     };
   }, [access, user, loadSent]);
 
+  // A form link (/form/?id=…) lands here with ?id= to open that form.
+  const openedLinkedForm = useRef(false);
+  useEffect(() => {
+    if (access !== "allowed" || loading || openedLinkedForm.current) return;
+    const wanted = new URLSearchParams(window.location.search).get("id")?.trim();
+    if (!wanted) return;
+    openedLinkedForm.current = true;
+    const form = forms.find((item) => item.id === wanted);
+    if (form) setOpenForm(form);
+  }, [access, loading, forms]);
+
   const sentByForm = useMemo(() => {
     const map = new Map<string, SentForm[]>();
     sent.forEach((item) => {
