@@ -100,6 +100,9 @@ class Invoice {
   /// [dueDate] + 1 day, and the server applies the same fallback.
   final DateTime? accessCutoffDate;
 
+  /// When the latest payment landed (`last_payment_at`); the receipt's "Paid on".
+  final DateTime? lastPaymentAt;
+
   /// Opaque token for the public payment link, or empty if none is minted.
   final String payLinkToken;
 
@@ -133,6 +136,7 @@ class Invoice {
     this.createdByEmail = '',
     this.createdByKind = '',
     this.accessCutoffDate,
+    this.lastPaymentAt,
     this.payLinkToken = '',
     this.payLinkStatus = 'active',
   });
@@ -190,6 +194,8 @@ class Invoice {
           (data['created_by_kind'] ?? data['createdByKind'] ?? '').toString(),
       accessCutoffDate: _parseDateTime(
           data['access_cutoff_date'] ?? data['accessCutoffDate']),
+      lastPaymentAt: _parseDateTime(
+          data['last_payment_at'] ?? data['lastPaymentAt']),
       payLinkToken:
           (data['pay_link_token'] ?? data['payLinkToken'] ?? '').toString(),
       payLinkStatus:

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { invoicePdfBytes, invoicePdfContent, wrapText } from "../invoicePdf.ts";
+import { invoicePdfBytes, invoicePdfContent, invoicePdfPages, textWidth, wrapToWidth } from "../invoicePdf.ts";
 import { parseInvoice, parsePayment } from "../parentHome.ts";
 import {
   amountDueColor,
@@ -137,31 +137,41 @@ test("return page helpers", () => {
 
 // ─── PDF ───
 
-test("PDF rows follow Flutter: Payment Date = issue date, cut-off and period only when present", () => {
-  const base = inv("i1", { invoice_number: "INV-1", issued_date: ts(new Date(2026, 10, 1)), due_date: ts(new Date(2026, 10, 15)), items: [{ description: "Quran — November", quantity: 2, unit_price: 30, total: 60 }], paid_amount: 10 });
-  const content = invoicePdfContent({ invoice: base, parentName: "Aïcha Diallo", studentName: null });
-  assert.match(content, /\(Payment Date\) Tj/);
-  assert.match(content, /\(November 1, 2026\) Tj/);
-  assert.match(content, /\(November 15, 2026\) Tj/);
-  assert.doesNotMatch(content, /Access cutoff/);
-  assert.doesNotMatch(content, /\(Billing period\) Tj/);
-  assert.match(content, /\(From: Aïcha Diallo {2}\| {2}Student:\) Tj/);
-  assert.match(content, /Billing period: November 2026/, "payer box falls back to the issue month");
+test("PDF: unpaid prints an Invoice with the balance, badge, period and cut-off", () => {
+  const now = new Date(2026, 10, 5);
+  const base = inv("i1", { invoice_number: "INV-1", issued_date: ts(new Date(2026, 10, 1)), due_date: ts(new Date(2026, 10, 15)), items: [{ description: "Quran — November", quantity: 2, unit_price: 30, total: 60 }], total_amount: 100, paid_amount: 10, access_cutoff_date: ts(new Date(2026, 10, 20)) });
+  const content = invoicePdfContent({ invoice: base, parentName: "Aïcha Diallo", studentName: "Ibrahima", now });
+  assert.match(content, /\(Invoice\) Tj/);
+  assert.match(content, /\(PARTIALLY PAID\) Tj/);
+  assert.match(content, /\(BALANCE DUE\) Tj/);
+  assert.match(content, /\(\$90\.00\) Tj/);
+  assert.match(content, /\(Due November 15, 2026\) Tj/);
+  assert.match(content, /\(Aïcha Diallo\) Tj/);
+  assert.match(content, /\(Student: Ibrahima\) Tj/);
+  assert.match(content, /\(Access until\) Tj/);
+  assert.match(content, /\(November 2026\) Tj/, "period falls back to the issue month");
   assert.match(content, /\(Quran - November\) Tj/);
   assert.match(content, /\(\$60\.00\) Tj/);
-  assert.match(content, /\(Remaining Balance\) Tj/);
-  assert.match(content, /\(\$90\.00\) Tj/);
-  assert.match(content, /Received by: Muhammed Barry/);
+  assert.match(content, /\(Page 1 of 1\) Tj/);
+  assert.doesNotMatch(content, /Received by|Signature/);
 
-  const withAll = inv("i2", { access_cutoff_date: ts(new Date(2026, 10, 20)), period: "2026-11" });
-  const second = invoicePdfContent({ invoice: withAll, parentName: null, studentName: null });
-  assert.match(second, /\(Access cutoff\) Tj/);
-  assert.match(second, /\(November 2026\) Tj/);
-  assert.doesNotMatch(second, /From:/, "no payer box when neither name was found");
-  assert.match(second, /No items on this invoice/);
+  const overdue = invoicePdfContent({ invoice: base, parentName: null, studentName: null, now: new Date(2026, 10, 18) });
+  assert.match(overdue, /\(OVERDUE\) Tj/);
+  assert.match(overdue, /\(Parent\) Tj/);
+  assert.match(invoicePdfContent({ invoice: inv("i2", {}), parentName: null, studentName: null }), /No items on this invoice/);
 });
 
-test("the PDF file is well formed and keeps accented letters as single bytes", () => {
+test("PDF: paid in full prints a Receipt with the payment date and no cut-off", () => {
+  const paid = inv("i3", { invoice_number: "INV-3", status: "paid", total_amount: 1, paid_amount: 1, items: [{ description: "Payment test", quantity: 1, unit_price: 1, total: 1 }], last_payment_at: ts(new Date("2026-11-19T03:33:25Z")), access_cutoff_date: ts(new Date(2026, 10, 27)) });
+  const content = invoicePdfContent({ invoice: paid, parentName: "nene nane", studentName: "test student" });
+  assert.match(content, /\(Receipt\) Tj/);
+  assert.match(content, /\(PAID\) Tj/);
+  assert.match(content, /\(AMOUNT PAID\) Tj/);
+  assert.match(content, /\(Paid on November 18, 2026\) Tj/);
+  assert.doesNotMatch(content, /Access until/);
+});
+
+test("the PDF file is well formed, keeps accented letters as single bytes and wraps by width", () => {
   const bytes = invoicePdfBytes({ invoice: inv("i", { invoice_number: "N" }), parentName: "Aïcha", studentName: "Ibrahima" });
   const text = String.fromCharCode(...bytes);
   assert.ok(text.startsWith("%PDF-1.4\n"));
@@ -174,7 +184,13 @@ test("the PDF file is well formed and keeps accented letters as single bytes", (
     const offset = Number(match[1]);
     assert.match(text.slice(offset, offset + 12), /^\d+ 0 obj/);
   }
-  assert.deepEqual(wrapText("aaaa bbbb cccc", 9), ["aaaa bbbb", "cccc"]);
+  const lines = wrapToWidth("Monthly tuition for two students, including Tajweed and Hifz review", 150, 10);
+  assert.ok(lines.length > 1);
+  for (const line of lines) assert.ok(textWidth(line, 10) <= 150);
+  const many = inv("m", { items: Array.from({ length: 60 }, (_, i) => ({ description: `Class ${i + 1}`, quantity: 1, unit_price: 10, total: 10 })) });
+  const pages = invoicePdfPages({ invoice: many, parentName: "P", studentName: "S" });
+  assert.ok(pages.length > 1);
+  pages.forEach((page, i) => assert.match(page, new RegExp(`\\(Page ${i + 1} of ${pages.length}\\) Tj`)));
 });
 
 // ─── Routes ───
