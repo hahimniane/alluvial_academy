@@ -13,6 +13,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {verifyCallableCallerIsAdmin} = require('../utils/callable_admin');
 const math = require('../utils/finance_math');
+const {invoiceMonthOf} = require('../utils/finance_invoice_month');
 
 /** Figures a closed month keeps exactly as they were when it was closed. */
 const LOCKED_KEYS = [
@@ -64,14 +65,19 @@ const requireMonth = (data) => {
   return month;
 };
 
-/** Invoices for a month: new ones carry `billing_month`, every one carries `period`. */
+/**
+ * Invoices for a month: new ones carry `billing_month`, every one carries
+ * `period`. A period that covers several months ('2026-10..2026-12',
+ * '2026-04 to 2026-05') starts with its first month, so the period query is a
+ * prefix range and the invoice belongs to the month it starts in.
+ */
 const loadInvoices = async (db, month) => {
   const col = db.collection('invoices');
   const [byBilling, byPeriod] = await Promise.all([
     col.where('billing_month', '==', month).get(),
-    col.where('period', '==', month).get(),
+    col.where('period', '>=', month).where('period', '<=', `${month}\uf8ff`).get(),
   ]);
-  return unionById(docsOf(byBilling), docsOf(byPeriod));
+  return unionById(docsOf(byBilling), docsOf(byPeriod)).filter((invoice) => invoiceMonthOf(invoice) === month);
 };
 
 const loadMonthDocs = async (db, month, Timestamp) => {
